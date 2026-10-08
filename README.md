@@ -211,12 +211,14 @@ systemd or Nginx steps. See `../AGENTS.md` for the full deploy contract.
 `Flask/docs/` is a **per-subdomain container**: `docs/` holds the docs.limooo.cn
 VitePress root (one markdown file per page per language), `services/` holds the
 services.limooo.cn price-list CSVs. The language code is the **last** URL segment
-(`zh-cn` has no suffix):
+(`zh-cn` is explicit too; a suffix-less path 302s to it):
 
 | Source (under `Flask/docs/docs/`) | URL |
 | --- | --- |
-| `video-platform.md` | `/video-platform` |
+| `video-platform.md` | `/video-platform/zh-cn` |
 | `en-us/video-platform.md` | `/video-platform/en-us` |
+| `README.md` | `/README/zh-cn` |
+| `LICENSE.md` | `/LICENSE/zh-cn` |
 | `en-us/index.md` | `/en-us` |
 
 `.vitepress/rewrites.json` (beside the content) maps those sources onto the suffixed
