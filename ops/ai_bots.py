@@ -28,17 +28,20 @@ Bytespider and friends are answered by the Cloudflare Managed Free Ruleset with
 403 "Your request was blocked." (rule ref `block-ai-on-ads`), so nothing the
 Pages Functions do can let them in. This script is the switch for that layer.
 
-It talks to `GET/PATCH /zones/{zone_id}/bot_management`, which is a
-**Bot Management** endpoint: the API token needs the "Bot Management: Edit"
-permission (Read is enough for --show / --snapshot). Without it the API answers
-403 Authentication error. That is an account-side change (token or Dashboard),
-not something this script can grant itself; when the permission is missing the
-script says so and exits non-zero instead of pretending the zone is fixed.
+It talks to `GET` / `PUT /zones/{zone_id}/bot_management` (the update verb is
+**PUT**; PATCH answers `405 / code 10405 Method not allowed for this
+authentication scheme`), which is a **Bot Management** endpoint: the API token
+needs the "Bot Management: Edit" permission (Read is enough for --show /
+--snapshot). Without it the API answers 403 Authentication error. That is an
+account-side change (token or Dashboard), not something this script can grant
+itself; when the permission is missing the script says so and exits non-zero
+instead of pretending the zone is fixed. The token in `secrets/webauthn.env` got
+that permission on 2026-10-12, so `--apply` works from this repository now.
 
 Modes:
   --show       live: print the AI-related keys, write nothing.
   --snapshot   live: refresh ops/ai-bots.snapshot.json.
-  --apply      live: PATCH the managed keys to their allow-crawlers values.
+  --apply      live: PUT the managed keys to their allow-crawlers values.
   --dry-run    fully offline: read the committed snapshot and print the plan
                (default when no mode is given).
 
@@ -105,11 +108,14 @@ REPORT_ONLY = (
     "cf_robots_variant",
 )
 
-# REPORT_ONLY keys whose "on" value would block or challenge non-verified bots.
+# REPORT_ONLY keys whose value would block or challenge non-verified bots.
+#
+# bot_preference_sync_enabled 不在其中：它只是「把 AI 偏好同步成 robots.txt」，
+# 不拦流量（真正决定 robots.txt 归谁管的是 is_robots_txt_managed，那一项已由
+# --apply 关掉）。把它算成阻断会在 --show 里给出误导性的 review 提示。
 REPORT_BLOCKING = {
     "fight_mode": "true",
     "content_bots_protection": "block",
-    "bot_preference_sync_enabled": "true",
 }
 
 
@@ -299,7 +305,10 @@ def run(args: argparse.Namespace) -> int:
     if not changes:
         return 0
 
-    api(token, "PATCH", ENDPOINT.format(zone_id=zone_id), changes)
+    # PUT，不是 PATCH：这个端点对 PATCH 回
+    # `405 / code 10405 Method not allowed for this authentication scheme`
+    # （2026-10-12 实测；API 文档里也只有 `PUT /zones/{zone_id}/bot_management`）。
+    api(token, "PUT", ENDPOINT.format(zone_id=zone_id), changes)
     after = fetch_config(token, zone_id)
     write_snapshot(zone_id, after)
     print("apply: done; verifying")
