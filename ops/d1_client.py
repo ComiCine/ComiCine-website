@@ -152,7 +152,7 @@ def bounded_row_count(
 ) -> tuple[int, bool] | None:
     """有界行数探测：返回 (行数, 是否触顶)；探测失败返回 None。
 
-    排障脚本要如实提示「本次将扫多少行」（docs/22 W7-9），但 COUNT(*) 自己也要
+    排障脚本要如实提示「本次将扫多少行」（tasks/22 W7-9），但 COUNT(*) 自己也要
     读表。这里把探测写成 `SELECT COUNT(*) FROM (SELECT 1 FROM t WHERE ... LIMIT cap)`，
     最多读 cap 行；触顶时只能说「至少 cap 行」，由调用方照实描述。
     """
@@ -172,7 +172,7 @@ def scan_note(
     reason: str,
     hint: str,
 ) -> str:
-    """如实描述一次有代价查询的规模（docs/22 W7-9）。
+    """如实描述一次有代价查询的规模（tasks/22 W7-9）。
 
     调用方传入的 where 决定了这次要读多少行：ray_log_v2 自迁移 017 起有
     (ip_hash, ts DESC) 索引，按 ip_hash 查已不是全表扫，但**有多少行仍取决于

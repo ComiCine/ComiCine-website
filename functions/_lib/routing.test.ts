@@ -145,7 +145,7 @@ describe("langCookieHeader domain scope", () => {
   });
 });
 
-/** docs/22 增量 ②：URL 每请求只解析一次，语言检测结果沿调用链复用。 */
+/** tasks/22 增量 ②：URL 每请求只解析一次，语言检测结果沿调用链复用。 */
 describe("request URL parsing and language reuse", () => {
   it("parses the request URL once per Request object", () => {
     const request = new Request("https://limooo.cn/services?challenge=1");

@@ -332,7 +332,7 @@ export const REAUTH_REQUIRED_MESSAGE = "需要重新验证";
  *
  * 注意：重新认证是否**真的**要求用户再输一次凭据，取决于 Access 应用自身的
  * Session Duration；若 Access 会话仍然有效，`/login` 会静默签发新的 `authAt`。
- * 当前 `account.limooo.cn`（Limooo-Apple）的 Session Duration 已在 docs/21 记录。
+ * 当前 `account.limooo.cn`（Limooo-Apple）的 Session Duration 已在 tasks/21 记录。
  */
 export async function requireRecentAdminSession(
   env: Env,

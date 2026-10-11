@@ -18,7 +18,7 @@
  */
 
 /**
- * Cloudflare Access JWT 验签单测（docs/17 §11.6 的 7/7 规格）。
+ * Cloudflare Access JWT 验签单测（tasks/17 §11.6 的 7/7 规格）。
  *
  * 用本地生成的 RS256 密钥签发真实 JWT，覆盖：合法通过；iss 不符 / aud 未登记 /
  * 过期 / alg:none / 篡改 payload / 空令牌 全部拒绝。

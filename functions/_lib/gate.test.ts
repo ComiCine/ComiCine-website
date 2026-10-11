@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** isBlocked 的 CIDR 精确匹配测试（docs/10）。 */
+/** isBlocked 的 CIDR 精确匹配测试（tasks/10）。 */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -346,7 +346,7 @@ describe("duplicate __gate names and issue-time cleanup", () => {
 });
 
 /**
- * blocked_ips 进程内缓存（docs/22 增量 ①）。
+ * blocked_ips 进程内缓存（tasks/22 增量 ①）。
  *
  * 这些用例把「缓存命中不再查库」「TTL 过期重查」「读失败回退且不放大故障」
  * 「不同 env.DB 不串味」以及「缓存路径与逐前缀查询路径判定逐项一致」钉死。
@@ -521,7 +521,7 @@ describe("isBlocked blocked_ips cache", () => {
     // isBlocked() 末尾那个空 catch —— 应用层拦截在数据库不可用时让路。
     //
     // 这条用例记录的是当前语义，**不是**在宣告它正确：改成 fail-closed 会让它变红，
-    // 而那是线上行为变更（D1 一抖全站 403），必须单独决策，见 docs/22 的风险项。
+    // 而那是线上行为变更（D1 一抖全站 403），必须单独决策，见 tasks/22 的风险项。
     const db = {
       prepare() {
         throw new Error("D1_ERROR: blocked_ips unavailable");
@@ -647,7 +647,7 @@ describe("isBlocked blocked_ips cache", () => {
   });
 });
 
-/** 门禁页模板文本缓存（docs/22 增量 ③）。 */
+/** 门禁页模板文本缓存（tasks/22 增量 ③）。 */
 describe("renderGatePage template cache", () => {
   const TEMPLATE = "<html><body>{{host}}|{{next}}|{{error}}</body></html>";
 

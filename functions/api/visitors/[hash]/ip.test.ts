@@ -30,7 +30,7 @@ import type { Env } from "../../../_lib/env";
 vi.mock("../../../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../../../_lib/logging", () => ({ logEvent: vi.fn() }));
 vi.mock("../../../_lib/session", async () => {
-  // 共用桩（docs/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
   const { createSessionModuleMock } = await import("../../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
