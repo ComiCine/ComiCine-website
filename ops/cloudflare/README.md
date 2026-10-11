@@ -495,12 +495,14 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   Dashboard; this file only keeps those states traceable.
 - A2 image ownership is live: originals are private (`limooo-originals`), the public
   side serves only watermark variants and thumbnails.
-- **`security_level` is `essentially_off`** (measured 2026-10-11, `python3 ops/zone_settings.py
-  --show`). That disables Cloudflare's threat score, IP reputation and Browser Integrity
-  Check for the whole zone, leaving the Worker gate and the `blocked_ips` blocklist as the
-  only filters. No record anywhere says this was deliberate, and no evidence of active
-  attack traffic was found either (the analytics endpoint is not readable with the current
-  API token). Needs a human decision: raise it, or record why it is off.
-- `identity.limooo.cn` still has a proxied `CNAME` to `limooo.pages.dev` but returns 404,
-  and nothing in the repository or the docs references it (it is an authentik-era
-  leftover). Dead hostname; removal is a Dashboard action.
+- **Resolved 2026-10-11: `security_level` raised from `essentially_off` to `medium`.**
+  `essentially_off` had disabled Cloudflare's threat score, IP reputation and Browser
+  Integrity Check for the whole zone, leaving the Worker gate and the `blocked_ips`
+  blocklist as the only filters; nothing recorded it as deliberate. `medium` is the
+  Cloudflare default (challenge suspicious traffic, do not block outright). The zone
+  snapshot now reads `medium` and the `--show` review note is gone. If legitimate traffic
+  ever gets challenged, the value is one PATCH away and the snapshot will show the diff.
+- **Resolved 2026-10-11: `identity.limooo.cn` removed** from both the Pages custom domains
+  and the zone DNS (proxied `CNAME` to `limooo.pages.dev`). It returned 404 and nothing in
+  the repository, the contract or the docs referenced it (authentik-era leftover). The
+  other ten hostnames were re-checked and still answer.
