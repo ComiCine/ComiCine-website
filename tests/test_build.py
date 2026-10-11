@@ -139,6 +139,33 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
     assert "stale-while-revalidate=86400" in headers
 
 
+def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
+    """robots.txt / llms.txt 必须绕过 Functions，且 robots.txt 允许爬虫（2026-10-12）。
+
+    回归点：两份文件曾是 404（未验证访客还会被门禁换成 403 挑战页），
+    等于「对外宣布不可抓」。
+    """
+    build.write_pages_edge_config(str(tmp_path))
+    build.write_discovery_files(str(tmp_path))
+
+    routes = json.loads((tmp_path / "_routes.json").read_text(encoding="utf-8"))
+    assert "/robots.txt" in routes["exclude"]
+    assert "/llms.txt" in routes["exclude"]
+    headers = (tmp_path / "_headers").read_text(encoding="utf-8")
+    assert headers.count("/robots.txt\n") == 1
+    assert headers.count("/llms.txt\n") == 1
+
+    robots = (tmp_path / "robots.txt").read_text(encoding="utf-8")
+    assert "User-agent: *\nAllow: /\n" in robots
+    for agent in ("GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"):
+        assert f"User-agent: {agent}\n" in robots
+    assert "Disallow: /api/\n" in robots
+
+    llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
+    assert llms.startswith("# Limooo\n")
+    assert "https://docs.limooo.cn/sitemap.xml" in llms
+
+
 def test_remove_bad_artifacts(tmp_path):
     root = tmp_path / "static"
     root.mkdir()

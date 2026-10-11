@@ -36,7 +36,6 @@ Usage:
     python3 auto_block.py sync [--dry-run]  # alias of `d1` (不再直写 CF)
 """
 
-import http.client
 import json
 import os
 import re
@@ -151,24 +150,17 @@ def _ensure_ca_bundle() -> None:
 
 
 def _read_body(resp) -> bytes:
-    """健壮地读满响应体。
+    """读满响应体；**读不完整就抛**，让上层重试。
 
-    2026-10-11 修：原来直接 `json.load(r)`，偶发 `IncompleteRead(…, N more expected)`
-    —— 服务器给了 Content-Length 但连接提前关闭。**不依赖头部提示**：一直读到 EOF，
-    并把 `IncompleteRead` 里已经拿到的部分留下（拿到多少就交多少给解析器）。
-    chunked 传输中途断也是同一种病，所以两种都不能只靠 Content-Length。
+    2026-10-11 的两轮教训：
+      1. 最早直接 `json.load(r)`：偶发 `IncompleteRead` 直接失败；
+      2. 后来改成"把 partial 留下、不抛"：那是**治症** —— 半截 JSON 交给解析器会
+         报 `Expecting property name …` / `Unterminated string`，错误更难查，
+         而且**重试逻辑完全没机会介入**（异常被吞了）。
+    正确做法：异常照抛，交给 `_call` 的重试；响应过大的**根因**由窄查询 + 分页解决
+    （见 `_d1_query_paged`，D1 的 8191 字节上限）。
     """
-    buf = bytearray()
-    while True:
-        try:
-            chunk = resp.read(65536)
-        except http.client.IncompleteRead as exc:
-            buf.extend(exc.partial or b"")
-            break
-        if not chunk:
-            break
-        buf.extend(chunk)
-    return bytes(buf)
+    return resp.read()
 
 
 def _call(token: str, method: str, url: str, body=None, attempts: int = 3) -> dict:
@@ -187,14 +179,15 @@ def _call(token: str, method: str, url: str, body=None, attempts: int = 3) -> di
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.loads(_read_body(r))
-        except http.client.IncompleteRead as exc:
-            # 瞬时故障：换一条连接重来。
+        except urllib.error.HTTPError:
+            # 状态错误是确定性的，重试没意义。
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # 传输层抖动（IncompleteRead / 半截 JSON / 超时）→ 退避重来。
             last = exc
             if attempt < attempts:
-                time.sleep(0.5 * attempt)
+                time.sleep(min(0.3 * attempt, 2.0))
                 continue
-            raise
-        except urllib.error.HTTPError:
             raise
     raise last if last else RuntimeError("unreachable")
 
@@ -322,6 +315,36 @@ def _d1_query(token: str, account_id: str, db_id: str, sql: str) -> list[dict]:
     return result
 
 
+def _d1_query_paged(
+    token: str,
+    account_id: str,
+    db_id: str,
+    sql_template: str,
+    columns: tuple[str, ...],
+    page_size: int = 40,
+) -> list[dict]:
+    """分页执行 D1 查询，把每页结果拼起来。
+
+    `sql_template` 里要有 `{limit}` 与 `{offset}` 占位符。
+
+    为什么必须分页：D1 的 HTTP query 响应**超过 8191 字节会被截断**（实测：83 行
+    ×5 列 ≈ 8.9 KB 就炸，报 `Unterminated string` 或 `IncompleteRead`）。每页 40 行
+    时响应只有几 KB，安全；行数再怎么长也不会再撞上限。
+    """
+    out: list[dict] = []
+    offset = 0
+    while True:
+        sql = sql_template.format(limit=page_size, offset=offset)
+        rows = _d1_query(token, account_id, db_id, sql)
+        # 只保留需要的列，避免把大字段（reason 等）带进内存。
+        for row in rows:
+            out.append({c: row.get(c) for c in columns})
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    return out
+
+
 def _chunks(values: list[str], size: int) -> list[list[str]]:
     return [values[i:i + size] for i in range(0, len(values), size)]
 
@@ -438,12 +461,25 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         print("[d1] blocklist empty, skipping", file=sys.stderr)
         return 0
 
+    # 两个窄查询，而不是一条宽查询（2026-10-11 实测教训）：
+    # D1 的 HTTP query 响应超过 **8191 字节**会被截断，表现为
+    # `Unterminated string` / `IncompleteRead`。原来一次取
+    # `cidr, network, prefix, source, active` 共 83 行 ≈ 8.9 KB，**正好越界**
+    # —— 于是 `deploy.sh` 的 Bans 步骤稳定失败。
+    # 现在拆开：① 只要 cidr（含墓碑，用于 known）② 只要活跃行的 cidr+source。
+    # 两者都远小于上限，且**分页**，行数增长也不会再越界。
     try:
-        rows = _d1_query(
-            token,
-            account_id,
-            db_id,
-            "SELECT cidr, network, prefix, source, active FROM blocked_ips",
+        all_cidrs = _d1_query_paged(
+            token, account_id, db_id,
+            "SELECT cidr FROM blocked_ips ORDER BY cidr LIMIT {limit} OFFSET {offset}",
+            columns=("cidr",),
+        )
+        # 活跃行的 source 用于写回文件时标注来源（行数少，通常 1 条）。
+        active_list = _d1_query_paged(
+            token, account_id, db_id,
+            "SELECT cidr, source FROM blocked_ips WHERE active = 1 "
+            "ORDER BY cidr LIMIT {limit} OFFSET {offset}",
+            columns=("cidr", "source"),
         )
     except urllib.error.HTTPError as exc:
         print(f"[d1] HTTP error {exc.code}: {exc.read().decode()[:300]}", file=sys.stderr)
@@ -453,8 +489,14 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         return 1
 
     desired = set(cidrs)
-    known = {str(row.get("cidr", "")) for row in rows if row.get("cidr")}
-    active_rows = {str(row["cidr"]): row for row in rows if row.get("cidr") and row.get("active", 1) == 1}
+    # `known` 必须**包含墓碑**（active=0）：库里已有的记录——包括被解封的那些——
+    # 不该被本地文件重新加回来，那会把管理员的有意解封覆盖掉。
+    known = {str(row.get("cidr", "")) for row in all_cidrs if row.get("cidr")}
+    active_rows = {
+        str(row["cidr"]): {"cidr": row["cidr"], "source": row.get("source") or ""}
+        for row in active_list
+        if row.get("cidr")
+    }
     to_add = sorted(cidr for cidr in desired if cidr not in known)
     to_delete = sorted(
         cidr

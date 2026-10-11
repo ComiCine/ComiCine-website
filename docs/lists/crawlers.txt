@@ -1,0 +1,130 @@
+# Limooo 爬虫 / AI 工具 User-Agent 名单（门禁免验证名单）
+#
+# 格式：
+#   <UA 片段>          # 一行一个；大小写不敏感的子串匹配
+#   # 注释             # `#` 之后一律剥离，空行忽略
+#
+# 语义（2026-10-12 定）：命中本名单的请求**免人机验证**（不再被 Turnstile 门禁页
+# 拦下），但仍然：
+#   * 受 D1 应用层封禁约束（blocked_ips 命中照旧 403）；
+#   * 不签发 __gate cookie（爬虫不持有会话，也不会借名单换到一枚可长期复用的
+#     签名 cookie）；
+#   * 不计入访客统计（visitor / Ray 语义见 functions/_lib/tracking.ts）。
+#
+# 重要前提：**User-Agent 是访客自报的**，任何人都可以把它写成 GPTBot。所以本名单
+# 只区分「诚实的爬虫」与「浏览器/未知来源」，它不是身份认证；真正的身份判定只有
+# Cloudflare verified bot（request.cf.botManagement.verifiedBot，见
+# functions/_lib/tracking.ts 的 isTrustedCrawler）与 IP 白名单（docs/lists/own-ips.txt）。
+# 名单里的每一个片段都等于给匿名的爬虫 UA 开一扇门，因此**只收公认的、有公开
+# 文档与联系方式的爬虫**；不要把 curl / python-requests / Go-http-client /
+# HeadlessChrome 这类通用客户端写进来（它们无法与服务端脚本区分）。
+#
+# 命中判定只取 UA 前 512 字符（CRAWLER_UA_MAX_LENGTH），避免超长 UA 拖慢匹配。
+#
+# 改完执行（会重新生成 functions/_data/gateTrust.ts，部署时也会自动跑）：
+#   python3 ops/check_gate_trust.py --emit
+
+# ── 搜索引擎 ────────────────────────────────────────────────────────────
+Googlebot
+Google-InspectionTool
+Storebot-Google
+GoogleOther
+FeedFetcher-Google
+Google-Read-Aloud
+bingbot
+BingPreview
+msnbot
+adidxbot
+Applebot
+DuckDuckBot
+DuckAssistBot
+Baiduspider
+Sogou
+360Spider
+YisouSpider
+PetalBot
+YandexBot
+MojeekBot
+SeznamBot
+Bravebot
+Qwantify
+
+# ── AI 训练 / 检索 / 助手 ───────────────────────────────────────────────
+GPTBot
+OAI-SearchBot
+OAI-AdsBot
+ChatGPT-User
+ClaudeBot
+Claude-Web
+Claude-User
+Claude-SearchBot
+anthropic-ai
+PerplexityBot
+Perplexity-User
+CCBot
+Bytespider
+TikTokSpider
+Amazonbot
+cohere-ai
+Meta-ExternalAgent
+Meta-ExternalFetcher
+Meta-WebIndexer
+FacebookBot
+YouBot
+KimiBot
+Kimi-SearchBot
+MoonshotBot
+DeepSeekBot
+Qwenbot
+Hunyuan
+ChatGLM-Spider
+PanguBot
+GrokBot
+xAI-Grok
+Diffbot
+ImagesiftBot
+Timpibot
+Omgilibot
+AI2Bot
+
+# ── 站点抓取 / 归档 / SEO 工具 ──────────────────────────────────────────
+ia_archiver
+archive.org_bot
+AhrefsBot
+SemrushBot
+MJ12bot
+DotBot
+DataForSeoBot
+BLEXBot
+serpstatbot
+Screaming Frog SEO Spider
+SiteAuditBot
+Sistrix
+Botify
+
+# ── 链接预览 / 社交抓取 ─────────────────────────────────────────────────
+facebookexternalhit
+Twitterbot
+LinkedInBot
+Slackbot
+Slack-ImgProxy
+TelegramBot
+Discordbot
+WhatsApp
+Pinterestbot
+redditbot
+Embedly
+vkShare
+W3C_Validator
+BitlyBot
+
+# ── 拨测 / 可用性监控 ──────────────────────────────────────────────────
+UptimeRobot
+Pingdom
+StatusCake
+BetterUptime
+DatadogSynthetics
+GTmetrix
+Site24x7
+Uptime-Kuma
+HetrixTools
