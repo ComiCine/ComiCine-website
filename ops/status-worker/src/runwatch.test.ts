@@ -279,11 +279,11 @@ describe("runwatch pure helpers", () => {
   });
 
   it("formats timestamps as UTC and keeps '-' for junk", () => {
-    // 2026-10-11 用户指定：`YYYY-MM-DD-HH-MM`（UTC，省略秒 —— 告警粒度是分钟，
-    // `ALERT_COOLDOWN_S` 也是分钟级）。字典序等于时间序，日志/群消息里可直接排。
-    expect(formatUtc(1_700_000_000)).toBe("2023-11-14-22-13");
+    // 2026-10-11 用户指定：`YYYY-MM-DD HH:MM`（UTC，省略秒 —— 告警粒度是分钟，
+    // `ALERT_COOLDOWN_S` 也是分钟级）。前导零保留，字典序等于时间序。
+    expect(formatUtc(1_700_000_000)).toBe("2023-11-14 22:13");
     // 前导零必须保留，否则排序会错（9 月应排在 10 月前）。
-    expect(formatUtc(Date.UTC(2026, 8, 9, 3, 4) / 1000)).toBe("2026-09-09-03-04");
+    expect(formatUtc(Date.UTC(2026, 8, 9, 3, 4) / 1000)).toBe("2026-09-09 03:04");
     expect(formatUtc(0)).toBe("-");
     expect(formatUtc(Number.NaN)).toBe("-");
   });
