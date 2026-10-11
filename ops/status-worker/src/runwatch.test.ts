@@ -32,6 +32,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, {
   ALERT_I18N,
+  ALERT_LANG_FORCED,
   ALERT_KINDS,
   buildCheckAlertEmail,
   checkWorkerRuns,
@@ -285,18 +286,19 @@ describe("runwatch pure helpers", () => {
 });
 
 describe("alert copy for the daily checks", () => {
-  it("has every kind in all four languages", () => {
-    for (const lang of ["zh-cn", "en-us", "ja-jp", "ko-kr"]) {
-      const table = ALERT_I18N[lang];
-      expect(table, lang).toBeTruthy();
-      for (const kind of ALERT_KINDS) {
-        for (const key of [`subject_${kind}`, `title_${kind}`, `intro_${kind}`]) {
-          expect(table[key], `${lang}.${key}`).toBeTruthy();
-        }
+  it("ships exactly one language, English, complete for every kind", () => {
+    // 2026-10-11 用户要求告警只发英文：`ALERT_I18N` 只保留 `en-us`，中/日/韩三份已删。
+    // 这条锁住两件事：① 不允许再偷偷加回别的语言（只增维护面）；
+    // ② `en-us` 对每个 kind 都完整 —— 少一个键就会渲染出空白 subtitle。
+    expect(Object.keys(ALERT_I18N)).toEqual(["en-us"]);
+    const table = ALERT_I18N["en-us"];
+    for (const kind of ALERT_KINDS) {
+      for (const key of [`subject_${kind}`, `title_${kind}`, `intro_${kind}`]) {
+        expect(table[key], key).toBeTruthy();
       }
-      expect(table.view, `${lang}.view`).toBeTruthy();
-      expect(table.hint, `${lang}.hint`).toBeTruthy();
     }
+    expect(table.view).toBeTruthy();
+    expect(table.hint).toBeTruthy();
   });
 
   it("renders one row per finding and escapes it", () => {
@@ -313,9 +315,29 @@ describe("alert copy for the daily checks", () => {
     expect(mail.text).toContain(formatUtc(NOW));
   });
 
-  it("falls back to zh-cn for an unknown language", () => {
+  it("stays English no matter what ALERT_LANG is set to", () => {
+    // 这条是「告警纯英文」的**行为**断言（上一条只钉了表结构）。用户要求两类读者
+    // （飞书群 + 邮件）都读英文，所以 `env.ALERT_LANG` 不能再影响输出 —— 改回去就红。
+    for (const configured of ["zh-cn", "ja-jp", "ko-kr", "en-us", "", "de-de"]) {
+      const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
+      const probe = buildCheckAlertEmail(configured, "runs", [{ name: "j", detail: "d" }], NOW);
+      expect(probe.subject, configured).toBe(mail.subject);
+      expect(probe.text, configured).toBe(mail.text);
+    }
+    // 出口必须真的是英文文案，而不是"恰好相等"。
+    const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
+    expect(mail.subject).toMatch(/\[Limooo\] Cron job failure/);
+    expect(mail.text).toContain("did not succeed");
+    expect(mail.text).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it("falls back to English for an unknown language instead of rendering blanks", () => {
     const mail = buildCheckAlertEmail("de-de", "blocklist", [{ name: "L", detail: "d" }], NOW);
-    expect(mail.subject).toContain(ALERT_I18N["zh-cn"].subject_blocklist);
+
+    expect(mail.subject).toContain(ALERT_I18N[ALERT_LANG_FORCED].subject_blocklist);
+    // 兜底失败最典型的形态就是空白字段，直接断言它没发生。
+    expect(mail.subject.trim()).not.toBe("");
+    expect(mail.html).toContain("L");
   });
 
   it("keeps the subject short even with a huge error summary", () => {
