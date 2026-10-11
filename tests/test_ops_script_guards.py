@@ -205,6 +205,35 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     assert result.stdout.index("Lists: done") < result.stdout.index("Check: done")
 
 
+def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
+    """名单刷新改了工作区，一次性提交仍要成功（2026-10-12 修）。
+
+    回归点：stage + 工作区快照原先排在 Lists / Bans / WAF **之前**，而这三步会
+    合法地改写 china-asn.txt / whitelist.txt / blocklist.txt —— 于是上游名单一变，
+    ⓪c 的比对必然报「检查期间工作区又被改动」，第一次部署永远要跑两遍。
+    这里让桩 fetch_china_asn.py 真的改一个已跟踪文件来复现那个场景。
+    """
+    repo = make_repo(tmp_path)
+    stub = repo / "ops" / "fetch_china_asn.py"
+    stub.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "Path('tracked.txt').write_text('v1\\nrefreshed-by-the-list-step\\n')\n"
+        "print('STUB fetch_china_asn rewrote tracked.txt')\n"
+    )
+    stub.chmod(0o755)
+
+    # 只走 commit 那一段：Pages / docs / Workers 在桩仓库里没有（也不在回归点上），
+    # 而快照比对（⓪c）正是 commit 路径独有的闸门。
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "working tree changed during checks" not in result.stderr
+    assert "Git: committed" in result.stdout
+    # 刷新写进去的内容确实进了提交（而不是「检查过的树」与「提交的树」两份）
+    assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
+
+
 def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
     """两个逃生阀：跳过抓取 / 抓不到就失败。
 
