@@ -23,8 +23,8 @@
 # Full deploy = (1) git commit -> (2) git push -> (3) Cloudflare Pages (+ related Workers).
 #
 # Usage:
-#   bash ops/deploy.sh                          # = --all (commit + push + Pages + docs)
-#   bash ops/deploy.sh --all                    # commit + push + deploy Pages + docs
+#   bash ops/deploy.sh                          # = --all (commit + push + Pages + docs + Workers)
+#   bash ops/deploy.sh --all                    # commit + push + Pages + docs + every Worker
 #   bash ops/deploy.sh --dry-run                # print what would happen only
 #   bash ops/deploy.sh --commit                 # commit only
 #   bash ops/deploy.sh --commit --push          # commit and push
@@ -32,6 +32,7 @@
 #   bash ops/deploy.sh --message="fix: thing"   # same, long form
 #   bash ops/deploy.sh --pages                  # deploy the main Pages project only
 #   bash ops/deploy.sh --docs                   # build + deploy docs.limooo.cn only
+#   bash ops/deploy.sh --workers                # deploy every standalone Worker only
 #   bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker only
 #   bash ops/deploy.sh --full ...               # same flags, but stream every step's output
 #
@@ -39,9 +40,16 @@
 # is only dumped when that step fails. Pass --full (or set LIMOOO_DEPLOY_VERBOSE=1)
 # to stream the build manifest, artifact count and wrangler upload progress.
 #
-# With NO arguments this is exactly --all: commit + push + Pages + docs, matching the
-# "full deploy" contract in AGENTS.md. To ship only what is already committed locally,
-# pass --pages / --docs explicitly.
+# With NO arguments this is exactly --all: commit + push + Pages + docs + Workers,
+# matching the "full deploy" contract in AGENTS.md. To ship only what is already
+# committed locally, pass --pages / --docs / --workers explicitly.
+#
+# **Workers are part of a full deploy** (2026-10-11): they used to need a separate
+# `--worker=<name>`, so a change inside ops/*/src/** would sit committed and pushed
+# while production kept running the old code — that silently happened twice in one
+# session (the alert webhook channel report and the English alert copy). Pages and
+# docs are **not** a proxy for a Worker update: they are separate deployments.
+# Re-deploying an unchanged Worker is harmless (same bytes, new version id).
 #
 # commit / push require the current branch to be "main": this script compares HEAD with
 # origin/main but pushes refs/heads/main, so on a feature branch the commit would land
@@ -51,6 +59,9 @@
 # --pages and --docs build the WORKING TREE, so they run ops/ci_check.sh first and
 # refuse to deploy when the tree has uncommitted changes. Emergency override:
 #   LIMOOO_ALLOW_DIRTY=1 bash ops/deploy.sh --pages
+#
+# --workers (all of them) and --worker=<one> are mutually exclusive; passing both is a
+# FATAL, because "deploy everything" and "deploy just this one" cannot both be meant.
 #
 # --worker= needs a non-empty Worker name: an empty value used to fall through to the
 # "no arguments = --all" branch and silently became a full deploy. It is rejected with
@@ -86,6 +97,7 @@ cd "$ROOT"
 DO_COMMIT=0
 DO_PUSH=0
 DO_PAGES=0
+DO_WORKERS=0
 DO_DOCS=0
 WORKER=""
 DRY_RUN=0
@@ -101,10 +113,15 @@ while [ $# -gt 0 ]; do
         --push) DO_PUSH=1 ;;
         --pages) DO_PAGES=1 ;;
         --docs) DO_DOCS=1 ;;
-        --all) DO_COMMIT=1; DO_PUSH=1; DO_PAGES=1; DO_DOCS=1 ;;
+        --workers) DO_WORKERS=1 ;;
+        --all) DO_COMMIT=1; DO_PUSH=1; DO_PAGES=1; DO_DOCS=1; DO_WORKERS=1 ;;
         --full) VERBOSE=1 ;;
         --worker=*)
             WORKER="${1#--worker=}"
+            if [ "${DO_WORKERS:-0}" = 1 ]; then
+                echo "FATAL: --workers and --worker=<name> are mutually exclusive" >&2
+                exit 2
+            fi
             # 空值（`--worker=$W` 且 $W 为空）会让下面的"无参数 = --all"分支成立，
             # 静默变成 commit + push + Pages + docs 的完整部署（W3-2）。
             if [ -z "$WORKER" ]; then
@@ -131,19 +148,24 @@ while [ $# -gt 0 ]; do
         --help|-h) sed -n '/^# Usage:/,/^# END-USAGE/p' "$0"; exit 0 ;;
         *)
             echo "FATAL: unknown argument $1" >&2
-            echo "       supported: --dry-run / --commit / --push / --pages / --docs / --all / --full / -m <msg> / --message=<msg> / --worker=<name>" >&2
+            echo "       supported: --dry-run / --commit / --push / --pages / --docs / --workers / --all / --full / -m <msg> / --message=<msg> / --worker=<name>" >&2
             exit 2
             ;;
     esac
     shift
 done
 
-# 不带任何参数 = --all（commit + push + Pages + docs），与 AGENTS.md 的「完整部署」语义一致
-if [ "$DO_COMMIT" = 0 ] && [ "$DO_PUSH" = 0 ] && [ "$DO_PAGES" = 0 ] && [ "$DO_DOCS" = 0 ] && [ -z "$WORKER" ]; then
+# 不带任何参数 = --all（commit + push + Pages + docs + Workers），与 AGENTS.md 的
+# 「完整部署」语义一致。
+# `DO_WORKERS` 必须一起判：少了它，单独 `--workers` 会落进这个分支、静默变成完整部署
+# （实测过：`--workers --dry-run` 打印出了 Pages 与 docs 的步骤）。
+if [ "$DO_COMMIT" = 0 ] && [ "$DO_PUSH" = 0 ] && [ "$DO_PAGES" = 0 ] && [ "$DO_DOCS" = 0 ] &&
+    [ "${DO_WORKERS:-0}" = 0 ] && [ -z "$WORKER" ]; then
     DO_COMMIT=1
     DO_PUSH=1
     DO_PAGES=1
     DO_DOCS=1
+    DO_WORKERS=1
 fi
 
 if [ "${LIMOOO_SKIP_DOCS:-0}" = 1 ]; then
@@ -220,6 +242,7 @@ if [ "$DRY_RUN" = 1 ]; then
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
+    [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (all Workers)"
     echo "Deploy: dry-run done"
     exit 0
 fi
@@ -427,6 +450,11 @@ fi
 # ── ④ 独立 Worker（可选，与 Pages 互不影响）─────────────────────────
 if [ -n "$WORKER" ]; then
     run_step "Worker: $WORKER" bash ops/workers_deploy.sh "--worker=$WORKER"
+fi
+
+if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
+    # 全部 Worker。workers_deploy.sh 无参数即「部署列表里的每一个」。
+    run_step "Workers: all" bash ops/workers_deploy.sh
 fi
 
 # 应急放行的提示必须是**最后一行**：这是唯一能让「线上领先 GitHub」这件事
