@@ -439,6 +439,80 @@ describe("blocked IP enforcement", () => {
     expect(blocked.status).toBe(403);
   });
 
+  /**
+   * 爬虫 UA 名单（2026-10-12）：命中即免人机验证 -> 交付真站页面。
+   *
+   * 放行的边界同样要锁住：UA 名单**不**进入 sourceTrusted（那只含白名单 IP /
+   * verifiedBot），所以自报爬虫仍然要过 blocked_ips 检查。
+   */
+  it("serves the real page to a declared crawler and keeps the gate for a browser", async () => {
+    const CRAWLER_UA = "Mozilla/5.0 (compatible; GPTBot/1.4; +https://openai.com/gptbot)";
+    const env = blockedEnv({
+      // 真站页面与门禁页走的是同一个 ASSETS 取模板路径，用内容区分两种结果。
+      ASSETS: {
+        fetch: async (input: RequestInfo | URL) => {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          if (url.includes("index.html")) {
+            return new Response("<html><body>real home</body></html>", {
+              headers: { "Content-Type": "text/html" },
+            });
+          }
+          return new Response("<html><body>{{host}} {{next}}</body></html>", {
+            headers: { "Content-Type": "text/html" },
+          });
+        },
+      },
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => null,
+            all: async () => ({ results: [] }),
+            run: async () => ({}),
+          }),
+          first: async () => null,
+          all: async () => ({ results: [] }),
+          run: async () => ({}),
+        }),
+      },
+    });
+
+    const crawler = await handleOnRequest(
+      context(new Request("https://limooo.cn/", { headers: { "User-Agent": CRAWLER_UA } }), env),
+    );
+    expect(crawler.status).toBe(200);
+    await expect(crawler.text()).resolves.toContain("real home");
+
+    const browser = await handleOnRequest(
+      context(
+        new Request("https://limooo.cn/", {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+          },
+        }),
+        env,
+      ),
+    );
+    expect(browser.status).toBe(403);
+  });
+
+  it("does not exempt a declared crawler from the blocklist", async () => {
+    // 自报 GPTBot 的请求若来自被封 IP 照样 403：UA 是自报的，不能顺手解封。
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://limooo.cn/services", {
+          headers: {
+            "CF-Connecting-IP": "203.0.113.9",
+            "User-Agent": "Mozilla/5.0 (compatible; GPTBot/1.4; +https://openai.com/gptbot)",
+          },
+        }),
+        blockedEnv(),
+      ),
+    );
+
+    expect(resp.status).toBe(403);
+  });
+
   it("still lets a banned IP reach the exempt API escape hatches", async () => {
     // exempt 名单必须继续放行：管理员从被封 IP 也要能走登录/管理接口，
     // 否则只能等 Cloudflare IP List 的下一次同步。回归点是「exempt 命中时

@@ -204,6 +204,12 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/static/*",
                     "/favicon.svg",
                     "/Limooo-xtext.svg",
+                    # 爬虫/AI 工具的入口文件（2026-10-12）：完全绕过 Functions。
+                    # 这两份必须**无门禁**可达——否则未验证的爬虫拿到的是一张
+                    # 403 挑战页（`/robots.txt` 曾被门禁原地替换过），
+                    # 既读不到规则，也会把「站点不可访问」写进它们的索引。
+                    "/robots.txt",
+                    "/llms.txt",
                 ],
             },
             f,
@@ -236,7 +242,152 @@ def write_pages_edge_config(out_dir: str) -> None:
             "  Cache-Control: public, max-age=31536000, immutable\n"
             "/static/*.ico\n"
             "  Cache-Control: public, max-age=31536000, immutable\n"
+            "/robots.txt\n"
+            "  Cache-Control: public, max-age=86400\n"
+            "/llms.txt\n"
+            "  Cache-Control: public, max-age=86400\n"
         )
+
+
+# ── 爬虫 / AI 工具的入口文件（2026-10-12）────────────────────────────────
+#
+# 站点对爬虫与 AI 工具是**开放**的（用户 2026-10-12 定），门禁只留给
+# 浏览器/未知来源。边缘那一侧由 docs/lists/crawlers.txt（UA 名单，免人机验证）
+# 与 Cloudflare 的 AI bot 策略（ops/ai_bots.py，关掉边缘 403）承担；这里补的是
+# 「规则文件本身也必须能读到」：没有 robots.txt 时，未验证爬虫请求
+# `/robots.txt` 会被门禁原地替换成 403 挑战页。
+#
+# 规则语义：除端点/管理入口外全部允许；AI 爬虫**显式**列一组 Allow ——
+# robots.txt 的 `*` 组本来就已经允许它们，显式写出来是给各家 vendor 的解析器
+# 一个明确信号（部分实现只认自己的 token），也方便人工核对「我们确实允许了谁」。
+# Google-Extended / Applebot-Extended 是**只存在于 robots.txt 的 token**
+# （没有对应 UA），专门控制 AI 训练用途，所以必须在这里出现。
+ROBOTS_AI_AGENTS = (
+    "GPTBot",
+    "OAI-SearchBot",
+    "OAI-AdsBot",
+    "ChatGPT-User",
+    "ClaudeBot",
+    "Claude-User",
+    "Claude-SearchBot",
+    "PerplexityBot",
+    "Perplexity-User",
+    "Google-Extended",
+    "Applebot-Extended",
+    "CCBot",
+    "Bytespider",
+    "TikTokSpider",
+    "Amazonbot",
+    "Meta-ExternalAgent",
+    "Meta-ExternalFetcher",
+    "Meta-WebIndexer",
+    "cohere-ai",
+    "DeepSeekBot",
+    "Qwenbot",
+    "Hunyuan",
+    "ChatGLM-Spider",
+    "PanguBot",
+    "GrokBot",
+    "YouBot",
+    "KimiBot",
+    "MoonshotBot",
+    "DuckAssistBot",
+    "Bravebot",
+    "PetalBot",
+    "Diffbot",
+    "ImagesiftBot",
+    "Timpibot",
+    "Omgilibot",
+    "AI2Bot",
+)
+
+# 端点与管理入口：不是内容页，抓它只会白耗免费版请求预算。
+ROBOTS_DISALLOW = (
+    "/api/",
+    "/login",
+    "/logout",
+    "/gate",
+    "/__gate",
+    "/visitor",
+    "/account",
+    "/apple",
+)
+
+
+def _robots_group(agents: tuple[str, ...]) -> str:
+    """一组 User-agent（多行同名记录表示同一组）+ 同一套 Allow/Disallow 规则。"""
+    lines = [f"User-agent: {agent}" for agent in agents]
+    lines.append("Allow: /")
+    lines.extend(f"Disallow: {path}" for path in ROBOTS_DISALLOW)
+    return "\n".join(lines) + "\n"
+
+
+def write_discovery_files(out_dir: str) -> None:
+    """生成根路径的 /robots.txt 与 /llms.txt。
+
+    两份都是**手写内容、构建期落盘**（与 `_headers`/`_routes.json` 同一类根产物），
+    因为它们必须与站点实际路径一致；放进 `static/` 会变成
+    `/static/robots.txt`，那不是爬虫会去读的地址。
+    """
+    robots = (
+        "# https://limooo.cn/robots.txt\n"
+        "#\n"
+        "# Public site: search engines, crawlers and AI agents are all welcome.\n"
+        "# See https://limooo.cn/llms.txt for a curated index of the content.\n"
+        "#\n"
+        "# The disallowed paths are endpoints and admin entry points, not content:\n"
+        "# crawling them only burns the site's free-tier request budget.\n"
+        "\n"
+        + _robots_group(("*",))
+        + "\n"
+        "# AI crawlers and agents: the same rules, listed explicitly. The edge\n"
+        "# allow-list that lets them through the human-verification gate is\n"
+        "# docs/lists/crawlers.txt; Google-Extended and Applebot-Extended have no\n"
+        "# User-Agent of their own and only exist as robots.txt tokens.\n"
+        "\n"
+        + _robots_group(ROBOTS_AI_AGENTS)
+    )
+    with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
+        f.write(robots)
+
+    llms = (
+        "# Limooo\n"
+        "\n"
+        "> Limooo (https://limooo.cn) is a personal video-production studio site: a\n"
+        "> portfolio, a services price list and a four-language documentation site.\n"
+        "> All public pages are open to search engines, crawlers and AI agents; the\n"
+        "> full-size portfolio originals are deliberately not published.\n"
+        "\n"
+        "## Main site\n"
+        "\n"
+        "- [Home](https://limooo.cn/): studio introduction and portfolio highlights.\n"
+        "- [Services](https://services.limooo.cn/): convention (studio) and outdoor\n"
+        "  shoot pricing, per shoot type and head count.\n"
+        "- [Contact](https://contact.limooo.cn/): how to get in touch.\n"
+        "- [Portfolio](https://images.limooo.cn/): watermarked portfolio images, the\n"
+        "  QR codes and the icon set published for reuse.\n"
+        "\n"
+        "## Documentation (docs.limooo.cn)\n"
+        "\n"
+        "- [Documentation home](https://docs.limooo.cn/): project documentation in\n"
+        "  zh-cn, en-us, ja-jp and ko-kr; `/`, `/en-us`, `/ja-jp`, `/ko-kr` are the\n"
+        "  per-language entry points and every content page carries its language as\n"
+        "  the last path segment.\n"
+        "- [README](https://docs.limooo.cn/README/zh-cn)\n"
+        "- [License](https://docs.limooo.cn/LICENSE/zh-cn)\n"
+        "- [Sitemap](https://docs.limooo.cn/sitemap.xml)\n"
+        "\n"
+        "## Notes\n"
+        "\n"
+        "- Languages: zh-cn, en-us, ja-jp, ko-kr (the same URL serves the language\n"
+        "  picked from the `user_lang_preference` cookie, `Accept-Language`, then the\n"
+        "  Cloudflare region; the default is en-us).\n"
+        "- Crawling: `/robots.txt` allows everything except the endpoint and admin\n"
+        "  paths; `/api/` is not content. Images are served from\n"
+        "  `images.limooo.cn` (thumbnails and watermarked copies).\n"
+    )
+    with open(os.path.join(out_dir, "llms.txt"), "w", encoding="utf-8") as f:
+        f.write(llms)
 
 
 PORTFOLIO_THUMB_QUALITY = 75
@@ -941,6 +1092,9 @@ def main() -> int:
     # Pages 边缘配置：静态资源完全绕过 Functions（否则每次请求都先冷启动
     # 中间件后再读 ASSETS）；公开 HTML 仍由中间件按语言/门禁路由。
     write_pages_edge_config(PUBLIC_DIR)
+    # 爬虫/AI 工具入口文件（robots.txt / llms.txt）：路径必须与 _routes.json 的
+    # exclude 名单成对出现，改一处就要改另一处。
+    write_discovery_files(PUBLIC_DIR)
 
     # 1) 每个语言渲染所有公开页面
     for lang in LANGS:

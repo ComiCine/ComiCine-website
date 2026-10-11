@@ -321,6 +321,10 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   const whitelisted = isGateTrustedIp(request.headers.get("CF-Connecting-IP") ?? "");
   // 信任判定的**廉价前段**：白名单 IP 或 Cloudflare verifiedBot。这里先算一次，
   // 让封禁检查能跳过已信任来源（两者都是纯函数/读请求头，不查库）。
+  //
+  // 爬虫 UA 名单（docs/lists/crawlers.txt）**刻意不在这里**：UA 是自报的，
+  // 让它跳过 blocked_ips 检查等于「被封的抓取者换个 UA 就解封」。它只在下面的
+  // 门禁判定里生效（resolveGateTrust 的 declaredCrawler），封禁照查。
   const sourceTrusted = whitelisted || isTrustedCrawler(request);
 
   // 公开静态资源与 API 必须先放行：跳转子域也共享 /static 资源，
@@ -444,7 +448,9 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   }
 
   const trust = await resolveGateTrust(context);
-  const gated = !(trust.trusted || trust.cookieValid);
+  // 三种放行来源：IP 白名单/verifiedBot（trusted）、爬虫 UA 名单（declaredCrawler，
+  // 只免人机验证，见 _lib/bots.ts）、以及有效的 __gate cookie。
+  const gated = !(trust.trusted || trust.declaredCrawler || trust.cookieValid);
 
   if (!gated) {
     if (trust.trusted) {
@@ -455,6 +461,18 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
           status: 200,
           path: pathname,
           message: whitelisted ? "gate_whitelist" : "cf_verified_bot",
+        }),
+      );
+    } else if (trust.declaredCrawler) {
+      // 爬虫放行**记一条**：UA 是自报的，这条日志是「谁在按名单进门」的唯一线索
+      // （爬虫量级是每天几十到几百，不构成 D1 写入压力）。
+      defer(
+        context,
+        logEvent(env, "gate_bypass", request, {
+          outcome: "crawler",
+          status: 200,
+          path: pathname,
+          message: `declared_crawler:${trust.crawlerToken}`,
         }),
       );
     }

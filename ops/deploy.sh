@@ -266,6 +266,41 @@ fi
 
 echo "Deploy: start"
 
+# ── ⓪-1 工具自愈（2026-10-11）─────────────────────────────────────────
+# 这个仓库把构建 venv 与 wrangler 放在 /tmp（iCloud 同步区里跑不动，
+# 见 AGENTS.md）。但 **macOS 会定期清理 /tmp** —— 清理之后 `deploy` 会以
+# "build venv not found" / "wrangler not found" 失败，而那两个 FATAL 看起来像
+# 配置问题，实际只是工具被删了（真实踩过：2026-10-11 一次 deploy 两处都挂）。
+# 所以缺什么就补什么：幂等（存在即跳过，几十毫秒），只在真要构建/部署时才做。
+# 跳过：LIMOOO_SKIP_TOOL_BOOTSTRAP=1。
+ensure_tooling() {
+    [ "${LIMOOO_SKIP_TOOL_BOOTSTRAP:-0}" = 1 ] && return 0
+
+    local venv="${LIMOOO_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
+    if [ ! -x "$venv" ]; then
+        echo "Tools: recreating the build venv at $(dirname "$(dirname "$venv")")"
+        python3 -m venv "$(dirname "$(dirname "$venv")")" >/dev/null 2>&1 || true
+        if [ -x "$venv" ]; then
+            "$venv" -m pip install -q --disable-pip-version-check -r requirements.lock 2>&1 | tail -3
+        fi
+        [ -x "$venv" ] || { echo "FATAL: could not create the build venv at $venv" >&2; exit 1; }
+    fi
+
+    local wrangler="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
+    if [ ! -x "$wrangler" ]; then
+        echo "Tools: recreating the wrangler environment at $(dirname "$(dirname "$(dirname "$wrangler")")")"
+        local wenv
+        wenv="$(dirname "$(dirname "$(dirname "$wrangler")")")"
+        mkdir -p "$wenv"
+        (cd "$wenv" && npm i wrangler@4 --silent >/dev/null 2>&1) || true
+        [ -x "$wrangler" ] || { echo "FATAL: could not install wrangler at $wrangler" >&2; exit 1; }
+    fi
+}
+
+if [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; then
+    ensure_tooling
+fi
+
 # --full 下回显要跑的命令；安静模式下不打扰（git 本来就无声）
 show_cmd() {
     [ "$VERBOSE" = 1 ] && echo "$*"

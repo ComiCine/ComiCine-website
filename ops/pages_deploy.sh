@@ -81,6 +81,21 @@ if [ ! -x "$VENV_PYTHON" ]; then
 fi
 
 echo "[pages] building (isolated output: ${PUBLIC_DIR})"
+
+# cairosvg 需要 libcairo 的动态库（2026-10-11 加）：本机由 Homebrew 提供，而它在
+# 非标准前缀下（/opt/homebrew/opt/cairo/lib），Apple Silicon 上不会被默认搜索到。
+# 不设这个变量时 build.py 的图片前置检查会 FATAL（"cairosvg (and local libcairo)
+# is missing"），而那个报错看着像没装 cairosvg —— 实际只是找不到库。
+# 只在本机存在该目录、且调用方没有自己设置时才注入；非 macOS / Linux CI 不受影响。
+if [ -z "${DYLD_FALLBACK_LIBRARY_PATH:-}" ]; then
+    for _cairo_lib in /opt/homebrew/opt/cairo/lib /usr/local/opt/cairo/lib; do
+        if [ -d "$_cairo_lib" ]; then
+            export DYLD_FALLBACK_LIBRARY_PATH="$_cairo_lib"
+            break
+        fi
+    done
+fi
+
 LIMOOO_PUBLIC_DIR="$PUBLIC_DIR" LIMOOO_PREVIEW_DIR="$PREVIEW_DIR" "$VENV_PYTHON" src/build.py
 
 if [ ! -f "$PUBLIC_DIR/manifest.json" ]; then

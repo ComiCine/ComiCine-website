@@ -74,15 +74,15 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("other", "其它中国大陆 ASN"),
 )
 
-# 哪些分组进白名单（用户 2026-10-11 定：**只给中国电信 / 联通 / 移动**设低危）。
-# 其余分组（cernet 教育网 / cstnet 科技网 / other 其它）仍然照常拉取、写进
-# china-asn.txt 存证，但**并进白名单时被排除** —— 因为白名单是「信任来源」，
-# 一份 2101 个高校 ASN 的名单放进去等于放行全部校园网。
+# 哪些 ASN 分组进白名单（即：在边缘放行 / 不挑战）。
 #
-# 注意：上游**没有** residential/mobile 这个维度（只按运营商公司分类），所以
-# 这三家名单里家宽、蜂窝、IDC、企业专线是混在一起的。要精确到「家宽+蜂窝」只能
-# 人工判定 —— 见 docs/lists/README.md 的说明与 own-ips.txt 的用法。
-WHITELIST_GROUPS = ("chinanet", "cmcc", "unicom")
+# **当前为空**（用户 2026-10-11 决定）：只放行 own-ips.txt 里那两个 /32，不再按 ASN
+# 放行任何运营商。原因见 docs/lists/README.md —— 上游没有「家宽 / 蜂窝」维度，
+# 三家运营商名单里混着 IDC 与企业专线，按 ASN 全量放行的面太大。
+#
+# 想恢复按运营商放行：把 ("chinanet", "cmcc", "unicom") 填回来即可 —— 分组名见
+# 下面的 GROUPS，上游数据仍会照常拉取并存进 china-asn.txt（存证，不参与放行）。
+WHITELIST_GROUPS: tuple[str, ...] = ()
 
 TIMEOUT_S = 30
 ASN_ONLY = re.compile(r"^\d{1,10}$")

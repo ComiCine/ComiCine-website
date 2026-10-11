@@ -109,6 +109,12 @@ export const SKIP_PATHS = new Set<string>([
   "/__gate/config",
   "/Limooo-xtext.svg",
   "/favicon.svg",
+  // 爬虫/AI 工具的入口文件（2026-10-12）：构建期生成在产物根路径，同时登记在
+  // _routes.json 的 exclude 里（正常情况下根本到不了 Functions）。这里再放一份是
+  // 纵深防御：exclude 名单若哪天被改错，未验证的爬虫也不能拿到一张 403 挑战页
+  // 当作 /robots.txt 的内容。
+  "/robots.txt",
+  "/llms.txt",
   // 登录链路：Entra 回调是来自 login.microsoftonline.com 的顶层跳转，
   // 不能因为 __gate cookie 恰好过期就被门禁页接管（否则登录直接断掉）。
   "/login/entra",

@@ -38,6 +38,7 @@ import {
   withLangCookie,
 } from "./routing";
 import { isTrustedCrawler } from "./tracking";
+import { declaredCrawlerToken } from "./bots";
 import {
   BASE_URL,
   GATE_COOKIE,
@@ -194,6 +195,15 @@ export async function gateCookieHeaders(key: string): Promise<string[]> {
 export interface GateTrustState {
   /** 白名单 IP 或 Cloudflare 已验证爬虫：本就免验证，不需要 cookie。 */
   trusted: boolean;
+  /**
+   * 命中爬虫/AI UA 名单（docs/lists/crawlers.txt）：**只免人机验证**。
+   *
+   * 与 trusted 分开是有意的：UA 自报，不能让它顺便豁免 blocked_ips 封禁，
+   * 也不能让它换到一枚 __gate cookie（见 _lib/bots.ts 的文件头）。
+   */
+  declaredCrawler: boolean;
+  /** 命中的 UA 片段（已小写），未命中为空串；只用于日志。 */
+  crawlerToken: string;
   /** 持有有效 __gate cookie。 */
   cookieValid: boolean;
   /** 本次请求应续签 cookie（cookie 仍有效但已走过 3/4 TTL）。 */
@@ -219,6 +229,9 @@ export async function resolveGateTrust(
   const { request, env } = context;
   const ip = request.headers.get("CF-Connecting-IP") ?? "";
   const trusted = isGateTrustedIp(ip) || isTrustedCrawler(request);
+  // 已信任来源不必再扫一遍 UA 名单（纯省一次匹配，结论不受影响）；
+  // 其余来源才检查爬虫名单，命中即免人机验证（但不豁免封禁、不发 cookie）。
+  const crawlerToken = trusted ? "" : declaredCrawlerToken(request);
 
   const values = allCookieValues(GATE_COOKIE, request.headers.get("Cookie"));
   let best: GateCookieState = {
@@ -242,6 +255,8 @@ export async function resolveGateTrust(
 
   return {
     trusted,
+    declaredCrawler: crawlerToken !== "",
+    crawlerToken,
     cookieValid: best.valid,
     shouldRenew: best.shouldRenew,
     cookiePresent: best.present,
@@ -264,7 +279,7 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
   const host = sanitizeHost(url.searchParams.get("host"));
   const next = safeNextPath(url.searchParams.get("next") ?? "/");
   const trust = await resolveGateTrust(context);
-  const passed = trust.trusted || trust.cookieValid;
+  const passed = trust.trusted || trust.declaredCrawler || trust.cookieValid;
 
   if (passed && !forceChallenge) {
     deferLog(
@@ -272,11 +287,21 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
       logEvent(env, "gate_entry", request, {
         outcome: "passed",
         status: 302,
-        message: trust.trusted ? "trusted" : trust.shouldRenew ? "renewed" : "cookie",
+        message: trust.trusted
+          ? "trusted"
+          : trust.declaredCrawler
+            ? `declared_crawler:${trust.crawlerToken}`
+            : trust.shouldRenew
+              ? "renewed"
+              : "cookie",
       }),
     );
     let resp = Response.redirect(`https://${host}${next}`, 302);
     // 白名单/爬虫本来就没有 cookie，需要补一枚；持 cookie 者只在临近过期时续签。
+    //
+    // `trust.trusted` 而不是 `passed`：命中 UA 名单的爬虫**不发** cookie ——
+    // UA 是自报的，发 cookie 等于把「自称 GPTBot」换成一枚 1 小时内可复用的
+    // 签名会话，门禁就白设了。爬虫每次请求自带 UA，本来也不需要 cookie。
     if (trust.trusted || trust.shouldRenew) {
       const headers = new Headers(resp.headers);
       preserveSetCookie(headers, resp.headers);

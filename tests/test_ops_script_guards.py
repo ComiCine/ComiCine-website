@@ -43,8 +43,15 @@ MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 # ── 辅助 ──────────────────────────────────────────────────────────────
 
 
+# 这些用例测的是 deploy.sh 的**闸门逻辑**，不是工具链。工具自愈（2026-10-11 加）
+# 会在临时仓库里尝试建 venv / 装 wrangler —— 那里没有 requirements.lock，必然失败，
+# 于是整条用例假红。默认关掉自愈；要专门测自愈的用例自己再打开。
+_GUARD_ENV = {"LIMOOO_SKIP_TOOL_BOOTSTRAP": "1"}
+
+
 def run(args, cwd=ROOT, env=None, timeout=60):
     full_env = dict(os.environ)
+    full_env.update(_GUARD_ENV)
     if env:
         full_env.update(env)
     return subprocess.run(
@@ -426,3 +433,85 @@ def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
     assert skipped.returncode == 0, skipped.stdout + skipped.stderr
     assert "skipped ASN whitelist push" in skipped.stdout
     assert "WAF: done" not in skipped.stdout
+
+
+def test_deploy_bootstraps_missing_tooling(tmp_path):
+    """`/tmp` 被清理后，deploy.sh 要自己把构建 venv 补回来。
+
+    2026-10-11 真实踩过：macOS 定期清理 /tmp，之后一次 `deploy` 同时挂在
+    "build venv not found" 与 "wrangler not found" —— 那两个 FATAL 看起来像配置
+    问题，实际只是工具被删了。
+
+    这里用桩 python3 / 桩 npm 观察**它尝试了什么**（不真装东西）：
+      * 只有 `-m venv <dir>` 这个调用才算数（我第一版桩对任何 python3 调用都留标记，
+        于是"跳过"那条测试假红）；
+      * npm 必须桩掉，否则真 npm 会把 wrangler 装上，测试就测不到失败路径。
+    """
+    repo = make_repo(tmp_path)
+    fake_venv = tmp_path / "venv"
+    venv_marker = tmp_path / "venv-created"
+    npm_marker = tmp_path / "npm-called"
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+
+    # 只在 `-m venv <dir>` 时留痕并造出 venv 结构。
+    (bindir / "python3").write_text(
+        "#!/bin/bash\n"
+        'if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then\n'
+        f'  echo "$3" >> {venv_marker}\n'
+        '  mkdir -p "$3/bin"\n'
+        '  printf "#!/bin/bash\\nexit 0\\n" > "$3/bin/python"\n'
+        '  chmod +x "$3/bin/python"\n'
+        "fi\n"
+        "exit 0\n"
+    )
+    (bindir / "python3").chmod(0o755)
+    # 桩 npm：留痕但**不**产出 wrangler —— 于是 bootstrap 会走到明确的 FATAL。
+    (bindir / "npm").write_text(f"#!/bin/bash\necho \"$@\" >> {npm_marker}\nexit 0\n")
+    (bindir / "npm").chmod(0o755)
+
+    env = {
+        "PATH": f"{bindir}:{os.environ['PATH']}",
+        "LIMOOO_VENV_PYTHON": str(fake_venv / "bin" / "python"),
+        "WRANGLER_BIN": str(tmp_path / "wrangler" / "node_modules" / ".bin" / "wrangler"),
+        "LIMOOO_SKIP_CHECKS": "1",
+        # run() 默认会把自愈关掉（见 _GUARD_ENV）；这条用例正是要测自愈，显式打开。
+        "LIMOOO_SKIP_TOOL_BOOTSTRAP": "0",
+    }
+    result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
+
+    assert venv_marker.is_file(), f"没有尝试创建 venv\n{result.stdout}\n{result.stderr}"
+    assert "recreating the build venv" in result.stdout, result.stdout
+    assert npm_marker.is_file(), "没有尝试安装 wrangler"
+    # wrangler 装不出来时必须明确失败，而不是静默继续去跑 pages_deploy。
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "could not install wrangler" in result.stderr, result.stderr
+
+
+def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
+    """`LIMOOO_SKIP_TOOL_BOOTSTRAP=1` 时不做任何重建尝试。"""
+    repo = make_repo(tmp_path)
+    venv_marker = tmp_path / "venv-created"
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "python3").write_text(
+        "#!/bin/bash\n"
+        'if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then\n'
+        f'  echo "$3" >> {venv_marker}\n'
+        "fi\n"
+        "exit 0\n"
+    )
+    (bindir / "python3").chmod(0o755)
+
+    env = {
+        "PATH": f"{bindir}:{os.environ['PATH']}",
+        "LIMOOO_VENV_PYTHON": str(tmp_path / "nope" / "bin" / "python"),
+        "LIMOOO_SKIP_CHECKS": "1",
+        "LIMOOO_SKIP_TOOL_BOOTSTRAP": "1",
+    }
+    result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
+
+    assert "recreating the build venv" not in result.stdout, result.stdout
+    assert not venv_marker.is_file(), "跳过后不该创建 venv"
+    # 跳过自愈 → 缺 venv 由 pages_deploy 的桩接住（桩脚本不看 venv）。
+    assert "Pages: done" in result.stdout, result.stdout

@@ -127,7 +127,7 @@ export const CONTRACT = {
   "image_watermark_host": "image.limooo.cn",
   "gate_trust": {
     "verified_bot": true,
-    "ua_allowlist_enabled": false
+    "ua_allowlist_enabled": true
   },
   "observability_hmac_env": "OBSERVABILITY_HMAC_KEY",
   "whitelist_file": "docs/lists/whitelist.txt"

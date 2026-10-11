@@ -47,8 +47,17 @@ def fake_repo(tmp_path, monkeypatch):
         "IP-CIDR/2001:db8::/64\n",
         encoding="utf-8",
     )
+    crawlers = tmp_path / "crawlers.txt"
+    crawlers.write_text(
+        "# 注释行\n"
+        "GPTBot\n"
+        "ClaudeBot\n"
+        "Screaming Frog SEO Spider\n",
+        encoding="utf-8",
+    )
     output = tmp_path / "gateTrust.ts"
     monkeypatch.setattr(check_gate_trust, "WHITELIST_PATH", whitelist)
+    monkeypatch.setattr(check_gate_trust, "CRAWLERS_PATH", crawlers)
     monkeypatch.setattr(check_gate_trust, "OUTPUT_PATH", output)
     return output
 
@@ -63,10 +72,16 @@ def test_emit_omits_low_risk_asns(fake_repo, monkeypatch, capsys):
     assert "LOW_RISK_ASNS" not in emitted
     assert '"ip_cidrs": [["97.64.18.11", 32], ["2001:db8::", 64]]' in emitted
     assert 'export const GATE_TRUST_IPS: Set<string> = new Set(["97.64.18.11", "2001:db8::"]);' in emitted
+    # 爬虫 UA 名单进 isolate：一律小写（匹配时不再逐请求转小写）
+    assert (
+        'export const GATE_TRUST_CRAWLER_UAS: readonly string[] = '
+        '["gptbot", "claudebot", "screaming frog seo spider"];'
+    ) in emitted
     # ASN 仍在 stdout 摘要里（审计用），只是不进 isolate
     summary = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert summary["asns"] == 2
     assert summary["ip_cidrs"] == 2
+    assert summary["crawler_uas"] == 3
 
 
 def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
@@ -80,6 +95,27 @@ def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
         check_gate_trust.load_whitelist(tmp_path / "bad.txt")
 
 
+def test_crawler_list_keeps_file_order_and_case(fake_repo):
+    """名单保留文件顺序与大小写（匹配用的是生成物里的小写副本）。"""
+    tokens = check_gate_trust.load_crawlers(check_gate_trust.CRAWLERS_PATH)
+
+    assert tokens == ["GPTBot", "ClaudeBot", "Screaming Frog SEO Spider"]
+
+
+def test_crawler_list_rejects_bad_input(tmp_path):
+    """格式错直接抛错：门禁名单写坏比构建失败严重。"""
+    for body in ("ai\n", "GPTBot\nGPTBot\n", "GPTBot\nClaude" + '"Bot"\n'):
+        path = tmp_path / "bad.txt"
+        path.write_text(body, encoding="utf-8")
+        with pytest.raises(RuntimeError):
+            check_gate_trust.load_crawlers(path)
+
+    empty = tmp_path / "empty.txt"
+    empty.write_text("# 只有注释\n\n", encoding="utf-8")
+    # 空名单是合法的（等于关掉 UA 放行），但要显式：不能是「读错了文件」的假象。
+    assert check_gate_trust.load_crawlers(empty) == []
+
+
 def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
     """README 的 ASN 计数改读 docs/lists/whitelist.txt，不再对生成物做正则。"""
     (tmp_path / "docs" / "lists").mkdir(parents=True)
@@ -89,15 +125,16 @@ def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
     )
     (tmp_path / "functions" / "_data").mkdir(parents=True)
     (tmp_path / "functions" / "_data" / "gateTrust.ts").write_text(
-        'export const GATE_TRUST = {"verified_bot": true, "ip_cidrs": [["10.0.0.1", 32]]} as const;\n',
+        'export const GATE_TRUST = {"verified_bot": true, "ip_cidrs": [["10.0.0.1", 32]]} as const;\n'
+        'export const GATE_TRUST_CRAWLER_UAS: readonly string[] = ["gptbot", "claudebot"];\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(readme_facts, "BASE_DIR", str(tmp_path))
 
     facts = readme_facts.gate_trust_facts()
 
-    # ASN 去重后计数（1、2 两条），CIDR 来自生成物
-    assert facts == {"verified_bot": True, "asns": 2, "ip_cidrs": 1}
+    # ASN 去重后计数（1、2 两条），CIDR 与爬虫 UA 来自生成物
+    assert facts == {"verified_bot": True, "asns": 2, "ip_cidrs": 1, "crawler_uas": 2}
 
 
 def test_readme_facts_asn_count_is_zero_when_whitelist_has_none(monkeypatch, tmp_path):
@@ -116,11 +153,13 @@ def test_readme_facts_asn_count_is_zero_when_whitelist_has_none(monkeypatch, tmp
         "verified_bot": False,
         "asns": 0,
         "ip_cidrs": 1,
+        # 生成物里没有爬虫 UA 行时按 0 计（不是解析失败）
+        "crawler_uas": 0,
     }
 
 
 def test_repo_whitelist_and_generated_file_agree():
-    """真实仓库：ASN 仍在白名单里，生成物里没有它，CIDR 数量两边一致。
+    """真实仓库：生成物与两份名单（白名单、爬虫 UA）的数量一致。
 
     ASN 的**具体条数刻意不写死**（2026-10-11 改）：那份名单由
     `ops/fetch_china_asn.py` 在每次部署时从 china-mainland-asn 刷新，
@@ -128,9 +167,11 @@ def test_repo_whitelist_and_generated_file_agree():
     而它真正要守的是「生成物与名单一致」这条**关系**。
     """
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
-    # 名单必须非空 —— 否则下面的"一致"会退化成两边都是 0 的假通过。
-    assert asns, "whitelist has no ASN at all; the ASN feed or own-ips.txt is broken"
-    assert len(networks) == 2
+    crawlers = check_gate_trust.load_crawlers(check_gate_trust.CRAWLERS_PATH)
+    # ASN 段**可以合法为空**（2026-10-11 起默认不按 ASN 放行），所以这里不要求非空；
+    # 要守的是「加载器与名单一致」——两边的计数必须相等。
+    assert len(networks) == 2, "两个固定 IP 仍应在名单里（own-ips.txt）"
+    assert len(crawlers) > 20, "爬虫 UA 名单不该被清空"
 
     emitted = check_gate_trust.OUTPUT_PATH.read_text(encoding="utf-8")
     assert "low_risk_asns" not in emitted
@@ -138,3 +179,4 @@ def test_repo_whitelist_and_generated_file_agree():
     facts = readme_facts.gate_trust_facts()
     assert facts["asns"] == len(asns)
     assert facts["ip_cidrs"] == len(networks)
+    assert facts["crawler_uas"] == len(crawlers)

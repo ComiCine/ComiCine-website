@@ -21,6 +21,7 @@ are **not** written here; they come from the sources listed below.
 | WAF rules | custom rules | Cloudflare Dashboard | `ip.src in $limooo_blocklist`, low-risk `js_challenge`; the custom-firewall phase is currently **empty**, and `ops/waf/rules.snapshot.json` is a refresh-time mirror of that empty phase (rules removed in the Dashboard live only in git history) |
 | Cache Rules | `Limooo public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
 | Zone settings | `limooo.cn` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
+| AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
 ## Dashboard-only resources (this repository is not fully reproducible)
 
@@ -39,6 +40,11 @@ fresh `wrangler deploy` will not recreate them:
 - **DNS records** in `limooo.cn`.
 - **WAF custom rules** and the access rules for the `limooo_blocklist` IP List.
 - **Cache Rules** and any manual edge cache purge.
+- **AI bot policies** (`Security > Settings > Configure AI bot policies`): they decide
+  whether a crawler is answered with `403` by the managed ruleset, which no Pages
+  Function can override. `ops/ai_bots.py` can read and change them through the API when
+  the token has the Bot Management permission; otherwise the Dashboard is the only
+  interface.
 
 Treat the Dashboard as authoritative for those; this file is the inventory that makes
 them traceable, not a reproducible manifest.
@@ -73,6 +79,45 @@ note turns into noise.
 threat score, IP reputation and Browser Integrity Check for the whole zone. The Worker
 gate and the `blocked_ips` blocklist remain the only filters, and no record anywhere says
 this was deliberate. Flagged in `## Open items / external confirmations`.
+
+## AI bots and crawlers (`ops/ai_bots.py`)
+
+`limooo.cn` is deliberately readable by crawlers and AI agents: `docs/lists/crawlers.txt`
+lets them past the Pages-Functions Turnstile gate, and `src/build.py` generates an
+allow-everything `/robots.txt` plus an `/llms.txt` index. The edge in front of the Worker
+has its own opinion, and it wins first:
+
+- Cloudflare's managed ruleset contains `block-ai-on-ads` ("Block AI bots on ad pages"),
+  which answers GPTBot / ClaudeBot / CCBot / Amazonbot / Bytespider and friends with
+  `403` and the body `Your request was blocked.` **before** any Function runs. It shows up
+  in the firewall analytics as `source: firewallManaged`, `ruleId
+  eb4f2dedc16c49f9bf27a5170989fb0f`, and there is no custom rule that could disable it.
+- The switch is the zone's Bot Management configuration
+  (`GET/PATCH /zones/<zone_id>/bot_management`): `ai_bots_protection` (the legacy
+  "Block AI bots" toggle, `block` / `only_on_ad_pages` / `disabled`) plus the
+  per-behaviour policies `ai_search`, `ai_user`, `ai_training`, the AI Labyrinth switch
+  `crawler_protection`, and `is_robots_txt_managed` (Cloudflare prepending a managed
+  `robots.txt` derived from those policies — unwanted here, because `robots.txt` is owned
+  by `src/build.py`).
+
+```sh
+python3 ops/ai_bots.py --dry-run    # offline: print the committed snapshot + the plan
+python3 ops/ai_bots.py --show       # live: print the AI-related keys, write nothing
+python3 ops/ai_bots.py --snapshot   # live: refresh ops/ai-bots.snapshot.json
+python3 ops/ai_bots.py --apply      # live: set every AI behaviour to "do not block"
+```
+
+`--apply` only writes keys the zone actually reports, prints the before/after, re-reads the
+configuration and exits non-zero if anything still differs. It also prints the keys it
+never touches (`fight_mode`, `content_bots_protection`, `bot_preference_sync_enabled`,
+`stale_zone_configuration`) with a `<- review` note when one of them looks like it is
+blocking automated traffic — flipping those is a product decision, not a cleanup.
+
+The endpoint is gated by the **Bot Management** permission. The token in
+`secrets/webauthn.env` does not have it (the API answers `403 Authentication error`), so
+either grant "Bot Management: Edit" to that token or use the Dashboard path
+(`Security > Settings > Configure AI bot policies` -> *Allow* for Search, Agent and
+Training). `--apply` says exactly this instead of pretending the zone was fixed.
 
 ## Pages environment variables (key names only, never values)
 
