@@ -18,7 +18,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Limooo D1 保留期与每日聚合脚本（docs/11）。
+"""Limooo D1 保留期与每日聚合脚本（tasks/11）。
 
 默认只做 dry-run，不删除任何数据；只有显式传入 --apply 才执行聚合与清理。
 运行方式（示例，均为生产动作，执行前需在 docs/parallel-actions.md 登记）：
@@ -30,7 +30,7 @@
 保留期的 **owner 是 `ops/status-worker/src/retention.ts`**（每天 03:47 由 Worker
 cron 调度的那一份，readme_facts.py 也只解析它）。本文件在导入时逐条与它比对，
 不一致直接报错——2026-10-11 之前这里另写了一份 4 张表的策略，与 owner 的 7 张表
-漂移（docs/22 W7-8），从那时起不再允许两份并存：
+漂移（tasks/22 W7-8），从那时起不再允许两份并存：
 
     ray_log_v2  7 天
     visitors_v2 / visitor_rollups / heartbeats 30 天
@@ -148,7 +148,7 @@ def _aggregate_window(days: int = AGGREGATE_COMPLETE_DAYS) -> tuple[str, str]:
 def _aggregate_sql(days: int = AGGREGATE_COMPLETE_DAYS) -> str:
     """把旧明细与小时汇总合并进 visitors_daily（可重复执行）。
 
-    两个要点（docs/22 W7-5）：
+    两个要点（tasks/22 W7-5）：
 
     1. 只聚合**完整的 UTC 天**：`[day_start - days*86400, day_start)`。此前用的是
        滚动 24h 窗口，会把「昨天那一行」用只覆盖部分小时的数据重算。

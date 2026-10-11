@@ -18,7 +18,7 @@
  */
 
 /**
- * docs/22 W4-4：`functions/_data/gateTrust.ts` 只应带运行时会消费的字段。
+ * tasks/22 W4-4：`functions/_data/gateTrust.ts` 只应带运行时会消费的字段。
  *
  * 320 条低风险 ASN 在运行时零消费（`GATE_TRUST.verified_bot`、`GATE_TRUST_IPS`、
  * `GATE_TRUST_NETWORKS` 才有人读），ASN 的真实消费方是 WAF 的 js_challenge 规则。

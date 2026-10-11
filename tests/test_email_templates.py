@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W7-13: one owner for the shared mail framework and the alert copy.
+"""tasks/22 W7-13: one owner for the shared mail framework and the alert copy.
 
 `ops/email-templates/render.py` has no caller in production (the VPS Flask app is
 gone) and the alert copy used to exist twice -- here and inline in the status

@@ -35,7 +35,7 @@ export { esc, statusKey } from "./page";
 import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from "./i18n";
 
 /**
- * limooo 状态探针 Worker（docs/17 阶段 2）
+ * limooo 状态探针 Worker（tasks/17 阶段 2）
  *
  * 取代 Uptime Kuma：
  *   - scheduled() 每分钟跑一轮探针，写 D1 heartbeats / probe_state
@@ -248,11 +248,11 @@ export async function scheduleRetry(
   );
 }
 
-// ── 告警邮件（docs/17 阶段 3） ───────────────────────────────────
+// ── 告警邮件（tasks/17 阶段 3） ───────────────────────────────────
 //
 // 通过 Cloudflare Email Service 的 `send_email` binding（env.EMAIL）发送。
 // 未配置 binding / 收件人时只记日志、不报错，保证探针本身不受影响。
-// 文案的唯一来源是本文件的 ALERT_I18N（docs/22 W7-13）：
+// 文案的唯一来源是本文件的 ALERT_I18N（tasks/22 W7-13）：
 //
 // 只有英文（2026-10-11 用户要求）：告警同时投递到飞书 webhook 与邮件，
 // 两类读者都按英文读。此前有中/日/韩三份，实际只增维护面。
@@ -280,17 +280,13 @@ export const ALERT_I18N: Record<string, Record<string, string>> = {
     // 飞书群与邮箱列表里扫一眼就能看出是什么事；详情交给 title/intro。
     subject_down: "Health check alert · Limooo",
     subject_up: "Service recovered · Limooo",
-    title_down: "Service issue detected",
-    title_up: "Service recovered",
     intro_down: "Following issue(s) detected by Limooo monitoring:",
     intro_up: "The following service(s) recovered:",
     subject_runs: "Cron job failure · Limooo",
-    title_runs: "A scheduled job did not succeed",
-    intro_runs: "The last recorded run of these jobs did not succeed (a repeat alert means it is still broken):",
+    intro_runs: "A scheduled job did not succeed — the last recorded run of these jobs failed (a repeat alert means it is still broken):",
     hint_runs: "Triage: the error column for this job in the D1 worker_runs table, or the Workers logs in the Cloudflare dashboard.",
     subject_blocklist: "Blocklist drift · Limooo",
-    title_blocklist: "Blocked IP list has drifted",
-    intro_blocklist: "The Cloudflare IP List and the active rows of D1 blocked_ips disagree, so edge blocking no longer matches the authority:",
+    intro_blocklist: "Blocked IP list has drifted — the Cloudflare IP List and the active rows of D1 blocked_ips disagree, so edge blocking no longer matches the authority:",
     hint_blocklist: "Triage: python3 ops/check_blocklist_sync.py (this Worker runs the same comparison daily at 03:47 UTC).",
     view: "View status page",
     hint: "Sent automatically by Limooo monitoring. If this keeps arriving, check the service and confirm recovery on the status page.",
@@ -315,7 +311,15 @@ export interface AlertItem {
 
 interface AlertBlock {
   subject: string;
-  title: string;
+  /**
+   * 正文第一行，负责说清「出了什么事」。
+   *
+   * **没有 title 字段**（2026-10-11 用户定）：三类告警统一成「subject 报事件 + intro 说详情」
+   * 两行结构，正文里不再有重复的标题行。此前每类都有一行 `<h1>` title，而它与 subject
+   * 是同一件事（`Service issue detected` vs `Health check alert · Limooo`；
+   * `A scheduled job did not succeed` vs `Cron job failure`），删掉后信息量不变、噪声少一行。
+   * 原来那些 `title_*` 文案已从 `ALERT_I18N` 移除，不要再加回来。
+   */
   intro: string;
   hint: string;
   /** 左侧色条与链接颜色：故障红 / 恢复青。 */
@@ -337,10 +341,12 @@ function renderAlert(
   at: number,
 ): AlertEmail {
   // 与 runwatch.ts 的 formatUtc 共用同一实现（YYYY-MM-DD-HH-MM，UTC）：此前这里与
-  // 那边各拼一遍同样的字符串，任何格式调整都会漏掉一处。见 docs/22 的执行记录。
+  // 那边各拼一遍同样的字符串，任何格式调整都会漏掉一处。见 tasks/22 的执行记录。
   const when = formatUtc(at);
+  // 正文结构（三类告警统一）：intro 说详情 → 条目列表 → 时间 → 状态页链接 → 落款/排障提示。
+  // 没有标题行 —— subject 已经报了事件，见 AlertBlock 的说明。
   const text =
-    `${block.title}\n\n${block.intro}\n\n` +
+    `${block.intro}\n\n` +
     items.map((i) => `- ${i.name}: ${i.detail}`).join("\n") +
     `\n\n${when}\n\n${t.view}: https://status.limooo.cn/\n\n${block.hint}\n`;
   const rows = items
@@ -353,7 +359,6 @@ function renderAlert(
     .join("");
   const html =
     `<div style="font-family:Inter,system-ui,-apple-system,sans-serif;max-width:560px">` +
-    `<h1 style="font-size:19px;margin:0 0 8px;color:#11181c">${esc(block.title)}</h1>` +
     `<p style="color:#52525b;font-size:14px;margin:0 0 16px">${esc(block.intro)}</p>` +
     `<table style="width:100%;border-collapse:collapse">${rows}</table>` +
     `<p style="font-size:13px;color:#52525b;margin:14px 0 0">${esc(when)}</p>` +
@@ -379,7 +384,8 @@ export function buildAlertEmail(
       // subject 不再追加探针名（2026-10-11 用户定）：整串就是 `Health check alert · Limooo`。
       // 探针是谁由正文的条目行给出（`- Website: selftest`），标题只需说清「出了什么事」。
       subject: down ? t.subject_down : t.subject_up,
-      title: down ? t.title_down : t.title_up,
+      // 没有 title（2026-10-11 用户要求去掉正文那行 `Service issue detected`）：
+      // 它与 subject 说的是同一件事，正文直接从 intro 开始。
       intro: down ? t.intro_down : t.intro_up,
       hint: t.hint,
       color: down ? "#dc2626" : "#05A5A6",
@@ -418,7 +424,8 @@ export function buildCheckAlertEmail(
     t,
     {
       subject,
-      title: t[`title_${kind}`],
+      // 不传 title（2026-10-11 用户定）：三类告警统一没有标题行，「为什么算异常」由
+      // intro 第一句承担（`A scheduled job did not succeed — …`）。
       intro: t[`intro_${kind}`],
       hint: t[`hint_${kind}`] ?? t.hint,
       // 两种检查报出来的都是「需要人去处理」的状态，用故障红。
@@ -439,7 +446,7 @@ export interface DeliverResult {
  * 投递告警。通道优先级按 `AGENTS.md` 的定义：
  * **HTTP webhook（首选，默认飞书机器人格式）→ Email binding → SMTP**。
  *
- * 两个要点（docs/22 W2-3）：
+ * 两个要点（tasks/22 W2-3）：
  * 1. 顺序：webhook 是最便宜也最可靠的一跳，必须排在 SMTP 之前。此前 SMTP 在最前，
  *    而 SMTP 配置在线上并不总是可用，于是「配了 webhook 却拿不到告警」。
  * 2. 降级：任一通道失败都要继续试下一个，不能直接 return。此前 SMTP 失败即返回，
@@ -853,11 +860,11 @@ export async function statusPayload(env: Env) {
   };
 }
 
-// ── 状态页（服务端渲染；docs/17 阶段 2） ─────────────────────────
+// ── 状态页（服务端渲染；tasks/17 阶段 2） ─────────────────────────
 //
 // 页面标记 / 样式 / 脚本 / 文案分别在 page.ts 与 i18n.ts，本文件只负责取数与路由。
 // 由本 Worker 直接出 HTML，因此没有客户端取数、也没有内联 script/style
-// （遵守 docs/14 的 CSP 约束）：status.js 只管倒计时、自动刷新、语言浮层与深浅胶囊，
+// （遵守 tasks/14 的 CSP 约束）：status.js 只管倒计时、自动刷新、语言浮层与深浅胶囊，
 // status-theme.js 只负责首屏前把浅色 class 打上（避免深色闪一下）。
 
 /** 语言判定兼容入口：`?lang=` > Accept-Language > zh-cn（实现见 i18n.ts 的 pickLang）。 */

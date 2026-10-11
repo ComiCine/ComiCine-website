@@ -19,7 +19,7 @@
 
 # Limooo WAF custom rule compaction / snapshot (zero-VPS, local token only).
 #
-# Background (docs/17 section 10): the free plan allows only 5 custom rules,
+# Background (tasks/17 section 10): the free plan allows only 5 custom rules,
 # while IP Access Rules allow 50,000 and do not consume that quota. This script
 # migrates one-line rules such as single-IP allow entries from custom rules to
 # IP Access Rules, and can optionally clean up disabled rules.

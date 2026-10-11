@@ -32,7 +32,7 @@ import type { Env } from "../../../../_lib/env";
  *
  * 会话在 CSRF 之前才能拿到，token 要绑定 `sid`；而「近期认证」是 401 /
  * 非 admin 是 403 / CSRF 失败是 403，三种拒绝的顺序因此固定为
- * 鉴权 → 近期认证 → CSRF（docs/21 T2/T4）。
+ * 鉴权 → 近期认证 → CSRF（tasks/21 T2/T4）。
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const auth = await requireRecentAdminSession(context.env, context.request);

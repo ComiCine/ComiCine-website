@@ -228,7 +228,7 @@ describe("requireAdminSession", () => {
 });
 
 /**
- * requireRecentAdminSession：明文密码查看的 step-up 闸门（docs/21 T2）。
+ * requireRecentAdminSession：明文密码查看的 step-up 闸门（tasks/21 T2）。
  *
  * 判定顺序与 requireAdminSession 一致（鉴权 → 非 admin 403 → 近期认证 401），
  * 所以这里同时验证“顺序不倒退”：viewer 即使 authAt 很新也还是 403，

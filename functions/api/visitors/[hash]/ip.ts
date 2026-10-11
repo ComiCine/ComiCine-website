@@ -53,7 +53,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (!IP_HASH_RE.test(hash)) return json({ error: "无效的访客标识" }, 400);
 
   /**
-   * 每一次「把某个访客的明文 IP 拿出来」都留一行审计（docs/22 W9-4）。
+   * 每一次「把某个访客的明文 IP 拿出来」都留一行审计（tasks/22 W9-4）。
    *
    * 同类的密码查看（`apple-account/accounts/[id]/reveal.ts`）一直有审计行，
    * 这里此前一条都没有：谁在什么时候看了哪个访客的真实 IP 无从追溯。

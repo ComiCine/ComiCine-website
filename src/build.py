@@ -87,7 +87,7 @@ from config import (
 FUNCTIONS_DIR = os.path.join(BASE_DIR, "functions")
 
 # 生成物（functions/_lib/config.ts、functions/_data/*.ts、functions/api/i18n/[lang].ts）
-# 顶部的 AGPL 头必须由生成器产出，否则下次 build 会被抹掉（docs/22 W8-7）。
+# 顶部的 AGPL 头必须由生成器产出，否则下次 build 会被抹掉（tasks/22 W8-7）。
 # 措辞与 src/config.py 等手写文件里的头逐字一致，只把注释符号换成 TS 的块注释。
 # ops/check_gate_trust.py 生成 functions/_data/gateTrust.ts 时有一份同文副本，
 # 改这里请一并改那边。
@@ -260,7 +260,7 @@ PAGES = (
     ("apple-account.html", "apple-account.html", "/apple-account", None),
     # 统一跳转页（redirect.limooo.cn）：预渲染默认目标（主站首页），实际跳转参数由中间件拼接
     ("redirect.html", "redirect.html", "/r", "redirect"),
-    # 自建登录页已随 Cloudflare Access 接管下线（docs/17 §11.10）。
+    # 自建登录页已随 Cloudflare Access 接管下线（tasks/17 §11.10）。
     # 模板与样式保留在 src/templates/login.html / src/static/css/login.css 作为
     # 备份（不参与构建、不发布），万一要切回自建登录可直接恢复这一行。
 )

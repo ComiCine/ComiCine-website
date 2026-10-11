@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W7-4: Apple-account export files must never exist as 0644.
+"""tasks/22 W7-4: Apple-account export files must never exist as 0644.
 
 `ops/export_d1.py` used to `open(path, "w")` (0644 under the default umask 022)
 and only chmod afterwards, so the JSON with Apple account emails/passwords was
