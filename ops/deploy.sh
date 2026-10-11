@@ -332,11 +332,11 @@ worktree_snapshot() {
 }
 
 STAGED_TREE_BEFORE=""
-if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
-    show_cmd git add -A -- . ':!limooo.cn.png'
-    git add -A -- . ':!limooo.cn.png'
-    STAGED_TREE_BEFORE="$(worktree_snapshot)"
-fi
+# 注意：stage + 快照**不在这里**做，而在白名单/封禁名单刷新之后、CI 之前
+# （见下面的「⓪a-2 stage 与快照」）。那两步会合法地改动工作区（china-asn.txt /
+# whitelist.txt / blocklist.txt 刷新），放在它们之前取快照的话，每次上游名单一变，
+# ⓪c 的比对就必然报「检查期间工作区又被改动」，部署需要跑两遍才过
+# （2026-10-12 实测踩到）。
 
 # ── ⓪b 本地 CI 复刻（必须先于 commit / push / Pages / docs）────────────
 # 历史教训：CI 是「先 build 再 typecheck / 测试」，而本地只跑过 vitest/pytest，
@@ -429,6 +429,18 @@ if [ "$NEED_CHECKS" = 1 ]; then
     else
         run_step "WAF" bash ops/waf_whitelist.sh --apply
     fi
+fi
+
+# ── ⓪a-2 stage 与快照（必须在名单刷新之后、CI 之前）────────────────────
+# 上面三步（Lists / Bans / WAF）会合法地改写工作区里的名单文件，所以「要提交的
+# 那棵树」到这里才定稿：先 git add -A 把内容并入索引，再取一次工作区快照
+# （供 ⓪c 比对）。2026-10-12 之前这三步排在 stage 之后，于是上游 ASN 名单只要有
+# 变化，第一次部署必然以「working tree changed during checks」告终、必须重跑一遍。
+STAGED_TREE_BEFORE=""
+if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
+    show_cmd git add -A -- . ':!limooo.cn.png'
+    git add -A -- . ':!limooo.cn.png'
+    STAGED_TREE_BEFORE="$(worktree_snapshot)"
 fi
 
 if [ "$NEED_CHECKS" = 1 ]; then
