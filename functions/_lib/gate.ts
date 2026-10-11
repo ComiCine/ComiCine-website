@@ -500,8 +500,9 @@ export const BLOCKED_LIST_TTL_MS = 60_000;
  * 用绑定对象做键才能保证 A 环境的封禁名单绝不会被拿去判 B 环境的请求。
  */
 interface BlockedListCacheEntry {
-  /** 全量列表；`null` = 上次读取失败，冷却窗口内直接走原来的逐前缀查询。 */
+  /** 上一次**成功**读到的全量列表；从未成功过则为 `null`。读失败不会把它清掉。 */
   rows: BlockedRow[] | null;
+  /** 上次尝试读取的时刻；决定冷却窗口何时结束。 */
   at: number;
 }
 
@@ -561,8 +562,17 @@ async function readBlockedList(
   } catch {
     rows = null;
   }
-  blockedListCache.set(db, { rows, at: now });
-  return rows;
+  // 读失败时**保留上一次成功的名单**，不要用 null 覆盖它：否则冷却窗口内只能走逐前缀
+  // 查询，一旦那条也失败就 fail-open —— 也就是「D1 一抖，应用层封禁整条静默失效」。
+  // 拿着几秒前刚读到的名单继续判，既不会误放行惯犯，也不会把正常访客挡在外面
+  // （对比：字面 fail-closed 会让每个非白名单访客在 D1 抖动时都撞上门禁页，
+  //  而门禁页自身的验证也读 D1 —— 那等于把抖动升级成全站下线）。
+  const previous = blockedListCache.get(db)?.rows ?? null;
+  const serving = rows ?? previous;
+  blockedListCache.set(db, { rows: serving, at: now });
+  // 返回**实际用来判定**的那份：读失败但有旧名单时返回旧名单（调用方据此继续判定），
+  // 只有从未成功读过时才返回 null —— 那时调用方回退到逐前缀查询。
+  return serving;
 }
 
 /** 原来的逐前缀查询路径：缓存未命中或不可用时原样使用（IPv4 1 次 / IPv6 3 次往返）。 */
@@ -618,14 +628,23 @@ export async function isBlocked(
   try {
     const now = Date.now();
     const cached = blockedListCache.get(env.DB);
-    // 冷却窗口内直接用缓存里那份（可能是「上次读失败」的 null）；过期或没有缓存
-    // 才重新读一次全量列表。`null` 一律回退到原来的逐前缀查询路径。
-    const entry =
-      cached && now - cached.at < BLOCKED_LIST_TTL_MS
-        ? cached
-        : { rows: await readBlockedList(env.DB, now), at: now };
-    const matched = entry.rows
-      ? matchBlockedRow(entry.rows, normalized, maxPrefix)
+    const fresh = cached && now - cached.at < BLOCKED_LIST_TTL_MS ? cached : null;
+    // 冷却窗口内直接用缓存里那份；否则重读一次。读失败时 `readBlockedList` 返回 null，
+    // 但它同时**保留了上一次成功的名单**，所以这里的 `rows` 仍可能是「几秒前刚读到的那份」。
+    const rows = fresh ? fresh.rows : await readBlockedList(env.DB, now);
+
+    // 回退链（按权威性递减）：
+    //   1. 内存里那份名单（新鲜读到的，或读失败时保留下来的最后一次成功结果）——不查库；
+    //   2. 没有名单时回到最早的逐前缀查询——它能区分「驱动故障」与「未命中」；
+    //   3. 逐前缀查询也失败 → 交给外层 catch（那是唯一剩下的 fail-open 出口）。
+    //
+    // 第 1 步用「保留的旧名单」而不是直接 fail-open，是本改动的要点：此前读失败会把缓存写成
+    // `rows: null`，于是只能走第 2 步，而第 2 步一旦也失败就 fail-open —— D1 一抖，
+    // 应用层封禁整条静默失效。拿几秒前刚读到的名单继续判，既不放行惯犯，也不把正常访客
+    // 挡在外面（字面 fail-closed 会让每个非白名单访客在抖动时都撞门禁页，而门禁页自身的
+    // 验证同样读 D1 —— 那等于把一次抖动升级成全站下线）。
+    const matched = rows
+      ? matchBlockedRow(rows, normalized, maxPrefix)
       : await queryBlockedRows(env.DB, normalized, maxPrefix);
     if (matched) {
       await logEvent(env as never, "block_match", request, {

@@ -472,6 +472,49 @@ describe("isBlocked blocked_ips cache", () => {
     expect(await isBlocked({ DB: db } as never, request, "1.2.3.9")).toBe(true);
   });
 
+  it("keeps enforcing the last known list when a re-read fails", async () => {
+    // 这条是 2026-10-11 的行为变更，也是「把 fail-open 的暴露面缩到最小」的落点。
+    //
+    // 旧行为：TTL 到点后重读失败 → `readBlockedList` 把缓存写成 `{ rows: null }`
+    // → 只能走逐前缀查询 → 那条再失败就 fail-open。于是 D1 一抖，应用层封禁整条静默失效。
+    // 新行为：重读失败时**保留上一次成功的名单**，拿几秒前刚读到的数据继续判。
+    //
+    // ⚠️ 必须**跨过 TTL**才走到重读那条路径。第一版这条用例没有推进时间，第二次调用
+    // 仍命中缓存、根本没重读，所以把实现改回旧写法它照样全绿 —— 是我自己的反向抽查
+    // 抓出来的假保护。现在用 fake timers 推进 61s，确保真的触发重读。
+    //
+    // 为什么不是字面 fail-closed：那会让每个**非白名单访客**在 D1 抖动时都撞门禁页，
+    // 而门禁页自身的验证也读 D1 —— 等于把一次抖动升级成全站下线。近 90 天实测有
+    // 8 次 D1 相关失败，这个差别不是理论问题。
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_700_000_000_000);
+      // `options` 是可变对象，桩在每次 all() 时现读它。
+      const options: { listReadFails?: boolean } = {};
+      const db = fakeDb(blocking, options);
+      wireQueryAll(db);
+
+      // 1) 先成功读一次，把名单放进缓存。
+      await expect(isBlocked({ DB: db } as never, request, "1.2.3.9")).resolves.toBe(true);
+      expect(db.counters.listReads).toBe(1);
+
+      // 2) 跨过 TTL，并把「全量读」与「逐前缀回退」都打掉。
+      vi.setSystemTime(1_700_000_000_000 + BLOCKED_LIST_TTL_MS + 1_000);
+      options.listReadFails = true;
+      vi.mocked(queryAll).mockRejectedValue(new Error("D1_ERROR: blocked_ips unavailable"));
+
+      // 3) 仍然拦得住：用的是保留下来的那份名单，不是 fail-open。
+      await expect(isBlocked({ DB: db } as never, request, "1.2.3.9")).resolves.toBe(true);
+      // 确实发生了重读（否则这条用例没有覆盖到那条路径）。
+      expect(db.counters.listReads).toBe(2);
+      expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
+      // 对照：不在名单里的地址照样放行，没有把所有人都拦下。
+      await expect(isBlocked({ DB: db } as never, request, "9.9.9.9")).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns false (fail-open) when both the list read and the fallback query throw", async () => {
     // 把**现状**钉死：D1 抛错时 isBlocked() 返回 false（放行），不是 403。
     // 依据是 gate.ts 的契约注释「DB 异常时放行 / fail-open 语义不变」与
