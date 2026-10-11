@@ -241,36 +241,28 @@ export async function scheduleRetry(
 // 通过 Cloudflare Email Service 的 `send_email` binding（env.EMAIL）发送。
 // 未配置 binding / 收件人时只记日志、不报错，保证探针本身不受影响。
 // 文案的唯一来源是本文件的 ALERT_I18N（docs/22 W7-13）：
-// ops/email-templates/health-alert.i18n.json 已废弃，只留墓碑指向本文件。
 //
-// 三种告警共用这张表（四语）：探针 down/up（subject_down/up…）、cron 运行异常
-// （subject_runs…，判定见 runwatch.ts）与封禁列表漂移（subject_blocklist…，
+// 只有英文（2026-10-11 用户要求）：告警同时投递到飞书 webhook 与邮件，
+// 两类读者都按英文读。此前有中/日/韩三份，实际只增维护面。
+// 新增 kind 时只需补这一份 —— ALERT_KINDS 是 kind 的唯一清单。
 // 判定见 blocklist.ts）。新增 kind 时四语都要补齐——`ALERT_KINDS` 是 kind 的
 // 全量清单，`runwatch.test.ts` 逐语言逐 kind 校验键齐全，漏一门就红。
 
 export const ALERT_KINDS = ["down", "up", "runs", "blocklist"] as const;
+
+/**
+ * 告警固定用英文（2026-10-11 用户要求）。
+ *
+ * `ALERT_I18N` 现在只有 `en-us` 一份：告警同时投递到飞书 webhook 与邮件，两类读者都按英文读，
+ * 此前的中/日/韩三份只增加维护面。这里用常量而不是删掉 `buildAlertEmail` 的 `lang` 形参，
+ * 是为了让「这一份文案」永远走同一条代码路径（也方便测试断言「无论 ALERT_LANG 配成什么，
+ * 出去的都必须是英文」）。`env.ALERT_LANG` 因此**已不再影响告警**，保留字段只为不破坏既有绑定。
+ */
+export const ALERT_LANG_FORCED = "en-us";
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
 /** 四语文案表；导出只为让测试逐语言核对键齐全（运行时只用下面的取用函数）。 */
 export const ALERT_I18N: Record<string, Record<string, string>> = {
-  "zh-cn": {
-    subject_down: "[Limooo] 健康检查告警",
-    subject_up: "[Limooo] 服务已恢复",
-    title_down: "发现服务异常",
-    title_up: "服务已恢复",
-    intro_down: "Limooo 自动监控检测到以下异常，请尽快处理：",
-    intro_up: "以下服务已恢复正常：",
-    subject_runs: "[Limooo] 定时任务异常",
-    title_runs: "发现定时任务异常",
-    intro_runs: "以下定时任务最近一次运行未成功（同一任务重复告警说明它一直没好）：",
-    hint_runs: "排查：D1 worker_runs 表里这个 job 的 error 列，或 Cloudflare Dashboard 的 Workers 日志。",
-    subject_blocklist: "[Limooo] 封禁列表不一致",
-    title_blocklist: "封禁 IP 列表漂移",
-    intro_blocklist: "Cloudflare IP List 与 D1 blocked_ips 的 active 集合不一致，边缘封禁已与权威数据不符：",
-    hint_blocklist: "排查：python3 ops/check_blocklist_sync.py（status-worker 每日 03:47 UTC 跑同一比对）。",
-    view: "查看状态页",
-    hint: "本邮件由 Limooo 自动监控发送。若持续收到，请检查对应服务，并在状态页确认恢复状态。",
-  },
   "en-us": {
     subject_down: "[Limooo] Health check alert",
     subject_up: "[Limooo] Service recovered",
@@ -288,42 +280,6 @@ export const ALERT_I18N: Record<string, Record<string, string>> = {
     hint_blocklist: "Triage: python3 ops/check_blocklist_sync.py (this Worker runs the same comparison daily at 03:47 UTC).",
     view: "View status page",
     hint: "Sent automatically by Limooo monitoring. If this keeps arriving, check the service and confirm recovery on the status page.",
-  },
-  "ja-jp": {
-    subject_down: "[Limooo] ヘルスチェック警告",
-    subject_up: "[Limooo] サービス復旧",
-    title_down: "サービス異常を検出",
-    title_up: "サービスが復旧しました",
-    intro_down: "Limooo の自動監視が以下の異常を検出しました：",
-    intro_up: "以下のサービスが復旧しました：",
-    subject_runs: "[Limooo] 定期タスクの異常",
-    title_runs: "定期タスクが失敗しました",
-    intro_runs: "以下のタスクの最新実行が成功していません（繰り返し届く場合は未復旧です）：",
-    hint_runs: "調査：D1 worker_runs の error 列、または Cloudflare ダッシュボードの Workers ログ。",
-    subject_blocklist: "[Limooo] ブロックリストの不一致",
-    title_blocklist: "ブロック IP リストが乖離",
-    intro_blocklist: "Cloudflare IP List と D1 blocked_ips の active 集合が一致していません。エッジのブロックが権威データと食い違っています：",
-    hint_blocklist: "調査：python3 ops/check_blocklist_sync.py（本 Worker も毎日 03:47 UTC に同じ照合を実行します）。",
-    view: "ステータスページを表示",
-    hint: "本メールは Limooo の自動監視から送信されています。",
-  },
-  "ko-kr": {
-    subject_down: "[Limooo] 상태 점검 경고",
-    subject_up: "[Limooo] 서비스 복구됨",
-    title_down: "서비스 이상 감지",
-    title_up: "서비스가 복구되었습니다",
-    intro_down: "Limooo 자동 모니터링이 다음 이상을 감지했습니다:",
-    intro_up: "다음 서비스가 복구되었습니다:",
-    subject_runs: "[Limooo] 예약 작업 실패",
-    title_runs: "예약 작업이 성공하지 못했습니다",
-    intro_runs: "다음 작업의 최근 실행이 성공하지 못했습니다(반복 수신되면 아직 복구되지 않은 것입니다):",
-    hint_runs: "확인: D1 worker_runs의 error 열 또는 Cloudflare 대시보드의 Workers 로그.",
-    subject_blocklist: "[Limooo] 차단 목록 불일치",
-    title_blocklist: "차단 IP 목록이 어긋났습니다",
-    intro_blocklist: "Cloudflare IP List와 D1 blocked_ips의 active 집합이 일치하지 않습니다. 엣지 차단이 권위 데이터와 다릅니다:",
-    hint_blocklist: "확인: python3 ops/check_blocklist_sync.py (이 Worker도 매일 03:47 UTC에 같은 비교를 실행합니다).",
-    view: "상태 페이지 보기",
-    hint: "이 메일은 Limooo 자동 모니터링에서 발송되었습니다.",
   },
 };
 
@@ -399,7 +355,7 @@ export function buildAlertEmail(
   msg: string,
   at: number,
 ): AlertEmail {
-  const t = ALERT_I18N[lang] ?? ALERT_I18N["zh-cn"];
+  const t = ALERT_I18N[lang] ?? ALERT_I18N[ALERT_LANG_FORCED];
   const down = kind === "down";
   return renderAlert(
     t,
@@ -432,7 +388,7 @@ export function buildCheckAlertEmail(
   at: number,
   subjectNote = "",
 ): AlertEmail {
-  const t = ALERT_I18N[lang] ?? ALERT_I18N["zh-cn"];
+  const t = ALERT_I18N[lang] ?? ALERT_I18N[ALERT_LANG_FORCED];
   const suffix = subjectNote || items.map((i) => i.name).join(", ");
   const subject = `${t[`subject_${kind}`]} · ${suffix}`.slice(0, ALERT_SUBJECT_CHARS);
   return renderAlert(
@@ -550,7 +506,7 @@ export async function sendAlert(
   msg: string,
 ): Promise<DeliverResult> {
   const mail = buildAlertEmail(
-    env.ALERT_LANG ?? "zh-cn",
+    ALERT_LANG_FORCED,
     kind,
     probeName,
     msg,
@@ -658,7 +614,7 @@ export async function checkWorkerRuns(
     if (!issues.length) return { ok: true, issues: 0, alerted: false };
 
     const mail = buildCheckAlertEmail(
-      env.ALERT_LANG ?? "zh-cn",
+      ALERT_LANG_FORCED,
       "runs",
       issues.map((i) => ({ name: i.job, detail: i.detail })),
       now,
@@ -728,7 +684,7 @@ export async function checkBlocklistRuns(env: Env): Promise<CheckStep> {
       (listMissing ? ` · list ${LIST_NAME} not found` : "");
 
     const mail = buildCheckAlertEmail(
-      env.ALERT_LANG ?? "zh-cn",
+      ALERT_LANG_FORCED,
       "blocklist",
       [{ name: LIST_NAME, detail }],
       Math.floor(Date.now() / 1000),
@@ -1211,8 +1167,18 @@ export default {
         );
       }
       const result = await sendAlert(env, "down", url.searchParams.get("probe") ?? "Website", "selftest");
+      // `configured` 必须反映**全部三条通道**。此前它只看 `env.EMAIL`，而投递顺序是
+      // webhook → Email → SMTP —— 于是「只配了 webhook」时会出现
+      // `{"configured":false,"sent":true,"via":"webhook"}` 这种自相矛盾的响应，
+      // 任何只看 configured 的监控都会以为这台 worker 没有任何告警通道。
+      const channels = [
+        env.ALERT_WEBHOOK_URL ? "webhook" : null,
+        env.EMAIL && env.ALERT_TO ? "email" : null,
+        env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.ALERT_TO ? "smtp" : null,
+      ].filter((name): name is string => name !== null);
       return Response.json({
-        configured: Boolean(env.EMAIL),
+        configured: channels.length > 0,
+        channels,
         recipient_set: Boolean(env.ALERT_TO),
         ...result,
       });
