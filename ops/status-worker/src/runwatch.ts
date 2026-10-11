@@ -133,10 +133,20 @@ export async function readLatestRuns(
   }
 }
 
-/** 时间戳 → `2026-10-12 03:30:00 UTC`；与告警邮件的 when 格式保持一致。 */
+/**
+ * 时间戳 → `2026-10-12-03-30`（UTC，2026-10-11 用户指定）。
+ *
+ * 这是**告警件里时间的唯一格式**：本函数与 `index.ts` 的 `renderAlert` 共用同一实现，
+ * 此前两处各拼一遍 `toISOString().replace("T"," ").slice(0,19) + " UTC"`，改一处就会不一致。
+ * 保留前导零与短的 `-HH-MM` 是因为它按字典序等于时间序（日志、群消息里都能直接排）。
+ * 秒被有意省略：告警的粒度是分钟，`ALERT_COOLDOWN_S` 也是分钟级。
+ */
 export function formatUtc(epochSeconds: number): string {
   if (!Number.isFinite(epochSeconds) || epochSeconds <= 0) return "-";
-  return new Date(epochSeconds * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  // 注意：`toISOString()` 给的是 `2023-11-14T22:13:20.000Z`，切到 16 位后还剩一个冒号，
+  // 所以要**两个分隔符都换掉**（`T` → `-`、`:` → `-`），否则会得到 `…-22:13`。
+  // 第一版就漏了这个，是测试抓出来的。
+  return new Date(epochSeconds * 1000).toISOString().slice(0, 16).replace("T", "-").replace(":", "-");
 }
 
 /** error 摘要：压平换行、截断，避免把整段堆栈塞进告警。 */
