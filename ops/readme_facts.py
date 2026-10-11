@@ -87,12 +87,12 @@ def retention_facts() -> dict:
 
 
 def gate_trust_facts() -> dict:
-    """信任清单计数：ASN 读 docs/lists/whitelist.txt（唯一事实源），CIDR 读生成产物。
+    """信任清单计数：ASN 读 docs/lists/whitelist.txt（唯一事实源），其余读生成产物。
 
     ASN 不再 emit 进 functions/_data/gateTrust.ts（运行时只消费 verified_bot /
     ip_cidrs，ASN 是 WAF 的输入，见 tasks/22 W4-4），所以计数必须从 whitelist.txt
-    现读；继续对生成物做正则只会读到 0。ip_cidrs 仍以生成物为准，顺便能发现
-    “白名单改了但没重新 build”的漂移。
+    现读；继续对生成物做正则只会读到 0。ip_cidrs 与 crawler_uas 仍以生成物为准，
+    顺便能发现“名单改了但没重新 build”的漂移。
     """
     # 2026-10-11 从 data/ 移到 docs/lists/（与封禁名单同目录）；
     # 该文件是生成物，由 ops/fetch_china_asn.py 每次部署刷新。
@@ -103,10 +103,14 @@ def gate_trust_facts() -> dict:
     }
     text = read(os.path.join(BASE_DIR, "functions", "_data", "gateTrust.ts"))
     cidrs = re.search(r'"ip_cidrs":\s*\[(.*?)\]\s*\}', text, re.S)
+    # 爬虫 UA 名单（2026-10-12）：源码是 docs/lists/crawlers.txt，这里数生成物
+    # 里真正下发到 isolate 的那一份。
+    crawlers = re.search(r"GATE_TRUST_CRAWLER_UAS[^=]*=\s*\[(.*?)\];", text, re.S)
     return {
         "verified_bot": '"verified_bot": true' in text,
         "asns": len(asns),
         "ip_cidrs": len(re.findall(r"\[", cidrs.group(1))) if cidrs else 0,
+        "crawler_uas": len(re.findall(r'"[^"]*"', crawlers.group(1))) if crawlers else 0,
     }
 
 
@@ -231,6 +235,7 @@ def print_repo_facts(facts: dict) -> None:
     print(f"  {'low_risk_asns':<22} {trust['asns']}")
     print(f"  {'ip_cidrs':<22} {trust['ip_cidrs']}")
     print(f"  {'verified_bot':<22} {trust['verified_bot']}")
+    print(f"  {'crawler_uas':<22} {trust['crawler_uas']}")
     cache = facts["cache"]
     print("cache / timeouts")
     s_maxage = "-" if cache["s_maxage"] is None else cache["s_maxage"]
@@ -350,6 +355,8 @@ def check(facts: dict) -> list[str]:
         problems.append(
             f"gate trust counts ({trust['asns']} ASNs / {trust['ip_cidrs']} IPs) not stated"
         )
+    if str(trust["crawler_uas"]) not in text:
+        problems.append(f"gate trust crawler UA count ({trust['crawler_uas']}) not stated")
     return problems
 
 

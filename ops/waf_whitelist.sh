@@ -198,6 +198,21 @@ if MODE == "show":
 to_add = [a for a in want if a not in have]
 to_remove = [a for a in have if a not in want]
 
+# 大规模删除保护（2026-10-11 加）：这个脚本会删 zone 上它管的 ASN 规则，而
+# 「白名单里一个 ASN 都没有」也可能是**上游解析抖动**造成的假象。一次删掉几十条
+# 属于安全面的重大变更，值得让人再确认一次。阈值 50 针对当下的量级
+# （三家运营商约 319 条）；要批量清理就显式设 LIMOOO_WAF_ALLOW_BULK_REMOVE=1。
+BULK_REMOVE_LIMIT = 50
+if len(to_remove) > BULK_REMOVE_LIMIT and os.environ.get("LIMOOO_WAF_ALLOW_BULK_REMOVE") != "1":
+    print(
+        f"REFUSING to remove {len(to_remove)} ASN rules in one run "
+        f"(limit {BULK_REMOVE_LIMIT}).\n"
+        f"  The whitelist now yields {len(want)} ASN. If that is intentional, re-run with\n"
+        f"  LIMOOO_WAF_ALLOW_BULK_REMOVE=1 bash ops/waf_whitelist.sh --apply",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+
 print(f"waf_whitelist: apply (zone {ZONE[:8]}…)")
 print(f"  will add    : {len(to_add)}")
 print(f"  will remove : {len(to_remove)}")
