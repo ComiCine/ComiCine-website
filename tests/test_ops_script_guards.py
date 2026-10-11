@@ -214,6 +214,51 @@ def test_deploy_pages_allows_a_dirty_tree_with_the_escape_hatch(tmp_path):
 # ── W3-4 / W3-5：--remote 必需，--dry-run 完全离线 ────────────────────
 
 
+def test_deploy_all_includes_every_worker(tmp_path):
+    """完整部署必须带上 Worker。
+
+    2026-10-11 的真实事故：`deploy.sh` 只在显式 `--worker=<name>` 时才调用
+    `workers_deploy.sh`，于是 `ops/*/src/**` 里的改动会被 commit + push，
+    而线上继续跑旧代码 —— 同一个会话里静默发生了两次（webhook 通道报错、
+    告警文案该是英文却仍是中文）。Pages 与 docs **不是** Worker 更新的代理。
+    """
+    repo = make_repo(tmp_path)
+    result = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "bash ops/workers_deploy.sh" in result.stdout, result.stdout
+    # 其余三步也必须在，别为了加 Worker 把 Pages/docs 挤掉。
+    for step in ("ops/ci_check.sh", "ops/pages_deploy.sh", "ops/docs_deploy.sh"):
+        assert step in result.stdout, f"{step} missing from a full deploy"
+
+
+def test_deploy_workers_only_does_not_touch_pages_or_docs(tmp_path):
+    """`--workers` 是「只发 Worker」，不能顺带把 Pages/docs 也发一遍。
+
+    这条守的是一个真实 bug：默认分支（无参数 = --all）最初没把 `DO_WORKERS` 算进去，
+    于是单独 `--workers` 落进那个分支、静默变成完整部署。
+    """
+    repo = make_repo(tmp_path)
+    result = run([BASH, "ops/deploy.sh", "--workers", "--dry-run"], cwd=repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "bash ops/workers_deploy.sh" in result.stdout, result.stdout
+    assert "ops/pages_deploy.sh" not in result.stdout, result.stdout
+    assert "ops/docs_deploy.sh" not in result.stdout, result.stdout
+
+
+def test_deploy_rejects_workers_together_with_a_single_worker(tmp_path):
+    """`--workers` 与 `--worker=<name>` 同时给是自相矛盾，必须 FATAL。"""
+    repo = make_repo(tmp_path)
+    result = run(
+        [BASH, "ops/deploy.sh", "--workers", "--worker=status-worker", "--dry-run"],
+        cwd=repo,
+    )
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "mutually exclusive" in result.stderr
+
+
 def test_migrate_apply_requires_remote():
     result = run(
         [BASH, "ops/migrate_d1.sh"],
