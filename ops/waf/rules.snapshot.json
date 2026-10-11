@@ -1,15 +1,15 @@
 {
-  "captured_at": "2026-10-10T21:50:44.909791+00:00",
+  "captured_at": "2026-10-11T21:08:27.896663+00:00",
   "zone": "limooo.cn",
   "phase": "http_request_firewall_custom",
   "ruleset": {
     "description": "",
     "id": "3d577744da94409c8a19b48b717766f6",
     "kind": "zone",
-    "last_updated": "2026-09-16T17:22:15.830086Z",
+    "last_updated": "2026-10-11T21:07:37.168597Z",
     "name": "default",
     "phase": "http_request_firewall_custom",
     "source": "firewall_custom",
-    "version": "18"
+    "version": "20"
   }
 }
