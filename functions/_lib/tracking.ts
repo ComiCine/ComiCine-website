@@ -33,6 +33,7 @@ import type { Env } from "./env";
 import { ipHash } from "./logging";
 import { encryptVisitorIp } from "./visitor-ip";
 import { GATE_TRUST } from "../_data/gateTrust";
+import { isDeclaredCrawler } from "./bots";
 import { IMAGES_HOSTNAME, REDIRECT_HOSTNAME } from "./config";
 import { clientCountryForLogs, clientIpForLogs, requestUrl } from "./routing";
 
@@ -129,10 +130,16 @@ export function uaFamily(userAgent: string): string {
   return "other";
 }
 
-/** 访客统计只记录真实用户页面 GET；爬虫/静态/API/门禁/图片/跳转均不记。 */
+/**
+ * 访客统计只记录真实用户页面 GET；爬虫/静态/API/门禁/图片/跳转均不记。
+ *
+ * 爬虫两种都要排掉：verified bot（Cloudflare 判定）与 UA 名单里自报的爬虫
+ * （isDeclaredCrawler）。它们放行后拿到的是真站 200，若不排掉就会直接污染
+ * 访客表——「访客」的定义是真实用户。
+ */
 export function shouldTrackVisit(request: Request, url: URL): boolean {
   if (request.method !== "GET") return false;
-  if (isTrustedCrawler(request)) return false;
+  if (isTrustedCrawler(request) || isDeclaredCrawler(request)) return false;
   if (url.hostname === IMAGES_HOSTNAME || url.hostname === REDIRECT_HOSTNAME) return false;
   const p = url.pathname;
   if (

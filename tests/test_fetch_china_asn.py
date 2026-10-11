@@ -159,8 +159,12 @@ def test_missing_manual_file_does_not_break_a_fetch(monkeypatch, tmp_path):
     assert fetcher.main() == 0
 
     whitelist = (tmp_path / "whitelist.txt").read_text(encoding="utf-8")
-    assert "ASN/4134" in whitelist and "ASN/4809" in whitelist
-    assert (tmp_path / "china-asn.txt").is_file()
+    # 白名单里**不该有 ASN**（默认不按 ASN 放行），但两份产物都必须写出来：
+    # 缺 own-ips.txt 不该让整次抓取失败。
+    assert not any(line.startswith("ASN/") for line in whitelist.splitlines())
+    assert (tmp_path / "china-asn.txt").is_file(), "证据文件必须生成"
+    # 证据文件里仍应留着抓到的 ASN。
+    assert "ASN/4134" in (tmp_path / "china-asn.txt").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("group_name", ["chinanet", "cmcc", "unicom", "cernet", "cstnet", "other"])
@@ -173,20 +177,24 @@ def test_every_configured_group_has_a_chinese_label(group_name):
 
 # ── 白名单只取三家运营商（2026-10-11 用户定）────────────────────────────
 
-def test_whitelist_groups_are_only_the_three_carriers():
-    """白名单**只**并三家运营商；教育网/科技网/其它一律排除。
+def test_whitelist_trusts_no_asn_by_default():
+    """默认**不按 ASN 放行任何运营商**（2026-10-11 用户决定）。
 
-    这条钉的是安全语义：白名单是「信任来源」，把 cernet（2101 个高校 ASN）并进去
-    等于放行全部校园网。所以清单本身也要被测 —— 不只是行为。
+    历史：曾一度并三家运营商（319 个）；后来发现上游没有「家宽 / 蜂窝」维度，
+    三家名单里混着 IDC 与企业专线，按 ASN 全量放行的面太大，于是收紧成
+    「只放行 own-ips.txt 里的固定 IP」。
+
+    这条同时钉住：想恢复放行**只需改这一个常量**（分组名仍在 GROUPS 里、
+    数据照常抓取存证），以及**分组名不许拼错**（否则恢复时会静默什么都不放行）。
     """
-    assert fetcher.WHITELIST_GROUPS == ("chinanet", "cmcc", "unicom")
-    for excluded in ("cernet", "cstnet", "other"):
-        assert excluded not in fetcher.WHITELIST_GROUPS, f"{excluded} 不该进白名单"
-        assert excluded in dict(fetcher.GROUPS), f"{excluded} 仍应被抓取存证"
+    assert fetcher.WHITELIST_GROUPS == (), "默认不该按 ASN 放行；要开就显式改这个常量"
+    # 想恢复时用到的分组名必须都真实存在于 GROUPS，否则静默失效。
+    for name in ("chinanet", "cmcc", "unicom", "cernet", "cstnet", "other"):
+        assert name in dict(fetcher.GROUPS), f"{name} 应在 GROUPS 里（恢复放行时要用）"
 
 
-def test_whitelist_excludes_non_carrier_groups(monkeypatch, tmp_path):
-    """端到端：给每个分组喂不同 ASN，只有三家运营商那部分进白名单。"""
+def test_whitelist_excludes_every_asn_group(monkeypatch, tmp_path):
+    """端到端：所有分组的 ASN 都**不**进白名单，但都留在 china-asn.txt 存证。"""
     monkeypatch.setattr(fetcher, "LISTS_DIR", tmp_path)
     monkeypatch.setattr(fetcher, "ASN_CACHE", tmp_path / "china-asn.txt")
     monkeypatch.setattr(fetcher, "WHITELIST", tmp_path / "whitelist.txt")
@@ -206,10 +214,11 @@ def test_whitelist_excludes_non_carrier_groups(monkeypatch, tmp_path):
     assert fetcher.main() == 0
 
     whitelist = (tmp_path / "whitelist.txt").read_text(encoding="utf-8")
-    for kept in (4134, 9808, 4837):
-        assert f"ASN/{kept}" in whitelist, f"三家运营商 ASN/{kept} 应在白名单里"
-    for dropped in (4538, 7497, 4611):
+    for dropped in (4134, 9808, 4837, 4538, 7497, 4611):
         assert f"ASN/{dropped}" not in whitelist, f"ASN/{dropped} 不该进白名单"
+    assert not any(line.startswith("ASN/") for line in whitelist.splitlines()), (
+        "默认白名单里不该有任何 ASN 行"
+    )
 
     # 全量证据文件仍然包含被排除的那些（存证用途）。
     evidence = (tmp_path / "china-asn.txt").read_text(encoding="utf-8")

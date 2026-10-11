@@ -319,14 +319,25 @@ Trusted sources are maintained in [`docs/lists/own-ips.txt`](docs/lists/own-ips.
 
 | Entry | Effect |
 | --- | --- |
-| `ASN/<number>` | Low-risk source (China Telecom / China Mobile / China Unicom, incl. Tietong and backbone AS9929). Intended to be served a Cloudflare Non-Interactive Challenge (`js_challenge`) instead of the Turnstile gate; that WAF rule is not deployed right now (see below). |
+| `ASN/<number>` | Low-risk source (China Telecom / China Mobile / China Unicom, incl. Tietong and backbone AS9929). Intended to be served a Cloudflare Non-Interactive Challenge (`js_challenge`) instead of the Turnstile gate; that WAF rule is not deployed right now, and `WHITELIST_GROUPS` in `ops/fetch_china_asn.py` is **empty** (since 2026-10-11) so no ASN is trusted at runtime — the groups are still fetched into `docs/lists/china-asn.txt` as evidence only. |
 | `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
 
-The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) (updated daily). The generated edge copy currently carries **319 low-risk ASNs** and **2 fully allowed IPs**. No WAF custom rule consumes these lists right now: the zone's `http_request_firewall_custom` phase is empty, and `ops/waf/rules.snapshot.json` mirrors the live phase as of its `captured_at` timestamp (0 rules at the last refresh) — rules deleted in the dashboard survive only in git history.
+The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) (updated daily). The generated edge copy currently carries **0 low-risk ASNs** and **2 fully allowed IPs**. No WAF custom rule consumes these lists right now: the zone's `http_request_firewall_custom` phase is empty, and `ops/waf/rules.snapshot.json` mirrors the live phase as of its `captured_at` timestamp (0 rules at the last refresh) — rules deleted in the dashboard survive only in git history.
+
+Crawlers are a **separate, weaker tier** (challenge-only: no full trust):
+[`docs/lists/crawlers.txt`](docs/lists/crawlers.txt) holds **95 User-Agent
+tokens**, matched case-insensitively against the first 512 characters of the
+`User-Agent` header. They are compiled into `functions/_data/gateTrust.ts` as
+`GATE_TRUST_CRAWLER_UAS` and consumed by `functions/_lib/bots.ts`; the kill switch
+is `gate_trust.ua_allowlist_enabled` in `config-contract.json`. Because a
+User-Agent is self-declared, this tier never skips the D1 blocklist, never
+receives a `__gate` cookie and never counts as a visitor — see
+[Gate behavior](#gate-behavior).
 
 Per-runtime trust: edge code only treats `IP-CIDR` entries as trusted
-(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing `docs/lists/own-ips.txt`,
-regenerate the edge copy with a build (`bash ops/build.sh`, which runs
+(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing
+`docs/lists/own-ips.txt` or `docs/lists/crawlers.txt`, regenerate the edge copy
+with a build (`bash ops/build.sh`, which runs
 `ops/check_gate_trust.py --emit`).
 
 ## Source of truth
@@ -382,7 +393,36 @@ Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real valu
 
 ### Gate behavior
 
-Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Low-risk China Telecom / Mobile / Unicom ASNs are listed for the WAF `js_challenge` tier (no such rule is deployed at the moment), while edge code trusts only the generated whitelist (`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
+Every request is checked for the signed `__gate` cookie. There are three ways past
+the gate, and only the first two are identity-based:
+
+| Source | Bypass |
+| --- | --- |
+| IP allow-list (`IP-CIDR` entries of `docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) | Full bypass: skips the challenge **and** the D1 blocklist |
+| Cloudflare `botManagement.verifiedBot` | Full bypass (verified search-engine signature) |
+| Declared crawler User-Agent (`docs/lists/crawlers.txt` → `GATE_TRUST_CRAWLER_UAS`) | Challenge only: still subject to the blocklist, never issued a `__gate` cookie, never counted as a visitor |
+
+So crawlers and AI agents (GPTBot, ClaudeBot, PerplexityBot, Bytespider, CCBot,
+DeepSeekBot, …) read the real pages, while a browser from a non-allow-listed
+source still gets the Turnstile gate. `cf_clearance` is never accepted, and the
+User-Agent list is **self-declared** — it separates honest crawlers from
+browsers, it is not authentication (`functions/_lib/bots.ts` spells this out).
+
+The gate is one of two layers. The edge in front of it has its own AI-bot policy:
+with the Cloudflare default (`ai_bots_protection: only_on_ad_pages`) the managed
+ruleset answers GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider with `403 Your request
+was blocked.` **before** any Worker code runs, which no amount of `functions/`
+logic can undo. `ops/ai_bots.py --apply` sets that policy to "do not block" for
+every AI behaviour (Search / Agent / Training), disables AI Labyrinth
+(`crawler_protection`) and keeps Cloudflare from prepending a managed
+`robots.txt`; `--show` / `--snapshot` / `--dry-run` read and record it. The
+endpoint needs the token to carry **Bot Management: Read/Edit**.
+
+Discovery files are generated by `src/build.py` and excluded from Functions in
+`_routes.json`, so crawlers get them without ever meeting the gate:
+`/robots.txt` (allow everything except endpoint/admin paths, AI agents listed
+explicitly, including the robots-only `Google-Extended` / `Applebot-Extended`
+tokens) and `/llms.txt` (curated index of the main site and `docs.limooo.cn`).
 
 Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.limooo.cn`), after which the page reloads the original target. `auth.limooo.cn` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 

@@ -26,11 +26,13 @@ import {
   allCookieValues,
   gateCookieHeaders,
   handleGateDiag,
+  handleGateEntry,
   handleVerify,
   isBlocked,
   mintGateCookie,
   readGateCookie,
   renderGatePage,
+  resolveGateTrust,
   verifyTurnstile,
 } from "./gate";
 import type { RequestContext } from "./routing";
@@ -711,5 +713,89 @@ describe("renderGatePage template cache", () => {
     expect((await render(env)).status).toBe(503);
     expect((await render(env)).status).toBe(503);
     expect(calls).toBe(2);
+  });
+});
+
+/**
+ * 爬虫 UA 名单（2026-10-12）：命中即免人机验证，但**拿不到** __gate cookie。
+ *
+ * 后者是本节的要害：UA 自报，如果 /gate 顺手发一枚 1 小时的签名 cookie，
+ * 「自称 GPTBot」就等于换到一张可复用的通行证，门禁形同虚设。
+ */
+describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
+  const CRAWLER_UA =
+    "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.4; +https://openai.com/gptbot";
+  const BROWSER_UA =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+
+  function context(request: Request): RequestContext {
+    return {
+      request,
+      env: { GATE_HMAC_KEY: "a".repeat(64) } as never,
+      next: async () => new Response("next"),
+    };
+  }
+
+  it("flags a declared crawler without marking the source trusted", async () => {
+    const trust = await resolveGateTrust(
+      context(new Request("https://limooo.cn/", { headers: { "User-Agent": CRAWLER_UA } })),
+    );
+
+    expect(trust.declaredCrawler).toBe(true);
+    expect(trust.crawlerToken).toBe("gptbot");
+    // trusted 保持 false：中间件据此继续做 blocked_ips 封禁检查（见 _middleware.ts）。
+    expect(trust.trusted).toBe(false);
+    expect(trust.cookieValid).toBe(false);
+  });
+
+  it("leaves an ordinary browser behind the gate", async () => {
+    const trust = await resolveGateTrust(
+      context(new Request("https://limooo.cn/", { headers: { "User-Agent": BROWSER_UA } })),
+    );
+
+    expect(trust.declaredCrawler).toBe(false);
+    expect(trust.crawlerToken).toBe("");
+  });
+
+  it("skips the UA list for a whitelisted IP (trusted wins, no crawler token)", async () => {
+    const trust = await resolveGateTrust(
+      context(
+        new Request("https://limooo.cn/", {
+          headers: { "CF-Connecting-IP": "97.64.18.11", "User-Agent": CRAWLER_UA },
+        }),
+      ),
+    );
+
+    expect(trust.trusted).toBe(true);
+    expect(trust.declaredCrawler).toBe(false);
+    expect(trust.crawlerToken).toBe("");
+  });
+
+  it("302s a crawler back to its target and mints no cookie", async () => {
+    const resp = await handleGateEntry(
+      context(
+        new Request("https://limooo.cn/gate?host=services.limooo.cn&next=%2F", {
+          headers: { "User-Agent": CRAWLER_UA },
+        }),
+      ),
+    );
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe("https://services.limooo.cn/");
+    // 只有语言 cookie，没有 __gate（见本节标题：自报 UA 换不到签名会话）。
+    expect(resp.headers.get("Set-Cookie") ?? "").not.toContain("__gate=");
+  });
+
+  it("still mints the cookie for a whitelisted IP (unchanged behaviour)", async () => {
+    const resp = await handleGateEntry(
+      context(
+        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2F", {
+          headers: { "CF-Connecting-IP": "97.64.18.11" },
+        }),
+      ),
+    );
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Set-Cookie")).toContain("__gate=");
   });
 });

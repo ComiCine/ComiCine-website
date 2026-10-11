@@ -8,37 +8,50 @@
 
 | 文件 | 谁生成 | 要不要手改 |
 | --- | --- | --- |
-| `china-asn.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**含上游全部分组（5231 个，含教育网/科技网/其它）** | ❌ **不要手改**，下次部署会被覆盖 |
-| `whitelist.txt` | **自动**：`china-asn.txt` 里**只取三家运营商**的那部分 + `own-ips.txt` 合并而成 | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
+| `china-asn.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**含上游全部分组（含教育网/科技网/其它）** | ❌ **不要手改**，下次部署会被覆盖 |
+| `whitelist.txt` | **自动**：`china-asn.txt` 里被 `WHITELIST_GROUPS` 选中的那部分 + `own-ips.txt` 合并而成（**当前 `WHITELIST_GROUPS` 为空**，所以只有手工条目） | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
 | `own-ips.txt` | 手工 | ✅ **改这个**：你自己的固定 IP、需要完全放行的来源 |
+| `crawlers.txt` | 手工 | ✅ **改这个**：允许免人机验证的爬虫 / AI 工具 UA 片段（见下节） |
 | `blocklist.txt` | 手工 + 自动拉回的受管段 | ✅ **改手写区**：要封的 IP / 网段 |
+
+## 爬虫 / AI 工具 UA 名单（`crawlers.txt`，2026-10-12 加）
+
+站点对爬虫与 AI 工具是**开放**的：命中这份名单的请求不再被 Turnstile 门禁页拦下，
+直接拿到真站内容。名单同时是 `build.py` 生成 `/robots.txt` 的依据之一
+（那边列的是 robots token，与这里的 UA 片段不是同一套词汇）。
+
+三层信任的强弱必须分清：
+
+| 来源 | 免人机验证 | 免 D1 封禁 | 发 `__gate` cookie | 计访客 |
+| --- | --- | --- | --- | --- |
+| `IP-CIDR`（`whitelist.txt`） | ✅ | ✅ | ✅ | ✅ |
+| Cloudflare verified bot | ✅ | ✅ | ✅ | ❌ |
+| `crawlers.txt`（UA 自报） | ✅ | ❌ | ❌ | ❌ |
+
+**UA 是访客自报的**，所以第三行刻意是最弱的一档：它只区分「诚实的爬虫」与
+「浏览器/未知来源」，不是身份认证；被封 IP 换个 UA 也解不了封。名单只收公认的、
+有公开文档与联系方式的爬虫，**不要把 curl / python-requests / Go-http-client /
+HeadlessChrome 这类通用客户端写进去**（它们无法与服务端脚本区分）。
+匹配是**大小写不敏感的子串**，只取 `User-Agent` 前 512 字符；
+片段至少 3 个字符、不允许重复或控制字符（`ops/check_gate_trust.py` 会直接拒绝）。
 
 ## 白名单里放的是谁（重要）
 
-**只有中国电信 / 中国联通 / 中国移动三家**（`WHITELIST_GROUPS`，2026-10-11 定），
-当前 **319** 个 ASN。上游的 `cernet`（教育网 2101 个）、`cstnet`（科技网 1 个）、
-`other`（其它 2810 个）**不并进白名单** —— 白名单是「信任来源」，
-把 2101 个高校 ASN 放进去等于放行全部校园网。那三组仍会写进 `china-asn.txt` 存证。
+**现在一个 ASN 都不放行**（`WHITELIST_GROUPS` 为空，2026-10-11 用户决定），
+白名单里只剩 `own-ips.txt` 的手工条目。原因是上游**没有「家宽 / 蜂窝」这个维度**：
+它只按运营商**公司**分类，三家运营商的名单里**家宽、蜂窝、IDC、企业专线是混在一起的**
+（上游 [`config.py`](https://github.com/xingpingcn/china-mainland-asn/blob/main/config.py)
+里只有公司名，没有 residential / mobile / datacenter 的标记）。按 ASN 全量放行等于
+把 IDC 与企业专线一起放进来 —— 住宅代理、机房爬虫可能就在其中。
 
-⚠️ **上游没有「家宽 / 蜂窝」这个维度。** 它只按运营商**公司**分类，所以这三家的名单里
-**家宽、蜂窝、IDC、企业专线是混在一起的** —— 上游的
-[`config.py`](https://github.com/xingpingcn/china-mainland-asn/blob/main/config.py)
-里只有公司名，没有 residential / mobile / datacenter 的标记。
-
-所以「只给家宽和蜂窝设低危」这件事**无法从上游自动得到**。要精确到那个粒度，只能：
-
-1. 人工判定哪些 ASN 属于家宽/蜂窝（查 whois 注册信息、或凭已知的省级家宽 ASN 经验），
-   把关掉的那些**从白名单里排除**；或
-2. 接受「三家运营商全集」这个近似 —— 代价是**会连带放行 IDC 与企业专线**
-   （住宅代理、机房爬虫可能就在其中）。
-
-现在的实现是方案 2。要收紧就往 `own-ips.txt` 的反面走：把它改成一份**显式的家宽/蜂窝
-ASN 清单**（`ASN/4134 # 电信家宽`），并让 `fetch_china_asn.py` 只用它、不再并运营商全量
-—— 那需要改一行 `WHITELIST_GROUPS`（改成空）与合并逻辑。
+要恢复按运营商放行：把 `ops/fetch_china_asn.py` 的 `WHITELIST_GROUPS` 填回
+`("chinanet", "cmcc", "unicom")` 即可。要更精细就人工判定哪些 ASN 属于家宽/蜂窝
+（查 whois 注册信息、或凭已知的省级家宽 ASN 经验），写成一份显式清单交给
+`own-ips.txt`。上游数据仍会照常拉取、写进 `china-asn.txt` 存证，只是不参与放行。
 
 ## 格式
 
-三个名单文件用的是同一套语法（`#` 之后是注释，会被剥离；空行忽略）：
+白名单与爬虫名单用同一套语法（`#` 之后是注释，会被剥离；空行忽略）：
 
 ```
 # 低风险 ASN（只对 china-asn.txt / own-ips.txt 有意义）
@@ -48,6 +61,10 @@ ASN/4809
 # 完全放行（单 IP 写 /32）
 IP-CIDR/97.64.18.11/32
 IP-CIDR/203.0.113.0/24
+
+# 爬虫 UA 片段（crawlers.txt）
+GPTBot
+ClaudeBot
 ```
 
 `blocklist.txt` 用**裸** IP / CIDR（它由 `src/auto_block.py` 解析，语法不同）：
@@ -62,10 +79,12 @@ IP-CIDR/203.0.113.0/24
 | 你要的效果 | 命令 |
 | --- | --- |
 | 刷新 ASN 名单 + 重新合并白名单（**部署时会自动做**） | `bash ops/fetch_china_asn.py` |
-| 把白名单生效到边缘（生成 `functions/_data/gateTrust.ts`） | `bash ops/ci_check.sh`（内含 `check_gate_trust.py --emit`） |
+| 把白名单与爬虫名单生效到边缘（生成 `functions/_data/gateTrust.ts`） | `bash ops/ci_check.sh`（内含 `check_gate_trust.py --emit`） |
+| 关掉整份爬虫 UA 名单（不动文件） | 把 `config-contract.json` 的 `gate_trust.ua_allowlist_enabled` 改成 `false` 后重新 build |
 | **黑名单双向对账**（D1 有而文件没有的拉回来，文件有而 D1 没有的推上去） | `python3 src/auto_block.py reconcile --dry-run` 先看差异，去掉 `--dry-run` 才写 |
 | 只推不拉（旧行为） | `python3 src/auto_block.py d1 --dry-run` |
 | 推给 Cloudflare IP List（维护命令，一般不用跑） | `python3 src/auto_block.py cf` |
+| 查看/放宽边缘的 AI bot 策略（**不是**本目录的名单，是 Cloudflare 那一层） | `python3 ops/ai_bots.py --show` / `--apply` |
 
 ## 黑名单对账（`reconcile`）怎么工作
 
@@ -87,11 +106,16 @@ python3 src/auto_block.py reconcile --dry-run
 「管理员有意解封」与「还没同步」。删除由 D1 侧的软删除（`active=0`）记录，
 **文件是快照，不是删除指令**。
 
-## 两个重要前提
+## 三个重要前提
 
-1. **ASN 段当前对运行时无效**：`functions/_data/gateTrust.ts` 只带 `verified_bot` 与
-   `ip_cidrs`；ASN 的消费方是 **WAF 的 `js_challenge` 规则，而那条规则目前未启用**
-   （`ops/waf/rules.snapshot.json` 记录 `http_request_firewall_custom` 为空）。
-   所以现在**改 ASN 不会立刻放宽或收紧线上门禁** —— 生效要等 WAF 规则启用。
-2. **`blocklist.txt` 不是权威**：权威是 D1 的 `blocked_ips`。用上面的 `reconcile`
+1. **ASN 段当前对运行时无效**：`functions/_data/gateTrust.ts` 只带 `verified_bot`、
+   `ua_allowlist_enabled` 与 `ip_cidrs`；ASN 的消费方是 **WAF 的 `js_challenge` 规则，
+   而那条规则目前未启用**（`ops/waf/rules.snapshot.json` 记录
+   `http_request_firewall_custom` 为空），并且 `WHITELIST_GROUPS` 也是空的。
+   所以现在**改 ASN 不会立刻放宽或收紧线上门禁** —— 要同时改 `WHITELIST_GROUPS`
+   并启用 WAF 规则才有效果。
+2. **`crawlers.txt` 是自己人写的「允许名单」，不是防火墙**：UA 可以随便伪造，
+   它换来的是「不被 Turnstile 拦」，代价见上一节的三层表。真要不让某个来源进门，
+   把它写进 `blocked_ips`（D1 权威）或 `blocklist.txt`。
+3. **`blocklist.txt` 不是权威**：权威是 D1 的 `blocked_ips`。用上面的 `reconcile`
    双向对齐（或 `d1` 单向推）才算数。
