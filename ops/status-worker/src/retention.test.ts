@@ -18,7 +18,7 @@
  */
 
 /**
- * D1 保留任务测试（docs/22 W5-8）。
+ * D1 保留任务测试（tasks/22 W5-8）。
  *
  * `runRetention` 每天对**生产** D1 发 DELETE（scheduled handler 调用），却一行
  * 测试都没有：表名与时间戳列是从两张字符串映射里运行期拼出来的，写错一个名字
@@ -99,7 +99,7 @@ describe("retention buckets", () => {
   });
 
   it("prunes auth_sessions only well after the session TTL", async () => {
-    // 每次登录写一行 auth_sessions，没有清理就无限增长（docs/22 W9-18）。
+    // 每次登录写一行 auth_sessions，没有清理就无限增长（tasks/22 W9-18）。
     // 但窗口必须**长于**会话 TTL，否则会删掉仍在用的会话（登录态被踢）。
     const sessionTtlSeconds = 2_592_000; // config-contract.json: session_ttl_seconds
     expect(BUCKETS.auth_sessions).toBeGreaterThan(sessionTtlSeconds);

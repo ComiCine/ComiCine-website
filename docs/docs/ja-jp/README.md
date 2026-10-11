@@ -315,7 +315,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `ASN/<number>` | 低リスクのソース（中国電信／中国移動／中国聯通、鉄通とバックボーン AS9929 を含む）。Turnstile ゲートの代わりに Cloudflare の非対話型チャレンジ（`js_challenge`）を返す想定ですが、その WAF ルールは現在デプロイされていません（下記参照）。 |
 | `IP-CIDR/<ip>/<mask>` | 完全に許可されたソース（例：`IP-CIDR/97.64.18.11/32`）。ブロックリストとチャレンジゲートの両方をスキップします。 |
 
-ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（毎日更新）から取得します。生成されたエッジ側のコピーは現在 **320 件の低リスク ASN** と **2 件の完全許可 IP** を含みます。現時点でこれを参照する WAF カスタムルールはありません（ゾーンの `http_request_firewall_custom` フェーズは空で、`ops/waf/rules.snapshot.json` は `captured_at` の**更新時点**のライブ状態をそのまま写します。直近の更新では 0 ルールです）。ダッシュボードで削除されたルールは git の履歴にのみ残ります。
+ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（毎日更新）から取得します。生成されたエッジ側のコピーは現在 **319 件の低リスク ASN** と **2 件の完全許可 IP** を含みます。現時点でこれを参照する WAF カスタムルールはありません（ゾーンの `http_request_firewall_custom` フェーズは空で、`ops/waf/rules.snapshot.json` は `captured_at` の**更新時点**のライブ状態をそのまま写します。直近の更新では 0 ルールです）。ダッシュボードで削除されたルールは git の履歴にのみ残ります。
 
 ランタイムごとの信頼範囲：エッジのコードが信頼するのは `IP-CIDR` のエントリだけです
 （`isGateTrustedIp` → `functions/_data/gateTrust.ts`）。`data/whitelist.txt` を編集したら、

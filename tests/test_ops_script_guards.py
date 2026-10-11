@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/deploy.sh 与 ops/migrate_d1.sh 的安全闸门（docs/22 · W3）。
+"""ops/deploy.sh 与 ops/migrate_d1.sh 的安全闸门（tasks/22 · W3）。
 
 这些用例全部离线运行：
   * deploy.sh 只走 --dry-run，或在临时 git 仓库里换成 stub 的 pages/docs 步骤；
@@ -67,6 +67,13 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
         ("docs_deploy.sh", '#!/bin/bash\necho "STUB docs_deploy ran"\n'),
+        # 白名单刷新（2026-10-11 加）：deploy.sh 在闸门之前跑它。
+        # 桩化是必须的 —— 真脚本要联网拉 china-mainland-asn，测试不该依赖外网。
+        ("fetch_china_asn.py", '#!/usr/bin/env python3\nprint("STUB fetch_china_asn ran (args: $*)")\n'),
+        # 封禁名单双向对账（2026-10-11 加）：要读 D1，测试里桩掉。
+        ("reconcile_blocklist.sh", '#!/bin/bash\necho "STUB reconcile_blocklist ran (args: $*)"\n'),
+        # 白名单推 WAF（2026-10-11 加）：会改 zone 的 IP Access Rules，必须桩掉。
+        ("waf_whitelist.sh", '#!/bin/bash\necho "STUB waf_whitelist ran (args: $*)"\n'),
     ):
         path = repo / "ops" / name
         path.write_text(body)
@@ -186,6 +193,28 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.index("Check: done") < result.stdout.index("Pages: done")
+    # 白名单刷新必须**先于** CI（2026-10-11）：它会产生改动，放在 CI 之后就会被
+    # 脏树闸门拦下，也漏过 CI 对该名单的校验。
+    assert result.stdout.index("Lists: done") < result.stdout.index("Check: done")
+
+
+def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
+    """两个逃生阀：跳过抓取 / 抓不到就失败。
+
+    断言用**安静模式真正可见**的东西：`run_step` 把子进程输出吞进日志、只在失败时
+    吐出来，所以桩里的 echo 看不见 —— 判据只能是步骤行的有无。
+    """
+    repo = make_repo(tmp_path)
+
+    skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_SKIP_ASN_FETCH": "1"})
+    assert skipped.returncode == 0, skipped.stdout + skipped.stderr
+    assert "skipped ASN refresh" in skipped.stdout
+    assert "Lists: done" not in skipped.stdout, "跳过时不该还报 Lists 步骤完成"
+
+    # strict 走 run_step（参数传错会 FATAL），所以能证明那一步真的执行了。
+    strict = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_STRICT_ASN": "1"})
+    assert strict.returncode == 0, strict.stdout + strict.stderr
+    assert "Lists: done" in strict.stdout
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
@@ -375,3 +404,25 @@ def test_apply_failure_does_not_touch_the_local_cache(tmp_path):
 def test_scripts_are_syntactically_valid(name):
     result = run([BASH, "-n", name])
     assert result.returncode == 0, result.stderr
+
+
+def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
+    """白名单推送是「完整部署」的一部分，且**默认失败即停**（与名单刷新不同）。
+
+    它改的是线上安全面：静默留下「文件说 319 条、zone 上不是」比部署失败更危险。
+    跳过要显式 LIMOOO_SKIP_WAF_WHITELIST=1。
+    """
+    repo = make_repo(tmp_path)
+
+    ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    assert "WAF: done" in ran.stdout, ran.stdout
+    # 顺序：名单先刷新，再推 WAF（推的是刷新后的名单）。
+    assert ran.stdout.index("Lists: done") < ran.stdout.index("WAF: done")
+    assert ran.stdout.index("Bans: done") < ran.stdout.index("WAF: done")
+
+    skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo,
+                  env={"LIMOOO_SKIP_WAF_WHITELIST": "1"})
+    assert skipped.returncode == 0, skipped.stdout + skipped.stderr
+    assert "skipped ASN whitelist push" in skipped.stdout
+    assert "WAF: done" not in skipped.stdout

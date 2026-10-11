@@ -19,7 +19,7 @@
 
 """Limooo shared transactional-email renderer.
 
-DEPRECATED (2026-10-11, docs/22 W7-13): nothing calls `render_email()` any more.
+DEPRECATED (2026-10-11, tasks/22 W7-13): nothing calls `render_email()` any more.
 The VPS Flask app that used it is gone, and Cloudflare Access replaced the login
 mail flow. The one production mail that still goes out is the **status-worker
 alert** (`ops/status-worker/src/index.ts`, `ALERT_I18N` + `buildAlertEmail`),

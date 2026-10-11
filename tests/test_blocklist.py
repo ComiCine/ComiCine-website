@@ -100,3 +100,73 @@ def test_sync_d1_dry_run_does_not_write(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_block, "_call", _fake_d1_call(calls))
     assert auto_block.sync_d1(dry_run=True) == 0
     assert not any("INSERT" in body["sql"] or "DELETE" in body["sql"] for _, _, body in calls)
+
+
+# ── 双向对账的写回（2026-10-11：reconcile）──────────────────────────────
+
+def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
+    """受管段整体重写，**手写区一字不动**。
+
+    这是这个功能最容易出事的地方：它写的是用户手工维护的文件。手写区被吃掉
+    等于用户自己加的封禁项凭空消失。
+    """
+    p = tmp_path / "blocklist.txt"
+    p.write_text(
+        "# 自定义封禁列表\n"
+        "# 一行一个 IP 或 CIDR\n"
+        "1.2.3.4\n"
+        "5.6.7.0/24   # 我的备注\n",
+        encoding="utf-8",
+    )
+
+    auto_block._write_pulled_section(str(p), {"10.0.0.0/8": "cli/add"}, ["10.0.0.0/8"])
+
+    text = p.read_text(encoding="utf-8")
+    head, sep, managed = text.partition(auto_block.MANAGED_MARKER)
+    assert sep, "必须写出受管段标记"
+    # 手写区的四行原样保留（含行尾注释）
+    assert "# 自定义封禁列表" in head
+    assert "1.2.3.4" in head
+    assert "5.6.7.0/24   # 我的备注" in head
+    # 受管段带来源标注
+    assert "10.0.0.0/8" in managed and "source=cli/add" in managed
+
+
+def test_write_pulled_section_is_idempotent(tmp_path):
+    """连写两次不重复追加（每次整体重写）。"""
+    p = tmp_path / "blocklist.txt"
+    p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
+    rows = {"10.0.0.0/8": "admin", "10.1.0.0/16": "auto_block"}
+
+    auto_block._write_pulled_section(str(p), rows, [])
+    first = p.read_text(encoding="utf-8")
+    auto_block._write_pulled_section(str(p), rows, [])
+    second = p.read_text(encoding="utf-8")
+
+    assert first == second, "同样的输入必须产出同样的文件"
+    assert second.count("10.0.0.0/8") == 1, "不得重复追加"
+
+
+def test_pulled_section_survives_being_read_back(tmp_path):
+    """写回去的文件必须还能被 read_blocklist 解析（否则下一轮对账就崩）。"""
+    p = tmp_path / "blocklist.txt"
+    p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
+
+    auto_block._write_pulled_section(str(p), {"58.222.33.0/24": "cli/add"}, ["58.222.33.0/24"])
+
+    got = auto_block.read_blocklist(str(p))
+    assert "1.2.3.4/32" in got, "手写项要仍能读出来"
+    assert "58.222.33.0/24" in got, "拉回的项要能读出来"
+
+
+def test_managed_section_starts_empty_and_grows(tmp_path):
+    """先把手写区落盘（受管段为空），再加行 —— 两态都要合法。"""
+    p = tmp_path / "blocklist.txt"
+    p.write_text("# 只有手写区\n", encoding="utf-8")
+
+    auto_block._write_pulled_section(str(p), {}, [])
+    assert "只有手写区" in p.read_text(encoding="utf-8")
+    assert auto_block.read_blocklist(str(p)) == []
+
+    auto_block._write_pulled_section(str(p), {"9.9.9.9": "cli/add"}, ["9.9.9.9"])
+    assert auto_block.read_blocklist(str(p)) == ["9.9.9.9/32"]

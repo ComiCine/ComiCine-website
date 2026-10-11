@@ -102,7 +102,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   } catch (err) {
     // 只有真正的 UNIQUE 冲突才是 409。写额度耗尽/绑定失效/网络抖动以前也被报成
-    // 「该邮箱已存在」，真实故障既不记录也不可见（docs/22 W9-6）。
+    // 「该邮箱已存在」，真实故障既不记录也不可见（tasks/22 W9-6）。
     const conflict = isUniqueConflict(err);
     await logEvent(context.env, "audit_event", context.request, {
       outcome: conflict ? "account_create_conflict" : "account_create_failed",

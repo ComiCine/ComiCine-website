@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""D1 query-plan guards for the hot read paths (docs/22 W7-9 + migration 017).
+"""D1 query-plan guards for the hot read paths (tasks/22 W7-9 + migration 017).
 
 These are regression guards, not a benchmark. They encode two decisions that were
 taken against production D1 on 2026-10-11 and would otherwise be easy to undo by

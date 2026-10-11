@@ -113,7 +113,10 @@ if not BUILD_MODE:
 DATABASE = os.path.join(DATA_DIR, "geo_cache.db")
 APPLE_ACCOUNT_DB = os.path.join(DATA_DIR, "apple_account.db")
 AUTH_DB = os.path.join(DATA_DIR, "auth.db")
-BLOCKLIST_FILE = os.path.join(DATA_DIR, "blocklist.txt")
+# 封禁名单的导入种子（权威是 D1 的 blocked_ips；见 docs/lists/README.md）。
+# 2026-10-11 从 data/ 移到 docs/lists/：与白名单放在一起便于手工维护。
+LISTS_DIR = os.path.join(BASE_DIR, "docs", "lists")
+BLOCKLIST_FILE = os.path.join(LISTS_DIR, "blocklist.txt")
 
 SECRET_DIR = os.path.join(BASE_DIR, "secrets")
 ENV_FILE = os.path.join(SECRET_DIR, "webauthn.env")

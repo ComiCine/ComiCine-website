@@ -18,7 +18,7 @@
 
 """Keep `requirements.lock` honest about what it is actually installing.
 
-Why this exists (docs/22, 2026-10-11): a Dependabot PR bumped `cairosvg` in
+Why this exists (tasks/22, 2026-10-11): a Dependabot PR bumped `cairosvg` in
 `ops/requirements.txt` to 2.9.1, CI went green, and the change was merged — but
 `requirements.lock` still pinned 2.8.2, and `ops/build.sh:56` installs **the lock**.
 So the upgrade was a no-op that nothing detected. Six other packages had drifted the

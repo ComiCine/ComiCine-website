@@ -87,14 +87,16 @@ def retention_facts() -> dict:
 
 
 def gate_trust_facts() -> dict:
-    """信任清单计数：ASN 读 data/whitelist.txt（唯一事实源），CIDR 读生成产物。
+    """信任清单计数：ASN 读 docs/lists/whitelist.txt（唯一事实源），CIDR 读生成产物。
 
     ASN 不再 emit 进 functions/_data/gateTrust.ts（运行时只消费 verified_bot /
-    ip_cidrs，ASN 是 WAF 的输入，见 docs/22 W4-4），所以计数必须从 whitelist.txt
+    ip_cidrs，ASN 是 WAF 的输入，见 tasks/22 W4-4），所以计数必须从 whitelist.txt
     现读；继续对生成物做正则只会读到 0。ip_cidrs 仍以生成物为准，顺便能发现
     “白名单改了但没重新 build”的漂移。
     """
-    whitelist = read(os.path.join(BASE_DIR, "data", "whitelist.txt"))
+    # 2026-10-11 从 data/ 移到 docs/lists/（与封禁名单同目录）；
+    # 该文件是生成物，由 ops/fetch_china_asn.py 每次部署刷新。
+    whitelist = read(os.path.join(BASE_DIR, "docs", "lists", "whitelist.txt"))
     asns = {
         int(match.group(1))
         for match in re.finditer(r"^ASN/(\d{1,10})\s*$", whitelist, re.I | re.M)

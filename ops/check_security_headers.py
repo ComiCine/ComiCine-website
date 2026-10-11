@@ -57,7 +57,7 @@ def main() -> int:
             errors.append(f"security.ts {name}: JSON={value!r} actual={actual!r}")
         if name == "Content-Security-Policy":
             if "'unsafe-inline'" in actual:
-                errors.append("CSP still contains 'unsafe-inline', which docs/14 forbids")
+                errors.append("CSP still contains 'unsafe-inline', which tasks/14 forbids")
             script_src = re.search(r"script-src ([^;]+)", actual)
             style_src = re.search(r"style-src ([^;]+)", actual)
             for section, match in (("script-src", script_src), ("style-src", style_src)):

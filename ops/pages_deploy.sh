@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Limooo - Cloudflare Pages build and deploy (docs/17, zero-VPS)
+# Limooo - Cloudflare Pages build and deploy (tasks/17, zero-VPS)
 #
 # The VPS was retired on 2026-09-17: no ssh, no remote secrets, no rsync.
 # Credentials are read from local secrets/webauthn.env only (never committed); the
@@ -31,7 +31,7 @@
 # Does not commit or push: that is ops/deploy.sh's job.
 #
 # This repo lives in an iCloud-synced area, where in-repo node_modules / .venv-build are
-# unusable; use the wrangler and venv under /tmp instead (see docs/18-resume.md).
+# unusable; use the wrangler and venv under /tmp instead (see tasks/18-resume.md).
 
 set -euo pipefail
 
@@ -132,7 +132,7 @@ strip_emoji() {
 
 # ── 部署 ────────────────────────────────────────────────────────────
 # 必须在本目录（site/）执行，否则 wrangler 找不到 functions/，会把整个
-# Pages Functions 丢掉（docs/17 §11.6 出过这次事故）。
+# Pages Functions 丢掉（tasks/17 §11.6 出过这次事故）。
 echo "[pages] deploying Pages (must run under site/, otherwise Functions are dropped)"
 export CI=1 WRANGLER_SEND_METRICS=false
 "$WRANGLER_BIN" pages deploy "$PUBLIC_DIR" \

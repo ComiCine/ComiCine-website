@@ -18,7 +18,7 @@
  */
 
 /**
- * `functions/_lib/session` 的模块桩，供 7 个 admin 路由测试共用（docs/22 W5-15）。
+ * `functions/_lib/session` 的模块桩，供 7 个 admin 路由测试共用（tasks/22 W5-15）。
  *
  * 位置说明（为什么在 `tests/` 而不是 `functions/_lib/__mocks__/`）：
  * `tests/` 在 Pages 项目的 `functions/` 根之外，`wrangler pages functions build`
@@ -33,7 +33,7 @@
  * 「不进 bundle」的验证：对本仓库跑
  * `npx wrangler pages functions build --outdir=<dir> --project-directory=.`，
  * 与本改动前的产物逐字节相同（只差一行 wrangler 临时目录名的注释），
- * 且 `grep -c createSessionModuleMock index.js` = 0（见 docs/22 执行记录）。
+ * 且 `grep -c createSessionModuleMock index.js` = 0（见 tasks/22 执行记录）。
  *
  * 语义与生产 `requireAdminSession`（`functions/_lib/session.ts`）**逐条对齐**：
  * `requireAuth` 抛错（`AuthSessionUnavailableError`，D1 撤销表不可用）→ 委托给

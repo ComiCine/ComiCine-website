@@ -27,7 +27,7 @@ import type { Env } from "../_lib/env";
 
 vi.mock("../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../_lib/session", async () => {
-  // 共用桩（docs/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
   const { createSessionModuleMock } = await import("../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -144,7 +144,7 @@ describe("visitors API", () => {
   // 断言按行为写，并且把同样两行**倒序**再喂一次：mock 的行顺序曾经就是
   // 实现依赖的顺序，正序喂一遍的话「取第一行」这种错法也能过。
   //
-  // 已知未修（2026-10-11 实测，见 docs/22 执行记录 W5-5 未决事项）：
+  // 已知未修（2026-10-11 实测，见 tasks/22 执行记录 W5-5 未决事项）：
   // buildMarkers 的 country 取的是**该 ip_hash 的第一行**，不是在
   // `row.last_ts > acc.last_time` 时一起更新；所以一个访客有多种 status、
   // 各自 last_ts 不同时，倒序喂进来会给出较早那次的国家（本用例倒序时会得到

@@ -130,7 +130,7 @@ export const CONTRACT = {
     "ua_allowlist_enabled": false
   },
   "observability_hmac_env": "OBSERVABILITY_HMAC_KEY",
-  "whitelist_file": "data/whitelist.txt"
+  "whitelist_file": "docs/lists/whitelist.txt"
 } as const;
 
 export const ROOT_DOMAIN = CONTRACT.root_domain;

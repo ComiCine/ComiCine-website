@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# limooo.cn deploy entrypoint (docs/17, zero-VPS) -- the SINGLE deploy script.
+# limooo.cn deploy entrypoint (tasks/17, zero-VPS) -- the SINGLE deploy script.
 #
 # The VPS was retired on 2026-09-17: no ssh, no rsync, no remote restart, no nginx.
 # Full deploy = (1) git commit -> (2) git push -> (3) Cloudflare Pages (+ related Workers).
@@ -74,6 +74,20 @@
 # a file changed by another tool during the checks cannot slip in unchecked.
 # Emergency skip:
 #   LIMOOO_SKIP_CHECKS=1 bash ops/deploy.sh --all
+#
+# Two list-maintenance steps run FIRST, before the dirty-tree gate and CI (both
+# produce changes, so running them later would trip the gate and skip CI):
+#   1. ops/fetch_china_asn.py      -- refresh the mainland-China ASN whitelist from
+#                                     GitHub (that source updates daily); the list
+#                                     keeps only the three carriers' ASNs, see
+#                                     docs/lists/README.md
+#   2. ops/reconcile_blocklist.sh  -- two-way reconcile of the ban list with D1
+#                                     `blocked_ips` (the authority): entries only in
+#                                     the file are pushed up, active entries only in
+#                                     D1 are pulled back into the file
+# Both are best-effort by default: a source or network hiccup must not stop code
+# from shipping. Make one fatal with LIMOOO_STRICT_ASN=1 / LIMOOO_STRICT_BLOCKLIST=1,
+# or skip it with LIMOOO_SKIP_ASN_FETCH=1 / LIMOOO_SKIP_BLOCKLIST_RECONCILE=1.
 #
 # A failed git push aborts BEFORE the Pages deploy (never let the edge run ahead of
 # GitHub). Emergency override:
@@ -239,6 +253,9 @@ if [ "$DRY_RUN" = 1 ]; then
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; } && echo "  requires: branch main (FATAL exit 2 on any other branch)"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with LIMOOO_SKIP_CHECKS=1)"
     [ "$DO_PAGES" = 1 ] && echo "  would-run: bash ops/pages_deploy.sh"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: python3 ops/fetch_china_asn.py   (mainland-China ASN whitelist; skip with LIMOOO_SKIP_ASN_FETCH=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/waf_whitelist.sh --apply   (trusted ASNs to zone IP Access Rules; skip with LIMOOO_SKIP_WAF_WHITELIST=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
@@ -325,6 +342,58 @@ dirty_tree_gate() {
 
 if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
+fi
+
+# ── 白名单刷新（在任何闸门之前）────────────────────────────────────
+# 中国大陆 ASN 名单每次部署从 GitHub 拉一次（源每日更新）。位置有意放在脏树闸门与
+# CI 之前：刷新会产生改动，放后面会被判成脏树、也漏过 CI 校验。
+# **失败不阻断部署**（脚本默认非 strict）—— 源临时抽风不该让代码发不出去；
+# 抓不到时保留上一次的白名单。要强制失败用：LIMOOO_STRICT_ASN=1 bash ops/deploy.sh。
+if [ "$NEED_CHECKS" = 1 ]; then
+    if [ "${LIMOOO_SKIP_ASN_FETCH:-0}" = 1 ]; then
+        echo "Lists: skipped ASN refresh (LIMOOO_SKIP_ASN_FETCH=1)"
+    elif [ "${LIMOOO_STRICT_ASN:-0}" = 1 ]; then
+        run_step "Lists" python3 ops/fetch_china_asn.py --strict
+    else
+        run_step "Lists" python3 ops/fetch_china_asn.py
+    fi
+fi
+
+# ── 封禁名单双向对账（同样在闸门之前）──────────────────────────────
+# 权威是 D1 的 blocked_ips：D1 有而文件没有的**拉回文件**，文件有而 D1 没有的
+# **推上去**（`src/auto_block.py reconcile`）。放在脏树闸门与 CI 之前，理由同白名单：
+# 它会产生改动。
+#
+# **默认失败不阻断**（源/网络/凭据问题不该让代码发不出去）；要强制用
+# LIMOOO_STRICT_BLOCKLIST=1。整步跳过用 LIMOOO_SKIP_BLOCKLIST_RECONCILE=1。
+# 注意：这一步需要能读 D1，凭据从 secrets/webauthn.env 读（与其它脚本同一份）。
+if [ "$NEED_CHECKS" = 1 ]; then
+    if [ "${LIMOOO_SKIP_BLOCKLIST_RECONCILE:-0}" = 1 ]; then
+        echo "Bans: skipped D1 reconcile (LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
+    elif [ "${LIMOOO_STRICT_BLOCKLIST:-0}" = 1 ]; then
+        run_step "Bans" bash ops/reconcile_blocklist.sh
+    else
+        # 非 strict：失败只警告。用 subshell 吃掉退出码，让部署继续。
+        if ! run_step "Bans" bash ops/reconcile_blocklist.sh; then
+            echo "Warning: blocklist reconcile failed; D1 stays authoritative" >&2
+        fi
+    fi
+fi
+
+# ── 白名单推给 WAF（同样在闸门之前，因为它读刚刷新好的名单）────────────
+# 把白名单里的 ASN 推成 zone 级 IP Access Rule（`mode=whitelist`、`target=asn`），
+# 让名单在边缘**真的生效**（低风险 ASN 不再被挑战）。Free 计划自定义规则只有 5 条，
+# 而 Access Rules 有 5 万条且不占配额 —— 这也是本仓库既有的做法（信任 IP
+# `97.64.18.11` 就是一条同模式的规则）。
+#
+# 这一步**默认失败即停**（与上面两步不同）：它改的是线上安全面，静默留下
+# 「文件和实际不符」比部署失败更危险。整步跳过用 LIMOOO_SKIP_WAF_WHITELIST=1。
+if [ "$NEED_CHECKS" = 1 ]; then
+    if [ "${LIMOOO_SKIP_WAF_WHITELIST:-0}" = 1 ]; then
+        echo "WAF: skipped ASN whitelist push (LIMOOO_SKIP_WAF_WHITELIST=1)"
+    else
+        run_step "WAF" bash ops/waf_whitelist.sh --apply
+    fi
 fi
 
 if [ "$NEED_CHECKS" = 1 ]; then

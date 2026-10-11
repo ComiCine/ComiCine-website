@@ -18,7 +18,7 @@
 
 """Read-only snapshot of the limooo.cn zone settings.
 
-Why this exists (docs/22, 2026-10-11): `ops/cloudflare/README.md` is the inventory
+Why this exists (tasks/22, 2026-10-11): `ops/cloudflare/README.md` is the inventory
 of resources that live only in the Cloudflare Dashboard, but it had no record of the
 zone-level settings at all. Those settings are observable behaviour (HSTS enforcement,
 minimum TLS version, Security Level, the Cloudflare Web Analytics injection) yet nothing

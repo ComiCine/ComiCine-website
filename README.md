@@ -67,9 +67,9 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
 ├── .vscode/                                          # editor settings and recommended extensions
-├── data/                                             # runtime data (generated; git-ignored except blocklist.txt / whitelist.txt)
-│   ├── blocklist.txt                                 # auditable snapshot of D1 blocked_ips (D1 is the sole authority)
-│   └── whitelist.txt                                 # trusted ASNs (low-risk) + fully allowed IPs/CIDRs
+├── data/                                             # runtime data (generated; git-ignored)
+│   ├── GeoLite2-ASN.mmdb                             # GeoIP databases (large; git-ignored)
+│   └── *.db                                          # local caches (git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -114,7 +114,15 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.limooo.cn VitePress root + services.limooo.cn price-list CSVs
+└── docs/                                             # container: one directory per subdomain
+    ├── docs/                                         # docs.limooo.cn — VitePress root
+    ├── services/                                     # services.limooo.cn — price-list CSVs
+    └── lists/                                        # gate/bans lists, meant to be hand-edited (not published)
+        ├── README.md                                 # what each list is and how to apply a change
+        ├── own-ips.txt                               # hand-written: your own IPs / extra trusted entries
+        ├── china-asn.txt                             # generated: mainland-China ASNs (ops/fetch_china_asn.py)
+        ├── whitelist.txt                             # generated: china-asn.txt + own-ips.txt merged
+        └── blocklist.txt                             # hand-written: ban seed for src/auto_block.py (D1 is the authority)
 ```
 
 ## Quick start
@@ -305,17 +313,19 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Whitelist
 
-Trusted sources are maintained in [`data/whitelist.txt`](data/whitelist.txt), one entry per line:
+Trusted sources are maintained in [`docs/lists/own-ips.txt`](docs/lists/own-ips.txt)
+(hand-written; it is merged with the generated mainland-China ASN list into
+`docs/lists/whitelist.txt` at deploy time), one entry per line:
 
 | Entry | Effect |
 | --- | --- |
 | `ASN/<number>` | Low-risk source (China Telecom / China Mobile / China Unicom, incl. Tietong and backbone AS9929). Intended to be served a Cloudflare Non-Interactive Challenge (`js_challenge`) instead of the Turnstile gate; that WAF rule is not deployed right now (see below). |
 | `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
 
-The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) (updated daily). The generated edge copy currently carries **320 low-risk ASNs** and **2 fully allowed IPs**. No WAF custom rule consumes these lists right now: the zone's `http_request_firewall_custom` phase is empty, and `ops/waf/rules.snapshot.json` mirrors the live phase as of its `captured_at` timestamp (0 rules at the last refresh) — rules deleted in the dashboard survive only in git history.
+The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) (updated daily). The generated edge copy currently carries **319 low-risk ASNs** and **2 fully allowed IPs**. No WAF custom rule consumes these lists right now: the zone's `http_request_firewall_custom` phase is empty, and `ops/waf/rules.snapshot.json` mirrors the live phase as of its `captured_at` timestamp (0 rules at the last refresh) — rules deleted in the dashboard survive only in git history.
 
 Per-runtime trust: edge code only treats `IP-CIDR` entries as trusted
-(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing `data/whitelist.txt`,
+(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing `docs/lists/own-ips.txt`,
 regenerate the edge copy with a build (`bash ops/build.sh`, which runs
 `ops/check_gate_trust.py --emit`).
 
@@ -372,7 +382,7 @@ Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real valu
 
 ### Gate behavior
 
-Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Low-risk China Telecom / Mobile / Unicom ASNs are listed for the WAF `js_challenge` tier (no such rule is deployed at the moment), while edge code trusts only the generated whitelist (`data/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
+Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Low-risk China Telecom / Mobile / Unicom ASNs are listed for the WAF `js_challenge` tier (no such rule is deployed at the moment), while edge code trusts only the generated whitelist (`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
 
 Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.limooo.cn`), after which the page reloads the original target. `auth.limooo.cn` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 

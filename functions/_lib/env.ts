@@ -26,7 +26,7 @@ export interface Env {
   GATE_HMAC_KEY: string;
   // 可观测性：独立于 GATE_HMAC_KEY 的 IP 哈希密钥；缺失时记录为空串，不降级复用
   OBSERVABILITY_HMAC_KEY?: string;
-  // 登录（Cloudflare Access，唯一身份来源；docs/17 §11.10）
+  // 登录（Cloudflare Access，唯一身份来源；tasks/17 §11.10）
   /** Zero Trust team domain，如 https://limooo.cloudflareaccess.com */
   ACCESS_TEAM_DOMAIN?: string;
   /** 逗号分隔的 AUD 列表：命中即 admin。 */

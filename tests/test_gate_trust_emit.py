@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W4-4：门禁信任配置的「生成物只带运行时要用的部分」。
+"""tasks/22 W4-4：门禁信任配置的「生成物只带运行时要用的部分」。
 
 `functions/_data/gateTrust.ts` 曾经同时带 320 条低风险 ASN（运行时零消费，
 真正消费方是 WAF 的 js_challenge 规则）与 2 个全放行 IP。这里钉住：
   - 生成物只含 verified_bot / ip_cidrs；
-  - data/whitelist.txt 的 ASN 段仍然照旧解析与计数（WAF 的来源，不许删）；
+  - docs/lists/whitelist.txt 的 ASN 段仍然照旧解析与计数（WAF 的来源，不许删）；
   - ops/readme_facts.py 的 ASN 计数改为从 whitelist.txt 现读。
 """
 
@@ -81,9 +81,9 @@ def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
 
 
 def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
-    """README 的 ASN 计数改读 data/whitelist.txt，不再对生成物做正则。"""
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "whitelist.txt").write_text(
+    """README 的 ASN 计数改读 docs/lists/whitelist.txt，不再对生成物做正则。"""
+    (tmp_path / "docs" / "lists").mkdir(parents=True)
+    (tmp_path / "docs" / "lists" / "whitelist.txt").write_text(
         "# 注释\nASN/1\nASN/2\nASN/2\nIP-CIDR/10.0.0.1/32\n",
         encoding="utf-8",
     )
@@ -101,8 +101,8 @@ def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
 
 
 def test_readme_facts_asn_count_is_zero_when_whitelist_has_none(monkeypatch, tmp_path):
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "whitelist.txt").write_text(
+    (tmp_path / "docs" / "lists").mkdir(parents=True)
+    (tmp_path / "docs" / "lists" / "whitelist.txt").write_text(
         "IP-CIDR/10.0.0.1/32\n", encoding="utf-8"
     )
     (tmp_path / "functions" / "_data").mkdir(parents=True)
@@ -120,9 +120,16 @@ def test_readme_facts_asn_count_is_zero_when_whitelist_has_none(monkeypatch, tmp
 
 
 def test_repo_whitelist_and_generated_file_agree():
-    """真实仓库：ASN 仍在白名单里，生成物里没有它，CIDR 数量两边一致。"""
+    """真实仓库：ASN 仍在白名单里，生成物里没有它，CIDR 数量两边一致。
+
+    ASN 的**具体条数刻意不写死**（2026-10-11 改）：那份名单由
+    `ops/fetch_china_asn.py` 在每次部署时从 china-mainland-asn 刷新，
+    条数天然会变（当时 320 → 5231）。写死数字只会让测试在名单更新时变红，
+    而它真正要守的是「生成物与名单一致」这条**关系**。
+    """
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
-    assert len(asns) == 320
+    # 名单必须非空 —— 否则下面的"一致"会退化成两边都是 0 的假通过。
+    assert asns, "whitelist has no ASN at all; the ASN feed or own-ips.txt is broken"
     assert len(networks) == 2
 
     emitted = check_gate_trust.OUTPUT_PATH.read_text(encoding="utf-8")

@@ -1,5 +1,5 @@
 /**
- * CSP 友好的事件委托层（docs/14）。
+ * CSP 友好的事件委托层（tasks/14）。
  *
  * 模板不再写 onclick/oninput 内联事件，改为 data-action / data-input
  * 声明，由本文件在页面加载后统一委托到 window 上的同名全局函数。

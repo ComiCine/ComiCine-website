@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W7-5 / W7-8: aggregation window + retention owner.
+"""tasks/22 W7-5 / W7-8: aggregation window + retention owner.
 
 The aggregation table `visitors_daily` must only ever move forward:
 

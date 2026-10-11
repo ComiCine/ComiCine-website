@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** sync-worker 差异计算与 dry-run 基础测试（docs/10）。 */
+/** sync-worker 差异计算与 dry-run 基础测试（tasks/10）。 */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, { authorized, diffSync, normalizeListItem, runSync, sync } from "./index";
@@ -132,7 +132,7 @@ describe("authorized", () => {
 });
 
 /**
- * docs/22 W7-6 / W7-7：bulk operation 失败要抛、翻页要用 cursor 且有上限。
+ * tasks/22 W7-6 / W7-7：bulk operation 失败要抛、翻页要用 cursor 且有上限。
  *
  * 这些用例 stub 掉 fetch，绝不访问 Cloudflare：只验证 sync() 的控制流。
  */

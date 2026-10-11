@@ -19,7 +19,7 @@
 
 /**
  * 封禁链路的关键不变量：**Cloudflare IP List 的条目集合 == D1 `blocked_ips`
- * 里 `active = 1` 的 CIDR 集合**（docs/22；AGENTS.md「封禁链路约定」）。
+ * 里 `active = 1` 的 CIDR 集合**（tasks/22；AGENTS.md「封禁链路约定」）。
  *
  * 这条不变量此前只有 `ops/check_blocklist_sync.py` 一个读者，而它是纯手工入口
  * （实测被自动化调用 0 处）。于是「同步部分失败」或「有人在 Dashboard 手改了

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""从 data/whitelist.txt 与 config-contract.json 生成门禁信任配置（docs/14）。
+"""从 docs/lists/whitelist.txt 与 config-contract.json 生成门禁信任配置（tasks/14）。
 
 输出：
   - 校验白名单格式（ASN 与 IP-CIDR 两段都校验）；
@@ -37,7 +37,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_PATH = ROOT / "config-contract.json"
-WHITELIST_PATH = ROOT / "data" / "whitelist.txt"
+# 白名单放在 docs/lists/（与封禁名单同目录，便于手工维护）；
+# 生成物 china-asn.txt 由 ops/fetch_china_asn.py 刷新。见 docs/lists/README.md。
+WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
 OUTPUT_PATH = ROOT / "functions" / "_data" / "gateTrust.ts"
 
 ASN_RE = re.compile(r"^ASN/(\d{1,10})$", re.I)
@@ -46,7 +48,7 @@ IP_CIDR_RE = re.compile(
     re.I,
 )
 
-# 生成物顶部的 AGPL 头（docs/22 W8-7）。措辞与 src/config.py 等手写文件里的
+# 生成物顶部的 AGPL 头（tasks/22 W8-7）。措辞与 src/config.py 等手写文件里的
 # 头逐字一致，只把注释符号换成 TS 的块注释；src/build.py 生成
 # functions/_lib/config.ts 与 functions/_data/*.ts 时有一份同文副本，
 # 改这里请一并改那边。

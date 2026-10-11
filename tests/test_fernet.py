@@ -25,7 +25,7 @@ from cryptography.fernet import Fernet
 TEST_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 TOKEN_FIXTURE = Path(__file__).parent / "fixtures" / "fernet_token.txt"
 # W5-3：由 `functions/_lib/fernet.ts` 的 `fernetEncrypt` 用同一把 key 生成
-# （明文 `8.8.8.8`，生成命令见 docs/22 执行记录）。生产真正依赖的方向是
+# （明文 `8.8.8.8`，生成命令见 tasks/22 执行记录）。生产真正依赖的方向是
 # TS 加密（`tracking.ts` 写 `ip_enc`）→ Python 解密（`ops/check_ip_rays.py`）。
 TS_TOKEN_FIXTURE = Path(__file__).parent / "fixtures" / "fernet_token_ts.txt"
 

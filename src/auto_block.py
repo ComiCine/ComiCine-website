@@ -36,7 +36,9 @@ Usage:
     python3 auto_block.py sync [--dry-run]  # alias of `d1` (不再直写 CF)
 """
 
+import http.client
 import json
+import os
 import re
 import sys
 import time
@@ -67,6 +69,10 @@ from config import (
 
 # Match x.x.x.0/24
 CIDR24_RE = re.compile(r'^(\d+\.\d+\.\d+)\.0/24$')
+
+# 受管段的起始标记（2026-10-11）：`reconcile` 从 D1 拉回的行写在这一行之后，
+# 每次整体重写；这一行之前是**手写区**，永远原样保留。
+MANAGED_MARKER = "# ── 以下是 D1 blocked_ips 的活跃行"
 
 
 def read_blocklist_txt(path: str) -> tuple[list[str], set[str]]:
@@ -128,13 +134,69 @@ def read_blocklist(path: str) -> list[str]:
     return entries
 
 
-def _call(token: str, method: str, url: str, body=None) -> dict:
+def _ensure_ca_bundle() -> None:
+    """确保 HTTPS 有 CA 证书可用（2026-10-11）。
+
+    本仓库的构建 venv（`.venv-build`，python.org 的 3.14）**不带 CA 证书**：
+    `ssl.get_default_verify_paths()` 的 `cafile` 是 None，它期望的
+    `/Library/Frameworks/Python.framework/Versions/3.14/etc/openssl/cert.pem`
+    不存在 —— 于是所有 HTTPS 调用报 `CERTIFICATE_VERIFY_FAILED`，这个脚本因此
+    读不到 D1。macOS 自带的 `/etc/ssl/cert.pem` 是完整的系统根证书库，指过去即可。
+
+    尊重调用方已经设好的 `SSL_CERT_FILE`（CI 或系统 python3 会自己配）。
+    """
+    system_ca = "/etc/ssl/cert.pem"
+    if not os.environ.get("SSL_CERT_FILE") and os.path.exists(system_ca):
+        os.environ["SSL_CERT_FILE"] = system_ca
+
+
+def _read_body(resp) -> bytes:
+    """健壮地读满响应体。
+
+    2026-10-11 修：原来直接 `json.load(r)`，偶发 `IncompleteRead(…, N more expected)`
+    —— 服务器给了 Content-Length 但连接提前关闭。**不依赖头部提示**：一直读到 EOF，
+    并把 `IncompleteRead` 里已经拿到的部分留下（拿到多少就交多少给解析器）。
+    chunked 传输中途断也是同一种病，所以两种都不能只靠 Content-Length。
+    """
+    buf = bytearray()
+    while True:
+        try:
+            chunk = resp.read(65536)
+        except http.client.IncompleteRead as exc:
+            buf.extend(exc.partial or b"")
+            break
+        if not chunk:
+            break
+        buf.extend(chunk)
+    return bytes(buf)
+
+
+def _call(token: str, method: str, url: str, body=None, attempts: int = 3) -> dict:
+    """调 Cloudflare API；对**读取被截断**这一类瞬时故障重试。
+
+    只重试 `IncompleteRead` / `http.client` 级别的读错误，重试 HTTP 状态错误没有意义
+    （那些是确定性的：401/403/400 重试多少次都一样）。
+    """
+    _ensure_ca_bundle()
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        url, data=data, method=method,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.load(r)
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            url, data=data, method=method,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(_read_body(r))
+        except http.client.IncompleteRead as exc:
+            # 瞬时故障：换一条连接重来。
+            last = exc
+            if attempt < attempts:
+                time.sleep(0.5 * attempt)
+                continue
+            raise
+        except urllib.error.HTTPError:
+            raise
+    raise last if last else RuntimeError("unreachable")
 
 
 def _wait_operation(token: str, account_id: str, operation_id: str | None):
@@ -320,13 +382,46 @@ def _delete_blocklist(token: str, account_id: str, db_id: str, cidrs: list[str])
     return changes
 
 
-def sync_d1(dry_run: bool = False) -> int:
+def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
+    """把 D1 的活跃行渲染成一个受管段（每次 reconcile 整体重写）。
+
+    `rows` 是 cidr -> source；`pulled` 是本次**新增**的（只影响段头的说明）。
+    """
+    lines = [
+        "",
+        "# ── 以下是 D1 blocked_ips 的活跃行（自动维护，勿手改；本轮从 D1 拉回 "
+        f"{len(pulled)} 条）" + "─" * 8,
+        "# 手写区在上面；这一段每次 `auto_block.py reconcile` 都会整体重写。",
+    ]
+    for cidr in sorted(rows):
+        src = rows[cidr] or "unknown"
+        lines.append(f"{cidr:<20} # from D1 (source={src})")
+    return "\n".join(lines) + "\n"
+
+
+def _write_pulled_section(path: str, rows: dict[str, str], pulled: list[str]) -> None:
+    """把手写区原样保留、受管段整体重写。"""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    head = text.split(MANAGED_MARKER)[0].rstrip("\n")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(head + _render_managed_section(rows, pulled))
+
+
+def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
     """把 blocklist.txt 作为导入快照，与 D1 blocked_ips 做全量 diff。
 
     - 新增/更新：INSERT ... ON CONFLICT（保留 created_at）
     - 删除：只删 source=auto_block/blocklist.txt 的活跃行，避免覆盖 admin 来源
     - 已由 API 解封的行（active=0）保留为审计墓碑，不会被重新加入
     - ``--dry-run`` 只输出 + / - 集合
+    - ``pull=True``（CLI 的 ``reconcile``）时**双向**：D1 有而文件没有的活跃行
+      会被写回文件（受管段，手写区不动），文件有而 D1 没有的照旧推上去。
+      这条路是给「管理员在后台封了 IP，本地快照要跟上」用的。
+
+    注意：拉回文件**只增不减** —— 绝不因为「D1 少了某条」就从文件里删掉它，
+    因为调用方无法区分「管理员有意解封」与「还没同步」两种情况。删除仍由
+    D1 侧的软删除（active=0）记录，文件是快照而不是删除指令。
     """
     env = load_env(ENV_FILE)
     token = env.get("CLOUDFLARE_API_TOKEN", "")
@@ -337,7 +432,9 @@ def sync_d1(dry_run: bool = False) -> int:
         return 0
 
     cidrs = read_blocklist(BLOCKLIST_TXT)
-    if not cidrs:
+    # 文件为空时**不再直接返回**（2026-10-11 改）：pull 模式下「本地空、D1 有行」
+    # 恰恰是最需要把权威行拉回来的场景。只有既不推也不拉时才跳过。
+    if not cidrs and not pull:
         print("[d1] blocklist empty, skipping", file=sys.stderr)
         return 0
 
@@ -364,13 +461,17 @@ def sync_d1(dry_run: bool = False) -> int:
         for cidr, row in active_rows.items()
         if cidr not in desired and row.get("source") in (None, "", "auto_block", "blocklist.txt")
     )
+    # 要从 D1 拉回文件的行：D1 活跃、而文件里没有。**只增不减**（见 docstring）。
+    pulled = sorted(cidr for cidr in active_rows if cidr not in desired) if pull else []
 
     if dry_run:
-        print(f"[d1] dry-run: +{len(to_add)} -{len(to_delete)}")
+        print(f"[d1] dry-run: +{len(to_add)} -{len(to_delete)} pull={len(pulled)}")
         for cidr in to_add:
             print(f"  + {cidr}")
         for cidr in to_delete:
             print(f"  - {cidr}")
+        for cidr in pulled:
+            print(f"  < {cidr}  # would pull from D1")
         return 0
 
     try:
@@ -383,15 +484,28 @@ def sync_d1(dry_run: bool = False) -> int:
         print(f"[d1] error: {exc}", file=sys.stderr)
         return 1
 
+    if pull:
+        # 写回文件放在 D1 写入**成功之后**：D1 写失败时本地保持原样，
+        # 不出现「文件说已封、D1 里没有」的假象。
+        sources = {cidr: str(row.get("source") or "") for cidr, row in active_rows.items()}
+        _write_pulled_section(BLOCKLIST_TXT, sources, pulled)
+        print(
+            f"[d1] reconciled +{len(to_add)} -{len(to_delete)} "
+            f"pulled={len(pulled)} (changes={added + deleted})",
+            flush=True,
+        )
+        return 0
+
     print(f"[d1] synced +{len(to_add)} -{len(to_delete)} (changes={added + deleted})", flush=True)
     return 0
 
 
 def usage() -> None:
     print("Usage:", file=sys.stderr)
-    print("  python3 auto_block.py d1 [--dry-run]    # sync blocklist.txt to D1 (full diff)", file=sys.stderr)
-    print("  python3 auto_block.py cf                # maintenance: sync blocklist.txt to CF only", file=sys.stderr)
-    print("  python3 auto_block.py sync [--dry-run]  # alias of d1 (never writes CF)", file=sys.stderr)
+    print("  python3 auto_block.py d1 [--dry-run]        # sync blocklist.txt to D1 (full diff)", file=sys.stderr)
+    print("  python3 auto_block.py reconcile [--dry-run] # two-way: pull D1's active rows into the list, push the list up", file=sys.stderr)
+    print("  python3 auto_block.py cf                    # maintenance: sync blocklist.txt to CF only", file=sys.stderr)
+    print("  python3 auto_block.py sync [--dry-run]      # alias of d1 (never writes CF)", file=sys.stderr)
 
 
 def main():
@@ -399,6 +513,9 @@ def main():
     dry_run = "--dry-run" in sys.argv[2:]
     if cmd in ("d1", "sync"):
         sys.exit(sync_d1(dry_run=dry_run))
+    elif cmd == "reconcile":
+        # 双向：D1 有而文件没有的**拉回文件**，文件有而 D1 没有的**推上去**。
+        sys.exit(sync_d1(dry_run=dry_run, pull=True))
     elif cmd == "cf":
         sys.exit(sync_cloudflare())
     else:

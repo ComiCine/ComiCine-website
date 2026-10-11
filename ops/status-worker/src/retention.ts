@@ -18,11 +18,11 @@
  */
 
 /**
- * D1 保留任务（从 VPS 的 ops/prune_d1.py 迁移，docs/17 阶段 6）
+ * D1 保留任务（从 VPS 的 ops/prune_d1.py 迁移，tasks/17 阶段 6）
  *
  * VPS 退役后原 cron 不复存在，若不迁移，D1 会无限增长直至撞上单库上限。
  *
- * **本文件是保留策略的 owner**（docs/22 W7-8）：它是被 cron 调度的那一份，
+ * **本文件是保留策略的 owner**（tasks/22 W7-8）：它是被 cron 调度的那一份，
  * `ops/readme_facts.py` 与 `ops/prune_d1.py` 都从这里读窗口；prune_d1.py 在导入时
  * 与本文件逐条比对，不一致直接报错，所以两份策略不可能再各自漂移。
  *

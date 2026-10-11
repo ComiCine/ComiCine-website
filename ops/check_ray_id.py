@@ -205,7 +205,7 @@ def edge_lookup(
         detail = str(exc).lower()
         if "rayname" not in detail and "access to the field" not in detail:
             # 旧文案在这里说「已回退到聚合数据集」，但代码其实直接返回了 ——
-            # 提示语与行为不符（docs/22 W7-12）。现在如实说明没有回退。
+            # 提示语与行为不符（tasks/22 W7-12）。现在如实说明没有回退。
             return [], (
                 f"edge per-request query failed ({exc}); this is not a permission error, "
                 "so no aggregated fallback was attempted (the aggregated dataset has no Ray ID "

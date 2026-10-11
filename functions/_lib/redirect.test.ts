@@ -18,7 +18,7 @@
  */
 
 /**
- * 统一跳转页 `renderRedirectPage` 测试（docs/22 W5-11）。
+ * 统一跳转页 `renderRedirectPage` 测试（tasks/22 W5-11）。
  *
  * 零测试的这段代码把**请求方可控**的 `?to=` 注入生成好的 HTML：`escapeHtml`
  * 是唯一的防线，而没有任何用例锁住它。这里用真实实现（路由 / 语言 cookie /
@@ -162,7 +162,7 @@ describe("isRedirectHost", () => {
 });
 
 /**
- * 模板文本缓存（docs/22 增量 ③）：同一语言的模板只从 ASSETS 取一次，
+ * 模板文本缓存（tasks/22 增量 ③）：同一语言的模板只从 ASSETS 取一次，
  * 注入仍然逐请求执行；不同语言各取各的；取回失败不缓存。
  */
 describe("renderRedirectPage template cache", () => {

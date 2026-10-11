@@ -18,7 +18,7 @@
  */
 
 /**
- * `hmacSha256Hex` 的 CryptoKey 缓存（docs/22 遗留项）。
+ * `hmacSha256Hex` 的 CryptoKey 缓存（tasks/22 遗留项）。
  *
  * 两件事必须被证明，不能只靠读代码：
  *

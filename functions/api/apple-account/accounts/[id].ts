@@ -84,7 +84,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       id,
     );
   } catch (err) {
-    // 同 POST：只有真正的 UNIQUE 冲突才是 409（docs/22 W9-6）。
+    // 同 POST：只有真正的 UNIQUE 冲突才是 409（tasks/22 W9-6）。
     const conflict = isUniqueConflict(err);
     await logEvent(context.env, "audit_event", context.request, {
       outcome: conflict ? "account_update_conflict" : "account_update_failed",

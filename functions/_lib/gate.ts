@@ -79,7 +79,7 @@ export const GATE_RENEW_AFTER_SECONDS = Math.floor(GATE_TTL_SECONDS * 0.75);
  *
  * 正常访客最多两枚（早期 host-only + 现在的域级），8 留足余量；上限存在的意义是
  * 不让攻击者用超长 Cookie 头把每请求的 WebCrypto 次数变成可控的任意值
- * （docs/22 W9-10）。
+ * （tasks/22 W9-10）。
  */
 export const MAX_GATE_COOKIE_VALUES = 8;
 
@@ -229,7 +229,7 @@ export async function resolveGateTrust(
   };
   // 同名 cookie 的数量没有上限，而每一枚都要跑一次正则 + WebCrypto
   // importKey + sign：32 KB 的 Cookie 头 ≈ 400 枚 ≈ 400 次 WebCrypto 调用，
-  // 每请求的 CPU 由攻击者决定（docs/22 W9-10）。只校验前 N 枚。
+  // 每请求的 CPU 由攻击者决定（tasks/22 W9-10）。只校验前 N 枚。
   // 正常访客最多只有 2 枚（旧 host-only + 新域级），不影响既有行为。
   for (const value of values.slice(0, MAX_GATE_COOKIE_VALUES)) {
     const state = await readGateCookie(value, env.GATE_HMAC_KEY);
@@ -674,7 +674,7 @@ export const GATE_TURNSTILE_ACTION = "gate";
  * 除了 `success`，还要校验 **hostname** 属于本站托管的主机（`isPublicHost`，
  * 与回跳白名单同一份契约）：同一个 sitekey 若被加到别的域名上，那些站点解出的
  * token 也能通过 siteverify，只看 `success` 就把「本站访客」的定义交给了
- * sitekey 配置（docs/22 W9-16，纵深防御）。缺 `hostname` 一律拒绝。
+ * sitekey 配置（tasks/22 W9-16，纵深防御）。缺 `hostname` 一律拒绝。
  *
  * `action` 只在站点真的声明了才校验：门禁 widget 现在没设 action，siteverify
  * 也不返回；一旦将来给 widget 加上 action，这里用一个固定期望值把它钉住，
@@ -761,7 +761,7 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
   // 两把密钥都要在：TURNSTILE_SECRET 用来问题目，GATE_HMAC_KEY 用来签 cookie。
   // 此前只查前者，GATE_HMAC_KEY 为空时会走到 gateCookieHeaders("") 并用**空密钥**
   // 签发一枚 __gate —— 今天靠中间件的 runtimeConfigError 兜住，但这个函数是
-  // 「中间件路由缺失时的兜底入口」，自己必须有这道门（docs/22 W9-11）。
+  // 「中间件路由缺失时的兜底入口」，自己必须有这道门（tasks/22 W9-11）。
   if (!env.TURNSTILE_SECRET || !env.GATE_HMAC_KEY) {
     unavailable = true;
   } else {

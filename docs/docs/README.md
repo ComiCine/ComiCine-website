@@ -310,7 +310,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `ASN/<number>` | 低风险来源（中国电信 / 中国移动 / 中国联通，含铁通与骨干网 AS9929）。本应下发 Cloudflare 非交互式质询（Non-Interactive Challenge，`js_challenge`）而不是 Turnstile 门禁；该 WAF 规则目前未部署（见下）。 |
 | `IP-CIDR/<ip>/<mask>` | 完全放行的来源（例如 `IP-CIDR/97.64.18.11/32`）；同时跳过黑名单与质询门禁。 |
 
-ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（每日更新）。生成的边缘副本当前包含 **320 个低风险 ASN** 与 **2 个完全放行 IP**。目前没有任何 WAF 自定义规则在用它：该区域的 `http_request_firewall_custom` 阶段是空的，`ops/waf/rules.snapshot.json` 按 `captured_at` 记录**刷新那一刻**的线上状态（上次刷新为 0 条规则）——在 Dashboard 里删掉的规则只留在 git 历史里。
+ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（每日更新）。生成的边缘副本当前包含 **319 个低风险 ASN** 与 **2 个完全放行 IP**。目前没有任何 WAF 自定义规则在用它：该区域的 `http_request_firewall_custom` 阶段是空的，`ops/waf/rules.snapshot.json` 按 `captured_at` 记录**刷新那一刻**的线上状态（上次刷新为 0 条规则）——在 Dashboard 里删掉的规则只留在 git 历史里。
 
 各运行时的信任范围：边缘代码只把 `IP-CIDR` 条目视为可信（`isGateTrustedIp` →
 `functions/_data/gateTrust.ts`）。修改 `data/whitelist.txt` 之后，通过一次构建重新生成边缘副本

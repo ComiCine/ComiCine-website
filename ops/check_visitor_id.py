@@ -194,7 +194,7 @@ def main() -> int:
 
     if args.requests > 0:
         print(f"recent requests (ray_log_v2, up to {args.requests})", flush=True)
-        # docs/22 W7-9 + 迁移 017：这条查询现在走 (ip_hash, ts DESC) 索引精确取行。
+        # tasks/22 W7-9 + 迁移 017：这条查询现在走 (ip_hash, ts DESC) 索引精确取行。
         # 仍然先报出规模：排障脚本要在开扫之前说清楚会读到什么，别自己撞上
         # D1 读取预算。
         warn(

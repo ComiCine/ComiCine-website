@@ -669,7 +669,7 @@ describe("canonical /gate entry", () => {
   it("caps how many same-name __gate cookies it will verify", async () => {
     // 同名 cookie 没有数量上限：每一个都要跑一次 regex + WebCrypto importKey + sign。
     // 32 KB 的 Cookie 头 ≈ 400 枚 ≈ 400 次 WebCrypto 调用，CPU 由攻击者决定
-    // （docs/22 W9-10）。只取前 N 枚校验。
+    // （tasks/22 W9-10）。只取前 N 枚校验。
     vi.useFakeTimers();
     vi.setSystemTime(1_700_000_000 * 1000);
     const valid = (await mintGateCookie(keys.GATE_HMAC_KEY)).split(";")[0];
@@ -961,7 +961,7 @@ describe("onRequest wrapper", () => {
 });
 
 /**
- * docs/22 增量 ②：一条请求链路上 `new URL(request.url)` 只解析一次、
+ * tasks/22 增量 ②：一条请求链路上 `new URL(request.url)` 只解析一次、
  * `detectLang` 只算一次。
  *
  * 计数用代理/取值器直接盯着 `request.url` 与 `Accept-Language` 的读取次数：
@@ -1045,7 +1045,7 @@ describe("request URL is parsed once per request", () => {
 });
 
 /**
- * `cachedPageAsset` 直接把 ASSETS 的 body 流透传（docs/22 增量 ⑤）。
+ * `cachedPageAsset` 直接把 ASSETS 的 body 流透传（tasks/22 增量 ⑤）。
  *
  * 这里锁三件事：响应**字节**逐字节不变、状态码/全部响应头逐项不变、
  * `cache.put` 仍然发生并且拿到的是同一份字节（tee 两条分支都能读完）。

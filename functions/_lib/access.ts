@@ -18,7 +18,7 @@
  */
 
 /**
- * Cloudflare Access JWT 验签（docs/17 §11.6 / §11.10）。
+ * Cloudflare Access JWT 验签（tasks/17 §11.6 / §11.10）。
  *
  * Access 前置在 Pages 之前，通过 `Cf-Access-Jwt-Assertion` 头（浏览器另有
  * `CF_Authorization` cookie）把已认证身份交给 Worker；**Worker 必须自行验签**
@@ -26,7 +26,7 @@
  *
  * 设计取舍：
  * - 本模块只负责「Access 身份 -> 本系统身份」。会话 cookie、D1 `auth_sessions`
- *   撤销表与 requireAuth 的 fail-closed 语义全部沿用 docs/09，不做改动。
+ *   撤销表与 requireAuth 的 fail-closed 语义全部沿用 tasks/09，不做改动。
  * - 角色由 **AUD** 决定：每个 Application 有唯一 AUD，除非删除重建否则永不变，
  *   是最可靠的授权依据（不需要自定义 claims）。
  * - team domain 与 AUD 走 Pages 环境变量，不写进 `config-contract.json`：

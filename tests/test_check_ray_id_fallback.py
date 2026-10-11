@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W7-12: the edge fallback message must match what the code does.
+"""tasks/22 W7-12: the edge fallback message must match what the code does.
 
 `ops/check_ray_id.py` claims "falling back to the aggregated dataset" only when
 the per-request dataset is denied for lack of permission. Any other failure is
