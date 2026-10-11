@@ -159,7 +159,9 @@ describe("blocklist invariant (daily check step 2)", () => {
     const text = String(sent[0].text);
     expect(text).toContain("desired=2 actual=1 to_add=1 to_remove=0");
     expect(text).toContain("203.0.113.7");
-    expect(String(sent[0].subject)).toContain("to_add=1 to_remove=0");
+    // subject 固定为 `Blocklist drift · Limooo`（2026-10-11 用户定），差异计数只在正文。
+    expect(String(sent[0].subject)).toBe("Blocklist drift · Limooo");
+    expect(String(sent[0].text)).toContain("to_add=1 to_remove=0");
   });
 
   it("alerts when the IP List has an entry D1 no longer has (to_remove)", async () => {
