@@ -78,11 +78,19 @@ def test_renderer_escapes_html() -> None:
 
 
 def test_alert_copy_owner_is_the_status_worker() -> None:
+    """告警文案的唯一归属仍是 status-worker，且**只有英文**。
+
+    2026-10-11 用户要求告警只发英文（飞书 webhook 与邮件两类读者都按英文读），
+    所以这里从「四语齐全」改成「恰好只有 en-us」——
+    断言方向反过来了：多出任何别的语言都会红，因为那只增加维护面。
+    """
     worker = STATUS_WORKER.read_text(encoding="utf-8")
     block = re.search(r"const ALERT_I18N[^=]*=\s*\{(.*?)\n\};", worker, re.S)
     assert block, "ALERT_I18N must stay in ops/status-worker/src/index.ts"
-    for lang in LANGS:
-        assert f'"{lang}": {{' in block.group(1), f"ALERT_I18N is missing {lang}"
+
+    present = re.findall(r'^\s*"([a-z]{2}-[a-z]{2})":\s*\{', block.group(1), re.M)
+    assert present == ["en-us"], f"ALERT_I18N must be English only, found {present}"
+    assert "en-us" in LANGS, "en-us must remain a supported language in the contract"
 
 
 def test_python_alert_copy_is_only_a_tombstone() -> None:
