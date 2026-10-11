@@ -134,19 +134,19 @@ export async function readLatestRuns(
 }
 
 /**
- * 时间戳 → `2026-10-12-03-30`（UTC，2026-10-11 用户指定）。
+ * 时间戳 → `2026-10-12 03:30`（UTC，2026-10-11 用户指定）。
  *
  * 这是**告警件里时间的唯一格式**：本函数与 `index.ts` 的 `renderAlert` 共用同一实现，
  * 此前两处各拼一遍 `toISOString().replace("T"," ").slice(0,19) + " UTC"`，改一处就会不一致。
- * 保留前导零与短的 `-HH-MM` 是因为它按字典序等于时间序（日志、群消息里都能直接排）。
- * 秒被有意省略：告警的粒度是分钟，`ALERT_COOLDOWN_S` 也是分钟级。
+ * 前导零必须保留 —— 它让字典序等于时间序，日志与群消息里可以直接排。
+ * 秒被有意省略（告警粒度是分钟，`ALERT_COOLDOWN_S` 也是分钟级），也不带 `UTC` 后缀
+ * （读者只有站点主人，UTC 是既定前提；后缀在群消息里只是噪声）。
  */
 export function formatUtc(epochSeconds: number): string {
   if (!Number.isFinite(epochSeconds) || epochSeconds <= 0) return "-";
-  // 注意：`toISOString()` 给的是 `2023-11-14T22:13:20.000Z`，切到 16 位后还剩一个冒号，
-  // 所以要**两个分隔符都换掉**（`T` → `-`、`:` → `-`），否则会得到 `…-22:13`。
-  // 第一版就漏了这个，是测试抓出来的。
-  return new Date(epochSeconds * 1000).toISOString().slice(0, 16).replace("T", "-").replace(":", "-");
+  // `toISOString()` 给的是 `2023-11-14T22:13:20.000Z`：切到 16 位后把 `T` 换成空格，
+  // 就得到 `2023-11-14 22:13`。**只换 `T`**（此前那版把 `:` 也换成 `-`，是上一种格式的写法）。
+  return new Date(epochSeconds * 1000).toISOString().slice(0, 16).replace("T", " ");
 }
 
 /** error 摘要：压平换行、截断，避免把整段堆栈塞进告警。 */
