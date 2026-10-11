@@ -40,14 +40,84 @@ skip, not a failure: a fresh clone without those secrets must not start alerting
 
 | Path | Method | Auth | Purpose |
 | --- | --- | --- | --- |
-| `/` , `/status` | GET | public | Server-rendered status page (edge-cached, `Vary: Accept-Language`) |
+| `/` , `/status` | GET | public | Server-rendered status page, 4 languages, `?lang=` override (edge-cached, `Vary: Accept-Language`) |
 | `/_health` | GET | public | Liveness probe used by external monitors |
-| `/status.css`, `/status.js` | GET | public | Status page assets |
-| `/api/status` | GET | public | Status payload as JSON (used by the page and by scrapers) |
+| `/status.css` | GET | public | Status page styles (design tokens + inlined brand font) |
+| `/status.js`, `/status-theme.js` | GET | public | Page interactions / pre-paint theme class |
+| `/api/status` | GET | public | Status payload as JSON (normalised error codes, no raw exception text) |
 | `/alert-preview` | GET | public | Renders one alert mail; never sends anything |
 | `/run` | POST | **Bearer token** | Runs one round of probes and returns the fresh status |
 | `/alert-test` | POST | **Bearer token** | Really sends one alert through the configured channel |
 | `/daily-checks` | POST | **Bearer token** | Runs the daily checks now and returns each step's result; **really sends alerts** |
+
+## Status page
+
+`/` and `/status` are server-rendered by this Worker: `renderStatusPage()` in
+`src/index.ts` reads D1, `src/page.ts` builds the markup. Responses are cached with
+`public, max-age=30, s-maxage=60, stale-while-revalidate=300` and
+`Vary: Accept-Language`. The language comes from an explicit `?lang=` parameter
+first, then `Accept-Language`, then `zh-cn`.
+
+The shared `user_lang_preference` cookie is deliberately **not** part of the cache
+key (no `Vary: Cookie`): that would fragment the edge cache by cookie text and
+multiply D1 reads. Instead `/status.js` redirects once per session to
+`?lang=<cookie>` when the shared preference differs from the rendered page.
+
+| File | Role |
+| --- | --- |
+| `src/page.ts` | markup, CSS, client scripts, the three page shapes (status / 404 / render failure) |
+| `src/i18n.ts` | four-language table, language detection, probe-error classification |
+| `src/brand-font.ts` | generated: inlined Baloo 2 wordmark subset |
+
+The header and footer mirror the main site's `src/templates/base.html` and
+`src/templates/_footer.html` (same class names, same SVG, same `tokens.css` palette,
+Baloo 2 wordmark, language flyout, dark/light pill, GitHub/Bilibili links). The
+implementation is **self-contained on purpose**: `status.limooo.cn` is a separate
+origin, so linking the main site's `/static/**` would need a relaxed CSP *and* would
+make the status page depend on the very site it monitors being reachable. The
+trade-off is that this markup is duplicated by hand — the docs fork
+(`VPLimoooNav.vue` / `VPLimoooFooter.vue`) is the second copy. Change both when the
+main site header changes.
+
+### Error text is table-driven, and complete
+
+Probes store raw English machine codes in `heartbeats.msg` (`http_503`,
+`d1_error: Error: ...`, `fetch_error: AbortError: ...`). `msgCode()` reduces them to
+a public code (`http_<code>`, `d1_error`, `fetch_timeout`, `fetch_error`,
+`missing_target`, `unexpected_result`, `no_data`, `unknown`) and `probeDetail()`
+renders it in the visitor's language. Two guarantees:
+
+- **Nothing falls back to English.** Curated statuses (4xx, 5xx, Cloudflare 520-530)
+  get a full sentence; any other three-digit code falls into the `http_other`
+  template with the code interpolated; unknown non-HTTP codes land on
+  `err_unknown_code`, which still shows the code for triage.
+- **A missing translation cannot ship.** The table is typed as
+  `Record<Lang, Record<UiKey, string>>` with `UiKey = keyof typeof ZH_CN`, so a key
+  missing in any language is a `tsc` error (`npm run typecheck`).
+
+The same table renders the alert-mail body through `alertDetail()`, which keeps the
+raw exception text on purpose: the operator needs it, the public page does not.
+`/api/status` exposes the normalised code only, never the raw text.
+
+### Failure pages
+
+- Unknown path with `Accept: text/html` -> branded 404 page; every other client keeps
+  the plain-text `Not Found`.
+- D1 unreadable -> the Worker's own 503 page with `Cache-Control: no-store`, instead
+  of a generic Cloudflare error page; `/api/status` answers
+  `503 {"error":"unavailable"}`.
+
+### CSP and the brand font
+
+The status page ships the tightest CSP in the project: `default-src 'none'`,
+`style-src 'self'`, `script-src 'self'`, `font-src 'self' data:`, `img-src 'self'
+data: https://images.limooo.cn`, `connect-src 'self'`, `base-uri 'none'`,
+`form-action 'none'`, `frame-ancestors 'none'`. There is no inline script or
+style, so the theme class is applied before paint by the blocking
+`/status-theme.js` in `<head>`. The Baloo 2 wordmark is a 2.2 KB woff2 subset
+inlined in `src/brand-font.ts` (the regeneration command lives in that file)
+because the main site's copy is cross-origin and the main site sends no CORS
+header for fonts.
 
 ## STATUS_TOKEN
 
