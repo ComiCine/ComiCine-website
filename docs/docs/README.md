@@ -17,7 +17,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 - **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
 - **认证与角色**：Cloudflare Access 是唯一的身份来源；Worker 自行验证 Access JWT，并把 AUD 映射为 admin（读写）/ viewer（只读）
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
-- **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，每日在线率取自 `probe_uptime_daily` 汇总表
+- **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
   - D1 `blocked_ips` 是权威数据源；`sync-worker` 把生效的行同步到 Cloudflare IP List，用于边缘拦截（没有源站，因此也不需要 ipset/iptables）
   - 应用层全局过滤器作为后备 —— 被封禁的 IP 直接收到 403

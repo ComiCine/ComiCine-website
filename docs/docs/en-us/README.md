@@ -17,7 +17,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 - **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
 - **Auth & roles**: Cloudflare Access is the sole identity source; the Worker self-verifies the Access JWT and maps AUD → admin (read-write) / viewer (read-only)
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
-- **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker, with per-day uptime taken from the `probe_uptime_daily` rollup
+- **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
   - D1 `blocked_ips` is the authority; `sync-worker` mirrors active rows to a Cloudflare IP List for edge interception (no origin, so no ipset/iptables)
   - Application-layer global filter as a fallback — banned IPs get a direct 403

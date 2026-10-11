@@ -135,7 +135,9 @@ describe("worker_runs → alert (daily check step 1)", () => {
 
     expect(step).toEqual({ ok: true, issues: 1, alerted: true });
     expect(sent).toHaveLength(1);
-    expect(String(sent[0].subject)).toContain("blocklist_sync");
+    expect(String(sent[0].subject)).toBe("Cron job failure · Limooo");
+    // job 名在**正文**里（subject 只报「出了什么事」，2026-10-11 用户定）。
+    expect(String(sent[0].text)).toContain("blocklist_sync");
     expect(String(sent[0].text)).toContain("outcome=failed");
     expect(String(sent[0].text)).toContain("CF API 500");
     // 「哪个 job、什么时候、什么 outcome、error 摘要」四件事都要在正文里。
@@ -312,7 +314,7 @@ describe("alert copy for the daily checks", () => {
       [{ name: "blocklist_sync", detail: "<script>alert(1)</script>" }],
       NOW,
     );
-    expect(mail.subject).toContain("blocklist_sync");
+    expect(mail.text).toContain("blocklist_sync");
     expect(mail.html).toContain("&lt;script&gt;");
     expect(mail.html).not.toContain("<script>");
     expect(mail.html).toContain(esc("blocklist_sync"));
@@ -330,7 +332,7 @@ describe("alert copy for the daily checks", () => {
     }
     // 出口必须真的是英文文案，而不是"恰好相等"。
     const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
-    expect(mail.subject).toMatch(/\[Limooo\] Cron job failure/);
+    expect(mail.subject).toBe("Cron job failure · Limooo");
     expect(mail.text).toContain("did not succeed");
     expect(mail.text).not.toMatch(/[\u4e00-\u9fff]/);
   });

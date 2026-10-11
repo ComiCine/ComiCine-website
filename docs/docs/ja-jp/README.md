@@ -17,7 +17,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 - **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
 - **認証とロール**：Cloudflare Access が唯一のアイデンティティ源です。Worker が Access JWT を自ら検証し、AUD → admin（読み書き）/ viewer（読み取り専用）にマッピングします
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
-- **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
+- **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
   - D1 の `blocked_ips` が権威データです。`sync-worker` が有効な行を Cloudflare IP List に反映し、エッジで遮断します（オリジンがないため ipset/iptables はありません）
   - フォールバックとしてアプリケーション層のグローバルフィルタ — ブロックされた IP は直接 403 になります

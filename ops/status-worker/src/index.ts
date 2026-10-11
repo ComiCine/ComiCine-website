@@ -21,6 +21,18 @@ import { sendViaSmtp, type SmtpConfig } from "./smtp";
 import { runRetention } from "./retention";
 import { WATCHED_JOBS, formatUtc, readLatestRuns, runIssues, type RunIssue } from "./runwatch";
 import { LIST_NAME, checkBlocklistInvariant } from "./blocklist";
+import {
+  STATUS_CSS,
+  STATUS_JS,
+  THEME_JS,
+  esc,
+  notFoundHtml,
+  renderErrorHtml,
+  statusPageHtml,
+} from "./page";
+/** 旧的导入路径（测试从 index 取）继续可用。 */
+export { esc, statusKey } from "./page";
+import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from "./i18n";
 
 /**
  * limooo 状态探针 Worker（docs/17 阶段 2）
@@ -258,23 +270,25 @@ export const ALERT_KINDS = ["down", "up", "runs", "blocklist"] as const;
  * 是为了让「这一份文案」永远走同一条代码路径（也方便测试断言「无论 ALERT_LANG 配成什么，
  * 出去的都必须是英文」）。`env.ALERT_LANG` 因此**已不再影响告警**，保留字段只为不破坏既有绑定。
  */
-export const ALERT_LANG_FORCED = "en-us";
+export const ALERT_LANG_FORCED: Lang = "en-us";
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
 /** 四语文案表；导出只为让测试逐语言核对键齐全（运行时只用下面的取用函数）。 */
 export const ALERT_I18N: Record<string, Record<string, string>> = {
   "en-us": {
-    subject_down: "[Limooo] Health check alert",
-    subject_up: "[Limooo] Service recovered",
+    // subject 的形状（2026-10-11 用户定）：`<事件> · Limooo` —— 品牌放后缀，事件在前。
+    // 飞书群与邮箱列表里扫一眼就能看出是什么事；详情交给 title/intro。
+    subject_down: "Health check alert · Limooo",
+    subject_up: "Service recovered · Limooo",
     title_down: "Service issue detected",
     title_up: "Service recovered",
-    intro_down: "Limooo monitoring detected the following issue(s):",
+    intro_down: "Following issue(s) detected by Limooo monitoring:",
     intro_up: "The following service(s) recovered:",
-    subject_runs: "[Limooo] Cron job failure",
+    subject_runs: "Cron job failure · Limooo",
     title_runs: "A scheduled job did not succeed",
     intro_runs: "The last recorded run of these jobs did not succeed (a repeat alert means it is still broken):",
     hint_runs: "Triage: the error column for this job in the D1 worker_runs table, or the Workers logs in the Cloudflare dashboard.",
-    subject_blocklist: "[Limooo] Blocklist drift",
+    subject_blocklist: "Blocklist drift · Limooo",
     title_blocklist: "Blocked IP list has drifted",
     intro_blocklist: "The Cloudflare IP List and the active rows of D1 blocked_ips disagree, so edge blocking no longer matches the authority:",
     hint_blocklist: "Triage: python3 ops/check_blocklist_sync.py (this Worker runs the same comparison daily at 03:47 UTC).",
@@ -362,13 +376,17 @@ export function buildAlertEmail(
   return renderAlert(
     t,
     {
-      subject: `${down ? t.subject_down : t.subject_up} · ${probeName}`,
+      // subject 不再追加探针名（2026-10-11 用户定）：整串就是 `Health check alert · Limooo`。
+      // 探针是谁由正文的条目行给出（`- Website: selftest`），标题只需说清「出了什么事」。
+      subject: down ? t.subject_down : t.subject_up,
       title: down ? t.title_down : t.title_up,
       intro: down ? t.intro_down : t.intro_up,
       hint: t.hint,
       color: down ? "#dc2626" : "#05A5A6",
     },
-    [{ name: probeName, detail: msg }],
+    // 库里存的是 `http_503` / `fetch_error: TypeError: …` 这类英文机器码：
+    // 翻译成人话，但把运行时细节原样留在后面（排障要看原文）。
+    [{ name: probeName, detail: alertDetail(msg, isLang(lang) ? lang : ALERT_LANG_FORCED) }],
     at,
   );
 }
@@ -391,8 +409,11 @@ export function buildCheckAlertEmail(
   subjectNote = "",
 ): AlertEmail {
   const t = ALERT_I18N[lang] ?? ALERT_I18N[ALERT_LANG_FORCED];
-  const suffix = subjectNote || items.map((i) => i.name).join(", ");
-  const subject = `${t[`subject_${kind}`]} · ${suffix}`.slice(0, ALERT_SUBJECT_CHARS);
+  // subject 就是 `<事件> · Limooo`，**不追加条目名**（2026-10-11 用户定）：条目名可能很长
+  // （`blocklist_sync, d1_archive, …`），而且正文已经逐条列出。`subjectNote` 形参保留在
+  // 签名里只为兼容既有调用点，不再影响标题。
+  void subjectNote;
+  const subject = t[`subject_${kind}`].slice(0, ALERT_SUBJECT_CHARS);
   return renderAlert(
     t,
     {
@@ -425,13 +446,25 @@ export interface DeliverResult {
  *    告警被静默丢弃——这比不配置通道更危险，因为看起来是「已配置」的。
  * 全部失败时返回最后一个通道的原因，仍然不抛错。
  */
-export async function deliverAlert(env: Env, mail: AlertEmail): Promise<DeliverResult> {
+export async function deliverAlert(
+  env: Env,
+  mail: AlertEmail,
+  only?: "webhook" | "email" | "smtp",
+): Promise<DeliverResult> {
   let lastReason: string | undefined;
   let lastVia: "webhook" | "email" | undefined;
 
+  // `only` 让调用方指定**只走某一条通道**，其余跳过。
+  //
+  // 为什么需要它（2026-10-11）：投递是「webhook 一成功就 return」的短路链，所以只要
+  // webhook 配着，SMTP/Email 这两条**永远不会被执行** —— `/alert-test` 长期只证明了
+  // webhook 能用，用户问「为什么我从没收到过邮件」时无法回答。自动告警仍走完整降级链
+  // （不传 only），只有人工自测用得上这个参数。
+  const want = (channel: "webhook" | "email" | "smtp") => !only || only === channel;
+
   // 1) HTTP webhook（首选）
   const url = env.ALERT_WEBHOOK_URL;
-  if (url) {
+  if (url && want("webhook")) {
     const kind = (env.ALERT_WEBHOOK_KIND ?? "feishu").toLowerCase();
     const text = `${mail.subject}\n${mail.text}`;
     const body =
@@ -456,7 +489,7 @@ export async function deliverAlert(env: Env, mail: AlertEmail): Promise<DeliverR
   }
 
   // 2) Email binding（后备）
-  if (env.EMAIL && env.ALERT_TO) {
+  if (env.EMAIL && env.ALERT_TO && want("email")) {
     try {
       await env.EMAIL.send({
         to: env.ALERT_TO,
@@ -470,13 +503,13 @@ export async function deliverAlert(env: Env, mail: AlertEmail): Promise<DeliverR
       lastReason = `send_failed: ${String(err)}`;
       lastVia = "email";
     }
-  } else if (env.EMAIL && !env.ALERT_TO) {
+  } else if (env.EMAIL && !env.ALERT_TO && want("email")) {
     lastReason = "alert_to_missing";
     lastVia = "email";
   }
 
   // 3) 邮箱服务商 SMTP（最后兜底；配置不齐时 sendViaSmtp 自己会返回原因）
-  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.ALERT_TO) {
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS && env.ALERT_TO && want("smtp")) {
     const cfg: SmtpConfig = {
       host: env.SMTP_HOST,
       port: Number.parseInt(env.SMTP_PORT ?? "465", 10) || 465,
@@ -506,6 +539,7 @@ export async function sendAlert(
   kind: "down" | "up",
   probeName: string,
   msg: string,
+  only?: "webhook" | "email" | "smtp",
 ): Promise<DeliverResult> {
   const mail = buildAlertEmail(
     ALERT_LANG_FORCED,
@@ -514,7 +548,7 @@ export async function sendAlert(
     msg,
     Math.floor(Date.now() / 1000),
   );
-  const result = await deliverAlert(env, mail);
+  const result = await deliverAlert(env, mail, only);
   console.log(
     JSON.stringify({
       event: result.sent ? "probe_alert_sent" : "probe_alert_skipped",
@@ -752,7 +786,8 @@ interface StatusRow {
   group_key: string;
   active: number;
   label_key: string | null;
-  status: number | null;
+  /** 最新一条心跳的原始 msg（英文机器码）；页面只暴露归一化后的错误码。 */
+  msg: string | null;  status: number | null;
   latency_ms: number | null;
   checked_at: number | null;
   total: number | null;
@@ -768,16 +803,21 @@ export async function statusPayload(env: Env) {
   const todayStart = now - (now % 86400);
   const sinceDay = todayStart - 6 * 86400;
   const { results } = await env.DB.prepare(
+    // 延迟与错误码必须来自**同一条**最新心跳：原来只有一个 latency 子查询，
+    // 现在改成「先取最新 id、再 join 那一行」，一次索引定位拿到两列，
+    // 既不会出现「延迟是新的、错误码是旧的」，也不比原来多读一行/探针。
     `SELECT p.id, p.name, p.type, p.target, p.group_key, p.active, p.label_key,
             s.last_status AS status, s.checked_at,
-            (SELECT h.latency_ms FROM heartbeats h
-              WHERE h.probe_id = p.id ORDER BY h.ts DESC LIMIT 1) AS latency_ms,
+            h.latency_ms AS latency_ms, h.msg AS msg,
             COALESCE((SELECT SUM(d.total) FROM probe_uptime_daily d
               WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS total,
             COALESCE((SELECT SUM(d.up) FROM probe_uptime_daily d
               WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS up
        FROM probes p
        LEFT JOIN probe_state s ON s.probe_id = p.id
+       LEFT JOIN heartbeats h
+              ON h.id = (SELECT hb.id FROM heartbeats hb
+                          WHERE hb.probe_id = p.id ORDER BY hb.ts DESC LIMIT 1)
       WHERE p.active = 1
       ORDER BY p.id`,
   )
@@ -793,6 +833,9 @@ export async function statusPayload(env: Env) {
       type: row.type,
       group: row.group_key,
       label_key: row.label_key,
+      // 归一化错误码（http_503 / fetch_timeout / d1_error …）：公开 JSON 与
+      // 渲染层都只用它，原始异常文本（可能含库名/SQL）不出这个 Worker。
+      detail: msgCode(row.msg),
       status: row.status ?? PENDING,
       latency_ms: row.latency_ms,
       uptime: total > 0 ? (up / total) * 100 : null,
@@ -812,142 +855,15 @@ export async function statusPayload(env: Env) {
 
 // ── 状态页（服务端渲染；docs/17 阶段 2） ─────────────────────────
 //
+// 页面标记 / 样式 / 脚本 / 文案分别在 page.ts 与 i18n.ts，本文件只负责取数与路由。
 // 由本 Worker 直接出 HTML，因此没有客户端取数、也没有内联 script/style
-// （遵守 docs/14 的 CSP 约束）。status.js 只负责倒计时与自动刷新。
-//
-// 文案与 locales/*.json 的同名 key 保持一致；改文案时两边都要改。
+// （遵守 docs/14 的 CSP 约束）：status.js 只管倒计时、自动刷新、语言浮层与深浅胶囊，
+// status-theme.js 只负责首屏前把浅色 class 打上（避免深色闪一下）。
 
-const STATUS_I18N: Record<string, Record<string, string>> = {
-  "zh-cn": {
-    title: "系统状态",
-    sub: "Limooo 各项服务的实时可用性。",
-    overall_all: "全部系统运行正常",
-    overall_partial: "部分系统异常",
-    overall_down: "系统中断",
-    up: "运行正常",
-    down: "服务中断",
-    pending: "检测中",
-    group_public: "公开服务",
-    group_internal: "内部服务",
-    uptime: "7 天在线率",
-    updated: "最后更新",
-    refresh: "自动刷新",
-    note: "数据来源：limooo-status Worker · Cloudflare D1",
-    card_website: "Limooo 网站",
-    card_d1: "Limooo D1 健康检查",
-    card_status: "边缘静态资源",
-  },
-  "en-us": {
-    title: "System Status",
-    sub: "Live availability for Limooo services.",
-    overall_all: "All Systems Operational",
-    overall_partial: "Partially Operational",
-    overall_down: "Systems Down",
-    up: "Operational",
-    down: "Downtime",
-    pending: "Pending",
-    group_public: "Public Services",
-    group_internal: "Internal Services",
-    uptime: "7-day uptime",
-    updated: "Last updated",
-    refresh: "Auto refresh in",
-    note: "Data source: limooo-status Worker · Cloudflare D1",
-    card_website: "Limooo Website",
-    card_d1: "Limooo D1 Health Check",
-    card_status: "Edge Static Assets",
-  },
-  "ja-jp": {
-    title: "システムステータス",
-    sub: "Limooo 各サービスのリアルタイム稼働状況。",
-    overall_all: "すべてのシステム正常稼働",
-    overall_partial: "一部システムに問題",
-    overall_down: "システム停止中",
-    up: "稼働中",
-    down: "停止中",
-    pending: "確認中",
-    group_public: "公開サービス",
-    group_internal: "内部サービス",
-    uptime: "7 日間の稼働率",
-    updated: "最終更新",
-    refresh: "自動更新",
-    note: "データソース：limooo-status Worker · Cloudflare D1",
-    card_website: "Limooo ウェブサイト",
-    card_d1: "Limooo D1 ヘルスチェック",
-    card_status: "エッジ静的アセット",
-  },
-  "ko-kr": {
-    title: "시스템 상태",
-    sub: "Limooo 서비스의 실시간 가용성.",
-    overall_all: "모든 시스템 정상 작동",
-    overall_partial: "일부 시스템 문제",
-    overall_down: "시스템 중단",
-    up: "정상 운영",
-    down: "중단",
-    pending: "확인 중",
-    group_public: "공개 서비스",
-    group_internal: "내부 서비스",
-    uptime: "7일 가동률",
-    updated: "마지막 업데이트",
-    refresh: "자동 새로고침",
-    note: "데이터 출처: limooo-status Worker · Cloudflare D1",
-    card_website: "Limooo 웹사이트",
-    card_d1: "Limooo D1 상태 확인",
-    card_status: "엣지 정적 자산",
-  },
-};
-
-/** 语言检测：Accept-Language 前缀 > zh-cn 默认。 */
+/** 语言判定兼容入口：`?lang=` > Accept-Language > zh-cn（实现见 i18n.ts 的 pickLang）。 */
 export function pageLang(request: Request): string {
-  const accept = (request.headers.get("Accept-Language") ?? "").toLowerCase();
-  for (const part of accept.split(",")) {
-    const p = part.trim().split(";")[0];
-    if (p.startsWith("zh")) return "zh-cn";
-    if (p.startsWith("ja")) return "ja-jp";
-    if (p.startsWith("ko")) return "ko-kr";
-    if (p.startsWith("en")) return "en-us";
-  }
-  return "zh-cn";
+  return pickLang(request);
 }
-
-export function esc(v: unknown): string {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export const STATUS_CSS = `:root{--bg:#fff;--fg:#1b1b1f;--muted:#6b7280;--card:#fff;--line:#e5e7eb;--up:#05A5A6;--down:#dc2626;--pending:#d97706}
-@media (prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#f4f4f5;--muted:#a1a1aa;--card:#242429;--line:#333338}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,-apple-system,"Noto Sans SC",sans-serif}
-main{max-width:880px;margin:0 auto;padding:48px 20px 64px}
-h1{font-size:28px;margin:0 0 6px}
-.sub{color:var(--muted);margin:0 0 28px}
-.overall{display:flex;align-items:center;gap:12px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.overall.all{border-color:var(--up)}.overall.partial{border-color:var(--pending)}.overall.down{border-color:var(--down)}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 auto}
-.dot.all{background:var(--up)}.dot.partial{background:var(--pending)}.dot.down{background:var(--down)}
-.overall h2{font-size:17px;margin:0}
-.count{color:var(--muted);font-size:14px}
-section{margin-top:32px}
-.sec-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-.card{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.card-top{display:flex;align-items:center;gap:8px}
-.card h3{font-size:15px;font-weight:600;margin:0}
-.card-bottom{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.state{font-size:13px}
-.state.up{color:var(--up)}.state.down{color:var(--down)}.state.pending{color:var(--pending)}
-.uptime{color:var(--muted);font-size:13px}
-footer{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
-.note{color:var(--muted);font-size:12px;margin-top:10px}`;
-
-// 自动重载节奏：整页重载会重新走一次 D1 聚合，60 秒太激进（D1 读取配额），
-// 5 分钟足够反映探针状态。SSR 的首屏倒计时与 STATUS_JS 必须用同一个常量，
-// 否则首屏显示 60、脚本第一秒就跳成 300（曾经就是这样）。
-export const REFRESH_SECONDS = 300;
-export const STATUS_JS = `(function(){var n=${REFRESH_SECONDS};var el=document.getElementById('refresh-count');var t=document.getElementById('updated-at');if(t){var e=t.getAttribute('data-epoch');if(e){t.textContent=new Date(Number(e)*1000).toLocaleString();}}setInterval(function(){n=n-1;if(el){el.textContent=String(n>0?n:0);}if(n<=0){location.reload();}},1000);})();`;
 
 /**
  * 状态页 HTML 的边缘缓存策略。
@@ -962,63 +878,33 @@ export const STATUS_JS = `(function(){var n=${REFRESH_SECONDS};var el=document.g
 export const STATUS_HTML_CACHE_CONTROL =
   "public, max-age=30, s-maxage=60, stale-while-revalidate=300";
 
-export function statusKey(status: number | null): string {
-  return status === UP ? "up" : status === DOWN ? "down" : "pending";
-}
+/**
+ * 状态页 CSP：全站最紧的一页，只有三个自源资源（样式 + 两个脚本）与一个图标主机。
+ *
+ *   - `script-src 'self'`：没有 unsafe-inline，页头页脚的交互全在外链脚本里；
+ *   - `style-src 'self'`：样式来自 /status.css，模板里没有任何 style=""；
+ *   - `font-src 'self' data:`：品牌字体是内联在 CSS 里的 woff2 子集
+ *     （见 brand-font.ts，主站那份字体跨源且需要 CORS，状态页不依赖它）；
+ *   - `img-src` 只放开 favicon 所在的 images.limooo.cn（与 base.html 同一个图标地址）。
+ * 放宽任何一条都要先问一句：这个资源挂了会不会把状态页一起带下去。
+ */
+export const STATUS_CSP =
+  "default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self' data:; " +
+  "img-src 'self' data: https://images.limooo.cn; connect-src 'self'; base-uri 'none'; " +
+  "form-action 'none'; frame-ancestors 'none'";
+
+/** HTML 响应头：正常页、404 页与故障页共用，只有 Cache-Control 不同。 */
+const PAGE_HEADERS: Record<string, string> = {
+  "Content-Type": "text/html; charset=utf-8",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy": STATUS_CSP,
+};
 
 /** 服务端渲染状态页；数据来自 D1，无客户端取数。 */
 export async function renderStatusPage(env: Env, lang: string): Promise<string> {
-  const t = STATUS_I18N[lang] ?? STATUS_I18N["zh-cn"];
   const payload = await statusPayload(env);
-
-  const groups: Array<{ key: string; label: string; probes: typeof payload.probes }> = [
-    { key: "public", label: t.group_public, probes: [] },
-    { key: "internal", label: t.group_internal, probes: [] },
-  ];
-  for (const p of payload.probes) {
-    const bucket = groups.find((g) => g.key === p.group) ?? groups[1];
-    bucket.probes.push(p);
-  }
-
-  const card = (p: (typeof payload.probes)[number]) => {
-    const sk = statusKey(p.status);
-    const label = (p.label_key && t[p.label_key]) || p.name;
-    const uptime = p.uptime === null ? "—" : `${p.uptime.toFixed(2)}%`;
-    return (
-      `<div class="card"><div class="card-top"><span class="dot ${sk}"></span><h3>${esc(label)}</h3></div>` +
-      `<div class="card-bottom"><span class="state ${sk}">${esc(t[sk])}</span>` +
-      `<span class="uptime">${esc(uptime)} <span>${esc(t.uptime)}</span></span></div></div>`
-    );
-  };
-
-  const sections = groups
-    .filter((g) => g.probes.length > 0)
-    .map(
-      (g) =>
-        `<section><h2 class="sec-title">${esc(g.label)}</h2><div class="grid">` +
-        g.probes.map(card).join("") +
-        `</div></section>`,
-    )
-    .join("");
-
-  const overallKey = payload.down === 0 ? "all" : payload.down < payload.total ? "partial" : "down";
-
-  return (
-    `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8">` +
-    `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>${esc(t.title)} · limooo.cn</title><meta name="robots" content="noindex">` +
-    `<link rel="stylesheet" href="/status.css">` +
-    `</head><body><main>` +
-    `<h1>${esc(t.title)}</h1><p class="sub">${esc(t.sub)}</p>` +
-    `<div class="overall ${overallKey}"><div class="dot ${overallKey}"></div>` +
-    `<div><h2>${esc(t[`overall_${overallKey}`] ?? t.overall_down)}</h2>` +
-    `<span class="count">(${payload.down}/${payload.total})</span></div></div>` +
-    sections +
-    `<footer><span>${esc(t.updated)} <time id="updated-at" data-epoch="${payload.updated_at}">—</time></span>` +
-    `<span>${esc(t.refresh)} <span id="refresh-count">${REFRESH_SECONDS}</span>s</span></footer>` +
-    `<p class="note">${esc(t.note)}</p>` +
-    `</main><script src="/status.js" defer></script></body></html>`
-  );
+  return statusPageHtml(payload, isLang(lang) ? lang : DEFAULT_LANG);
 }
 
 /**
@@ -1096,8 +982,10 @@ export default {
         },
       });
     }
-    if (url.pathname === "/status.js") {
-      return new Response(STATUS_JS, {
+    // 两个脚本：/status-theme.js 在 <head> 里同步跑（防白闪），/status.js 是页面交互。
+    if (url.pathname === "/status.js" || url.pathname === "/status-theme.js") {
+      const body = url.pathname === "/status-theme.js" ? THEME_JS : STATUS_JS;
+      return new Response(body, {
         headers: {
           "Content-Type": "text/javascript; charset=utf-8",
           "Cache-Control": "public, max-age=300",
@@ -1105,26 +993,47 @@ export default {
       });
     }
     if (url.pathname === "/" || url.pathname === "/status") {
-      const html = await renderStatusPage(env, pageLang(request));
+      const lang: Lang = pickLang(request, url);
+      let html: string;
+      try {
+        html = await renderStatusPage(env, lang);
+      } catch (err) {
+        // 读不到库时返回自己的 503 页，而不是让请求炸成 Cloudflare 的通用错误页：
+        // 后者没有品牌也没有出口，访客会以为整个 limooo.cn 都挂了。错误页绝不缓存。
+        console.error(
+          JSON.stringify({ event: "status_render_failed", lang, error: String(err) }),
+        );
+        return new Response(renderErrorHtml(lang), {
+          status: 503,
+          headers: { ...PAGE_HEADERS, "Cache-Control": "no-store" },
+        });
+      }
       return new Response(html, {
         headers: {
-          "Content-Type": "text/html; charset=utf-8",
+          ...PAGE_HEADERS,
           // 边缘缓存：状态数据每分钟才变一次，SSR 每次都要读 D1。
           // 无缓存时每个请求（含 5 分钟自动重载、外部抓取、爬虫）都直接打库，
           // 是 D1 每日读取配额的放大器。s-maxage 让 Cloudflare 边缘吸收重复请求，
           // max-age 让浏览器短时间内复用（配合下方 Vary，四语言各自缓存）。
           "Cache-Control": STATUS_HTML_CACHE_CONTROL,
+          // 语言变体只有两种来源：Accept-Language 与显式 `?lang=`（查询串天然进
+          // 缓存键）。**故意不 Vary: Cookie**——那会按 cookie 原文打碎边缘缓存，
+          // 把 D1 读取放大回去；共享 cookie 只用于客户端的一次性跳转。
           "Vary": "Accept-Language",
-          "X-Content-Type-Options": "nosniff",
-          "Referrer-Policy": "no-referrer",
-          "Content-Security-Policy":
-            "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         },
       });
     }
     if (url.pathname === "/api/status") {
-      const payload = await statusPayload(env);
-      return Response.json(payload, { headers: { "Cache-Control": "no-store" } });
+      try {
+        const payload = await statusPayload(env);
+        return Response.json(payload, { headers: { "Cache-Control": "no-store" } });
+      } catch (err) {
+        console.error(JSON.stringify({ event: "status_api_failed", error: String(err) }));
+        return Response.json(
+          { error: "unavailable" },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
     }
     // 手动触发一轮探针（运维/排障用，需要 STATUS_TOKEN；只返回公开的状态数据）
     if (url.pathname === "/run" && request.method === "POST") {
@@ -1168,7 +1077,24 @@ export default {
           },
         );
       }
-      const result = await sendAlert(env, "down", url.searchParams.get("probe") ?? "Website", "selftest");
+      // `?via=webhook|email|smtp` 只走那一条通道。不传则走完整降级链（与自动告警一致）。
+      // 加它的理由：投递是短路链，webhook 配着时邮件路径永远不执行，
+      // 于是「邮件到底能不能发」这个问题长期无法用现成接口回答。
+      const rawVia = url.searchParams.get("via");
+      if (rawVia && !["webhook", "email", "smtp"].includes(rawVia)) {
+        return Response.json(
+          { error: "bad_via", allowed: ["webhook", "email", "smtp"] },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      const only = (rawVia ?? undefined) as "webhook" | "email" | "smtp" | undefined;
+      const result = await sendAlert(
+        env,
+        "down",
+        url.searchParams.get("probe") ?? "Website",
+        "selftest",
+        only,
+      );
       // `configured` 必须反映**全部三条通道**。此前它只看 `env.EMAIL`，而投递顺序是
       // webhook → Email → SMTP —— 于是「只配了 webhook」时会出现
       // `{"configured":false,"sent":true,"via":"webhook"}` 这种自相矛盾的响应，
@@ -1181,8 +1107,18 @@ export default {
       return Response.json({
         configured: channels.length > 0,
         channels,
+        tried: only ?? "full-chain",
         recipient_set: Boolean(env.ALERT_TO),
         ...result,
+      });
+    }
+    // 未知路径：浏览器（Accept: text/html）拿品牌化的四语 404 页，
+    // 其余客户端继续拿纯文本 —— 探针/抓取脚本不该因为多了一段 HTML 而改解析。
+    if (request.method === "GET" && (request.headers.get("Accept") ?? "").includes("text/html")) {
+      const lang = pickLang(request, url);
+      return new Response(notFoundHtml(lang), {
+        status: 404,
+        headers: { ...PAGE_HEADERS, "Cache-Control": "no-store" },
       });
     }
     return new Response("Not Found", { status: 404 });

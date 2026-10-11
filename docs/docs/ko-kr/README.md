@@ -17,7 +17,7 @@ description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버�
 - **Apple Account 관리자**(`account.limooo.cn/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
 - **인증 및 역할**: Cloudflare Access가 유일한 신원 소스이며, Worker가 Access JWT를 자체 검증하고 AUD → admin(읽기·쓰기) / viewer(읽기 전용)로 매핑합니다
 - **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
-- **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
+- **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
 - **자동 IP 차단**:
   - D1 `blocked_ips`가 권위 데이터이고, `sync-worker`가 활성 행을 Cloudflare IP List로 미러링해 엣지에서 차단합니다(원본 서버가 없으므로 ipset/iptables도 없음)
   - 대체 수단으로 애플리케이션 계층 전역 필터가 있으며, 차단된 IP는 곧바로 403을 받습니다

@@ -1,0 +1,257 @@
+/**
+ * Limooo - serverless personal website and admin system
+ *
+ * Copyright (C) 2026 Limooo <https://limooo.cn/>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import {
+  STATUS_CSS,
+  STATUS_JS,
+  THEME_JS,
+  navHtml,
+  notFoundHtml,
+  renderErrorHtml,
+  statusPageHtml,
+  type PagePayload,
+} from "./page";
+import { LANGS } from "./i18n";
+
+/** 一好一坏：覆盖 up（不显示原因）与 down（显示翻译后的原因）两条渲染分支。 */
+function payload(over: Partial<PagePayload> = {}): PagePayload {
+  return {
+    updated_at: 1_700_000_000,
+    total: 2,
+    down: 1,
+    probes: [
+      {
+        name: "Website",
+        group: "public",
+        label_key: "card_website",
+        status: 1,
+        uptime: 99.5,
+        detail: "http_200",
+      },
+      {
+        name: "D1 Health",
+        group: "internal",
+        label_key: null,
+        status: 0,
+        uptime: 12.34,
+        detail: "http_503",
+      },
+    ],
+    ...over,
+  };
+}
+
+describe("page chrome (inherited from base.html / _footer.html)", () => {
+  const html = statusPageHtml(payload(), "zh-cn");
+
+  it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
+    for (const needle of [
+      'class="site-nav"',
+      'class="nav-brand">Limooo',
+      'href="https://limooo.cn"',
+      'href="https://services.limooo.cn"',
+      'href="https://contact.limooo.cn"',
+      'class="nav-external"',
+      'class="lang-btn"',
+      'id="langMenu"',
+      'id="theme-switch"',
+      'class="appearance-switch"',
+      "https://github.com/Limooooo-Studio",
+      "https://space.bilibili.com/1234163143",
+      'class="icon-svg"',
+    ]) {
+      expect(html, needle).toContain(needle);
+    }
+  });
+
+  it("keeps the nav link order of base.html (home → services → contact)", () => {
+    // base.html 是页头的正本；期望顺序从 <nav> 里三个模板变量的先后取，再对 navHtml() 的副本
+    const base = readFileSync(new URL("../../../src/templates/base.html", import.meta.url), "utf8");
+    const nav = base.slice(base.indexOf("<nav"), base.indexOf("</nav>"));
+    const literal = ["https://limooo.cn", "https://services.limooo.cn", "https://contact.limooo.cn"];
+    const slots = ["home_url", "services_url", "contact_url"].map((name, i) => ({
+      url: literal[i]!,
+      at: nav.indexOf(`{{ ${name} }}`),
+    }));
+    expect(slots.every((slot) => slot.at >= 0), "base.html <nav> 里三个链接都在").toBe(true);
+    const expected = [...slots].sort((a, b) => a.at - b.at).map((slot) => slot.url);
+    expect(expected).toEqual(literal); // 正本本身就是 home → services → contact
+
+    // navHtml() 的 .global-nav 段里三个 href 的出现顺序
+    const html = navHtml("zh-cn");
+    const globalNav = html.slice(
+      html.indexOf('class="global-nav"'),
+      html.indexOf('class="nav-divider"'),
+    );
+    const actual = (globalNav.match(/href="[^"]+"/g) ?? []).map((href) =>
+      href.slice('href="'.length, -1),
+    );
+    expect(actual).toEqual(expected);
+  });
+
+  it("renders the shared footer with the AGPL/source row", () => {
+    for (const needle of [
+      'class="global-footer"',
+      'class="footer-brand">Limooo',
+      "&copy; 2026",
+      "保留所有权利",
+      "AGPL-3.0",
+      "https://github.com/Limooooo-Studio/Limooo-Website",
+      'rel="noopener noreferrer"',
+    ]) {
+      expect(html, needle).toContain(needle);
+    }
+  });
+
+  it("marks the active language and lists all four options", () => {
+    for (const lang of LANGS) {
+      const page = statusPageHtml(payload(), lang);
+      expect(page).toContain(`<html lang="${lang}">`);
+      expect(page, lang).toContain(`data-lang="${lang}"`);
+      expect(page, lang).toContain(`class="theme-option selected" data-lang="${lang}"`);
+      expect(page.split('class="theme-option').length - 1, lang).toBe(4);
+    }
+  });
+
+  it("keeps the CI-enforced properties: no inline script, no inline style", () => {
+    expect(html).not.toContain("<script>");
+    expect(html).not.toMatch(/\sstyle="/);
+    expect(html).toContain('href="/status.css"');
+    expect(html).toContain('src="/status.js"');
+    expect(html).toContain('src="/status-theme.js"');
+  });
+});
+
+describe("status content", () => {
+  it("shows the translated reason on non-up cards only", () => {
+    const zh = statusPageHtml(payload(), "zh-cn");
+    expect(zh).toContain("服务不可用（HTTP 503）");
+    expect(zh).toContain("原因：");
+    // up 的那张卡不出原因行（http_200 只有一条）
+    expect(zh.match(/class="reason"/g)?.length).toBe(1);
+
+    const en = statusPageHtml(payload(), "en-us");
+    expect(en).toContain("Service unavailable (HTTP 503)");
+    expect(en).toContain("Reason: ");
+  });
+
+  it("translates the probe label via label_key and falls back to the DB name", () => {
+    expect(statusPageHtml(payload(), "ja-jp")).toContain("Limooo ウェブサイト");
+    expect(statusPageHtml(payload(), "ko-kr")).toContain("D1 Health"); // 没有 label_key → 用库里的名字
+  });
+
+  it("renders an empty state instead of an empty grid when no probe is active", () => {
+    const empty = statusPageHtml(payload({ total: 0, down: 0, probes: [] }), "zh-cn");
+    expect(empty).toContain("暂无探针配置");
+    expect(empty).not.toContain('class="grid"');
+    expect(empty).toContain("(0/0)");
+  });
+
+  it("escapes anything that comes from the database", () => {
+    const nasty = statusPageHtml(
+      payload({
+        total: 1,
+        down: 1,
+        probes: [
+          {
+            name: '<img src=x onerror="alert(1)">',
+            group: "public",
+            label_key: null,
+            status: 0,
+            uptime: null,
+            detail: "d1_error",
+          },
+        ],
+      }),
+      "zh-cn",
+    );
+    expect(nasty).not.toContain("<img src=x");
+    expect(nasty).toContain("&lt;img src=x");
+    expect(nasty).toContain("—"); // uptime 为 null 时是占位符，不是 0%
+  });
+});
+
+describe("failure pages", () => {
+  it("404 keeps the chrome, is localized and offers two ways out", () => {
+    for (const lang of LANGS) {
+      const html = notFoundHtml(lang);
+      expect(html, lang).toContain('class="site-nav"');
+      expect(html, lang).toContain('class="global-footer"');
+      expect(html, lang).toContain('class="btn primary" href="/"');
+      expect(html, lang).toContain("https://limooo.cn");
+      expect(html, lang).not.toContain("<script>");
+    }
+    expect(notFoundHtml("zh-cn")).toContain("页面不存在");
+    expect(notFoundHtml("ko-kr")).toContain("페이지를 찾을 수 없습니다");
+  });
+
+  it("the render-failure page is localized and explains itself", () => {
+    expect(renderErrorHtml("zh-cn")).toContain("状态数据暂时不可用");
+    expect(renderErrorHtml("en-us")).toContain("Status data is temporarily unavailable");
+    expect(renderErrorHtml("en-us")).toContain("limooo-status Worker");
+  });
+});
+
+describe("assets", () => {
+  it("styles the page from the shared design tokens and inlines the brand font", () => {
+    expect(STATUS_CSS).toContain("--accent:#05A5A6");
+    expect(STATUS_CSS).toContain("--radius-lg:16px");
+    expect(STATUS_CSS).toContain("data:font/woff2;base64,");
+    expect(STATUS_CSS).toContain(".light-mode");
+    expect(STATUS_CSS).toContain(".global-footer");
+    expect(STATUS_CSS).toContain(".site-nav");
+    expect(STATUS_CSS).not.toContain("@import");
+  });
+
+  it("keeps the stylesheet structurally valid: balanced braces, @font-face closed first", () => {
+    // 少一个 `}`（品牌字体那次漏了 `format('woff2')` 的收尾）会让解析器把后面整张表吞进
+    // 未闭合的声明块，页面只剩 UA 默认样式；vitest 不渲染 CSS，只能靠结构断言兜住。
+    expect((STATUS_CSS.match(/\{/g) ?? []).length).toBe((STATUS_CSS.match(/\}/g) ?? []).length);
+    // 品牌字体那次漏掉的正是这个收尾 `;}`（只写到 format('woff2') 就断了，@font-face 不闭合）
+    expect(STATUS_CSS).toContain("format('woff2');}");
+    // @font-face 必须已在第一个 `}` 处闭合：`:root{` 只能出现在它之后
+    expect(STATUS_CSS.indexOf(":root{")).toBeGreaterThan(STATUS_CSS.indexOf("}"));
+    for (const needle of [".light-mode", ".global-footer", ".site-nav", "--accent:#05A5A6"]) {
+      expect(STATUS_CSS, needle).toContain(needle);
+    }
+  });
+
+  it("preloads the theme before paint, from localStorage then the shared cookie", () => {
+    expect(THEME_JS).toContain("localStorage.getItem('theme')");
+    expect(THEME_JS).toContain("limooo_theme");
+    expect(THEME_JS).toContain("prefers-color-scheme: light");
+    expect(THEME_JS).toContain("classList.add('light-mode')");
+  });
+
+  it("wires the flyout, the theme pill, the countdown and the cookie bridge", () => {
+    expect(STATUS_JS).toContain("user_lang_preference");
+    expect(STATUS_JS).toContain("limooo_theme");
+    expect(STATUS_JS).toContain("domain=.'+ROOT");
+    expect(STATUS_JS).toContain("refresh-count");
+    expect(STATUS_JS).toContain("location.reload()");
+    expect(STATUS_JS).toContain("searchParams.set('lang'");
+    expect(STATUS_JS).toContain("location.replace");
+    // 自动刷新节奏必须与首屏渲染出来的倒计时用同一个常量
+    expect(STATUS_JS).toContain("var REFRESH=300");
+    const html = statusPageHtml(payload(), "zh-cn");
+    expect(html).toContain('id="refresh-count">300<');
+  });
+});

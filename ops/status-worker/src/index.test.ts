@@ -351,13 +351,18 @@ describe("status page rendering", () => {
 });
 
 describe("alert email", () => {
-  it("down uses red, up uses the brand teal, both name the probe", () => {
+  it("down uses red, up uses the brand teal, both name the probe in the body", () => {
     const down = buildAlertEmail("zh-cn", "down", "Website", "http_503", 1700000000);
     const up = buildAlertEmail("zh-cn", "up", "Website", "http_200", 1700000000);
-    expect(down.subject).toContain("Website");
+    // 探针名**不在 subject 里**（2026-10-11 用户定：subject 为 `Health check alert · Limooo`），
+    // 它由正文的条目行给出 —— 标题只说「出了什么事」。
+    expect(down.subject).toBe("Health check alert · Limooo");
+    expect(down.subject).not.toContain("Website");
+    expect(down.text).toContain("Website");
     expect(down.html).toContain("#dc2626");
     expect(up.html).toContain("#05A5A6");
-    expect(down.text).toContain("http_503");
+    // 正文里的错误码现在翻成人话；原始机器码只在真实异常文本时追加在后面。
+    expect(down.text).toContain("服务不可用（HTTP 503）");
   });
 
   it("all four languages render copy", () => {
@@ -595,11 +600,117 @@ describe("ops endpoint auth", () => {
       "/",
       "/status.css",
       "/status.js",
+      "/status-theme.js",
       "/api/status",
       "/alert-preview",
     ]) {
       const res = await worker.fetch(opsRequest(path), env);
       expect(res.status, path).toBe(200);
     }
+  });
+});
+
+/**
+ * 路由层：语言变体、缓存/CSP 头、故障兜底与 404。
+ *
+ * 这些是「状态页自己不能成为另一个故障点」的护栏：D1 读不出来要给自己的
+ * 503 页（而不是 Cloudflare 的通用错误页），错误码要归一化后再出网。
+ */
+describe("status page routing", () => {
+  const URL_BASE = "https://status.limooo.cn";
+  /** 一行探针，msg 里带原始异常文本（page/api 都不该把它带出去）。 */
+  const probeRow = {
+    id: 1,
+    name: "Website",
+    type: "http",
+    target: "https://limooo.cn/_health",
+    group_key: "public",
+    active: 1,
+    label_key: "card_website",
+    status: 0,
+    latency_ms: 12,
+    checked_at: 1,
+    total: 10,
+    up: 5,
+    msg: "d1_error: Error: D1_ERROR: no such table: probes",
+  };
+  const okEnv = () => ({ DB: fakeDb({ all: () => ({ results: [probeRow] }) }).db }) as unknown as Env;
+  const brokenEnv = () =>
+    ({
+      DB: fakeDb({
+        all: () => {
+          throw new Error("D1_ERROR: network unreachable");
+        },
+      }).db,
+    }) as unknown as Env;
+
+  it("takes the language from ?lang= and keeps Accept-Language as the cache key", async () => {
+    const res = await worker.fetch(
+      new Request(`${URL_BASE}/?lang=ja-jp`, { headers: { "Accept-Language": "en-US" } }),
+      okEnv(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Vary")).toBe("Accept-Language");
+    expect(res.headers.get("Cache-Control")).toBe(STATUS_HTML_CACHE_CONTROL);
+    const html = await res.text();
+    expect(html).toContain('<html lang="ja-jp">');
+    expect(html).toContain("システムステータス");
+  });
+
+  it("serves the theme preload script that the head blocks on", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/status-theme.js`), okEnv());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/javascript");
+    expect(await res.text()).toContain("light-mode");
+  });
+
+  it("keeps the page CSP tight, allowing only the inlined font and the icon host", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/`), okEnv());
+    const csp = res.headers.get("Content-Security-Policy") ?? "";
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("font-src 'self' data:");
+    expect(csp).toContain("img-src 'self' data: https://images.limooo.cn");
+    expect(csp).not.toContain("unsafe-inline");
+    expect(csp).not.toContain("unsafe-eval");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("normalises probe errors and never exposes the raw exception text", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/api/status`), okEnv());
+    const body = (await res.json()) as { probes: Array<Record<string, unknown>> };
+    expect(body.probes[0].detail).toBe("d1_error");
+    expect(JSON.stringify(body)).not.toContain("no such table");
+    const html = await worker.fetch(new Request(`${URL_BASE}/?lang=zh-cn`), okEnv());
+    expect(await html.text()).toContain("数据库查询失败");
+  });
+
+  it("returns its own localized 503 page when D1 cannot be read", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/?lang=en-us`), brokenEnv());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const html = await res.text();
+    expect(html).toContain("Status data is temporarily unavailable");
+    expect(html).toContain('class="site-nav"');
+    expect(html).toContain('class="global-footer"');
+  });
+
+  it("answers /api/status with 503 json instead of throwing", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/api/status`), brokenEnv());
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "unavailable" });
+  });
+
+  it("gives browsers a branded 404 and every other client plain text", async () => {
+    const html = await worker.fetch(
+      new Request(`${URL_BASE}/nope`, { headers: { Accept: "text/html,application/xhtml+xml" } }),
+      okEnv(),
+    );
+    expect(html.status).toBe(404);
+    expect(html.headers.get("Cache-Control")).toBe("no-store");
+    expect(await html.text()).toContain("页面不存在");
+
+    const text = await worker.fetch(new Request(`${URL_BASE}/nope`), okEnv());
+    expect(text.status).toBe(404);
+    expect(await text.text()).toBe("Not Found");
   });
 });
