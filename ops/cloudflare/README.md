@@ -93,12 +93,12 @@ has its own opinion, and it wins first:
   in the firewall analytics as `source: firewallManaged`, `ruleId
   eb4f2dedc16c49f9bf27a5170989fb0f`, and there is no custom rule that could disable it.
 - The switch is the zone's Bot Management configuration
-  (`GET/PATCH /zones/<zone_id>/bot_management`): `ai_bots_protection` (the legacy
-  "Block AI bots" toggle, `block` / `only_on_ad_pages` / `disabled`) plus the
-  per-behaviour policies `ai_search`, `ai_user`, `ai_training`, the AI Labyrinth switch
-  `crawler_protection`, and `is_robots_txt_managed` (Cloudflare prepending a managed
-  `robots.txt` derived from those policies — unwanted here, because `robots.txt` is owned
-  by `src/build.py`).
+  (`GET` / `PUT /zones/<zone_id>/bot_management`; the update verb is **PUT**, PATCH answers
+  `405 / code 10405`): `ai_bots_protection` (the legacy "Block AI bots" toggle, `block` /
+  `only_on_ad_pages` / `disabled`) plus the per-behaviour policies `ai_search`, `ai_user`,
+  `ai_training`, the AI Labyrinth switch `crawler_protection`, and `is_robots_txt_managed`
+  (Cloudflare prepending a managed `robots.txt` derived from those policies — unwanted here,
+  because `robots.txt` is owned by `src/build.py`).
 
 ```sh
 python3 ops/ai_bots.py --dry-run    # offline: print the committed snapshot + the plan
@@ -110,14 +110,25 @@ python3 ops/ai_bots.py --apply      # live: set every AI behaviour to "do not bl
 `--apply` only writes keys the zone actually reports, prints the before/after, re-reads the
 configuration and exits non-zero if anything still differs. It also prints the keys it
 never touches (`fight_mode`, `content_bots_protection`, `bot_preference_sync_enabled`,
-`stale_zone_configuration`) with a `<- review` note when one of them looks like it is
-blocking automated traffic — flipping those is a product decision, not a cleanup.
+`stale_zone_configuration`) and flags the ones that block automated traffic — flipping
+those is a product decision, not a cleanup.
+
+**Applied on 2026-10-12** (`ops/ai-bots.snapshot.json`): the zone had the legacy
+`ai_bots_protection: only_on_ad_pages` plus `crawler_protection: enabled` (AI Labyrinth,
+i.e. AI crawlers were being sent into a link maze) and `is_robots_txt_managed: true`; all
+six managed keys now hold the allow value. Verified from a non-allow-listed egress:
+GPTBot / ClaudeBot / CCBot / Bytespider / Amazonbot / PerplexityBot get `200` on
+`limooo.cn`, `services.`, `contact.`, `images.` and `docs.limooo.cn`, while a browser
+User-Agent still gets the `403` Turnstile gate. Two dead ends worth remembering:
+`PATCH` is rejected (`405`), and a WAF custom rule with `action: skip` over
+`phases: ["http_request_firewall_managed"]` is *accepted* by the API on a Free zone but
+does **not** lift the AI-bot block.
 
 The endpoint is gated by the **Bot Management** permission. The token in
-`secrets/webauthn.env` does not have it (the API answers `403 Authentication error`), so
-either grant "Bot Management: Edit" to that token or use the Dashboard path
-(`Security > Settings > Configure AI bot policies` -> *Allow* for Search, Agent and
-Training). `--apply` says exactly this instead of pretending the zone was fixed.
+`secrets/webauthn.env` carries "Bot Management: Edit" since 2026-10-12 (the Dashboard path
+is `Security > Settings > Configure AI bot policies` -> *Allow* for Search, Agent and
+Training). Before that the API answered `403 Authentication error`; `--apply` reports that
+condition precisely instead of pretending the zone was fixed.
 
 ## Pages environment variables (key names only, never values)
 
