@@ -2,7 +2,7 @@
   "_deprecated": true,
   "_deprecated_since": "2026-10-11",
   "_owner": "ops/status-worker/src/index.ts (ALERT_I18N + buildAlertEmail)",
-  "_why": "docs/22 W7-13: this file held a second copy of the alert mail copy while the status Worker inlined its own ALERT_I18N, and the two had already drifted. Two sources for the same mail is worse than none.",
+  "_why": "tasks/22 W7-13: this file held a second copy of the alert mail copy while the status Worker inlined its own ALERT_I18N, and the two had already drifted. Two sources for the same mail is worse than none.",
   "_what_to_edit": "ALERT_I18N in ops/status-worker/src/index.ts. Its four languages (zh-cn / en-us / ja-jp / ko-kr) are asserted by ops/status-worker/src/index.test.ts.",
   "_note": "Kept only as a tombstone so the reference from index.ts still resolves. It carries no alert copy and must not grow one again."
 }

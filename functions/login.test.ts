@@ -18,7 +18,7 @@
  */
 
 /**
- * GET /login 测试（docs/22 W5-7）：Access 身份落地与「失败绝不下发 cookie」。
+ * GET /login 测试（tasks/22 W5-7）：Access 身份落地与「失败绝不下发 cookie」。
  *
  * 这个端点没有测试是很危险的：它是唯一签发会话 cookie 的地方，而
  * `createAuthSession` 失败时**必须** 503 —— 一旦退回「cookie 照发、D1 写失败

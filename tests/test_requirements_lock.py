@@ -17,7 +17,7 @@
 
 """`requirements.lock` must stay in step with `ops/requirements.txt`.
 
-The regression this guards is concrete (docs/22, 2026-10-11): Dependabot bumped
+The regression this guards is concrete (tasks/22, 2026-10-11): Dependabot bumped
 `cairosvg` to 2.9.1 in `ops/requirements.txt`, CI went green, the PR was merged — and
 nothing changed, because `ops/build.sh:56` installs **requirements.lock**, which still
 pinned 2.8.2. Six other packages had drifted the same way.

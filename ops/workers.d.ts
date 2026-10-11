@@ -27,7 +27,7 @@
  * cron、cloudflare:sockets）；改 Worker 用到新 API 时在这里补，不要用 any 兜。
  *
  * 之前 status-worker 不在 tsconfig.json 的 include 里，所以这些类型缺失
- * 一直没被发现（docs/22 W6-4）。
+ * 一直没被发现（tasks/22 W6-4）。
  */
 
 /** Cloudflare D1（与 functions/_lib/d1.ts 的同名结构保持兼容）。 */

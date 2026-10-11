@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "TS <-> Python IP/CIDR parity fixture (docs/22 W9-2).",
+    "TS <-> Python IP/CIDR parity fixture (tasks/22 W9-2).",
     "expected_* values are CPython ipaddress output; functions/_lib/cidr.ts and",
     "src/cidr.py must both reproduce them, otherwise blocked_ips rows written by",
     "Python (canonical dotted-quad form) never match the candidates built by",

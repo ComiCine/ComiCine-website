@@ -18,7 +18,7 @@
  */
 
 /**
- * GET /logout 回跳目标校验（docs/22 W9-3）。
+ * GET /logout 回跳目标校验（tasks/22 W9-3）。
  *
  * 回归：`next` 以前被原样塞进 `Location` 头。Access team domain 为空时
  * `accessTeamDomain(env)` 为假，代码走 `target = next` 分支 —— 任意外站

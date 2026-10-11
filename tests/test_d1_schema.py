@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""D1 schema drift test (docs/22 W5-13).
+"""D1 schema drift test (tasks/22 W5-13).
 
 Why this exists: `ops/migrations/*.sql` is applied to production D1 by hand
 (`ops/migrate_d1.sh --remote`), while the code that reads and writes those tables

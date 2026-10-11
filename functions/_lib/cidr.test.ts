@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** IPv4/IPv6 规范化与匹配测试（docs/10）。 */
+/** IPv4/IPv6 规范化与匹配测试（tasks/10）。 */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

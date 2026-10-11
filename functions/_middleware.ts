@@ -227,7 +227,7 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
 }
 
 /**
- * 受保护子域未登录 → 落到本域的 /login 建立会话（docs/17 §11.10）。
+ * 受保护子域未登录 → 落到本域的 /login 建立会话（tasks/17 §11.10）。
  *
  * Access 已经在本域之前完成了身份认证（请求头带 `Cf-Access-Jwt-Assertion`），
  * 这里只是把 Access 身份换成我们的签名会话 cookie。回到**本域**的 /login
@@ -348,7 +348,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
    *    的 D1→Cloudflare IP List 同步才真正被封，同步一失败就永不封。
    * 2. 已信任来源（白名单 IP、verifiedBot）直接跳过、不查库：一次检查最坏是
    *    33 个 IPv4 前缀探测（IPv6 129 个），让所有正常访客都照查是本审计里
-   *    单项最大的固定读取开销（docs/22 W2-2）。
+   *    单项最大的固定读取开销（tasks/22 W2-2）。
    * 3. 判据用 `sourceTrusted`（不含 cookieValid）：持 __gate 的普通访客仍受封禁约束。
    *
    * 豁免名单保留：被封 IP 也必须能访问 /login、/gate 等入口，否则只能等

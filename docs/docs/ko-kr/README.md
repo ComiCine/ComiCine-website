@@ -314,7 +314,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `ASN/<number>` | 저위험 소스(China Telecom / China Mobile / China Unicom, 톄퉁과 백본 AS9929 포함). Turnstile 게이트 대신 Cloudflare 비대화형 챌린지(`js_challenge`)를 받도록 되어 있지만, 그 WAF 규칙은 현재 배포되어 있지 않습니다(아래 참고). |
 | `IP-CIDR/<ip>/<mask>` | 완전 허용 소스(예: `IP-CIDR/97.64.18.11/32`)로, 차단 목록과 챌린지 게이트를 모두 건너뜁니다. |
 
-ASN 목록은 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)(매일 갱신)에서 가져옵니다. 생성된 엣지 사본은 현재 **저위험 ASN 320개**와 **완전 허용 IP 2개**를 담고 있습니다. 지금 이 목록을 쓰는 WAF 사용자 지정 규칙은 없습니다(존의 `http_request_firewall_custom` 단계가 비어 있고, `ops/waf/rules.snapshot.json`은 `captured_at` **갱신 시점**의 라이브 상태를 그대로 반영합니다. 마지막 갱신 기준 0개 규칙입니다). 대시보드에서 삭제된 규칙은 git 기록에만 남습니다.
+ASN 목록은 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)(매일 갱신)에서 가져옵니다. 생성된 엣지 사본은 현재 **저위험 ASN 319개**와 **완전 허용 IP 2개**를 담고 있습니다. 지금 이 목록을 쓰는 WAF 사용자 지정 규칙은 없습니다(존의 `http_request_firewall_custom` 단계가 비어 있고, `ops/waf/rules.snapshot.json`은 `captured_at` **갱신 시점**의 라이브 상태를 그대로 반영합니다. 마지막 갱신 기준 0개 규칙입니다). 대시보드에서 삭제된 규칙은 git 기록에만 남습니다.
 
 런타임별 신뢰 범위: 엣지 코드는 `IP-CIDR` 항목만 신뢰합니다
 (`isGateTrustedIp` → `functions/_data/gateTrust.ts`). `data/whitelist.txt`를 수정한 뒤에는

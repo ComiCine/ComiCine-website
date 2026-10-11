@@ -2,7 +2,7 @@
 
 Transactional-mail layout and four-language copy for Limooo.
 
-**Status: deprecated (2026-10-11, docs/22 W7-13).** Nothing in the running system
+**Status: deprecated (2026-10-11, tasks/22 W7-13).** Nothing in the running system
 calls the Python renderer any more: the VPS Flask app that used it was retired and
 Cloudflare Access replaced the login mail flow. The only production mail that still
 goes out is the **status-worker alert**, which owns its own copy.

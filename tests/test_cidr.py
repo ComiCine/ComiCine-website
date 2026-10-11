@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""src/cidr.py 统一 IP/CIDR 规范化测试（docs/10）。"""
+"""src/cidr.py 统一 IP/CIDR 规范化测试（tasks/10）。"""
 
 import json
 from pathlib import Path

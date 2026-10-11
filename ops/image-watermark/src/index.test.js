@@ -18,7 +18,7 @@
  */
 
 /**
- * image-watermark 路由纯函数测试（docs/14，A2 归一化代理）。
+ * image-watermark 路由纯函数测试（tasks/14，A2 归一化代理）。
  * 运行：node --test ops/image-watermark/src/index.test.js
  */
 

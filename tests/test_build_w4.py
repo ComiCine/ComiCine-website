@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/22 W4：构建期轻量化、产物瘦身与 A2（作品集原图不外发）的回归测试。
+"""tasks/22 W4：构建期轻量化、产物瘦身与 A2（作品集原图不外发）的回归测试。
 
 覆盖：
   W4-1 上下文处理器只算一次不变量（load_pricing / portfolio_items）

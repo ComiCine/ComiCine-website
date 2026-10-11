@@ -142,7 +142,7 @@ async function cf(token: string, method: string, url: string, body?: unknown): P
 /**
  * 等待一次 bulk operation 结束。
  *
- * 关键点（docs/22 W7-6）：`failed` 与轮询超时都必须**抛错**。此前两者都当成
+ * 关键点（tasks/22 W7-6）：`failed` 与轮询超时都必须**抛错**。此前两者都当成
  * 正常返回，调用方照样打印 `synced: +N -M`，于是「一条都没写进去」看起来像成功。
  */
 async function waitOperation(token: string, accountId: string, operationId?: string): Promise<void> {

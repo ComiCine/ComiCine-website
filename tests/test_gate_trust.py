@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""docs/14 门禁信任白名单解析测试。"""
+"""tasks/14 门禁信任白名单解析测试。"""
 
 from pathlib import Path
 

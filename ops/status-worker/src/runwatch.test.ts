@@ -294,14 +294,17 @@ describe("runwatch pure helpers", () => {
 describe("alert copy for the daily checks", () => {
   it("ships exactly one language, English, complete for every kind", () => {
     // 2026-10-11 用户要求告警只发英文：`ALERT_I18N` 只保留 `en-us`，中/日/韩三份已删。
-    // 这条锁住两件事：① 不允许再偷偷加回别的语言（只增维护面）；
-    // ② `en-us` 对每个 kind 都完整 —— 少一个键就会渲染出空白 subtitle。
+    // 这条锁住三件事：① 不允许再偷偷加回别的语言（只增维护面）；
+    // ② `en-us` 对每个 kind 都完整 —— 少一个键就会渲染出空白行；
+    // ③ **不许再把 `title_*` 加回来**：正文那行标题与 subject 是同一件事，
+    //    三类告警已统一成「subject 报事件 + intro 说详情」两行结构（用户要求）。
     expect(Object.keys(ALERT_I18N)).toEqual(["en-us"]);
     const table = ALERT_I18N["en-us"];
     for (const kind of ALERT_KINDS) {
-      for (const key of [`subject_${kind}`, `title_${kind}`, `intro_${kind}`]) {
+      for (const key of [`subject_${kind}`, `intro_${kind}`]) {
         expect(table[key], key).toBeTruthy();
       }
+      expect(table[`title_${kind}`], `title_${kind} must not exist`).toBeUndefined();
     }
     expect(table.view).toBeTruthy();
     expect(table.hint).toBeTruthy();

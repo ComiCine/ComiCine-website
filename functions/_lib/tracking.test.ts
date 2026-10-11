@@ -83,7 +83,7 @@ describe("tracking", () => {
   it("does not write D1 rows for the gate page's own config/diag/verify endpoints", () => {
     // 门禁页每次渲染都会 GET /gate/config 与 /gate/diag，每次提交都 POST /gate/verify。
     // 这些路径此前**不在**排除名单里（名单只写了旧前缀 /__gate），于是未验证访客
-    // 每看一次门禁页就换 1–2 条 D1 写入，匿名即可放大写额度（docs/22 W9 额外发现）。
+    // 每看一次门禁页就换 1–2 条 D1 写入，匿名即可放大写额度（tasks/22 W9 额外发现）。
     const page = request("https://auth.limooo.cn/gate/config", { "CF-Connecting-IP": "1.1.1.1" });
     for (const path of [
       "/gate/config",

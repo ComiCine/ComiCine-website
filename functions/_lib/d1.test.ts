@@ -18,7 +18,7 @@
  */
 
 /**
- * functions/_lib/d1.ts 的写封装语义（docs/22 W9-7）。
+ * functions/_lib/d1.ts 的写封装语义（tasks/22 W9-7）。
  *
  * 回归：`execute()` 只看 `res.success === true`，忽略 `meta.changes`。
  * D1 的 `run()` 对「0 行受影响」的 UPDATE/DELETE 依然返回 `success: true`，

@@ -37,7 +37,7 @@ import { IMAGES_HOSTNAME, REDIRECT_HOSTNAME } from "./config";
 import { clientCountryForLogs, clientIpForLogs, requestUrl } from "./routing";
 
 let trackingSchemaReady = false;
-/** 上次尝试建表的时间戳（毫秒）；见 ensureTrackingSchema 与 docs/22 W9-19。 */
+/** 上次尝试建表的时间戳（毫秒）；见 ensureTrackingSchema 与 tasks/22 W9-19。 */
 let trackingSchemaAttemptAt = 0;
 const SCHEMA_RETRY_COOLDOWN_MS = 60_000;
 
@@ -204,7 +204,7 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
 }
 
 /**
- * 每个 isolate 首次写入前幂等建表（docs/22 W9-19）。
+ * 每个 isolate 首次写入前幂等建表（tasks/22 W9-19）。
  *
  * 与 `logging.ts` 的 ensureEventSchema 同一策略：记住「已尝试」+ 每分钟最多重试
  * 一次（D1 故障期间不能让每个请求都先打一批必然失败的 DDL），并把多条 DDL 压成

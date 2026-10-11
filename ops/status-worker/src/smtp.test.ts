@@ -18,7 +18,7 @@
  */
 
 /**
- * SMTP 发信测试（docs/22 W5-9）。
+ * SMTP 发信测试（tasks/22 W5-9）。
  *
  * `sendViaSmtp` 是告警链路的最后一段（webhook → Email → SMTP），186 行里
  * 手写了 MIME 组装与 RFC 2045 的 76 列折行，却一行测试都没有。这里把

@@ -438,7 +438,7 @@ reads the same windows from that file (it fails loudly if the two ever disagree)
 
 `visitors_daily` is only ever written for **complete UTC days** and upserted with
 `ON CONFLICT ... DO UPDATE SET x = MAX(x, excluded.x)`, so re-running the aggregation
-can never shrink a day that was already correct (docs/22 W7-5).
+can never shrink a day that was already correct (tasks/22 W7-5).
 
 Production scheduling is entirely Worker Cron Triggers: probes every minute, retention
 daily at 03:47 (`ops/status-worker`), blocklist sync daily at 03:30 (`ops/sync-worker`),

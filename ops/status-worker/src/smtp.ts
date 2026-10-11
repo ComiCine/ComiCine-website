@@ -18,7 +18,7 @@
  */
 
 /**
- * Worker 侧 SMTP 发信（docs/17 阶段 3，用户选择：走邮箱服务商 SMTP）
+ * Worker 侧 SMTP 发信（tasks/17 阶段 3，用户选择：走邮箱服务商 SMTP）
  *
  * Workers 没有 nodemailer，用 `cloudflare:sockets` 自己实现最小 SMTP：
  * 隐式 TLS（465）→ EHLO → AUTH LOGIN → MAIL FROM → RCPT TO → DATA → QUIT。

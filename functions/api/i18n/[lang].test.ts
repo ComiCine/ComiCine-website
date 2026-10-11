@@ -18,7 +18,7 @@
  */
 
 /**
- * GET /api/i18n/<lang> 语言字典接口（docs/22 W9-5）。
+ * GET /api/i18n/<lang> 语言字典接口（tasks/22 W9-5）。
  *
  * 回归：`translations[lang]` 会沿原型链取到 `constructor` / `toString` /
  * `valueOf` / `__proto__` 这些成员，判定为「支持的语言」后 `JSON.stringify`

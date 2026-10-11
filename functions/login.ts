@@ -18,7 +18,7 @@
  */
 
 /**
- * GET /login → Cloudflare Access 身份落地（docs/17 §11.6 / §11.10）
+ * GET /login → Cloudflare Access 身份落地（tasks/17 §11.6 / §11.10）
  *
  * Access 前置在 `visitor.limooo.cn` / `account.limooo.cn/apple` 之前，
  * 已认证用户到达这里时请求头带 `Cf-Access-Jwt-Assertion`。本端点负责：
@@ -28,7 +28,7 @@
  *   3. 写入 D1 `auth_sessions` 并签发跨子域会话 cookie；
  *   4. 302 回 `next`。
  *
- * 会话层完全沿用 docs/09：requireAuth 同时校验签名 cookie 与撤销表，
+ * 会话层完全沿用 tasks/09：requireAuth 同时校验签名 cookie 与撤销表，
  * 撤销表不可用时敏感接口 503，不凭 cookie 放行。
  */
 
