@@ -242,7 +242,7 @@ if [ "$DRY_RUN" = 1 ]; then
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
-    [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (all Workers)"
+    [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
     echo "Deploy: dry-run done"
     exit 0
 fi
@@ -453,8 +453,10 @@ if [ -n "$WORKER" ]; then
 fi
 
 if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
-    # 全部 Worker。workers_deploy.sh 无参数即「部署列表里的每一个」。
-    run_step "Workers: all" bash ops/workers_deploy.sh
+    # 清单里的每一个 Worker。workers_deploy.sh 无参数即「部署列表里的每一个」。
+    # label 就是 `Workers`（2026-10-11 用户定）：run_step 会拼成 `Workers: done`，
+    # 与相邻步骤的 `Pages: done` / `Docs: done` 同一形态；`all` 是冗余的。
+    run_step "Workers" bash ops/workers_deploy.sh
 fi
 
 # 应急放行的提示必须是**最后一行**：这是唯一能让「线上领先 GitHub」这件事
