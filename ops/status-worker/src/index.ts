@@ -19,7 +19,7 @@
 
 import { sendViaSmtp, type SmtpConfig } from "./smtp";
 import { runRetention } from "./retention";
-import { WATCHED_JOBS, readLatestRuns, runIssues, type RunIssue } from "./runwatch";
+import { WATCHED_JOBS, formatUtc, readLatestRuns, runIssues, type RunIssue } from "./runwatch";
 import { LIST_NAME, checkBlocklistInvariant } from "./blocklist";
 
 /**
@@ -322,7 +322,9 @@ function renderAlert(
   items: AlertItem[],
   at: number,
 ): AlertEmail {
-  const when = new Date(at * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  // 与 runwatch.ts 的 formatUtc 共用同一实现（YYYY-MM-DD-HH-MM，UTC）：此前这里与
+  // 那边各拼一遍同样的字符串，任何格式调整都会漏掉一处。见 docs/22 的执行记录。
+  const when = formatUtc(at);
   const text =
     `${block.title}\n\n${block.intro}\n\n` +
     items.map((i) => `- ${i.name}: ${i.detail}`).join("\n") +
