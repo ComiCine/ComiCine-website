@@ -82,7 +82,7 @@ this was deliberate. Flagged in `## Open items / external confirmations`.
 
 ## AI bots and crawlers (`ops/ai_bots.py`)
 
-`limooo.cn` is deliberately readable by crawlers and AI agents: `docs/lists/crawlers.txt`
+`limooo.cn` is deliberately readable by crawlers and AI agents: `docs/lists/robots.txt`
 lets them past the Pages-Functions Turnstile gate, and `src/build.py` generates an
 allow-everything `/robots.txt` plus an `/llms.txt` index. The edge in front of the Worker
 has its own opinion, and it wins first:

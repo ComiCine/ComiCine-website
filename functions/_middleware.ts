@@ -322,7 +322,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   // 信任判定的**廉价前段**：白名单 IP 或 Cloudflare verifiedBot。这里先算一次，
   // 让封禁检查能跳过已信任来源（两者都是纯函数/读请求头，不查库）。
   //
-  // 爬虫 UA 名单（docs/lists/crawlers.txt）**刻意不在这里**：UA 是自报的，
+  // 爬虫 UA 名单（docs/lists/robots.txt）**刻意不在这里**：UA 是自报的，
   // 让它跳过 blocked_ips 检查等于「被封的抓取者换个 UA 就解封」。它只在下面的
   // 门禁判定里生效（resolveGateTrust 的 declaredCrawler），封禁照查。
   const sourceTrusted = whitelisted || isTrustedCrawler(request);

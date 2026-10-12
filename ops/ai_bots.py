@@ -20,8 +20,9 @@
 """Zone AI-bot policy: read, snapshot and (optionally) set it to "do not block".
 
 Why this exists (2026-10-12): limooo.cn is deliberately open to crawlers and AI
-agents -- see docs/lists/crawlers.txt (the User-Agent allow-list that skips the
-human-verification gate) and the generated /robots.txt. The edge, however, has
+agents -- `docs/lists/robots.txt` is served verbatim at /robots.txt, and its
+explicit User-agent lines are also the allow-list that skips the
+human-verification gate. The edge, however, has
 its own AI-bot blocking, and it wins **before** any Worker code runs: with the
 default policy, requests from GPTBot / ClaudeBot / CCBot / Amazonbot /
 Bytespider and friends are answered by the Cloudflare Managed Free Ruleset with

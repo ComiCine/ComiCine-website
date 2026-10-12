@@ -11,14 +11,25 @@
 | `china-asn.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**含上游全部分组（含教育网/科技网/其它）** | ❌ **不要手改**，下次部署会被覆盖 |
 | `whitelist.txt` | **自动**：`china-asn.txt` 里被 `WHITELIST_GROUPS` 选中的那部分 + `own-ips.txt` 合并而成（**当前 `WHITELIST_GROUPS` 为空**，所以只有手工条目） | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
 | `own-ips.txt` | 手工 | ✅ **改这个**：你自己的固定 IP、需要完全放行的来源 |
-| `crawlers.txt` | 手工 | ✅ **改这个**：允许免人机验证的爬虫 / AI 工具 UA 片段（见下节） |
+| `robots.txt` | 手工（标准格式） | ✅ **改这个**：既是线上 `/robots.txt`，又是门禁爬虫放行名单（见下节） |
 | `blocklist.txt` | 手工 + 自动拉回的受管段 | ✅ **改手写区**：要封的 IP / 网段 |
 
-## 爬虫 / AI 工具 UA 名单（`crawlers.txt`，2026-10-12 加）
+## 爬虫放行名单 = `robots.txt`（2026-10-12 从 `crawlers.txt` 合并过来）
 
-站点对爬虫与 AI 工具是**开放**的：命中这份名单的请求不再被 Turnstile 门禁页拦下，
-直接拿到真站内容。名单同时是 `build.py` 生成 `/robots.txt` 的依据之一
-（那边列的是 robots token，与这里的 UA 片段不是同一套词汇）。
+站点对爬虫与 AI 工具是**开放**的。这里不再有自造格式的 `crawlers.txt`：
+`docs/lists/robots.txt` 一份文件、两个身份 ——
+
+1. `src/build.py` 把它**原样**发布成线上 `https://limooo.cn/robots.txt`（产物根目录，
+   并在 `_routes.json` 里排除 Functions，所以拿到的永远是这份文件本身，不会被门禁页替换）；
+2. `ops/check_gate_trust.py` 解析其中每一条**显式** `User-agent:`（`*` 除外），
+   转小写生成 `functions/_data/gateTrust.ts` 的 `GATE_TRUST_CRAWLER_UAS`，
+   这些 UA 免人机验证（匹配逻辑见 `functions/_lib/bots.ts`）。
+
+所以**加一个爬虫 = 在 `robots.txt` 里加一行 `User-agent:`**，规则与放行一次改完，
+不会再出现「改了内部名单、忘了构建器里那份文本」这类漂移。
+`*` 组是「所有人」，**不**进放行名单（否则等于关掉门禁）；`Allow` / `Disallow` /
+注释都不参与解析。`Google-Extended` / `Applebot-Extended` 是 robots.txt 专有 token
+（没有对应 UA），留在文件里是为了声明 AI 训练偏好，匹配不到任何真实请求。
 
 三层信任的强弱必须分清：
 
@@ -26,14 +37,15 @@
 | --- | --- | --- | --- | --- |
 | `IP-CIDR`（`whitelist.txt`） | ✅ | ✅ | ✅ | ✅ |
 | Cloudflare verified bot | ✅ | ✅ | ✅ | ❌ |
-| `crawlers.txt`（UA 自报） | ✅ | ❌ | ❌ | ❌ |
+| `robots.txt` 的显式 User-agent（UA 自报） | ✅ | ❌ | ❌ | ❌ |
 
 **UA 是访客自报的**，所以第三行刻意是最弱的一档：它只区分「诚实的爬虫」与
 「浏览器/未知来源」，不是身份认证；被封 IP 换个 UA 也解不了封。名单只收公认的、
 有公开文档与联系方式的爬虫，**不要把 curl / python-requests / Go-http-client /
 HeadlessChrome 这类通用客户端写进去**（它们无法与服务端脚本区分）。
 匹配是**大小写不敏感的子串**，只取 `User-Agent` 前 512 字符；
-片段至少 3 个字符、不允许重复或控制字符（`ops/check_gate_trust.py` 会直接拒绝）。
+条目至少 3 个字符、不允许重复或非法字符，且必须至少有一条显式条目
+（`ops/check_gate_trust.py` 与 `src/build.py` 都会直接拒绝，构建即失败）。
 
 ## 白名单里放的是谁（重要）
 
@@ -51,7 +63,7 @@ HeadlessChrome 这类通用客户端写进去**（它们无法与服务端脚本
 
 ## 格式
 
-白名单与爬虫名单用同一套语法（`#` 之后是注释，会被剥离；空行忽略）：
+白名单用一套语法（`#` 之后是注释，会被剥离；空行忽略）：
 
 ```
 # 低风险 ASN（只对 china-asn.txt / own-ips.txt 有意义）
@@ -62,9 +74,11 @@ ASN/4809
 IP-CIDR/97.64.18.11/32
 IP-CIDR/203.0.113.0/24
 
-# 爬虫 UA 片段（crawlers.txt）
-GPTBot
-ClaudeBot
+# 爬虫放行名单（robots.txt，标准语法）
+User-agent: GPTBot
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
 ```
 
 `blocklist.txt` 用**裸** IP / CIDR（它由 `src/auto_block.py` 解析，语法不同）：
@@ -79,8 +93,9 @@ ClaudeBot
 | 你要的效果 | 命令 |
 | --- | --- |
 | 刷新 ASN 名单 + 重新合并白名单（**部署时会自动做**） | `bash ops/fetch_china_asn.py` |
-| 把白名单与爬虫名单生效到边缘（生成 `functions/_data/gateTrust.ts`） | `bash ops/ci_check.sh`（内含 `check_gate_trust.py --emit`） |
-| 关掉整份爬虫 UA 名单（不动文件） | 把 `config-contract.json` 的 `gate_trust.ua_allowlist_enabled` 改成 `false` 后重新 build |
+| 把白名单与 `robots.txt` 的爬虫放行名单生效到边缘（生成 `functions/_data/gateTrust.ts`） | `bash ops/ci_check.sh`（内含 `check_gate_trust.py --emit`） |
+| 只调整爬虫放行名单 | 改 `robots.txt` 的 `User-agent:` 行，照常部署（构建会重新解析并原样发布同一份文件） |
+| 关掉整份爬虫放行名单（不动文件） | 把 `config-contract.json` 的 `gate_trust.ua_allowlist_enabled` 改成 `false` 后重新 build |
 | **黑名单双向对账**（D1 有而文件没有的拉回来，文件有而 D1 没有的推上去） | `python3 src/auto_block.py reconcile --dry-run` 先看差异，去掉 `--dry-run` 才写 |
 | 只推不拉（旧行为） | `python3 src/auto_block.py d1 --dry-run` |
 | 推给 Cloudflare IP List（维护命令，一般不用跑） | `python3 src/auto_block.py cf` |
@@ -114,8 +129,10 @@ python3 src/auto_block.py reconcile --dry-run
    `http_request_firewall_custom` 为空），并且 `WHITELIST_GROUPS` 也是空的。
    所以现在**改 ASN 不会立刻放宽或收紧线上门禁** —— 要同时改 `WHITELIST_GROUPS`
    并启用 WAF 规则才有效果。
-2. **`crawlers.txt` 是自己人写的「允许名单」，不是防火墙**：UA 可以随便伪造，
-   它换来的是「不被 Turnstile 拦」，代价见上一节的三层表。真要不让某个来源进门，
-   把它写进 `blocked_ips`（D1 权威）或 `blocklist.txt`。
+2. **`robots.txt` 里的爬虫名单是「允许名单」，不是防火墙**：UA 可以随便伪造，
+   它换来的是「不被 Turnstile 拦」，代价见上一节的三层表。反过来，它是一份
+   **公开文件**（线上就在 `/robots.txt`），别往 `User-agent:` 里写不想让外人看到的东西
+   —— 那些条目同时会成为门禁放行名单。真要不让某个来源进门，把它写进 `blocked_ips`
+   （D1 权威）或 `blocklist.txt`。
 3. **`blocklist.txt` 不是权威**：权威是 D1 的 `blocked_ips`。用上面的 `reconcile`
    双向对齐（或 `d1` 单向推）才算数。

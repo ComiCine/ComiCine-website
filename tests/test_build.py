@@ -21,6 +21,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 import build
 from render_app import RENDER_APP
 
@@ -155,15 +157,28 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
     assert headers.count("/robots.txt\n") == 1
     assert headers.count("/llms.txt\n") == 1
 
-    robots = (tmp_path / "robots.txt").read_text(encoding="utf-8")
-    assert "User-agent: *\nAllow: /\n" in robots
+    # robots.txt 是**原样发布** docs/lists/robots.txt —— 同一份文件既是线上规则，
+    # 又是门禁放行名单的唯一来源（ops/check_gate_trust.py 解析它的 User-agent 行）。
+    source = Path(build.ROBOTS_SOURCE).read_text(encoding="utf-8")
+    assert (tmp_path / "robots.txt").read_text(encoding="utf-8") == source
+    assert "User-agent: *\nAllow: /\n" in source
     for agent in ("GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"):
-        assert f"User-agent: {agent}\n" in robots
-    assert "Disallow: /api/\n" in robots
+        assert f"User-agent: {agent}\n" in source
+    assert "Disallow: /api/\n" in source
 
     llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
     assert llms.startswith("# Limooo\n")
     assert "https://docs.limooo.cn/sitemap.xml" in llms
+
+
+def test_robots_source_guard_rejects_a_broken_file(tmp_path, monkeypatch):
+    """源文件被清空/写坏时构建必须失败：它同时是门禁名单，静默发出去等于关掉爬虫放行。"""
+    broken = tmp_path / "robots.txt"
+    broken.write_text("# nothing here\n", encoding="utf-8")
+    monkeypatch.setattr(build, "ROBOTS_SOURCE", str(broken))
+
+    with pytest.raises(RuntimeError, match="robots.txt source"):
+        build.write_discovery_files(str(tmp_path))
 
 
 def test_remove_bad_artifacts(tmp_path):

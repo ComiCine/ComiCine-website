@@ -196,7 +196,7 @@ export interface GateTrustState {
   /** 白名单 IP 或 Cloudflare 已验证爬虫：本就免验证，不需要 cookie。 */
   trusted: boolean;
   /**
-   * 命中爬虫/AI UA 名单（docs/lists/crawlers.txt）：**只免人机验证**。
+   * 命中爬虫/AI UA 名单（docs/lists/robots.txt 的显式 User-agent）：**只免人机验证**。
    *
    * 与 trusted 分开是有意的：UA 自报，不能让它顺便豁免 blocked_ips 封禁，
    * 也不能让它换到一枚 __gate cookie（见 _lib/bots.ts 的文件头）。

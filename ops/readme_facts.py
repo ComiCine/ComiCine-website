@@ -103,7 +103,7 @@ def gate_trust_facts() -> dict:
     }
     text = read(os.path.join(BASE_DIR, "functions", "_data", "gateTrust.ts"))
     cidrs = re.search(r'"ip_cidrs":\s*\[(.*?)\]\s*\}', text, re.S)
-    # 爬虫 UA 名单（2026-10-12）：源码是 docs/lists/crawlers.txt，这里数生成物
+    # 爬虫放行名单（2026-10-12）：源码是 docs/lists/robots.txt 的显式 User-agent，这里数生成物
     # 里真正下发到 isolate 的那一份。
     crawlers = re.search(r"GATE_TRUST_CRAWLER_UAS[^=]*=\s*\[(.*?)\];", text, re.S)
     return {

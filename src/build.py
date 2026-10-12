@@ -252,101 +252,32 @@ def write_pages_edge_config(out_dir: str) -> None:
 # ── 爬虫 / AI 工具的入口文件（2026-10-12）────────────────────────────────
 #
 # 站点对爬虫与 AI 工具是**开放**的（用户 2026-10-12 定），门禁只留给
-# 浏览器/未知来源。边缘那一侧由 docs/lists/crawlers.txt（UA 名单，免人机验证）
-# 与 Cloudflare 的 AI bot 策略（ops/ai_bots.py，关掉边缘 403）承担；这里补的是
-# 「规则文件本身也必须能读到」：没有 robots.txt 时，未验证爬虫请求
-# `/robots.txt` 会被门禁原地替换成 403 挑战页。
+# 浏览器/未知来源。robots.txt 现在有**两个身份**，它们是同一份文件：
 #
-# 规则语义：除端点/管理入口外全部允许；AI 爬虫**显式**列一组 Allow ——
-# robots.txt 的 `*` 组本来就已经允许它们，显式写出来是给各家 vendor 的解析器
-# 一个明确信号（部分实现只认自己的 token），也方便人工核对「我们确实允许了谁」。
-# Google-Extended / Applebot-Extended 是**只存在于 robots.txt 的 token**
-# （没有对应 UA），专门控制 AI 训练用途，所以必须在这里出现。
-ROBOTS_AI_AGENTS = (
-    "GPTBot",
-    "OAI-SearchBot",
-    "OAI-AdsBot",
-    "ChatGPT-User",
-    "ClaudeBot",
-    "Claude-User",
-    "Claude-SearchBot",
-    "PerplexityBot",
-    "Perplexity-User",
-    "Google-Extended",
-    "Applebot-Extended",
-    "CCBot",
-    "Bytespider",
-    "TikTokSpider",
-    "Amazonbot",
-    "Meta-ExternalAgent",
-    "Meta-ExternalFetcher",
-    "Meta-WebIndexer",
-    "cohere-ai",
-    "DeepSeekBot",
-    "Qwenbot",
-    "Hunyuan",
-    "ChatGLM-Spider",
-    "PanguBot",
-    "GrokBot",
-    "YouBot",
-    "KimiBot",
-    "MoonshotBot",
-    "DuckAssistBot",
-    "Bravebot",
-    "PetalBot",
-    "Diffbot",
-    "ImagesiftBot",
-    "Timpibot",
-    "Omgilibot",
-    "AI2Bot",
-)
-
-# 端点与管理入口：不是内容页，抓它只会白耗免费版请求预算。
-ROBOTS_DISALLOW = (
-    "/api/",
-    "/login",
-    "/logout",
-    "/gate",
-    "/__gate",
-    "/visitor",
-    "/account",
-    "/apple",
-)
-
-
-def _robots_group(agents: tuple[str, ...]) -> str:
-    """一组 User-agent（多行同名记录表示同一组）+ 同一套 Allow/Disallow 规则。"""
-    lines = [f"User-agent: {agent}" for agent in agents]
-    lines.append("Allow: /")
-    lines.extend(f"Disallow: {path}" for path in ROBOTS_DISALLOW)
-    return "\n".join(lines) + "\n"
+#   1. 线上 `https://limooo.cn/robots.txt` 的内容（本函数原样落盘，不改一个字）；
+#   2. 门禁放行名单的**唯一来源** —— `ops/check_gate_trust.py` 解析它里面每一条
+#     显式 `User-agent:`（`*` 除外），生成 `GATE_TRUST_CRAWLER_UAS`，
+#      这些 UA 免人机验证（见 functions/_lib/bots.ts）。
+#
+# 2026-10-12 之前这是两份东西（内部名单 docs/lists/crawlers.txt + 构建器里手写的
+# robots 文本），改一个爬虫要同时改两处、还可能改漏。现在只有
+# `docs/lists/robots.txt` 一份：加一个爬虫 = 加一行 `User-agent:`。
+ROBOTS_SOURCE = os.path.join(BASE_DIR, "docs", "lists", "robots.txt")
 
 
 def write_discovery_files(out_dir: str) -> None:
-    """生成根路径的 /robots.txt 与 /llms.txt。
+    """把根路径的 /robots.txt 与 /llms.txt 落进产物。
 
-    两份都是**手写内容、构建期落盘**（与 `_headers`/`_routes.json` 同一类根产物），
-    因为它们必须与站点实际路径一致；放进 `static/` 会变成
-    `/static/robots.txt`，那不是爬虫会去读的地址。
+    robots.txt 是**原样复制** `docs/lists/robots.txt`（唯一事实源，见上），
+    llms.txt 仍是这里生成的手写内容。两份都必须放在产物根目录：放进 `static/`
+    会变成 `/static/robots.txt`，那不是爬虫会去读的地址。
     """
-    robots = (
-        "# https://limooo.cn/robots.txt\n"
-        "#\n"
-        "# Public site: search engines, crawlers and AI agents are all welcome.\n"
-        "# See https://limooo.cn/llms.txt for a curated index of the content.\n"
-        "#\n"
-        "# The disallowed paths are endpoints and admin entry points, not content:\n"
-        "# crawling them only burns the site's free-tier request budget.\n"
-        "\n"
-        + _robots_group(("*",))
-        + "\n"
-        "# AI crawlers and agents: the same rules, listed explicitly. The edge\n"
-        "# allow-list that lets them through the human-verification gate is\n"
-        "# docs/lists/crawlers.txt; Google-Extended and Applebot-Extended have no\n"
-        "# User-Agent of their own and only exist as robots.txt tokens.\n"
-        "\n"
-        + _robots_group(ROBOTS_AI_AGENTS)
-    )
+    with open(ROBOTS_SOURCE, encoding="utf-8") as f:
+        robots = f.read()
+    # 源文件写坏（清空、误删 User-agent 组）时**构建就失败**：线上 robots.txt
+    # 同时也是门禁名单，空名单等于悄悄把爬虫全部关回门禁页。
+    if "User-agent: *" not in robots or "User-agent: GPTBot" not in robots:
+        raise RuntimeError(f"{ROBOTS_SOURCE} does not look like the robots.txt source any more")
     with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(robots)
 
