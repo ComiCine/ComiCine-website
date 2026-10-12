@@ -20,9 +20,13 @@
 /**
  * 爬虫 / AI 工具的 UA 名单判定（2026-10-12）。
  *
- * 名单本体是 `docs/lists/crawlers.txt`，由 `ops/check_gate_trust.py --emit`
- * 生成到 `functions/_data/gateTrust.ts` 的 `GATE_TRUST_CRAWLER_UAS`
- * （已转小写），这里只做匹配。
+ * 名单本体就是站点自己的 `docs/lists/robots.txt`（同一份文件原样发布到
+ * `/robots.txt`）：`ops/check_gate_trust.py --emit` 把其中每条**显式**
+ * `User-agent:`（`*` 除外）转小写后生成到 `functions/_data/gateTrust.ts` 的
+ * `GATE_TRUST_CRAWLER_UAS`，这里只做匹配。
+ *
+ * 因此「往 robots.txt 加一个 User-agent」= 同时放宽抓取规则与门禁；两者再也
+ * 不会各写一份、改漏一边（2026-10-12 之前是 crawlers.txt + 构建器里的手写文本）。
  *
  * ## 这一层信任**只免人机验证**，不等于「已信任来源」
  *
