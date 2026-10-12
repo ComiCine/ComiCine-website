@@ -247,10 +247,13 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     repo = make_repo(tmp_path)
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert result.returncode == 0, result.stdout + result.stderr
+    # 输出自 2026-10-13 起按阶段合并：预检三连一行、Check 独占一行、发布阶段一行。
+    # 顺序仍然可断言 —— 合并的标签本身就是顺序（`Lists+Bans+WAF` 先于 `Check`，
+    # `Check` 先于 `Pages`）。
     assert result.stdout.index("Check: done") < result.stdout.index("Pages: done")
     # 白名单刷新必须**先于** CI（2026-10-11）：它会产生改动，放在 CI 之后就会被
     # 脏树闸门拦下，也漏过 CI 对该名单的校验。
-    assert result.stdout.index("Lists: done") < result.stdout.index("Check: done")
+    assert result.stdout.index("Lists+Bans+WAF: done") < result.stdout.index("Check: done")
 
 
 def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
@@ -293,12 +296,12 @@ def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
     skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_SKIP_ASN_FETCH": "1"})
     assert skipped.returncode == 0, skipped.stdout + skipped.stderr
     assert "skipped ASN refresh" in skipped.stdout
-    assert "Lists: done" not in skipped.stdout, "跳过时不该还报 Lists 步骤完成"
+    assert "Lists+Bans+WAF: done" not in skipped.stdout, "跳过时不该还报 Lists 步骤完成"
 
     # strict 走 run_step（参数传错会 FATAL），所以能证明那一步真的执行了。
     strict = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_STRICT_ASN": "1"})
     assert strict.returncode == 0, strict.stdout + strict.stderr
-    assert "Lists: done" in strict.stdout
+    assert "Lists+Bans+WAF: done" in strict.stdout
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
@@ -500,16 +503,19 @@ def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
 
     ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert ran.returncode == 0, ran.stdout + ran.stderr
-    assert "WAF: done" in ran.stdout, ran.stdout
-    # 顺序：名单先刷新，再推 WAF（推的是刷新后的名单）。
-    assert ran.stdout.index("Lists: done") < ran.stdout.index("WAF: done")
-    assert ran.stdout.index("Bans: done") < ran.stdout.index("WAF: done")
+    assert "Lists+Bans+WAF: done" in ran.stdout, ran.stdout
+
+    # 顺序：名单先刷新，再推 WAF（推的是刷新后的名单）。安静模式把三行并成一个标签，
+    # 所以用 --full 看真实执行序列（它逐条回显命令，不合并）。
+    full = run([BASH, "ops/deploy.sh", "--pages", "--full"], cwd=repo)
+    assert full.returncode == 0, full.stdout + full.stderr
+    assert full.stdout.index("ops/fetch_china_asn.py") < full.stdout.index("ops/waf_whitelist.sh --apply")
 
     skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo,
                   env={"LIMOOO_SKIP_WAF_WHITELIST": "1"})
     assert skipped.returncode == 0, skipped.stdout + skipped.stderr
     assert "skipped ASN whitelist push" in skipped.stdout
-    assert "WAF: done" not in skipped.stdout
+    assert "Lists+Bans+WAF: done" not in skipped.stdout
 
 
 def test_deploy_bootstraps_missing_tooling(tmp_path):
