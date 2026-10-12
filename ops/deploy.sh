@@ -36,17 +36,17 @@
 #   bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker only
 #   bash ops/deploy.sh --full ...               # same flags, but stream every step's output
 #
-# Default output is QUIET, and **steps of the same phase share one line** (2026-10-13):
+# Default output is QUIET, and each phase collapses into a single word (2026-10-13):
 #   Deploy: start
-#   Lists+Bans+WAF: done
-#   Check: done
-#   Git: committed 46ef67d (1 file: M docs/lists/robots.txt)
-#   Pages+Docs+Workers: done
-#   CI: tests success, CodeQL success
+#   Prepare: done            <- Lists + Bans + WAF + Check
+#   Git: committed 997f680
+#      M ops/deploy.sh       <- changed files, one per line
+#   Git: pushed to GitHub
+#   Release: done            <- Pages + Docs + Workers
 #   Deploy: done
-# Only the success lines are merged; skips still print themselves and a failing step
-# dumps its full log. Check keeps its own line on purpose (it is the gate). Pass
-# --full (or LIMOOO_DEPLOY_VERBOSE=1) to get one line per step plus every command.
+# Only success lines are collapsed; skips still print themselves and a failing step
+# dumps its full log. Pass --full (or LIMOOO_DEPLOY_VERBOSE=1) to get one line per
+# step plus every command.
 #
 # With NO arguments this is exactly --all: commit + push + Pages + docs + Workers,
 # matching the "full deploy" contract in AGENTS.md. To ship only what is already
@@ -107,8 +107,6 @@
 #   LIMOOO_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
 #   LIMOOO_ALLOW_DIRTY=1      deploy --pages / --docs with a dirty working tree
 #   LIMOOO_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
-#   LIMOOO_SKIP_CI_WATCH=1    do not wait for the GitHub workflow of the pushed commit
-#   LIMOOO_CI_WATCH_TIMEOUT=N seconds to wait for those workflows (default 420)
 #   LIMOOO_GIT_FILE_LIST_LIMIT=N  max file names printed per commit (default 20)
 # Credentials are read from local secrets/webauthn.env; never written to disk or echoed.
 # END-USAGE
@@ -235,32 +233,23 @@ fi
 #                 失败打 "<tag>: FAILED -- full log follows" 并把完整日志吐到 stderr。
 #   --full      ：先回显要跑的命令，再原样透传它的输出，不额外加状态行。
 # 用法：run_step "<标签>" <命令...>
-# 成功行合并（2026-10-13 用户要求）：默认安静模式下，同一阶段的步骤（Lists / Bans /
-# WAF，Pages / Docs / Workers）不再各占一行，而是攒起来由 flush_steps 打印成一行
-# `Lists+Bans+WAF: done`。失败与跳过**照旧单独出声**（跳过会自己 echo，失败直接抛日志），
-# 所以合并的只是「一切正常」时的噪声。`--full` / LIMOOO_DEPLOY_VERBOSE=1 保持逐条。
+# 成功行合并（2026-10-13，用户逐行批注 + 定词）：默认安静模式下，同一阶段的步骤不再各占
+# 一行，而是攒起来由 flush_steps 打印成**一个词**：
+#   Lists + Bans + WAF + Check   -> `Prepare: done`   （提交前的全部准备）
+#   Pages + Docs + Workers       -> `Release: done`   （把产物发出去）
+# 失败与跳过**照旧单独出声**（跳过会自己 echo、失败直接抛日志并中止），所以合并只隐藏
+# 「一切正常」这一种情况，不会藏住问题 —— 代价是顺利时看不出闸门跑没跑（靠没有 skip/fail
+# 行推断）。`--full` / LIMOOO_DEPLOY_VERBOSE=1 保持逐条。
 DEFERRED_STEPS=()
-# 下一步骤是「攒着」（1）还是「立刻打印成功行」（0）。run_step_own_line 把它压成 0，
-# 用于 Check —— 它是唯一的闸门，「检查通过」值得独占一行，而不是并进 `Check+Pages`。
-DEFER_NEXT_STEP=1
-
+DEFERRED_LABEL="Steps"
 flush_steps() {
     [ ${#DEFERRED_STEPS[@]} -eq 0 ] && return 0
-    local joined
-    joined="$(IFS=+; echo "${DEFERRED_STEPS[*]}")"
     DEFERRED_STEPS=()
-    echo "$joined: done"
-}
-
-run_step_own_line() {
-    DEFER_NEXT_STEP=0
-    run_step "$@"
+    echo "${DEFERRED_LABEL}: done"
 }
 
 run_step() {
     local tag="$1"; shift
-    local defer="$DEFER_NEXT_STEP"
-    DEFER_NEXT_STEP=1
     if [ "$VERBOSE" = 1 ]; then
         echo "$*"
         "$@"
@@ -270,12 +259,7 @@ run_step() {
     log="$(mktemp -t limooo-deploy-XXXXXX.log)"
     if "$@" >"$log" 2>&1; then
         rm -f "$log"
-        if [ "$defer" = 0 ]; then
-            flush_steps
-            echo "$tag: done"
-        else
-            DEFERRED_STEPS+=("$tag")
-        fi
+        DEFERRED_STEPS+=("$tag")
     else
         flush_steps
         echo "$tag: FAILED -- full log follows" >&2
@@ -297,7 +281,6 @@ if [ "$DRY_RUN" = 1 ]; then
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/waf_whitelist.sh --apply   (trusted ASNs to zone IP Access Rules; skip with LIMOOO_SKIP_WAF_WHITELIST=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
-    [ "$DO_PUSH" = 1 ] && echo "  would-run: gh run list --commit <pushed sha>   (wait for GitHub CI; skip with LIMOOO_SKIP_CI_WATCH=1)"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
     [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
@@ -425,6 +408,8 @@ fi
 # CI 之前：刷新会产生改动，放后面会被判成脏树、也漏过 CI 校验。
 # **失败不阻断部署**（脚本默认非 strict）—— 源临时抽风不该让代码发不出去；
 # 抓不到时保留上一次的白名单。要强制失败用：LIMOOO_STRICT_ASN=1 bash ops/deploy.sh。
+# 准备阶段（Lists / Bans / WAF / Check）的成功行合并成一个词：`Prepare: done`。
+DEFERRED_LABEL="Prepare"
 if [ "$NEED_CHECKS" = 1 ]; then
     if [ "${LIMOOO_SKIP_ASN_FETCH:-0}" = 1 ]; then
         echo "Lists: skipped ASN refresh (LIMOOO_SKIP_ASN_FETCH=1)"
@@ -484,21 +469,20 @@ if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     STAGED_TREE_BEFORE="$(worktree_snapshot)"
 fi
 
-# 预检阶段的成功行到这里合并（Lists / Bans / WAF → `Lists+Bans+WAF: done`）；
-# Check 不并进这一行：它是唯一的闸门，「检查跑了没有」值得独占一行。
-flush_steps
-
 if [ "$NEED_CHECKS" = 1 ]; then
     if [ "${LIMOOO_SKIP_CHECKS:-0}" = 1 ]; then
         echo "Check: skipped (LIMOOO_SKIP_CHECKS=1)"
     elif [ "$DO_COMMIT" = 1 ]; then
-        run_step_own_line "Check" bash ops/ci_check.sh
+        run_step "Check" bash ops/ci_check.sh
     elif [ "$DO_PUSH" = 1 ]; then
-        run_step_own_line "Check" bash ops/ci_check.sh --ref=HEAD
+        run_step "Check" bash ops/ci_check.sh --ref=HEAD
     else
-        run_step_own_line "Check" bash ops/ci_check.sh
+        run_step "Check" bash ops/ci_check.sh
     fi
 fi
+
+# 准备阶段到此结束：把攒下的成功行打成 `Prepare: done`（Check 也是这一阶段的一步）。
+flush_steps
 
 # ── ⓪c 检查期间工作区是否又被改动 ──────────────────────────────────
 # 检查前后各取一次工作区快照，不一致说明检查期间有别的工具动了文件：此时提交的
@@ -551,28 +535,13 @@ if [ "$DO_COMMIT" = 1 ]; then
                 staged_shown=$((staged_shown + 1))
             done <<< "$staged_status"
             staged_more=$((staged_total - staged_shown))
-            if [ "$VERBOSE" = 1 ]; then
-                echo "Git: committed $committed_sha"
-                for staged_line in "${STAGED_LINES[@]}"; do
-                    echo "   ${staged_line}"
-                done
-                [ "$staged_more" -gt 0 ] && echo "     ... and ${staged_more} more"
-            else
-                # 永远一行（2026-10-13 用户要求合并条目）：文件名最多列 3 个，其余折成
-                # `+N more`；全量清单在 git 里，想看就 `--full` 或 `git show --stat`。
-                INLINE_LIMIT=3
-                joined=""
-                inline_shown=0
-                for staged_line in "${STAGED_LINES[@]}"; do
-                    [ "$inline_shown" -ge "$INLINE_LIMIT" ] && break
-                    joined="${joined:+$joined, }${staged_line}"
-                    inline_shown=$((inline_shown + 1))
-                done
-                suffix=""
-                hidden=$((staged_total - inline_shown))
-                [ "$hidden" -gt 0 ] && suffix=", +${hidden} more"
-                echo "Git: committed $committed_sha (${staged_total} file$([ "$staged_total" = 1 ] || echo s): ${joined}${suffix})"
-            fi
+            # 用户 2026-10-13 明确「撤回此修改」：提交行回到原样 —— `committed <sha>`
+            # 单独一行，变更文件逐行缩进列出（不再挤成 `(N files: a, b, +N more)`）。
+            echo "Git: committed $committed_sha"
+            for staged_line in "${STAGED_LINES[@]}"; do
+                echo "   ${staged_line}"
+            done
+            [ "$staged_more" -gt 0 ] && echo "     ... and ${staged_more} more"
         fi
         # 刚提交的这棵树就是 ⓪ 里检查过的内容，pre-push hook 不必再跑一遍。
         export LIMOOO_CI_CHECKED_SHA="$(git rev-parse HEAD)"
@@ -581,8 +550,6 @@ fi
 
 # ── ② git push ──────────────────────────────────────────────────────
 PUSH_FAILED=0
-# 真正推上去的那个 commit（供 ⑤ 观察 CI）；没推、或本来就同步时保持空。
-PUSHED_SHA=""
 if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "Warning: not a git work tree, skipped push" >&2
@@ -597,7 +564,6 @@ if [ "$DO_PUSH" = 1 ]; then
             show_cmd git push origin main
             if git push origin main >/dev/null 2>&1; then
                 echo "Git: pushed to GitHub"
-                PUSHED_SHA="$LOCAL_HEAD"
             elif [ "${LIMOOO_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
                 # 应急放行：线上会领先 GitHub。收尾必须明确提示，不能静默继续。
                 PUSH_FAILED=1
@@ -622,6 +588,8 @@ if [ "$DO_COMMIT" = 1 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
 fi
 
 # ── ③ Pages：只在失败时吐出日志，成功时只留一行状态 ─────────────────
+# 发布阶段（Pages / Docs / Workers）的成功行同样合并成一个词：`Release: done`。
+DEFERRED_LABEL="Release"
 if [ "$DO_PAGES" = 1 ]; then
     # pages_deploy.sh 自己会在结束前校验 /_health = 200，失败即非 0 退出
     run_step "Pages" bash ops/pages_deploy.sh
@@ -645,77 +613,18 @@ if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     run_step "Workers" bash ops/workers_deploy.sh
 fi
 
-# 发布阶段的成功行合并：`Pages+Docs+Workers: done`（只发一个时就是 `Pages: done` 这类）。
+# 发布阶段到此结束：`Release: done`（只发 Pages 时也是这一个词）。
 flush_steps
 
-# ── ⑤ 推完看 CI：本地闸门复刻不了 runner 的环境 ──────────────────────
-# 为什么要有这一步（2026-10-12 踩到）：`tests/test_ops_script_guards.py` 里那个
-# 让 `deploy.sh --commit` 真提交的用例，在本机全绿、在 GitHub runner 上因为**没有
-# git 身份**而红（`fatal: empty ident name`，退出码 128）。`ops/ci_check.sh` 复刻的是
-# **步骤**（build / typecheck / vitest / pytest / …），复刻不了**运行环境**
-# （git 身份、装了哪些工具、有没有网络）。结果那次红在 GitHub 上挂了近一天，
-# 直到用户收到失败邮件转过来才发现 —— 「推完没人看 CI」这件事不该靠人记得。
-#
-# 只观察**真正推上去的那个 commit**（PUSHED_SHA 为空 = 没推/本来就同步 → 跳过）。
-CI_STATUS=0
-if [ -n "$PUSHED_SHA" ]; then
-    if [ "${LIMOOO_SKIP_CI_WATCH:-0}" = 1 ]; then
-        echo "CI: not watched (LIMOOO_SKIP_CI_WATCH=1)"
-    elif ! command -v gh >/dev/null 2>&1; then
-        echo "CI: not watched (gh CLI not installed); check: gh run list --commit ${PUSHED_SHA:0:7}"
-    elif ! gh auth status >/dev/null 2>&1; then
-        echo "CI: not watched (gh is not authenticated); check: gh run list --commit ${PUSHED_SHA:0:7}"
-    else
-        CI_TIMEOUT="${LIMOOO_CI_WATCH_TIMEOUT:-420}"
-        CI_DEADLINE=$(( $(date +%s) + CI_TIMEOUT ))
-        CI_RESULT=""
-        while :; do
-            CI_RESULT="$(gh run list --commit "$PUSHED_SHA" --limit 20 \
-                --json workflowName,status,conclusion \
-                --jq '.[] | "\(.workflowName)\t\(.status)\t\(.conclusion)"' 2>/dev/null || true)"
-            # 空结果 = GitHub 还没建出 run（刚 push 完常见）：继续等，别急着报 OK。
-            # 判据是**状态列**为 completed（整行形如 `name\tcompleted\tsuccess`）。
-            if [ -n "$CI_RESULT" ] && ! printf '%s\n' "$CI_RESULT" | grep -qv $'\tcompleted\t'; then
-                break
-            fi
-            if [ "$(date +%s)" -ge "$CI_DEADLINE" ]; then
-                echo "CI: still running after ${CI_TIMEOUT}s; check: gh run list --commit ${PUSHED_SHA:0:7}"
-                CI_RESULT=""
-                break
-            fi
-            sleep 15
-        done
-        if [ -n "$CI_RESULT" ]; then
-            # 逐条攒成一行：`CI: tests success, CodeQL success`（两个 workflow 就是两行
-            # 噪声，而人只要一个结论；有红的会在下面单独 FATAL）。
-            CI_SUMMARY=""
-            while IFS=$'\t' read -r name status conclusion; do
-                [ -n "$name" ] || continue
-                CI_SUMMARY="${CI_SUMMARY:+$CI_SUMMARY, }${name} ${conclusion}"
-                case "$conclusion" in
-                    success|skipped|neutral) ;;
-                    *) CI_STATUS=1 ;;
-                esac
-            done <<EOF
-$CI_RESULT
-EOF
-            [ -n "$CI_SUMMARY" ] && echo "CI: $CI_SUMMARY"
-        fi
-        if [ "$CI_STATUS" != 0 ]; then
-            echo "FATAL: GitHub workflows failed for ${PUSHED_SHA:0:7} (the local gate cannot see runner-only problems)" >&2
-            echo "       inspect: gh run view --log-failed \$(gh run list --commit ${PUSHED_SHA:0:7} --json databaseId --jq '.[0].databaseId')" >&2
-        fi
-    fi
-fi
+# 用户 2026-10-13：「CI: tests success, CodeQL success」这行去掉（原话是「去掉」）。
+# 整个 ⑤「推完看 CI」观察步骤随之删除 —— 它本来就只是事后通知（用户对它的评价是
+# 「和 GitHub 给我发邮件提醒没区别」）。真正的防线在本地：ops/ci_check.sh 现在与 CI
+# 同严（自己装齐 ruff/mypy/pytest-cov、pytest 在无 git 身份的环境里跑），推之前就能红。
+# 仍然想要 GitHub 那一侧的结论时：gh run list --commit <sha>。
 
 # 应急放行的提示必须是**最后一行**：这是唯一能让「线上领先 GitHub」这件事
 # 出现在部署日志末尾的方式，翻日志时不会被后面的步骤冲掉。
 if [ "$PUSH_FAILED" = 1 ]; then
     echo "Warning: deployed without pushing to GitHub"
 fi
-if [ "$CI_STATUS" != 0 ]; then
-    echo "Warning: deployed, but GitHub CI is red for this commit"
-fi
-
 echo "Deploy: done"
-exit "$CI_STATUS"
