@@ -200,6 +200,24 @@ def test_deploy_dry_run_on_main_is_allowed(tmp_path):
     assert "Deploy: dry-run done" in result.stdout
 
 
+# ── 推完看 CI（2026-10-12 加）：本地闸门看不见 runner 环境 ─────────────
+
+
+def test_deploy_previews_and_skips_the_ci_watch(tmp_path):
+    """干跑要把这一步写进预览；没推成功时**不**去碰 gh（离线可跑）。"""
+    repo = make_repo(tmp_path)
+
+    preview = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
+    assert preview.returncode == 0, preview.stdout + preview.stderr
+    assert "gh run list --commit <pushed sha>" in preview.stdout
+    assert "LIMOOO_SKIP_CI_WATCH=1" in preview.stdout
+
+    # 桩仓库没有 remote：push 被跳过 -> 不该出现任何 CI 观察输出（也不该等超时）
+    committed = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+    assert committed.returncode == 0, committed.stdout + committed.stderr
+    assert "CI:" not in committed.stdout
+
+
 # ── W3-3：Pages / docs 前先跑 CI，脏树要拒绝 ─────────────────────────
 
 
