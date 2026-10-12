@@ -551,18 +551,27 @@ if [ "$DO_COMMIT" = 1 ]; then
                 staged_shown=$((staged_shown + 1))
             done <<< "$staged_status"
             staged_more=$((staged_total - staged_shown))
-            if [ "$VERBOSE" = 1 ] || [ "$staged_total" -gt 3 ]; then
+            if [ "$VERBOSE" = 1 ]; then
                 echo "Git: committed $committed_sha"
                 for staged_line in "${STAGED_LINES[@]}"; do
                     echo "   ${staged_line}"
                 done
                 [ "$staged_more" -gt 0 ] && echo "     ... and ${staged_more} more"
             else
-                joined="${STAGED_LINES[0]:-}"
-                for staged_line in "${STAGED_LINES[@]:1}"; do
-                    joined="${joined}, ${staged_line}"
+                # 永远一行（2026-10-13 用户要求合并条目）：文件名最多列 3 个，其余折成
+                # `+N more`；全量清单在 git 里，想看就 `--full` 或 `git show --stat`。
+                INLINE_LIMIT=3
+                joined=""
+                inline_shown=0
+                for staged_line in "${STAGED_LINES[@]}"; do
+                    [ "$inline_shown" -ge "$INLINE_LIMIT" ] && break
+                    joined="${joined:+$joined, }${staged_line}"
+                    inline_shown=$((inline_shown + 1))
                 done
-                echo "Git: committed $committed_sha (${staged_total} file$([ "$staged_total" = 1 ] || echo s): ${joined})"
+                suffix=""
+                hidden=$((staged_total - inline_shown))
+                [ "$hidden" -gt 0 ] && suffix=", +${hidden} more"
+                echo "Git: committed $committed_sha (${staged_total} file$([ "$staged_total" = 1 ] || echo s): ${joined}${suffix})"
             fi
         fi
         # 刚提交的这棵树就是 ⓪ 里检查过的内容，pre-push hook 不必再跑一遍。
