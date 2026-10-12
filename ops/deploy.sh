@@ -99,6 +99,8 @@
 #   LIMOOO_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
 #   LIMOOO_ALLOW_DIRTY=1      deploy --pages / --docs with a dirty working tree
 #   LIMOOO_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
+#   LIMOOO_SKIP_CI_WATCH=1    do not wait for the GitHub workflow of the pushed commit
+#   LIMOOO_CI_WATCH_TIMEOUT=N seconds to wait for those workflows (default 420)
 #   LIMOOO_GIT_FILE_LIST_LIMIT=N  max file names printed per commit (default 20)
 # Credentials are read from local secrets/webauthn.env; never written to disk or echoed.
 # END-USAGE
@@ -257,6 +259,7 @@ if [ "$DRY_RUN" = 1 ]; then
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/waf_whitelist.sh --apply   (trusted ASNs to zone IP Access Rules; skip with LIMOOO_SKIP_WAF_WHITELIST=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
+    [ "$DO_PUSH" = 1 ] && echo "  would-run: gh run list --commit <pushed sha>   (wait for GitHub CI; skip with LIMOOO_SKIP_CI_WATCH=1)"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
     [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
@@ -514,6 +517,8 @@ fi
 
 # ── ② git push ──────────────────────────────────────────────────────
 PUSH_FAILED=0
+# 真正推上去的那个 commit（供 ⑤ 观察 CI）；没推、或本来就同步时保持空。
+PUSHED_SHA=""
 if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "Warning: not a git work tree, skipped push" >&2
@@ -528,6 +533,7 @@ if [ "$DO_PUSH" = 1 ]; then
             show_cmd git push origin main
             if git push origin main >/dev/null 2>&1; then
                 echo "Git: pushed to GitHub"
+                PUSHED_SHA="$LOCAL_HEAD"
             elif [ "${LIMOOO_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
                 # 应急放行：线上会领先 GitHub。收尾必须明确提示，不能静默继续。
                 PUSH_FAILED=1
@@ -575,10 +581,70 @@ if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     run_step "Workers" bash ops/workers_deploy.sh
 fi
 
+# ── ⑤ 推完看 CI：本地闸门复刻不了 runner 的环境 ──────────────────────
+# 为什么要有这一步（2026-10-12 踩到）：`tests/test_ops_script_guards.py` 里那个
+# 让 `deploy.sh --commit` 真提交的用例，在本机全绿、在 GitHub runner 上因为**没有
+# git 身份**而红（`fatal: empty ident name`，退出码 128）。`ops/ci_check.sh` 复刻的是
+# **步骤**（build / typecheck / vitest / pytest / …），复刻不了**运行环境**
+# （git 身份、装了哪些工具、有没有网络）。结果那次红在 GitHub 上挂了近一天，
+# 直到用户收到失败邮件转过来才发现 —— 「推完没人看 CI」这件事不该靠人记得。
+#
+# 只观察**真正推上去的那个 commit**（PUSHED_SHA 为空 = 没推/本来就同步 → 跳过）。
+CI_STATUS=0
+if [ -n "$PUSHED_SHA" ]; then
+    if [ "${LIMOOO_SKIP_CI_WATCH:-0}" = 1 ]; then
+        echo "CI: not watched (LIMOOO_SKIP_CI_WATCH=1)"
+    elif ! command -v gh >/dev/null 2>&1; then
+        echo "CI: not watched (gh CLI not installed); check: gh run list --commit ${PUSHED_SHA:0:7}"
+    elif ! gh auth status >/dev/null 2>&1; then
+        echo "CI: not watched (gh is not authenticated); check: gh run list --commit ${PUSHED_SHA:0:7}"
+    else
+        CI_TIMEOUT="${LIMOOO_CI_WATCH_TIMEOUT:-420}"
+        CI_DEADLINE=$(( $(date +%s) + CI_TIMEOUT ))
+        CI_RESULT=""
+        while :; do
+            CI_RESULT="$(gh run list --commit "$PUSHED_SHA" --limit 20 \
+                --json workflowName,status,conclusion \
+                --jq '.[] | "\(.workflowName)\t\(.status)\t\(.conclusion)"' 2>/dev/null || true)"
+            # 空结果 = GitHub 还没建出 run（刚 push 完常见）：继续等，别急着报 OK。
+            # 判据是**状态列**为 completed（整行形如 `name\tcompleted\tsuccess`）。
+            if [ -n "$CI_RESULT" ] && ! printf '%s\n' "$CI_RESULT" | grep -qv $'\tcompleted\t'; then
+                break
+            fi
+            if [ "$(date +%s)" -ge "$CI_DEADLINE" ]; then
+                echo "CI: still running after ${CI_TIMEOUT}s; check: gh run list --commit ${PUSHED_SHA:0:7}"
+                CI_RESULT=""
+                break
+            fi
+            sleep 15
+        done
+        if [ -n "$CI_RESULT" ]; then
+            while IFS=$'\t' read -r name status conclusion; do
+                [ -n "$name" ] || continue
+                echo "CI: ${name} ${conclusion}"
+                case "$conclusion" in
+                    success|skipped|neutral) ;;
+                    *) CI_STATUS=1 ;;
+                esac
+            done <<EOF
+$CI_RESULT
+EOF
+        fi
+        if [ "$CI_STATUS" != 0 ]; then
+            echo "FATAL: GitHub workflows failed for ${PUSHED_SHA:0:7} (the local gate cannot see runner-only problems)" >&2
+            echo "       inspect: gh run view --log-failed \$(gh run list --commit ${PUSHED_SHA:0:7} --json databaseId --jq '.[0].databaseId')" >&2
+        fi
+    fi
+fi
+
 # 应急放行的提示必须是**最后一行**：这是唯一能让「线上领先 GitHub」这件事
 # 出现在部署日志末尾的方式，翻日志时不会被后面的步骤冲掉。
 if [ "$PUSH_FAILED" = 1 ]; then
     echo "Warning: deployed without pushing to GitHub"
 fi
+if [ "$CI_STATUS" != 0 ]; then
+    echo "Warning: deployed, but GitHub CI is red for this commit"
+fi
 
 echo "Deploy: done"
+exit "$CI_STATUS"
