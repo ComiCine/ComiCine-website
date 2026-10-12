@@ -22,8 +22,10 @@
 数据源：<https://github.com/xingpingcn/china-mainland-asn>（每日更新，按运营商分类）。
 产出（都在 `docs/lists/`）：
 
-    china-asn.txt    纯生成物：只含 `ASN/<编号>`，来自上面那个源
-    whitelist.txt    生成物：china-asn.txt + own-ips.txt 合并（保留段头注释）
+    mainland-asn-catalog.txt  纯生成物：上游**全量**快照（含教育网/科技网/其它组），
+                              **只作参考与审计**，不参与任何放行判定
+    whitelist.txt    生成物：mainland-asn-catalog.txt 里被 WHITELIST_GROUPS 选中的
+                      那部分 + own-ips.txt 合并（保留段头注释）
     own-ips.txt      手写文件：**本脚本只读不写**（你自己的固定 IP 放这里）
 
 为什么不写进 `data/`：白名单与封禁名单都要人手工维护，放在一起才好找；
@@ -57,7 +59,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LISTS_DIR = ROOT / "docs" / "lists"
-ASN_CACHE = LISTS_DIR / "china-asn.txt"
+# 2026-10-12 由 china-asn.txt 改名：那时 WHITELIST_GROUPS 已为空、白名单里 0 条 ASN，
+# 旧名字（听起来像「我们在用的中国 ASN 白名单」）与实际身份（上游全量快照）不符；
+# 更早还有一处误导：白名单头部把**选用条数**写成了「china-asn.txt 有 0 个」。
+ASN_CATALOG = LISTS_DIR / "mainland-asn-catalog.txt"
 WHITELIST = LISTS_DIR / "whitelist.txt"
 OWN_IPS = LISTS_DIR / "own-ips.txt"
 
@@ -81,7 +86,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
 # 三家运营商名单里混着 IDC 与企业专线，按 ASN 全量放行的面太大。
 #
 # 想恢复按运营商放行：把 ("chinanet", "cmcc", "unicom") 填回来即可 —— 分组名见
-# 下面的 GROUPS，上游数据仍会照常拉取并存进 china-asn.txt（存证，不参与放行）。
+# 下面的 GROUPS，上游数据仍会照常拉取并存进 mainland-asn-catalog.txt（快照，不参与放行）。
 WHITELIST_GROUPS: tuple[str, ...] = ()
 
 TIMEOUT_S = 30
@@ -140,11 +145,16 @@ def fetch_group(name: str, attempts: int = 3) -> list[int]:
 
 def render_asn_file(per_group: dict[str, list[int]]) -> str:
     lines = [
-        "# 中国大陆 ASN 名单（**生成物，不要手改**）",
+        "# 中国大陆 ASN **上游全量快照**（生成物，不要手改）",
         "#",
         f"# 来源：https://github.com/{REPO}（每日更新）",
         "# 由 ops/fetch_china_asn.py 生成；部署时自动刷新。",
-        "# 要额外放行某个 ASN/IP，请改同目录的 own-ips.txt。",
+        "#",
+        "# 这份文件**不是白名单**，也不参与任何放行判定：它按上游分组记录全量 ASN，",
+        "# 供人工核对「哪些 ASN 属于哪家运营商 / 教育网 / 科技网」。真正生效的信任来源是",
+        "# whitelist.txt（= 本文件里被 WHITELIST_GROUPS 选中的组 + own-ips.txt）；",
+        f"# 当前 WHITELIST_GROUPS = {WHITELIST_GROUPS or '()'}（空 = 一条 ASN 都不放行）。",
+        "# 要放行你自己的固定 IP / 网段，改同目录的 own-ips.txt。",
         "#",
     ]
     seen: set[int] = set()
@@ -170,17 +180,24 @@ def manual_entries(path: Path) -> list[str]:
     return out
 
 
-def render_whitelist(asns: list[int], manual: list[str]) -> str:
-    """白名单正文：段头 + ASN 段 + 手工段，全部是 check_gate_trust.py 能解析的行。"""
+def render_whitelist(asns: list[int], manual: list[str], catalog_count: int = 0) -> str:
+    """白名单正文：段头 + ASN 段 + 手工段，全部是 check_gate_trust.py 能解析的行。
+
+    `catalog_count` 是上游快照的条数，**与 `len(asns)`（本文件选用了多少条）不是一回事**。
+    2026-10-12 之前这里只印了后者、却挂着快照的文件名，于是白名单第一行读起来像
+    「china-asn.txt 里有 0 个 ASN」——文件明明有 5231 条。两件事分开写。
+    """
+    groups = "/".join(WHITELIST_GROUPS) or "(empty: no ASN is trusted)"
     lines = [
         "# Limooo 白名单（**生成物，不要手改**）",
         "#",
         "# 由 ops/fetch_china_asn.py 合并而成，来源两份：",
-        f"#   china-asn.txt  中国大陆 ASN {len(asns)} 个，取自 https://github.com/{REPO}（每日更新）",
-        "#   own-ips.txt    你自己的固定 IP / 额外条目（**手工维护，改那个文件**）",
+        f"#   mainland-asn-catalog.txt  上游全量快照 {catalog_count} 条（仅参考，不参与放行）",
+        "#   own-ips.txt               你自己的固定 IP / 额外条目（**手工维护，改那个文件**）",
+        "#",
+        f"# 本文件选用的 ASN：{len(asns)} 条（WHITELIST_GROUPS = {groups}）",
         "#",
         "# 格式：ASN/<编号> 或 IP-CIDR/<IP>/<掩码>；行尾 # 注释会被剥离。",
-        "#",
         "# 注意：ASN 段当前**不参与运行时判定** —— functions/_data/gateTrust.ts 只带",
         "# verified_bot 与 ip_cidrs；ASN 的消费方是 WAF 的 js_challenge 规则（尚未启用）。",
         "# 详见 docs/lists/README.md。",
@@ -209,9 +226,9 @@ def parse_asn_file(path: Path) -> list[int]:
 def write_whitelist(asns: list[int], manual: list[str]) -> str:
     """真正的白名单：ASN 段 + 手工段，都是可被 check_gate_trust.py 解析的行。"""
     lines = [
-        render_whitelist({}, manual).split("# ── 中国大陆 ASN")[0].rstrip(),
+        render_whitelist([], manual).split("# ── 中国大陆 ASN")[0].rstrip(),
         "",
-        f"# ── 中国大陆 ASN（{len(asns)} 个，来自 china-asn.txt）" + "─" * 16,
+        f"# ── 中国大陆 ASN（{len(asns)} 个，来自 mainland-asn-catalog.txt 的选定分组）" + "─" * 8,
         *(f"ASN/{a}" for a in sorted(set(asns))),
         "",
         "# ── 手工条目（来自 own-ips.txt）" + "─" * 20,
@@ -259,10 +276,12 @@ def main() -> int:
             print(json.dumps({"ok": False, "errors": errors, "kept": True}, ensure_ascii=False))
         return 0
 
-    # china-asn.txt 存**全部**分组（存证用）；白名单只用 WHITELIST_GROUPS。
+    # 快照存**全部**分组（参考用）；白名单只用 WHITELIST_GROUPS 选中的组。
     all_asns = sorted({a for asns in per_group.values() for a in asns})
     white_asns = sorted({a for g in WHITELIST_GROUPS for a in per_group.get(g, [])})
-    current = sorted(set(parse_asn_file(ASN_CACHE)))
+    # 比较基准是**上一版白名单**（本文件选用的 ASN），不是快照：
+    # 快照存全量（5231 条），拿它比永远会报「changed / STALE」——`--check` 也就失去意义。
+    current = sorted(set(parse_asn_file(WHITELIST)))
 
     if args.check:
         same = current == white_asns
@@ -273,8 +292,8 @@ def main() -> int:
         return 0 if same else 1
 
     LISTS_DIR.mkdir(parents=True, exist_ok=True)
-    ASN_CACHE.write_text(render_asn_file(per_group), encoding="utf-8")
-    WHITELIST.write_text(render_whitelist(white_asns, manual), encoding="utf-8")
+    ASN_CATALOG.write_text(render_asn_file(per_group), encoding="utf-8")
+    WHITELIST.write_text(render_whitelist(white_asns, manual, len(all_asns)), encoding="utf-8")
 
     counts = {name: len(per_group[name]) for name, _ in GROUPS}
     summary = {
@@ -288,16 +307,17 @@ def main() -> int:
         "changed": current != white_asns,
         # 相对路径只为好看；--json 也可能在别处调用（测试用 tmp_path），
         # 那种情况下 relative_to 会抛异常，所以退化成绝对路径。
-        "wrote": [_display(ASN_CACHE), _display(WHITELIST)],
+        "wrote": [_display(ASN_CATALOG), _display(WHITELIST)],
     }
     if args.json:
         print(json.dumps(summary, ensure_ascii=False))
     else:
         print(
-            f"fetch_china_asn: whitelist {len(white_asns)} ASN (from {'/'.join(WHITELIST_GROUPS)}) "
+            f"fetch_china_asn: whitelist {len(white_asns)} ASN "
+            f"(WHITELIST_GROUPS={','.join(WHITELIST_GROUPS) or 'empty'}) "
             f"+ {len(manual)} manual -> docs/lists/whitelist.txt"
         )
-        print(f"  china-asn.txt keeps all groups: {len(all_asns)} ASN (evidence, not trusted wholesale)")
+        print(f"  mainland-asn-catalog.txt snapshot: {len(all_asns)} ASN (reference only, nothing trusted from it)")
         for name, label in GROUPS:
             print(f"  {label:<20} {counts[name]:>5}")
         if summary["changed"]:
