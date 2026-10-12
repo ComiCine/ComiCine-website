@@ -225,19 +225,27 @@ def test_ci_check_stays_as_strict_as_ci():
         assert expected in text, f"pytest must run without ambient git config ({expected})"
 
 
-def test_deploy_previews_and_skips_the_ci_watch(tmp_path):
-    """干跑要把这一步写进预览；没推成功时**不**去碰 gh（离线可跑）。"""
+def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
+    """安静模式下每个阶段收成一个词：`Prepare`（Lists+Bans+WAF+Check）/ `Release`
+    （Pages+Docs+Workers）；`CI: tests success, …` 整行去掉（2026-10-13 用户逐行批注 +
+    定词）。提交行的文件清单另有批注：恢复逐行列出 —— 由 test_deploy_commits… 覆盖。
+    """
     repo = make_repo(tmp_path)
 
     preview = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
     assert preview.returncode == 0, preview.stdout + preview.stderr
-    assert "gh run list --commit <pushed sha>" in preview.stdout
-    assert "LIMOOO_SKIP_CI_WATCH=1" in preview.stdout
+    assert "gh run list" not in preview.stdout, "CI 观察已去掉，预览里不该还有它"
 
-    # 桩仓库没有 remote：push 被跳过 -> 不该出现任何 CI 观察输出（也不该等超时）
-    committed = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
-    assert committed.returncode == 0, committed.stdout + committed.stderr
-    assert "CI:" not in committed.stdout
+    ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    assert "Prepare: done" in ran.stdout, ran.stdout
+    assert "Release: done" in ran.stdout, ran.stdout
+    assert "+" not in ran.stdout.replace("++", ""), "阶段标签不该再是 A+B+C 形状"
+    assert not any(line.startswith("CI:") for line in ran.stdout.splitlines()), ran.stdout
+    # 子步骤的个别行不再出现在成功路径上（跳过/失败才出声）
+    for gone in ("Lists: done", "Bans: done", "WAF: done", "Check: done",
+                 "Pages: done", "Docs: done", "Workers: done"):
+        assert gone not in ran.stdout, f"{gone} 应该被并进阶段行"
 
 
 # ── W3-3：Pages / docs 前先跑 CI，脏树要拒绝 ─────────────────────────
@@ -247,13 +255,17 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     repo = make_repo(tmp_path)
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert result.returncode == 0, result.stdout + result.stderr
-    # 输出自 2026-10-13 起按阶段合并：预检三连一行、Check 独占一行、发布阶段一行。
-    # 顺序仍然可断言 —— 合并的标签本身就是顺序（`Lists+Bans+WAF` 先于 `Check`，
-    # `Check` 先于 `Pages`）。
-    assert result.stdout.index("Check: done") < result.stdout.index("Pages: done")
-    # 白名单刷新必须**先于** CI（2026-10-11）：它会产生改动，放在 CI 之后就会被
-    # 脏树闸门拦下，也漏过 CI 对该名单的校验。
-    assert result.stdout.index("Lists+Bans+WAF: done") < result.stdout.index("Check: done")
+    # 输出自 2026-10-13 起按阶段合并成两个词：`Prepare`（含 Check）先于 `Release`。
+    assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
+
+    # 真实执行序列用 --full 断言（它逐条回显命令，不合并）：
+    #   ① 名单刷新必须**先于** CI（2026-10-11）—— 它会产生改动，放在 CI 之后会被脏树
+    #      闸门拦下，也漏过 CI 对该名单的校验；
+    #   ② 闸门必须**先于**发布 —— 检查没跑过就不许发。
+    full = run([BASH, "ops/deploy.sh", "--pages", "--full"], cwd=repo)
+    assert full.returncode == 0, full.stdout + full.stderr
+    assert full.stdout.index("ops/fetch_china_asn.py") < full.stdout.index("ops/ci_check.sh")
+    assert full.stdout.index("ops/ci_check.sh") < full.stdout.index("ops/pages_deploy.sh")
 
 
 def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
@@ -296,12 +308,14 @@ def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
     skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_SKIP_ASN_FETCH": "1"})
     assert skipped.returncode == 0, skipped.stdout + skipped.stderr
     assert "skipped ASN refresh" in skipped.stdout
-    assert "Lists+Bans+WAF: done" not in skipped.stdout, "跳过时不该还报 Lists 步骤完成"
+    # 阶段行现在只说 `Prepare: done`（不点名子步骤）；哪一步被跳过由它自己的跳过行负责，
+    # 所以判据是「跳过行在、且那一步没有以 done 形状出现」。
+    assert "Lists: done" not in skipped.stdout
 
     # strict 走 run_step（参数传错会 FATAL），所以能证明那一步真的执行了。
     strict = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_STRICT_ASN": "1"})
     assert strict.returncode == 0, strict.stdout + strict.stderr
-    assert "Lists+Bans+WAF: done" in strict.stdout
+    assert "Prepare: done" in strict.stdout
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
@@ -311,8 +325,9 @@ def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
     assert result.returncode == 1, result.stdout + result.stderr
     assert "FATAL: working tree has uncommitted changes" in result.stderr
     assert "tracked.txt" in result.stderr
-    # 拒绝要发生在 CI 与 Pages 之前
-    assert "Check: done" not in result.stdout
+    # 拒绝要发生在准备阶段与发布阶段之前：两个阶段词都不该出现
+    assert "Prepare: done" not in result.stdout
+    assert "Release: done" not in result.stdout
     assert "STUB pages_deploy ran" not in result.stdout
 
 
@@ -324,7 +339,8 @@ def test_deploy_pages_allows_a_dirty_tree_with_the_escape_hatch(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Warning: deploying a dirty working tree (LIMOOO_ALLOW_DIRTY=1)" in result.stdout
-    assert result.stdout.index("Check: done") < result.stdout.index("Pages: done")
+    # 阶段顺序：准备（含 Check）→ 发布
+    assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
 
 # ── W3-4 / W3-5：--remote 必需，--dry-run 完全离线 ────────────────────
@@ -503,7 +519,7 @@ def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
 
     ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert ran.returncode == 0, ran.stdout + ran.stderr
-    assert "Lists+Bans+WAF: done" in ran.stdout, ran.stdout
+    assert "Prepare: done" in ran.stdout, ran.stdout
 
     # 顺序：名单先刷新，再推 WAF（推的是刷新后的名单）。安静模式把三行并成一个标签，
     # 所以用 --full 看真实执行序列（它逐条回显命令，不合并）。
@@ -515,7 +531,7 @@ def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
                   env={"LIMOOO_SKIP_WAF_WHITELIST": "1"})
     assert skipped.returncode == 0, skipped.stdout + skipped.stderr
     assert "skipped ASN whitelist push" in skipped.stdout
-    assert "Lists+Bans+WAF: done" not in skipped.stdout
+    assert "WAF: done" not in skipped.stdout
 
 
 def test_deploy_bootstraps_missing_tooling(tmp_path):
@@ -597,4 +613,4 @@ def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
     assert "recreating the build venv" not in result.stdout, result.stdout
     assert not venv_marker.is_file(), "跳过后不该创建 venv"
     # 跳过自愈 → 缺 venv 由 pages_deploy 的桩接住（桩脚本不看 venv）。
-    assert "Pages: done" in result.stdout, result.stdout
+    assert "Release: done" in result.stdout, result.stdout
