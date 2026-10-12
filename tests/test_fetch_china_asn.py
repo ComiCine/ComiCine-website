@@ -69,7 +69,7 @@ def test_render_keeps_manual_entries_verbatim(tmp_path):
 
 
 def test_render_group_file_stays_within_the_asn_syntax():
-    """china-asn.txt 只允许出现 `ASN/<数字>` 行（别的行会让生成器报错）。"""
+    """快照文件只允许出现 `ASN/<数字>` 行（别的行会让生成器报错）。"""
     text = fetcher.render_asn_file({"chinanet": [4134, 4809], "cmcc": [9808]})
 
     body = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
@@ -116,7 +116,7 @@ def test_unreachable_source_keeps_the_existing_list_and_exits_zero(monkeypatch, 
     空名单，门禁信任配置就会退化成"谁都不信任" —— 那才是真正的事故。
     """
     monkeypatch.setattr(fetcher, "LISTS_DIR", tmp_path)
-    monkeypatch.setattr(fetcher, "ASN_CACHE", tmp_path / "china-asn.txt")
+    monkeypatch.setattr(fetcher, "ASN_CATALOG", tmp_path / "mainland-asn-catalog.txt")
     monkeypatch.setattr(fetcher, "WHITELIST", tmp_path / "whitelist.txt")
     monkeypatch.setattr(fetcher, "OWN_IPS", tmp_path / "own-ips.txt")
 
@@ -134,7 +134,7 @@ def test_unreachable_source_keeps_the_existing_list_and_exits_zero(monkeypatch, 
 def test_unreachable_source_fails_under_strict(monkeypatch, tmp_path):
     """strict：源不可达 → 非 0（CI 与人工复核用）。"""
     monkeypatch.setattr(fetcher, "LISTS_DIR", tmp_path)
-    monkeypatch.setattr(fetcher, "ASN_CACHE", tmp_path / "china-asn.txt")
+    monkeypatch.setattr(fetcher, "ASN_CATALOG", tmp_path / "mainland-asn-catalog.txt")
     monkeypatch.setattr(fetcher, "WHITELIST", tmp_path / "whitelist.txt")
     monkeypatch.setattr(fetcher, "OWN_IPS", tmp_path / "own-ips.txt")
 
@@ -150,7 +150,7 @@ def test_unreachable_source_fails_under_strict(monkeypatch, tmp_path):
 def test_missing_manual_file_does_not_break_a_fetch(monkeypatch, tmp_path):
     """完整走一遍（源用桩替身）：own-ips.txt 不存在时仍应成功写出两份产物。"""
     monkeypatch.setattr(fetcher, "LISTS_DIR", tmp_path)
-    monkeypatch.setattr(fetcher, "ASN_CACHE", tmp_path / "china-asn.txt")
+    monkeypatch.setattr(fetcher, "ASN_CATALOG", tmp_path / "mainland-asn-catalog.txt")
     monkeypatch.setattr(fetcher, "WHITELIST", tmp_path / "whitelist.txt")
     monkeypatch.setattr(fetcher, "OWN_IPS", tmp_path / "own-ips.txt")
     monkeypatch.setattr(fetcher, "fetch_group", lambda name: [4134, 4809] if name == "chinanet" else [])
@@ -162,9 +162,9 @@ def test_missing_manual_file_does_not_break_a_fetch(monkeypatch, tmp_path):
     # 白名单里**不该有 ASN**（默认不按 ASN 放行），但两份产物都必须写出来：
     # 缺 own-ips.txt 不该让整次抓取失败。
     assert not any(line.startswith("ASN/") for line in whitelist.splitlines())
-    assert (tmp_path / "china-asn.txt").is_file(), "证据文件必须生成"
+    assert (tmp_path / "mainland-asn-catalog.txt").is_file(), "快照文件必须生成"
     # 证据文件里仍应留着抓到的 ASN。
-    assert "ASN/4134" in (tmp_path / "china-asn.txt").read_text(encoding="utf-8")
+    assert "ASN/4134" in (tmp_path / "mainland-asn-catalog.txt").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("group_name", ["chinanet", "cmcc", "unicom", "cernet", "cstnet", "other"])
@@ -194,9 +194,9 @@ def test_whitelist_trusts_no_asn_by_default():
 
 
 def test_whitelist_excludes_every_asn_group(monkeypatch, tmp_path):
-    """端到端：所有分组的 ASN 都**不**进白名单，但都留在 china-asn.txt 存证。"""
+    """端到端：所有分组的 ASN 都**不**进白名单，但都留在快照里备查。"""
     monkeypatch.setattr(fetcher, "LISTS_DIR", tmp_path)
-    monkeypatch.setattr(fetcher, "ASN_CACHE", tmp_path / "china-asn.txt")
+    monkeypatch.setattr(fetcher, "ASN_CATALOG", tmp_path / "mainland-asn-catalog.txt")
     monkeypatch.setattr(fetcher, "WHITELIST", tmp_path / "whitelist.txt")
     monkeypatch.setattr(fetcher, "OWN_IPS", tmp_path / "own-ips.txt")
     # 每个分组给一个可辨认的号段
@@ -221,6 +221,6 @@ def test_whitelist_excludes_every_asn_group(monkeypatch, tmp_path):
     )
 
     # 全量证据文件仍然包含被排除的那些（存证用途）。
-    evidence = (tmp_path / "china-asn.txt").read_text(encoding="utf-8")
+    evidence = (tmp_path / "mainland-asn-catalog.txt").read_text(encoding="utf-8")
     for dropped in (4538, 7497, 4611):
-        assert f"ASN/{dropped}" in evidence, f"ASN/{dropped} 应留在 china-asn.txt 存证"
+        assert f"ASN/{dropped}" in evidence, f"ASN/{dropped} 应留在 mainland-asn-catalog.txt"
