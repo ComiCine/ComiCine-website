@@ -143,6 +143,27 @@ def fetch_group(name: str, attempts: int = 3) -> list[int]:
     return out
 
 
+def _runs(asns: list[int]) -> list[tuple[int, int]]:
+    """把升序去重的 ASN 压成连续段 `[(起, 止), ...]`（单条就是 `(n, n)`）。
+
+    ASN 号是注册号，不是 IP 段，所以「合并」纯粹是**写法压缩**：5231 条里绝大多数
+    是连号（教育网有一段 514 个连号），压成区间后文件从 5248 行降到 ~800 行，
+    每日刷新的 diff 也随之变成「改一个端点数字」。
+    """
+    runs: list[tuple[int, int]] = []
+    start = prev = None
+    for a in asns:
+        if prev is not None and a == prev + 1:
+            prev = a
+            continue
+        if start is not None:
+            runs.append((start, prev))
+        start = prev = a
+    if start is not None:
+        runs.append((start, prev))
+    return runs
+
+
 def render_asn_file(per_group: dict[str, list[int]]) -> str:
     lines = [
         "# 中国大陆 ASN **上游全量快照**（生成物，不要手改）",
@@ -156,14 +177,22 @@ def render_asn_file(per_group: dict[str, list[int]]) -> str:
         f"# 当前 WHITELIST_GROUPS = {WHITELIST_GROUPS or '()'}（空 = 一条 ASN 都不放行）。",
         "# 要放行你自己的固定 IP / 网段，改同目录的 own-ips.txt。",
         "#",
+        "# 写法（2026-10-13 起）：连号**合并成区间** —— `ASN/4134`（单条）或",
+        "# `ASN/140245-140261`（连号，闭区间）。读法见 ops/fetch_china_asn.py 的",
+        "# parse_asn_file()：它会把区间展开回逐条，语义与原样逐行完全一致。",
+        "# 每组的「N 个 / M 行」= 该组 ASN 条数 / 压缩后的行数。",
+        "#",
     ]
     seen: set[int] = set()
     for name, label in GROUPS:
         asns = per_group.get(name) or []
-        fresh = [a for a in asns if a not in seen]
+        fresh = sorted(a for a in asns if a not in seen)
         seen.update(fresh)
-        lines.append(f"# ── {label}（{len(fresh)} 个，含重复已去）" + "─" * 20)
-        lines.extend(f"ASN/{a}" for a in sorted(fresh))
+        runs = _runs(fresh)
+        lines.append(f"# ── {label}（{len(fresh)} 个 / {len(runs)} 行，含重复已去）" + "─" * 12)
+        lines.extend(
+            f"ASN/{a}" if a == b else f"ASN/{a}-{b}" for a, b in runs
+        )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -212,14 +241,24 @@ def render_whitelist(asns: list[int], manual: list[str], catalog_count: int = 0)
 
 
 def parse_asn_file(path: Path) -> list[int]:
-    """从生成物里取回 ASN（用于 --check 与合并）。"""
+    """从生成物里取回 ASN，**区间会被展开**（`ASN/4134` 与 `ASN/4134-4140` 都认）。
+
+    快照文件用区间写法压缩连号（见 render_asn_file），这里负责还原成逐条；
+    白名单文件仍是一行一条（它的消费方多，格式不冒险改）。
+    """
     if not path.is_file():
         return []
-    out = []
+    out: list[int] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^ASN/(\d{1,10})$", raw.strip(), re.I)
-        if m:
-            out.append(int(m.group(1)))
+        line = re.sub(r"#.*$", "", raw).strip()
+        m = re.match(r"^ASN/(\d{1,10})(?:-(\d{1,10}))?$", line, re.I)
+        if not m:
+            continue
+        start = int(m.group(1))
+        end = int(m.group(2)) if m.group(2) else start
+        if end < start:
+            raise RuntimeError(f"invalid ASN range in {path}: {raw.strip()}")
+        out.extend(range(start, end + 1))
     return out
 
 

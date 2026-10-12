@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -69,12 +70,62 @@ def test_render_keeps_manual_entries_verbatim(tmp_path):
 
 
 def test_render_group_file_stays_within_the_asn_syntax():
-    """快照文件只允许出现 `ASN/<数字>` 行（别的行会让生成器报错）。"""
+    """快照文件的正文只允许 `ASN/<数字>` 或 `ASN/<起>-<止>`（别的行会让解析器漏读）。"""
     text = fetcher.render_asn_file({"chinanet": [4134, 4809], "cmcc": [9808]})
 
     body = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
     assert body == ["ASN/4134", "ASN/4809", "ASN/9808"]
-    assert all(ln.startswith("ASN/") for ln in body)
+    assert all(re.fullmatch(r"ASN/\d{1,10}(-\d{1,10})?", ln) for ln in body)
+
+
+def test_render_group_file_merges_consecutive_runs():
+    """连号合并成闭区间（2026-10-13 用户要求）：5231 条压成 ~780 行，语义不变。"""
+    text = fetcher.render_asn_file({"cernet": [140245, 140246, 140247, 140300, 140301]})
+
+    body = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
+    assert body == ["ASN/140245-140247", "ASN/140300-140301"]
+    # 段头同时给出「ASN 条数 / 压缩后行数」，读者一眼知道有没有被压缩
+    assert "5 个 / 2 行" in text
+
+
+def test_parse_asn_file_expands_ranges(tmp_path):
+    """区间要能展开回逐条 —— 合并是写法，不是语义。"""
+    p = tmp_path / "snapshot.txt"
+    p.write_text(
+        "# 注释\nASN/4134\nASN/5000-5003   # 行尾注释\nASN/7000-7000\n",
+        encoding="utf-8",
+    )
+
+    assert fetcher.parse_asn_file(p) == [4134, 5000, 5001, 5002, 5003, 7000]
+
+    (tmp_path / "bad.txt").write_text("ASN/5000-4999\n", encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        fetcher.parse_asn_file(tmp_path / "bad.txt")
+
+
+def test_repo_catalog_is_compressed_and_lossless():
+    """真实仓库：区间写法能无损还原，且确实比逐条短（否则压缩等于没做）。"""
+    asns = fetcher.parse_asn_file(fetcher.ASN_CATALOG)
+    lines = [
+        ln
+        for ln in fetcher.ASN_CATALOG.read_text(encoding="utf-8").splitlines()
+        if ln.startswith("ASN/")
+    ]
+
+    assert len(asns) == len(set(asns)), "快照里不该有重复 ASN"
+    assert len(asns) > 1000, "上游全量快照不该是空的"
+    # 排序是**逐分组**的（文件按运营商分段），不是全局排序
+    section: list[int] = []
+    for line in fetcher.ASN_CATALOG.read_text(encoding="utf-8").splitlines():
+        if line.startswith("# ── "):
+            assert section == sorted(section), "每个分组内部必须按号升序"
+            section = []
+            continue
+        found = re.match(r"^ASN/(\d{1,10})(?:-(\d{1,10}))?$", line.strip())
+        if found:
+            section.extend(range(int(found.group(1)), int(found.group(2) or found.group(1)) + 1))
+    assert section == sorted(section)
+    assert len(lines) < len(asns) / 2, f"区间压缩没生效：{len(lines)} 行 / {len(asns)} 条"
 
 
 def test_manual_entries_strips_comments_and_blanks(tmp_path):

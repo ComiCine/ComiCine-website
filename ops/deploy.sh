@@ -36,9 +36,17 @@
 #   bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker only
 #   bash ops/deploy.sh --full ...               # same flags, but stream every step's output
 #
-# Default output is QUIET: each step prints one status line, and a step's full log
-# is only dumped when that step fails. Pass --full (or set LIMOOO_DEPLOY_VERBOSE=1)
-# to stream the build manifest, artifact count and wrangler upload progress.
+# Default output is QUIET, and **steps of the same phase share one line** (2026-10-13):
+#   Deploy: start
+#   Lists+Bans+WAF: done
+#   Check: done
+#   Git: committed 46ef67d (1 file: M docs/lists/robots.txt)
+#   Pages+Docs+Workers: done
+#   CI: tests success, CodeQL success
+#   Deploy: done
+# Only the success lines are merged; skips still print themselves and a failing step
+# dumps its full log. Check keeps its own line on purpose (it is the gate). Pass
+# --full (or LIMOOO_DEPLOY_VERBOSE=1) to get one line per step plus every command.
 #
 # With NO arguments this is exactly --all: commit + push + Pages + docs + Workers,
 # matching the "full deploy" contract in AGENTS.md. To ship only what is already
@@ -227,8 +235,32 @@ fi
 #                 失败打 "<tag>: FAILED -- full log follows" 并把完整日志吐到 stderr。
 #   --full      ：先回显要跑的命令，再原样透传它的输出，不额外加状态行。
 # 用法：run_step "<标签>" <命令...>
+# 成功行合并（2026-10-13 用户要求）：默认安静模式下，同一阶段的步骤（Lists / Bans /
+# WAF，Pages / Docs / Workers）不再各占一行，而是攒起来由 flush_steps 打印成一行
+# `Lists+Bans+WAF: done`。失败与跳过**照旧单独出声**（跳过会自己 echo，失败直接抛日志），
+# 所以合并的只是「一切正常」时的噪声。`--full` / LIMOOO_DEPLOY_VERBOSE=1 保持逐条。
+DEFERRED_STEPS=()
+# 下一步骤是「攒着」（1）还是「立刻打印成功行」（0）。run_step_own_line 把它压成 0，
+# 用于 Check —— 它是唯一的闸门，「检查通过」值得独占一行，而不是并进 `Check+Pages`。
+DEFER_NEXT_STEP=1
+
+flush_steps() {
+    [ ${#DEFERRED_STEPS[@]} -eq 0 ] && return 0
+    local joined
+    joined="$(IFS=+; echo "${DEFERRED_STEPS[*]}")"
+    DEFERRED_STEPS=()
+    echo "$joined: done"
+}
+
+run_step_own_line() {
+    DEFER_NEXT_STEP=0
+    run_step "$@"
+}
+
 run_step() {
     local tag="$1"; shift
+    local defer="$DEFER_NEXT_STEP"
+    DEFER_NEXT_STEP=1
     if [ "$VERBOSE" = 1 ]; then
         echo "$*"
         "$@"
@@ -238,8 +270,14 @@ run_step() {
     log="$(mktemp -t limooo-deploy-XXXXXX.log)"
     if "$@" >"$log" 2>&1; then
         rm -f "$log"
-        echo "$tag: done"
+        if [ "$defer" = 0 ]; then
+            flush_steps
+            echo "$tag: done"
+        else
+            DEFERRED_STEPS+=("$tag")
+        fi
     else
+        flush_steps
         echo "$tag: FAILED -- full log follows" >&2
         cat "$log" >&2
         rm -f "$log"
@@ -446,15 +484,19 @@ if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     STAGED_TREE_BEFORE="$(worktree_snapshot)"
 fi
 
+# 预检阶段的成功行到这里合并（Lists / Bans / WAF → `Lists+Bans+WAF: done`）；
+# Check 不并进这一行：它是唯一的闸门，「检查跑了没有」值得独占一行。
+flush_steps
+
 if [ "$NEED_CHECKS" = 1 ]; then
     if [ "${LIMOOO_SKIP_CHECKS:-0}" = 1 ]; then
         echo "Check: skipped (LIMOOO_SKIP_CHECKS=1)"
     elif [ "$DO_COMMIT" = 1 ]; then
-        run_step "Check" bash ops/ci_check.sh
+        run_step_own_line "Check" bash ops/ci_check.sh
     elif [ "$DO_PUSH" = 1 ]; then
-        run_step "Check" bash ops/ci_check.sh --ref=HEAD
+        run_step_own_line "Check" bash ops/ci_check.sh --ref=HEAD
     else
-        run_step "Check" bash ops/ci_check.sh
+        run_step_own_line "Check" bash ops/ci_check.sh
     fi
 fi
 
@@ -493,21 +535,34 @@ if [ "$DO_COMMIT" = 1 ]; then
             show_cmd git commit -m "$commit_subject"
             git commit -m "$commit_subject" >/dev/null
             # 版本号 = 本次新提交的短 SHA
-            echo "Git: committed $(git rev-parse --short HEAD)"
-            # 状态字母取自 git --name-status（A 新增 / D 删除 / M 修改 / R 重命名...）占第 4 列，
-            # 第 5 列空一格，文件名仍与上一行 "committed" 的首字符对齐（第 6 列）。
+            committed_sha="$(git rev-parse --short HEAD)"
+            # 变更文件表（2026-10-13 改）：**少数文件并进同一行**，多了才逐行列出。
+            # 用户对旧输出的原话是「有些条目可以合并」—— 提交行 + 缩进的文件清单本来是
+            # 1+N 行，而绝大多数部署只有一两个文件，值不得那份版面。
+            # 状态字母取自 git --name-status（A 新增 / D 删除 / M 修改 / R 重命名...）。
+            STAGED_LINES=()
             staged_shown=0
             while IFS="$(printf '\t')" read -r st path_old path_new; do
                 [ -z "$st" ] && continue
                 [ "$staged_shown" -ge "$GIT_FILE_LIST_LIMIT" ] && break
-                status_letter="${st:0:1}"
                 # git 对重命名/复制给出 "R100\told\tnew"，展示新路径
                 [ -n "$path_new" ] && path_old="$path_new"
-                echo "   ${status_letter} ${path_old}"
+                STAGED_LINES+=("${st:0:1} ${path_old}")
                 staged_shown=$((staged_shown + 1))
             done <<< "$staged_status"
-            if [ "$staged_total" -gt "$staged_shown" ]; then
-                echo "     ... and $((staged_total - staged_shown)) more"
+            staged_more=$((staged_total - staged_shown))
+            if [ "$VERBOSE" = 1 ] || [ "$staged_total" -gt 3 ]; then
+                echo "Git: committed $committed_sha"
+                for staged_line in "${STAGED_LINES[@]}"; do
+                    echo "   ${staged_line}"
+                done
+                [ "$staged_more" -gt 0 ] && echo "     ... and ${staged_more} more"
+            else
+                joined="${STAGED_LINES[0]:-}"
+                for staged_line in "${STAGED_LINES[@]:1}"; do
+                    joined="${joined}, ${staged_line}"
+                done
+                echo "Git: committed $committed_sha (${staged_total} file$([ "$staged_total" = 1 ] || echo s): ${joined})"
             fi
         fi
         # 刚提交的这棵树就是 ⓪ 里检查过的内容，pre-push hook 不必再跑一遍。
@@ -576,10 +631,13 @@ fi
 
 if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     # 清单里的每一个 Worker。workers_deploy.sh 无参数即「部署列表里的每一个」。
-    # label 就是 `Workers`（2026-10-11 用户定）：run_step 会拼成 `Workers: done`，
-    # 与相邻步骤的 `Pages: done` / `Docs: done` 同一形态；`all` 是冗余的。
+    # label 就是 `Workers`（2026-10-11 用户定）：与相邻的 `Pages` / `Docs` 同一形态，
+    # 三者最终合并成一行 `Pages+Docs+Workers: done`。
     run_step "Workers" bash ops/workers_deploy.sh
 fi
+
+# 发布阶段的成功行合并：`Pages+Docs+Workers: done`（只发一个时就是 `Pages: done` 这类）。
+flush_steps
 
 # ── ⑤ 推完看 CI：本地闸门复刻不了 runner 的环境 ──────────────────────
 # 为什么要有这一步（2026-10-12 踩到）：`tests/test_ops_script_guards.py` 里那个
@@ -619,9 +677,12 @@ if [ -n "$PUSHED_SHA" ]; then
             sleep 15
         done
         if [ -n "$CI_RESULT" ]; then
+            # 逐条攒成一行：`CI: tests success, CodeQL success`（两个 workflow 就是两行
+            # 噪声，而人只要一个结论；有红的会在下面单独 FATAL）。
+            CI_SUMMARY=""
             while IFS=$'\t' read -r name status conclusion; do
                 [ -n "$name" ] || continue
-                echo "CI: ${name} ${conclusion}"
+                CI_SUMMARY="${CI_SUMMARY:+$CI_SUMMARY, }${name} ${conclusion}"
                 case "$conclusion" in
                     success|skipped|neutral) ;;
                     *) CI_STATUS=1 ;;
@@ -629,6 +690,7 @@ if [ -n "$PUSHED_SHA" ]; then
             done <<EOF
 $CI_RESULT
 EOF
+            [ -n "$CI_SUMMARY" ] && echo "CI: $CI_SUMMARY"
         fi
         if [ "$CI_STATUS" != 0 ]; then
             echo "FATAL: GitHub workflows failed for ${PUSHED_SHA:0:7} (the local gate cannot see runner-only problems)" >&2
