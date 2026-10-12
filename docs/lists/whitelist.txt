@@ -1,11 +1,12 @@
 # Limooo 白名单（**生成物，不要手改**）
 #
 # 由 ops/fetch_china_asn.py 合并而成，来源两份：
-#   china-asn.txt  中国大陆 ASN 0 个，取自 https://github.com/xingpingcn/china-mainland-asn（每日更新）
-#   own-ips.txt    你自己的固定 IP / 额外条目（**手工维护，改那个文件**）
+#   mainland-asn-catalog.txt  上游全量快照 5231 条（仅参考，不参与放行）
+#   own-ips.txt               你自己的固定 IP / 额外条目（**手工维护，改那个文件**）
+#
+# 本文件选用的 ASN：0 条（WHITELIST_GROUPS = (empty: no ASN is trusted)）
 #
 # 格式：ASN/<编号> 或 IP-CIDR/<IP>/<掩码>；行尾 # 注释会被剥离。
-#
 # 注意：ASN 段当前**不参与运行时判定** —— functions/_data/gateTrust.ts 只带
 # verified_bot 与 ip_cidrs；ASN 的消费方是 WAF 的 js_challenge 规则（尚未启用）。
 # 详见 docs/lists/README.md。

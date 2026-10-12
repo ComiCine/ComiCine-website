@@ -126,6 +126,24 @@ if [ -x "$ROOT/.venv-build/bin/python" ]; then
     PYTHON_BIN="$ROOT/.venv-build/bin/python"
 fi
 
+# ── 闸门工具：缺了就装，而不是 SKIP（2026-10-12 改）────────────────────
+# 以前 ruff / mypy / pytest-cov 是「探测式」：没装只打印一行 SKIP 就算过。可 CI 那边
+# 它们是**装了**的（ops/requirements.txt 里钉着版本），于是本地「全绿」与 CI 的真实
+# 结果可以不一致 —— 这正是 2026-10-12 那次「本地全绿、push 完 CI 红」的一半原因。
+# 现在缺什么装什么（装到 CI 用的那个解释器里）；装不上（离线等）才退回 SKIP，
+# 并把这句 SKIP 说得更刺眼一点，让人知道本地这一项**没验**。
+ensure_gate_tools() {
+    [ "${LIMOOO_SKIP_TOOL_INSTALL:-0}" = 1 ] && return 0
+    local missing=()
+    "$PYTHON_BIN" -m ruff --version >/dev/null 2>&1 || missing+=(ruff)
+    "$PYTHON_BIN" -m mypy --version >/dev/null 2>&1 || missing+=(mypy)
+    "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1 || missing+=(pytest-cov)
+    [ ${#missing[@]} -eq 0 ] && return 0
+    echo "[ci] installing gate tools into $PYTHON_BIN: ${missing[*]}"
+    "$PYTHON_BIN" -m pip install -q --disable-pip-version-check "${missing[@]}" >/dev/null 2>&1 || true
+}
+ensure_gate_tools
+
 WORKTREE=""
 cleanup() {
     if [ -n "$WORKTREE" ] && [ -d "$WORKTREE" ]; then
@@ -284,32 +302,44 @@ fi
 if [ "$RUN_PY" = 1 ]; then
     echo "[ci] python job"
 
-    # ruff / mypy 与 pytest-cov 同一套探测式处理：装了就跑、没装只打印一行 SKIP。
-    # 它们不是运行时依赖（在 ops/requirements.txt 里，不在 requirements.lock），
-    # 老 venv 里没有是正常状态，不该因此把闸门判红。
+    # ruff / mypy 与 pytest-cov：上面 ensure_gate_tools 已经尽力装好，这里只判断
+    # 最终有没有 —— 有就跑（与 CI 同一套），没有就打印一行刺眼的 SKIP，
+    # 明确写出「这一项本地没验」，而不是让闸门看起来全绿。
     if (cd "$TARGET" && "$PYTHON_BIN" -m ruff --version >/dev/null 2>&1); then
         echo "[ci] python -m ruff check src ops tests"
         (cd "$TARGET" && "$PYTHON_BIN" -m ruff check src ops tests)
     else
-        echo "[ci] SKIP ruff: not installed (pip install -r ops/requirements.txt)"
+        echo "[ci] SKIP ruff: NOT VERIFIED locally (pip install -r ops/requirements.txt)"
     fi
 
     if (cd "$TARGET" && "$PYTHON_BIN" -m mypy --version >/dev/null 2>&1); then
         echo "[ci] python -m mypy src"
         (cd "$TARGET" && "$PYTHON_BIN" -m mypy src)
     else
-        echo "[ci] SKIP mypy: not installed (pip install -r ops/requirements.txt)"
+        echo "[ci] SKIP mypy: NOT VERIFIED locally (pip install -r ops/requirements.txt)"
     fi
 
-    echo "[ci] python -m pytest"
+    echo "[ci] python -m pytest (no ambient git identity: a CI runner has none)"
     # 覆盖率只报告、不设阈值（W6-3）。pytest-cov 不在 requirements.lock 里，
     # 所以先探测再决定加不加 --cov；缺了只跳过且不影响退出码。
+    #
+    # **git 身份必须在这里抹掉**：2026-10-12 有一次用例让子进程里的 `deploy.sh --commit`
+    # 真提交，本机因为全局配过 user.name/email 而全绿，GitHub runner 上没有 → `fatal:
+    # empty ident name`、CI 红。这是「本地环境比 CI 宽松」造成的假绿，闸门得自己造出
+    # CI 那种环境：HOME 指向空目录、禁掉 global/system 配置、并关掉身份自动探测
+    # （user.useConfigOnly=true）。用例要提交，就得自己往仓库 config 里写身份。
+    GIT_HOSTILE_HOME="$(mktemp -d -t limooo-ci-home-XXXXXX)"
     if (cd "$TARGET" && "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1); then
-        (cd "$TARGET" && "$PYTHON_BIN" -m pytest -q --cov=src --cov-report=term-missing)
+        (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
+            "$PYTHON_BIN" -m pytest -q --cov=src --cov-report=term-missing)
     else
         echo "[ci] SKIP coverage: pytest-cov is not installed (pip install pytest-cov)"
-        (cd "$TARGET" && "$PYTHON_BIN" -m pytest -q)
+        (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
+            "$PYTHON_BIN" -m pytest -q)
     fi
+    rm -rf "$GIT_HOSTILE_HOME"
     echo "[ci] python ops/check_config_contract.py"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_config_contract.py)
     # 2026-10-11 加：Dependabot 把 cairosvg 升到 2.9.1 而 requirements.lock 仍钉 2.8.2，

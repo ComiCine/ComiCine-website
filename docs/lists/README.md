@@ -8,8 +8,8 @@
 
 | 文件 | 谁生成 | 要不要手改 |
 | --- | --- | --- |
-| `china-asn.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**含上游全部分组（含教育网/科技网/其它）** | ❌ **不要手改**，下次部署会被覆盖 |
-| `whitelist.txt` | **自动**：`china-asn.txt` 里被 `WHITELIST_GROUPS` 选中的那部分 + `own-ips.txt` 合并而成（**当前 `WHITELIST_GROUPS` 为空**，所以只有手工条目） | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
+| `mainland-asn-catalog.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**上游全量快照（含教育网/科技网/其它）**，2026-10-12 由 `china-asn.txt` 改名 —— 它**不是白名单**，不参与任何放行判定 | ❌ **不要手改**，下次部署会被覆盖 |
+| `whitelist.txt` | **自动**：`mainland-asn-catalog.txt` 里被 `WHITELIST_GROUPS` 选中的那部分 + `own-ips.txt` 合并而成（**当前 `WHITELIST_GROUPS` 为空**，所以只有手工条目） | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
 | `own-ips.txt` | 手工 | ✅ **改这个**：你自己的固定 IP、需要完全放行的来源 |
 | `robots.txt` | 手工（标准格式） | ✅ **改这个**：既是线上 `/robots.txt`，又是门禁爬虫放行名单（见下节） |
 | `blocklist.txt` | 手工 + 自动拉回的受管段 | ✅ **改手写区**：要封的 IP / 网段 |
@@ -59,14 +59,15 @@ HeadlessChrome 这类通用客户端写进去**（它们无法与服务端脚本
 要恢复按运营商放行：把 `ops/fetch_china_asn.py` 的 `WHITELIST_GROUPS` 填回
 `("chinanet", "cmcc", "unicom")` 即可。要更精细就人工判定哪些 ASN 属于家宽/蜂窝
 （查 whois 注册信息、或凭已知的省级家宽 ASN 经验），写成一份显式清单交给
-`own-ips.txt`。上游数据仍会照常拉取、写进 `china-asn.txt` 存证，只是不参与放行。
+`own-ips.txt`。上游数据仍会照常拉取、写进 `mainland-asn-catalog.txt` 备查，只是不参与放行；
+名字里的 catalog 就是提醒它「只是目录」，白名单永远是 `whitelist.txt`。
 
 ## 格式
 
 白名单用一套语法（`#` 之后是注释，会被剥离；空行忽略）：
 
 ```
-# 低风险 ASN（只对 china-asn.txt / own-ips.txt 有意义）
+# 低风险 ASN（只有被 WHITELIST_GROUPS 选中的才进白名单；当前为空）
 ASN/4134
 ASN/4809
 
