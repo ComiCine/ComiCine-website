@@ -8,7 +8,7 @@
 
 | 文件 | 谁生成 | 要不要手改 |
 | --- | --- | --- |
-| `mainland-asn-catalog.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**上游全量快照（含教育网/科技网/其它）**，2026-10-12 由 `china-asn.txt` 改名 —— 它**不是白名单**，不参与任何放行判定 | ❌ **不要手改**，下次部署会被覆盖 |
+| `mainland-asn-catalog.txt` | **自动**：`ops/fetch_china_asn.py` 从 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) 拉取（该源每日更新）。**上游全量快照（含教育网/科技网/其它）**，2026-10-12 由 `china-asn.txt` 改名、2026-10-13 起**连号合并成区间**（5231 条 → 753 行）—— 它**不是白名单**，不参与任何放行判定 | ❌ **不要手改**，下次部署会被覆盖 |
 | `whitelist.txt` | **自动**：`mainland-asn-catalog.txt` 里被 `WHITELIST_GROUPS` 选中的那部分 + `own-ips.txt` 合并而成（**当前 `WHITELIST_GROUPS` 为空**，所以只有手工条目） | ❌ 不要手改；要加 IP 请改 `own-ips.txt` |
 | `own-ips.txt` | 手工 | ✅ **改这个**：你自己的固定 IP、需要完全放行的来源 |
 | `robots.txt` | 手工（标准格式） | ✅ **改这个**：既是线上 `/robots.txt`，又是门禁爬虫放行名单（见下节） |
@@ -81,6 +81,16 @@ User-agent: ClaudeBot
 Allow: /
 Disallow: /api/
 ```
+
+上游快照的 ASN 行有两种写法（连号合并，语义不变；解析见 `parse_asn_file()`）：
+
+```
+ASN/4134            # 单条
+ASN/140245-140261   # 连号闭区间（5231 条压成 753 行；教育网有一段 514 连号）
+```
+
+`whitelist.txt` 的 ASN 段**仍是逐行一条**（它的消费方多：`check_gate_trust.py`、
+`ops/waf_whitelist.sh`），只有快照用区间写法。
 
 `blocklist.txt` 用**裸** IP / CIDR（它由 `src/auto_block.py` 解析，语法不同）：
 
