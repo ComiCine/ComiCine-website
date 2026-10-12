@@ -1,8 +1,13 @@
-# 中国大陆 ASN 名单（**生成物，不要手改**）
+# 中国大陆 ASN **上游全量快照**（生成物，不要手改）
 #
 # 来源：https://github.com/xingpingcn/china-mainland-asn（每日更新）
 # 由 ops/fetch_china_asn.py 生成；部署时自动刷新。
-# 要额外放行某个 ASN/IP，请改同目录的 own-ips.txt。
+#
+# 这份文件**不是白名单**，也不参与任何放行判定：它按上游分组记录全量 ASN，
+# 供人工核对「哪些 ASN 属于哪家运营商 / 教育网 / 科技网」。真正生效的信任来源是
+# whitelist.txt（= 本文件里被 WHITELIST_GROUPS 选中的组 + own-ips.txt）；
+# 当前 WHITELIST_GROUPS = ()（空 = 一条 ASN 都不放行）。
+# 要放行你自己的固定 IP / 网段，改同目录的 own-ips.txt。
 #
 # ── 中国电信（267 个，含重复已去）────────────────────
 ASN/4134

@@ -336,7 +336,7 @@ worktree_snapshot() {
 
 STAGED_TREE_BEFORE=""
 # 注意：stage + 快照**不在这里**做，而在白名单/封禁名单刷新之后、CI 之前
-# （见下面的「⓪a-2 stage 与快照」）。那两步会合法地改动工作区（china-asn.txt /
+# （见下面的「⓪a-2 stage 与快照」）。那两步会合法地改动工作区（mainland-asn-catalog.txt /
 # whitelist.txt / blocklist.txt 刷新），放在它们之前取快照的话，每次上游名单一变，
 # ⓪c 的比对就必然报「检查期间工作区又被改动」，部署需要跑两遍才过
 # （2026-10-12 实测踩到）。

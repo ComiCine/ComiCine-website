@@ -120,8 +120,8 @@ A fully serverless personal website and admin system running at [limooo.cn](http
     └── lists/                                        # gate/bans lists, meant to be hand-edited (not published)
         ├── README.md                                 # what each list is and how to apply a change
         ├── own-ips.txt                               # hand-written: your own IPs / extra trusted entries
-        ├── china-asn.txt                             # generated: mainland-China ASNs (ops/fetch_china_asn.py)
-        ├── whitelist.txt                             # generated: china-asn.txt + own-ips.txt merged
+        ├── mainland-asn-catalog.txt                  # generated: upstream mainland-China ASN snapshot (reference only, feeds no trust decision)
+        ├── whitelist.txt                             # generated: catalog groups selected by WHITELIST_GROUPS + own-ips.txt
         └── blocklist.txt                             # hand-written: ban seed for src/auto_block.py (D1 is the authority)
 ```
 

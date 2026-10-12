@@ -1,10 +1,10 @@
 # 手工白名单（完全放行，不受门禁挑战）
 #
 # 这个文件是**你手改的地方**：固定 IP、家里/公司出口、需要无条件放行的来源。
-# 部署时 ops/fetch_china_asn.py 会把它与自动拉取的 china-asn.txt 合并成
+# 部署时 ops/fetch_china_asn.py 会把它与自动拉取的上游快照合并成
 # docs/lists/whitelist.txt（那份是生成物，别直接改）。
 #
-# 格式（与 china-asn.txt 相同）：
+# 格式（与上游快照里的 ASN 行相同）：
 #   ASN/<ASN 编号>
 #   IP-CIDR/<IP>/<掩码>      单 IP 用 /32
 #

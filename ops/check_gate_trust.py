@@ -39,7 +39,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_PATH = ROOT / "config-contract.json"
 # 白名单放在 docs/lists/（与封禁名单同目录，便于手工维护）；
-# 生成物 china-asn.txt 由 ops/fetch_china_asn.py 刷新。见 docs/lists/README.md。
+# 生成物 mainland-asn-catalog.txt / whitelist.txt 由 ops/fetch_china_asn.py 刷新。
+# 见 docs/lists/README.md。
 WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
 # robots.txt 是**唯一**的爬虫名单来源（2026-10-12 起）：它同时是线上
 # https://limooo.cn/robots.txt 的内容（src/build.py 原样落盘），这里再解析出

@@ -203,6 +203,28 @@ def test_deploy_dry_run_on_main_is_allowed(tmp_path):
 # ── 推完看 CI（2026-10-12 加）：本地闸门看不见 runner 环境 ─────────────
 
 
+def test_ci_check_stays_as_strict_as_ci():
+    """闸门必须与 CI 一样严：缺工具要装、pytest 要在无 git 身份的环境里跑。
+
+    2026-10-12 加。守的是两件容易被「顺手简化」掉的事：
+      * `ensure_gate_tools` —— ruff / mypy / pytest-cov 缺了就装；退回 SKIP 时
+        输出里必须写 `NOT VERIFIED locally`，不能让闸门看起来全绿；
+      * pytest 的环境变量 —— HOME 指空、禁 global/system 配置、关掉身份自动探测。
+        没有这一段，「用例偷偷依赖本机 git 身份」就会一路绿到 GitHub 才红。
+    """
+    text = (ROOT / "ops" / "ci_check.sh").read_text(encoding="utf-8")
+
+    assert "ensure_gate_tools()" in text, "gate tools must be installed, not skipped"
+    assert "NOT VERIFIED locally" in text, "a skipped check must say so out loud"
+    for expected in (
+        "GIT_CONFIG_GLOBAL=/dev/null",
+        "GIT_CONFIG_SYSTEM=/dev/null",
+        "GIT_CONFIG_KEY_0=user.useConfigOnly",
+        "GIT_CONFIG_VALUE_0=true",
+    ):
+        assert expected in text, f"pytest must run without ambient git config ({expected})"
+
+
 def test_deploy_previews_and_skips_the_ci_watch(tmp_path):
     """干跑要把这一步写进预览；没推成功时**不**去碰 gh（离线可跑）。"""
     repo = make_repo(tmp_path)
@@ -235,7 +257,7 @@ def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
     """名单刷新改了工作区，一次性提交仍要成功（2026-10-12 修）。
 
     回归点：stage + 工作区快照原先排在 Lists / Bans / WAF **之前**，而这三步会
-    合法地改写 china-asn.txt / whitelist.txt / blocklist.txt —— 于是上游名单一变，
+    合法地改写 mainland-asn-catalog.txt / whitelist.txt / blocklist.txt —— 于是上游名单一变，
     ⓪c 的比对必然报「检查期间工作区又被改动」，第一次部署永远要跑两遍。
     这里让桩 fetch_china_asn.py 真的改一个已跟踪文件来复现那个场景。
     """
