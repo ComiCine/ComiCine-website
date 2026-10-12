@@ -1,0 +1,179 @@
+# https://limooo.cn/robots.txt
+#
+# Public site: search engines, crawlers and AI agents are all welcome.
+#
+# This file is served verbatim at /robots.txt **and** it is the source of the
+# edge allow-list: every explicitly named User-agent below (everything except
+# `*`) is compiled into functions/_data/gateTrust.ts as GATE_TRUST_CRAWLER_UAS,
+# and those User-Agents skip the human-verification gate (see
+# functions/_lib/bots.ts). They are still subject to the D1 blocklist, are never
+# issued a __gate cookie and are never counted as visitors. Adding a crawler to
+# the allow-list = adding one User-agent line below.
+#
+# The disallowed paths are endpoints and admin entry points, not content:
+# crawling them only burns the site's free-tier request budget.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# Search engines
+User-agent: Googlebot
+User-agent: Google-InspectionTool
+User-agent: Storebot-Google
+User-agent: GoogleOther
+User-agent: FeedFetcher-Google
+User-agent: Google-Read-Aloud
+User-agent: bingbot
+User-agent: BingPreview
+User-agent: msnbot
+User-agent: adidxbot
+User-agent: Applebot
+User-agent: DuckDuckBot
+User-agent: DuckAssistBot
+User-agent: Baiduspider
+User-agent: Sogou
+User-agent: 360Spider
+User-agent: YisouSpider
+User-agent: PetalBot
+User-agent: YandexBot
+User-agent: MojeekBot
+User-agent: SeznamBot
+User-agent: Bravebot
+User-agent: Qwantify
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# AI training / retrieval / assistants
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: OAI-AdsBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-Web
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: CCBot
+User-agent: Bytespider
+User-agent: TikTokSpider
+User-agent: Amazonbot
+User-agent: cohere-ai
+User-agent: Meta-ExternalAgent
+User-agent: Meta-ExternalFetcher
+User-agent: Meta-WebIndexer
+User-agent: FacebookBot
+User-agent: YouBot
+User-agent: KimiBot
+User-agent: Kimi-SearchBot
+User-agent: MoonshotBot
+User-agent: DeepSeekBot
+User-agent: Qwenbot
+User-agent: Hunyuan
+User-agent: ChatGLM-Spider
+User-agent: PanguBot
+User-agent: GrokBot
+User-agent: xAI-Grok
+User-agent: Diffbot
+User-agent: ImagesiftBot
+User-agent: Timpibot
+User-agent: Omgilibot
+User-agent: AI2Bot
+# Google-Extended and Applebot-Extended are robots.txt-only tokens: they
+# have no User-Agent of their own, so they never match a live request.
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# Site crawlers, archives and SEO tools
+User-agent: ia_archiver
+User-agent: archive.org_bot
+User-agent: AhrefsBot
+User-agent: SemrushBot
+User-agent: MJ12bot
+User-agent: DotBot
+User-agent: DataForSeoBot
+User-agent: BLEXBot
+User-agent: serpstatbot
+User-agent: Screaming Frog SEO Spider
+User-agent: SiteAuditBot
+User-agent: Sistrix
+User-agent: Botify
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# Link previews and social crawlers
+User-agent: facebookexternalhit
+User-agent: Twitterbot
+User-agent: LinkedInBot
+User-agent: Slackbot
+User-agent: Slack-ImgProxy
+User-agent: TelegramBot
+User-agent: Discordbot
+User-agent: WhatsApp
+User-agent: Pinterestbot
+User-agent: redditbot
+User-agent: Embedly
+User-agent: vkShare
+User-agent: W3C_Validator
+User-agent: BitlyBot
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# Uptime and availability monitors
+User-agent: UptimeRobot
+User-agent: Pingdom
+User-agent: StatusCake
+User-agent: BetterUptime
+User-agent: DatadogSynthetics
+User-agent: GTmetrix
+User-agent: Site24x7
+User-agent: Uptime-Kuma
+User-agent: HetrixTools
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
