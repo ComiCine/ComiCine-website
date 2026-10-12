@@ -66,7 +66,14 @@ def git(args, cwd):
 
 
 def make_repo(tmp_path: Path, branch: str = "main") -> Path:
-    """建一个干净的临时 git 仓库，并把 deploy.sh 与 stub 步骤脚本放进去。"""
+    """建一个干净的临时 git 仓库，并把 deploy.sh 与 stub 步骤脚本放进去。
+
+    身份必须**写进这个仓库的 config**，不能只靠 `git -c`（那只管我们自己发的命令）：
+    `deploy.sh --commit` 内部会自己 `git commit`，而 CI runner 上没有 user.name /
+    user.email，git 会以 128（`Author identity unknown`）失败 —— 本地因为全局配过身份
+    看不到这个问题（2026-10-12 在 GitHub 上真的红过一次）。顺带关掉签名：
+    万一某个环境的全局配置开了 `commit.gpgsign` 而没有可用密钥，同样会让用例假红。
+    """
     repo = tmp_path / "repo"
     (repo / "ops").mkdir(parents=True)
     shutil.copy2(DEPLOY, repo / "ops" / "deploy.sh")
@@ -87,11 +94,12 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         path.chmod(0o755)
     (repo / "tracked.txt").write_text("v1\n")
     git(["-c", "init.defaultBranch=main", "init", "-q"], repo)
+    # 仓库级身份：deploy.sh 内部那次 commit 靠它，不靠 runner 的全局配置。
+    git(["config", "user.name", "w3"], repo)
+    git(["config", "user.email", "w3@example.com"], repo)
+    git(["config", "commit.gpgsign", "false"], repo)
     git(["add", "-A"], repo)
-    git(
-        ["-c", "user.name=w3", "-c", "user.email=w3@example.com", "commit", "-q", "-m", "init"],
-        repo,
-    )
+    git(["commit", "-q", "-m", "init"], repo)
     if branch != "main":
         git(["checkout", "-q", "-b", branch], repo)
     return repo
