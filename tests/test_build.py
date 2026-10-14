@@ -44,6 +44,14 @@ def test_render_page_switches_language():
     assert '<html lang="en-us">' in html_en
 
 
+def test_services_page_loads_currency_metadata_before_currency_ui():
+    html = build.render_page(RENDER_APP, "services.html", "/services", "en-us")
+
+    metadata_script = html.index("/static/js/currency-data.js")
+    currency_ui_script = html.index("/static/js/services.js")
+    assert metadata_script < currency_ui_script
+
+
 def test_body_translation_dict_does_not_collide_with_i18n_markers():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     body_start = html.index("<body")
@@ -125,6 +133,17 @@ def test_static_ignore_skips_parallel_artifacts():
         "legacy.bak",
         "__pycache__",
     }
+
+
+def test_nested_qr_pngs_keep_existing_public_paths(tmp_path):
+    nested = tmp_path / "png"
+    nested.mkdir()
+    source = nested / "bilibili.png"
+    source.write_bytes(b"qr-png")
+
+    assert build.restore_qr_png_compatibility(str(tmp_path)) == 1
+    assert (tmp_path / "bilibili.png").read_bytes() == b"qr-png"
+    assert source.read_bytes() == b"qr-png"
 
 
 def test_pages_edge_config_excludes_static_assets(tmp_path):

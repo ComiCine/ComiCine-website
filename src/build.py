@@ -898,6 +898,28 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     return count
 
 
+def restore_qr_png_compatibility(qr_codes_dir: str) -> int:
+    """为移入 png/ 的二维码原图保留原有静态 URL。"""
+    source_dir = os.path.join(qr_codes_dir, "png")
+    if not os.path.isdir(source_dir):
+        return 0
+
+    copied = 0
+    for name in sorted(os.listdir(source_dir)):
+        source_path = os.path.join(source_dir, name)
+        if not os.path.isfile(source_path) or not name.lower().endswith(".png"):
+            continue
+        compatibility_path = os.path.join(qr_codes_dir, name)
+        if os.path.exists(compatibility_path):
+            continue
+        shutil.copy2(source_path, compatibility_path)
+        copied += 1
+
+    if copied:
+        print(f"[build] QR PNG compatibility aliases: {copied}", flush=True)
+    return copied
+
+
 def remove_public_portfolio_originals(portfolio_dir: str) -> int:
     """删除 public/static/portfolio 顶层原图，只保留 thumbs/ 子目录。
 
@@ -1046,6 +1068,9 @@ def main() -> int:
         os.path.join(PUBLIC_DIR, "static"),
         dirs_exist_ok=True,
         ignore=_static_ignore,
+    )
+    restore_qr_png_compatibility(
+        os.path.join(PUBLIC_DIR, "static", "qr-codes")
     )
     # 3.0) A2：copytree 刚把源图复制进来，**立刻**删掉公开 bundle 里的作品集原图。
     #      必须紧跟 copytree（而不是放在水印/缩略图之后）：水印与缩略图都从源图目录
