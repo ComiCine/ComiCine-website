@@ -188,7 +188,16 @@ export const translations: Record<string, Record<string, string>> = {
     "time_minutes_ago": "{n} 分钟前",
     "time_hours_ago": "{n} 小时前",
     "time_days_ago": "{n} 天前",
-    "toast_reauth_required": "请重新验证后重试"
+    "toast_reauth_required": "请重新验证后重试",
+    "currency_choose": "选择显示货币",
+    "currency_close": "关闭货币选择器",
+    "currency_heading": "显示货币",
+    "currency_search_label": "按代码、名称或符号搜索",
+    "currency_loading": "正在加载参考汇率…",
+    "currency_no_results": "没有符合搜索条件的货币。",
+    "currency_api_unavailable": "参考汇率暂不可用，价格仍以 CNY 显示。",
+    "currency_rate_date": "参考汇率日期：{date}。金额仅供参考。",
+    "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。"
   },
   "en-us": {
     "redirect_title": "Redirecting…",
@@ -359,7 +368,16 @@ export const translations: Record<string, Record<string, string>> = {
     "time_minutes_ago": "{n} min ago",
     "time_hours_ago": "{n} h ago",
     "time_days_ago": "{n} d ago",
-    "toast_reauth_required": "Please re-authenticate and try again"
+    "toast_reauth_required": "Please re-authenticate and try again",
+    "currency_choose": "Choose display currency",
+    "currency_close": "Close currency selector",
+    "currency_heading": "Display currency",
+    "currency_search_label": "Search by code, name, or symbol",
+    "currency_loading": "Loading reference rates…",
+    "currency_no_results": "No currencies match your search.",
+    "currency_api_unavailable": "Reference rates are unavailable. Prices remain in CNY.",
+    "currency_rate_date": "Reference rates dated {date}. Rates are indicative only.",
+    "currency_rate_unavailable": "No CNY reference rate is available for this currency."
   },
   "ja-jp": {
     "redirect_title": "リダイレクト中…",
@@ -530,7 +548,16 @@ export const translations: Record<string, Record<string, string>> = {
     "time_minutes_ago": "{n} 分前",
     "time_hours_ago": "{n} 時間前",
     "time_days_ago": "{n} 日前",
-    "toast_reauth_required": "再認証してからもう一度お試しください"
+    "toast_reauth_required": "再認証してからもう一度お試しください",
+    "currency_choose": "表示通貨を選択",
+    "currency_close": "通貨選択を閉じる",
+    "currency_heading": "表示通貨",
+    "currency_search_label": "コード、名称、記号で検索",
+    "currency_loading": "参考為替レートを読み込み中…",
+    "currency_no_results": "一致する通貨がありません。",
+    "currency_api_unavailable": "参考為替レートを利用できません。価格は CNY で表示されます。",
+    "currency_rate_date": "参考レートの日付：{date}。金額は目安です。",
+    "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。"
   },
   "ko-kr": {
     "redirect_title": "리디렉션 중…",
@@ -701,6 +728,15 @@ export const translations: Record<string, Record<string, string>> = {
     "time_minutes_ago": "{n}분 전",
     "time_hours_ago": "{n}시간 전",
     "time_days_ago": "{n}일 전",
-    "toast_reauth_required": "다시 인증한 후 재시도해 주세요"
+    "toast_reauth_required": "다시 인증한 후 재시도해 주세요",
+    "currency_choose": "표시 통화 선택",
+    "currency_close": "통화 선택기 닫기",
+    "currency_heading": "표시 통화",
+    "currency_search_label": "코드, 이름 또는 기호로 검색",
+    "currency_loading": "참고 환율을 불러오는 중…",
+    "currency_no_results": "검색 결과가 없습니다.",
+    "currency_api_unavailable": "참고 환율을 사용할 수 없습니다. 가격은 CNY로 표시됩니다.",
+    "currency_rate_date": "참고 환율 기준일: {date}. 금액은 참고용입니다.",
+    "currency_rate_unavailable": "이 통화의 CNY 참고 환율이 없습니다."
   }
 };

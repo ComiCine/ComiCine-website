@@ -120,7 +120,7 @@
 /* 价格:flex 让数字精确水平居中;数字与单位底部对齐(line-height 1 保证底边一致) */
 .plan-price {
     position: relative;
-    height: 44px;
+    height: 56px;
     margin: 0 0 16px;
     font-size: 34px; font-weight: 600;
     line-height: 1;
@@ -141,13 +141,42 @@
     line-height: 1;
     white-space: nowrap;
 }
+.currency-trigger {
+    position: absolute;
+    left: 75%; top: 0;
+    transform: translateX(-50%);
+    width: 25px; height: 25px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+    border: 1px solid var(--line); border-radius: 50%;
+    background: var(--panel-bg); color: var(--text);
+    font: inherit; font-size: 13px; font-weight: 600; line-height: 1;
+    opacity: 0.65; cursor: pointer;
+    transition: opacity 180ms var(--ease-out), color 180ms var(--ease-out), border-color 180ms var(--ease-out), background 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.currency-trigger:focus-visible { outline: 2px solid var(--highlight); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+    .currency-trigger:hover { opacity: 1; border-color: var(--highlight); color: var(--highlight); }
+}
+.currency-trigger:active { transform: translateX(-50%) scale(0.92); }
+.currency-reference {
+    min-height: 24px;
+    margin: -10px 0 14px;
+    color: var(--text); opacity: 0.62;
+    font-size: 10px; font-weight: 500; line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.currency-reference:empty { visibility: hidden; }
 /* 正片卡(有 tag):价格组相对整卡垂直居中。用 translateY 平移(不参与布局,
    不会撑高卡片导致中心漂移),内容贴底对齐保持不变 */
 .plan:has(.plan-tag) .plan-price { transform: translateY(-8px); }
 /* 移动端两列时缩小价格,避免与右侧单位重叠 */
 @media (max-width: 639px) {
-    .plan-price { font-size: 24px; height: 36px; }
+    .plan-price { font-size: 24px; height: 50px; }
     .plan-price .plan-unit { right: 4px; font-size: 11px; }
+    .currency-trigger { width: 23px; height: 23px; font-size: 12px; }
+    .currency-reference { font-size: 9px; min-height: 23px; }
 }
 /* 暂不接的服务档位:删除线划过价格数字(两端延伸 2px),单位不划线 */
 .plan-price.strikethrough { opacity: 0.35; }
@@ -195,3 +224,35 @@
 
 /* ── 标题字重 ── */
 h1, h3 { font-weight: 600 !important; }
+
+/* Currency selector */
+.currency-picker[hidden] { display: none !important; }
+.currency-picker { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 18px; }
+.currency-picker-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(0, 0, 0, 0.48); cursor: default; }
+.currency-picker-panel {
+    position: relative; width: min(100%, 420px); max-height: min( min(78vh, 620px), calc(100dvh - 36px) );
+    display: flex; flex-direction: column; overflow: hidden;
+    padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-lg);
+    background: var(--panel-bg); color: var(--text);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.currency-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.currency-picker-heading h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: calc(0.08em*var(--ls-scale)); }
+.currency-picker-close { width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; }
+.currency-picker-close:focus-visible, .currency-option:focus-visible, .currency-search:focus-visible { outline: 2px solid var(--highlight); outline-offset: 2px; }
+.currency-search-label { margin: 16px 0 6px; font-size: 11px; opacity: 0.65; }
+.currency-search { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+.currency-picker-status { margin: 10px 0 7px; min-height: 1.25em; font-size: 11px; line-height: 1.4; opacity: 0.62; }
+.currency-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.currency-option { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.currency-option[aria-selected="true"] { background: color-mix(in srgb, var(--highlight) 12%, transparent); }
+.currency-option:disabled { opacity: 0.42; cursor: not-allowed; }
+.currency-option-flag { width: 28px; flex: 0 0 28px; text-align: center; font-size: 19px; }
+.currency-option-code { min-width: 42px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+.currency-option-name { flex: 1; font-size: 12px; opacity: 0.65; }
+.currency-option-selected { color: var(--highlight); font-weight: 700; }
+.currency-option-empty { padding: 16px 8px; font-size: 12px; opacity: 0.65; }
+@media (max-width: 480px) {
+    .currency-picker { padding: 12px; align-items: end; }
+    .currency-picker-panel { width: 100%; max-height: min( min(82vh, 620px), calc(100dvh - 24px) ); padding: 16px; border-radius: var(--radius-lg) var(--radius-lg) 12px 12px; }
+}
