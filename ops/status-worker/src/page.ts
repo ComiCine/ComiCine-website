@@ -110,9 +110,11 @@ export function navHtml(lang: Lang): string {
 
 /** 页脚：对应 _footer.html（版权 · 权利 · 许可证 · 源码链接，整条固定底部）。 */
 export function footerHtml(lang: Lang): string {
+  const currentYear = new Date().getUTCFullYear();
+  const copyrightYears = currentYear === 2026 ? "2026" : `2026-${currentYear}`;
   return (
     '<footer class="global-footer" id="global-footer"><div class="footer-link"><div class="footer-text">' +
-    '<span class="footer-item footer-copyright">&copy; 2026 <span class="footer-brand">Limooo</span> Studio</span>' +
+    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <span class="footer-brand">Limooo</span> Studio</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_rights"))}</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_source"))}</span>` +
     `<span class="footer-item"><a class="footer-source-link" href="${SOURCE_REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(t(lang, "footer_source_link"))}</a></span>` +
@@ -260,6 +262,9 @@ export const STATUS_JS =
   REFRESH_SECONDS +
   ",ROOT='limooo.cn',LANG_COOKIE='user_lang_preference',THEME_COOKIE='limooo_theme',MAX_AGE=31536000," +
   "LANGS=['zh-cn','en-us','ja-jp','ko-kr'],doc=document,html=doc.documentElement;" +
+  "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
+  "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
+  "copyrightYears.forEach(function(el){var start=Number(el.getAttribute('data-copyright-start-year'));if(Number.isInteger(start))el.textContent=start===copyrightYear?String(start):String(start)+'-'+copyrightYear});" +
   "function cookie(n){var m=doc.cookie.match(new RegExp('(?:^|;\\\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):''}" +
   "function save(n,v){var h=location.hostname,d=(h===ROOT||h.slice(-(ROOT.length+1))==='.'+ROOT)?'; domain=.'+ROOT:'',s=location.protocol==='https:'?'; Secure':'';" +
   "doc.cookie=n+'='+encodeURIComponent(v)+'; path=/; max-age='+MAX_AGE+'; SameSite=Lax'+s+d}" +

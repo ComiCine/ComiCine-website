@@ -25,6 +25,7 @@ SQLite 数据库或初始化路由。这里提供一个最小 Flask 应用，只
 from __future__ import annotations
 
 import functools
+from datetime import UTC, datetime
 
 from flask import Flask, g
 
@@ -143,6 +144,7 @@ def create_render_app() -> Flask:
             "image_asset_base": config.IMAGE_ASSET_BASE_URL,
             "image_watermark_base": config.IMAGE_WATERMARK_BASE_URL,
             "source_url": config.SOURCE_REPO_URL,
+            "copyright_current_year": datetime.now(UTC).year,
             # 前端只读的事实：语言列表 / cookie 名与 TTL / 根域名全部来自契约，
             # 由 _lang_attrs.html 注入到 <body data-*>，JS 不再写死（W1-3）。
             "root_domain": config.ROOT_DOMAIN,
