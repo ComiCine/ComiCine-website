@@ -76,6 +76,23 @@ if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
 fi
 export CLOUDFLARE_API_TOKEN ZONE_ID WHITELIST API NOTES MODE
 
+# Python's macOS framework build does not always install a default CA bundle.
+# urllib honors SSL_CERT_FILE, so use certifi when available and common OpenSSL
+# bundle paths as a fallback. Respect an explicit caller override.
+if [ -z "${SSL_CERT_FILE:-}" ]; then
+    PYTHON_CA_BUNDLE="$(python3 -c 'import certifi; print(certifi.where())' 2>/dev/null || true)"
+    if [ -n "$PYTHON_CA_BUNDLE" ] && [ -f "$PYTHON_CA_BUNDLE" ]; then
+        export SSL_CERT_FILE="$PYTHON_CA_BUNDLE"
+    else
+        for PYTHON_CA_BUNDLE in /etc/ssl/cert.pem /opt/homebrew/etc/openssl@3/cert.pem /usr/local/etc/openssl@3/cert.pem; do
+            if [ -f "$PYTHON_CA_BUNDLE" ]; then
+                export SSL_CERT_FILE="$PYTHON_CA_BUNDLE"
+                break
+            fi
+        done
+    fi
+fi
+
 python3 - <<'PY'
 import json
 import os
