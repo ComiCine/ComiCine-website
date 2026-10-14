@@ -111,7 +111,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
     for (const needle of [
       'class="global-footer"',
       'class="footer-brand">Limooo',
-      "&copy; 2026",
+      'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
       "https://github.com/Limooooo-Studio/Limooo-Website",
