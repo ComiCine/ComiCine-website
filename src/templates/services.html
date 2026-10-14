@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% block title %}{{ _('page_title_services') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/services.css?v=6">
+<link rel="stylesheet" href="/static/css/services.css?v=7">
 {% endblock %}
 
 
@@ -88,7 +88,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
         <div class="plan-grid plan-grid-quad">
             {% for plan in pricing.convention %}
             <div class="plan">
-                <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}"><span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}{% if plan.unit_key %}<span class="plan-unit" data-i18n="{{ plan.unit_key }}">{{ _(plan.unit_key) }}</span>{% endif %}</span></p>
+                <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
+                    <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}{% if plan.unit_key %}<span class="plan-unit" data-i18n="{{ plan.unit_key }}">{{ _(plan.unit_key) }}</span>{% endif %}</span>
+                    <button class="currency-trigger" type="button" aria-label="{{ _('currency_choose') }}" title="{{ _('currency_choose') }}" data-i18n-attr="aria-label,title:currency_choose">?</button>
+                </p>
+                <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>
             {% endfor %}
         </div>
@@ -130,7 +134,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             {% for plan in pricing.outdoor %}
             <div class="plan">
                 <p class="plan-tag" data-i18n="{{ plan.plan_key }}">{{ _(plan.plan_key) }}</p>
-                <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}"><span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}<span class="plan-unit" data-i18n="unit_per_hour">{{ _('unit_per_hour') }}</span></span></p>
+                <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
+                    <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}<span class="plan-unit" data-i18n="unit_per_hour">{{ _('unit_per_hour') }}</span></span>
+                    <button class="currency-trigger" type="button" aria-label="{{ _('currency_choose') }}" title="{{ _('currency_choose') }}" data-i18n-attr="aria-label,title:currency_choose">?</button>
+                </p>
+                <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>
             {% endfor %}
         </div>
@@ -160,8 +168,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
         </div>
     </div>
 </div>
+<div class="currency-picker" id="currency-picker" hidden>
+    <button class="currency-picker-backdrop" type="button" tabindex="-1" data-currency-close aria-label="{{ _('currency_close') }}" data-i18n-attr="aria-label:currency_close"></button>
+    <section class="currency-picker-panel" role="dialog" aria-modal="true" aria-labelledby="currency-picker-title" aria-describedby="currency-picker-status">
+        <div class="currency-picker-heading">
+            <h2 id="currency-picker-title" data-i18n="currency_heading">{{ _('currency_heading') }}</h2>
+            <button class="currency-picker-close" type="button" data-currency-close aria-label="{{ _('currency_close') }}" data-i18n-attr="aria-label:currency_close">×</button>
+        </div>
+        <label class="currency-search-label" for="currency-search" data-i18n="currency_search_label">{{ _('currency_search_label') }}</label>
+        <input class="currency-search" id="currency-search" type="search" autocomplete="off" spellcheck="false" aria-controls="currency-options" aria-label="{{ _('currency_search_label') }}" data-i18n-attr="aria-label:currency_search_label">
+        <p class="currency-picker-status" id="currency-picker-status" aria-live="polite" data-i18n="currency_loading">{{ _('currency_loading') }}</p>
+        <div class="currency-options" id="currency-options" role="listbox" aria-label="{{ _('currency_heading') }}" data-i18n-attr="aria-label:currency_heading"></div>
+    </section>
+</div>
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/services.js?v=3" defer></script>
+    <script src="/static/js/services.js?v=4" defer></script>
 {% endblock %}
