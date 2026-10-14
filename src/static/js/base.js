@@ -137,6 +137,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
         return s;
     }
+    window.limoooTranslate = t;
 
     /* 取回某语言字典,已缓存则直接回调 */
     function fetchI18n(lang, cb) {

@@ -167,5 +167,14 @@
   "time_minutes_ago": "{n} 分前",
   "time_hours_ago": "{n} 時間前",
   "time_days_ago": "{n} 日前",
-  "toast_reauth_required": "再認証してからもう一度お試しください"
+  "toast_reauth_required": "再認証してからもう一度お試しください",
+  "currency_choose": "表示通貨を選択",
+  "currency_close": "通貨選択を閉じる",
+  "currency_heading": "表示通貨",
+  "currency_search_label": "コード、名称、記号で検索",
+  "currency_loading": "参考為替レートを読み込み中…",
+  "currency_no_results": "一致する通貨がありません。",
+  "currency_api_unavailable": "参考為替レートを利用できません。価格は CNY で表示されます。",
+  "currency_rate_date": "参考レートの日付：{date}。金額は目安です。",
+  "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。"
 }
