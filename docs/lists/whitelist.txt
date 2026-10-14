@@ -1,7 +1,7 @@
 # Limooo 白名单（**生成物，不要手改**）
 #
 # 由 ops/fetch_china_asn.py 合并而成，来源两份：
-#   mainland-asn-catalog.txt  上游全量快照 5231 条（仅参考，不参与放行）
+#   mainland-asn-catalog.txt  上游全量快照 5013 条（仅参考，不参与放行）
 #   own-ips.txt               你自己的固定 IP / 额外条目（**手工维护，改那个文件**）
 #
 # 本文件选用的 ASN：0 条（WHITELIST_GROUPS = (empty: no ASN is trusted)）
