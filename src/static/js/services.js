@@ -112,38 +112,18 @@ setTimeout(function() {
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
     var PRIORITY = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'HKD', 'TWD', 'SGD', 'AUD', 'CAD', 'CHF', 'INR', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'NZD', 'ZAR', 'BRL', 'MXN', 'AED', 'SAR'];
 
-    /* Flags and country aliases are explicit UI metadata; API currencies/rates validate every code. */
-    var CURRENCY_META = {
-        CNY: { flag: '🇨🇳', aliases: ['China', 'Mainland China', '中国', '中国大陆'] },
-        USD: { flag: '🇺🇸', aliases: ['United States', 'United States of America', 'US', 'USA', 'America', '美国'] },
-        EUR: { flag: '🇪🇺', aliases: [
-            'Eurozone', 'Euro area', 'European Union', 'EU', 'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Estonia',
-            'Finland', 'France', 'Germany', 'Greece', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta',
-            'Netherlands', 'Portugal', 'Slovakia', 'Slovenia', 'Spain', 'Andorra', 'Monaco', 'San Marino', 'Vatican City',
-            'Holy See', 'Kosovo', 'Montenegro', '欧元区', '欧盟'
-        ] },
-        GBP: { flag: '🇬🇧', aliases: ['United Kingdom', 'UK', 'Britain', 'Great Britain', 'British', 'England', 'Scotland', 'Wales', 'Northern Ireland', 'Pound', 'Pounds', 'Pound Sterling', 'Sterling', '£', '英国', '英國'] },
-        JPY: { flag: '🇯🇵', aliases: ['Japan', '日本', '日本国'] },
-        KRW: { flag: '🇰🇷', aliases: ['South Korea', 'Republic of Korea', 'Korea', '대한민국', '한국'] },
-        HKD: { flag: '🇭🇰', aliases: ['Hong Kong', 'Hong Kong SAR', '香港'] },
-        TWD: { flag: '🇹🇼', aliases: ['Taiwan', 'Taiwan, China', '台湾', '臺灣'] },
-        SGD: { flag: '🇸🇬', aliases: ['Singapore', '新加坡'] },
-        AUD: { flag: '🇦🇺', aliases: ['Australia', '澳大利亚', '澳洲'] },
-        CAD: { flag: '🇨🇦', aliases: ['Canada', '加拿大'] },
-        CHF: { flag: '🇨🇭', aliases: ['Switzerland', 'Swiss', '瑞士'] },
-        INR: { flag: '🇮🇳', aliases: ['India', '印度'] },
-        THB: { flag: '🇹🇭', aliases: ['Thailand', '泰国', '泰國'] },
-        MYR: { flag: '🇲🇾', aliases: ['Malaysia', '马来西亚', '馬來西亞'] },
-        IDR: { flag: '🇮🇩', aliases: ['Indonesia', '印度尼西亚', '印尼'] },
-        PHP: { flag: '🇵🇭', aliases: ['Philippines', '菲律宾', '菲律賓'] },
-        VND: { flag: '🇻🇳', aliases: ['Vietnam', 'Viet Nam', '越南'] },
-        NZD: { flag: '🇳🇿', aliases: ['New Zealand', '新西兰', '紐西蘭'] },
-        ZAR: { flag: '🇿🇦', aliases: ['South Africa', '南非'] },
-        BRL: { flag: '🇧🇷', aliases: ['Brazil', '巴西'] },
-        MXN: { flag: '🇲🇽', aliases: ['Mexico', 'México', '墨西哥'] },
-        AED: { flag: '🇦🇪', aliases: ['United Arab Emirates', 'UAE', 'Emirates', '阿联酋', '阿聯酋'] },
-        SAR: { flag: '🇸🇦', aliases: ['Saudi Arabia', 'Kingdom of Saudi Arabia', '沙特阿拉伯'] }
-    };
+    var CURRENCY_SEARCH_DATA = window.LimoooCurrencySearchData || {};
+    var CURRENCY_META = CURRENCY_SEARCH_DATA.currencies || {};
+    var TERRITORY_CURRENCIES = CURRENCY_SEARCH_DATA.territories || {};
+    var TERRITORY_ALIASES = CURRENCY_SEARCH_DATA.territoryAliases || {};
+    var COUNTRY_ALIASES_BY_CURRENCY = Object.create(null);
+    var REGIONS_BY_CURRENCY = Object.create(null);
+    var regionNames = null;
+    var currencyNames = null;
+    if (typeof Intl.DisplayNames === 'function') {
+        try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (_) {}
+        try { currencyNames = new Intl.DisplayNames(['en'], { type: 'currency' }); } catch (_) {}
+    }
 
     var picker = document.getElementById('currency-picker');
     if (!picker) return;
@@ -270,8 +250,56 @@ setTimeout(function() {
         return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim();
     }
 
-    function makeOption(code, metadata, data) {
+    function addUnique(map, key, value) {
+        if (!value) return;
+        if (!map[key]) map[key] = [];
+        var normalized = normalize(value);
+        if (!normalized || map[key].some(function(item) { return normalize(item) === normalized; })) return;
+        map[key].push(value);
+    }
+
+    function buildCountrySearchIndex() {
+        Object.keys(TERRITORY_CURRENCIES).forEach(function(region) {
+            var name = '';
+            try { name = regionNames ? regionNames.of(region) : ''; } catch (_) {}
+            var aliases = [region, name].concat(TERRITORY_ALIASES[region] || []);
+            TERRITORY_CURRENCIES[region].forEach(function(code) {
+                if (!/^[A-Z]{3}$/.test(code)) return;
+                if (!REGIONS_BY_CURRENCY[code]) REGIONS_BY_CURRENCY[code] = [];
+                if (REGIONS_BY_CURRENCY[code].indexOf(region) === -1) REGIONS_BY_CURRENCY[code].push(region);
+                aliases.forEach(function(alias) { addUnique(COUNTRY_ALIASES_BY_CURRENCY, code, alias); });
+            });
+        });
+    }
+
+    buildCountrySearchIndex();
+
+    function currencyMetadata(code, data) {
+        var apiMetadata = data && data.currencies[code];
+        var name = apiMetadata && apiMetadata.name;
+        if (!name && currencyNames) {
+            try { name = currencyNames.of(code); } catch (_) {}
+        }
+        if (!name || name === code) name = code;
         var info = CURRENCY_META[code] || {};
+        var regions = REGIONS_BY_CURRENCY[code] || [];
+        var flag = info.flag || '';
+        if (!flag && regions.length === 1 && /^[A-Z]{2}$/.test(regions[0])) {
+            flag = String.fromCodePoint.apply(null, regions[0].split('').map(function(letter) {
+                return 0x1F1E6 + letter.charCodeAt(0) - 65;
+            }));
+        }
+        return { name: name, symbol: apiMetadata && apiMetadata.symbol || '', flag: flag };
+    }
+
+    function matchesSearch(haystack, query) {
+        if (haystack.includes(query)) return true;
+        var words = query.split(/\s+/).filter(Boolean);
+        return words.length > 1 && words.every(function(word) { return haystack.includes(word); });
+    }
+
+    function makeOption(code, metadata, data) {
+        var info = currencyMetadata(code, data);
         var row = document.createElement('button');
         var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0);
         row.type = 'button';
@@ -308,7 +336,10 @@ setTimeout(function() {
         var data = currencyData;
         var query = normalize(search.value);
         var rows = [];
-        var codes = data ? Object.keys(data.currencies) : ['CNY'];
+        var codes = data ? Object.keys(data.currencies) : [];
+        Object.keys(REGIONS_BY_CURRENCY).forEach(function(code) {
+            if (codes.indexOf(code) === -1) codes.push(code);
+        });
         if (codes.indexOf('CNY') === -1) codes.push('CNY');
         codes.sort(function(a, b) {
             var ai = PRIORITY.indexOf(a); var bi = PRIORITY.indexOf(b);
@@ -319,11 +350,12 @@ setTimeout(function() {
         });
         codes.forEach(function(code) {
             if (!/^[A-Z]{3}$/.test(code)) return;
-            var metadata = data && data.currencies[code] ? data.currencies[code] : { name: 'Chinese Yuan Renminbi', symbol: '¥' };
+            var metadata = currencyMetadata(code, data);
             var info = CURRENCY_META[code] || {};
-            var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
+            var countryAliases = COUNTRY_ALIASES_BY_CURRENCY[code] || [];
+            var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
             var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.name));
-            if (query && !haystack.includes(query) && !dollarSymbolMatch) return;
+            if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) return;
             rows.push(makeOption(code, metadata, data));
         });
         options.replaceChildren.apply(options, rows);
