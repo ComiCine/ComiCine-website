@@ -167,5 +167,14 @@
   "time_minutes_ago": "{n} min ago",
   "time_hours_ago": "{n} h ago",
   "time_days_ago": "{n} d ago",
-  "toast_reauth_required": "Please re-authenticate and try again"
+  "toast_reauth_required": "Please re-authenticate and try again",
+  "currency_choose": "Choose display currency",
+  "currency_close": "Close currency selector",
+  "currency_heading": "Display currency",
+  "currency_search_label": "Search by code, name, or symbol",
+  "currency_loading": "Loading reference rates…",
+  "currency_no_results": "No currencies match your search.",
+  "currency_api_unavailable": "Reference rates are unavailable. Prices remain in CNY.",
+  "currency_rate_date": "Reference rates dated {date}. Rates are indicative only.",
+  "currency_rate_unavailable": "No CNY reference rate is available for this currency."
 }
