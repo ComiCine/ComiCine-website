@@ -84,6 +84,11 @@ def main() -> int:
                 }
 
             connect_origins = origins(actual, "connect-src")
+            if "https://api.frankfurter.dev" not in connect_origins:
+                errors.append(
+                    "CSP connect-src lacks https://api.frankfurter.dev: "
+                    "the services page cannot load currency reference rates"
+                )
 
             # 少数第三方组件的"拉脚本"与"回传数据"本来就落在不同主机上，
             # 不能按"script-src 的来源必须在 connect-src"一刀切。已登记的例外：
