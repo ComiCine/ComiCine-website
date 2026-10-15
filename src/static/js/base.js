@@ -50,7 +50,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     function applyTheme(theme) {
         document.documentElement.classList.toggle('light-mode', theme === 'light');
         var themeMeta = document.querySelector('meta[name="theme-color"]');
-        if (themeMeta) themeMeta.content = theme === 'light' ? '#FFFFFF' : '#1E1E1E';
+        if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
         document.querySelector('meta[name="color-scheme"]').content = theme;
         var sw = document.querySelector('.appearance-switch');
         if (sw) sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');

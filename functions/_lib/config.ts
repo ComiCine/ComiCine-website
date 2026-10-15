@@ -80,18 +80,22 @@ export const CONTRACT = {
       "/": "index.html",
       "/index.html": "index.html",
       "/services": "services.html",
-      "/contact": "contact.html"
+      "/contact": "contact.html",
+      "/portfolio": "index.html"
     },
     "www.limooo.cn": {
       "/": "index.html",
       "/index.html": "index.html",
       "/services": "services.html",
-      "/contact": "contact.html"
+      "/contact": "contact.html",
+      "/portfolio": "index.html"
     },
     "services.limooo.cn": {
       "/": "services.html",
       "/index.html": "services.html",
-      "/services": "services.html"
+      "/services": "services.html",
+      "/convention": "services.html",
+      "/outdoor": "services.html"
     },
     "contact.limooo.cn": {
       "/": "contact.html",

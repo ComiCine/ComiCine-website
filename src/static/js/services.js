@@ -14,14 +14,15 @@ function openServiceDetail(id) {
     document.body.style.overflow = 'hidden';
     var closeButton = modal.querySelector('.modal-close');
     if (closeButton) closeButton.focus();
-    // 点击服务选项：让地址栏渲染出 /#convention 或 /#outdoor
-    if (location.hash !== '#' + id) location.hash = id;
+    // 服务详情用独立路径，支持复制链接与直接访问。
+    var target = '/' + id;
+    if (location.pathname !== target || location.hash) history.pushState(null, '', target);
 }
 
 /* 去除地址栏的整个 hash（连 # 一起），回到干净 URL */
 function clearHash() {
-    if (location.hash) {
-        history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash || location.pathname === '/convention' || location.pathname === '/outdoor') {
+        history.replaceState(null, '', '/' + location.search);
     }
 }
 
@@ -77,21 +78,39 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-/* 浏览器前进 / 后退时，让弹层与地址栏 hash 保持同步 */
-window.addEventListener('hashchange', function() {
-    var hash = location.hash.replace('#', '');
-    if (hash === 'convention' || hash === 'outdoor') {
-        openServiceDetail(hash);
+/* 浏览器前进 / 后退时，让弹层与地址栏路径保持同步 */
+window.addEventListener('popstate', function() {
+    var route = location.pathname.replace(/^\/+|\/+$/g, '');
+    var target = route === 'convention' || route === 'outdoor' ? route : '';
+    if (!target && location.hash) target = location.hash.slice(1);
+    document.querySelectorAll('.service-modal.open').forEach(function(modal) {
+        if (modal.id !== 'modal-' + target) {
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    });
+    if (target === 'convention' || target === 'outdoor') {
+        var modal = document.getElementById('modal-' + target);
+        if (modal && !modal.classList.contains('open')) {
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
     } else {
-        closeServiceDetail();
+        lastServiceTrigger = null;
     }
 });
 
-/* 从主页作品框带 #convention / #outdoor 进入时，直达对应服务弹层 */
+/* 从主页作品框或旧 hash 链接进入时，直达对应服务弹层 */
 (function() {
-    var hash = location.hash.replace('#', '');
-    if (hash === 'convention' || hash === 'outdoor') {
-        openServiceDetail(hash);
+    var route = location.pathname.replace(/^\/+|\/+$/g, '');
+    var id = route === 'convention' || route === 'outdoor' ? route : location.hash.slice(1);
+    if (id === 'convention' || id === 'outdoor') {
+        if (location.hash) history.replaceState(null, '', '/' + id + location.search);
+        var modal = document.getElementById('modal-' + id);
+        if (modal) {
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
     }
 })();
 
@@ -134,6 +153,13 @@ setTimeout(function() {
     var activeTrigger = null;
     var currencyData = readCache();
     var requestPromise = null;
+    var currencyMetadataCache = Object.create(null);
+    var cachedFormatterCode = '';
+    var cachedFormatterLocale = '';
+    var cachedAmountFormatter = null;
+    var renderedData = null;
+    var renderedQuery = null;
+    var renderedSelection = null;
 
     function translate(key, params) {
         return typeof window.limoooTranslate === 'function' ? window.limoooTranslate(key, params) : key;
@@ -195,12 +221,15 @@ setTimeout(function() {
     }
 
     function localCurrencyMetadata(code) {
+        if (Object.prototype.hasOwnProperty.call(currencyMetadataCache, code)) return currencyMetadataCache[code];
         var name = '';
         if (currencyNames) {
             try { name = currencyNames.of(code); } catch (_) {}
         }
         if (!name || name === code) name = code;
-        return { name: name, symbol: currencySymbol(code) };
+        var metadata = { name: name, symbol: currencySymbol(code) };
+        currencyMetadataCache[code] = metadata;
+        return metadata;
     }
 
     function reconcileSelection(data) {
@@ -226,7 +255,6 @@ setTimeout(function() {
                 if (!date || item.date > date) date = item.date;
                 rates[item.quote] = item.rate;
                 rateDates[item.quote] = item.date;
-                currencies[item.quote] = localCurrencyMetadata(item.quote);
             });
             if (!date || !Object.keys(rates).length) throw new Error('Currency rates missing or invalid');
             currencies.CNY = localCurrencyMetadata('CNY');
@@ -248,9 +276,9 @@ setTimeout(function() {
         if (currencyData) {
             refreshData().then(function(data) {
                 reconcileSelection(data);
-                renderOptions();
+                if (!picker.hidden) renderOptions();
                 applyReferences();
-                updateStatus(data);
+                if (!picker.hidden) updateStatus(data);
             }).catch(function() {});
             return Promise.resolve(currencyData);
         }
@@ -296,7 +324,7 @@ setTimeout(function() {
 
     function currencyMetadata(code, data) {
         var apiMetadata = data && data.currencies[code];
-        var fallback = localCurrencyMetadata(code);
+        var fallback = apiMetadata && apiMetadata.name && apiMetadata.symbol ? apiMetadata : localCurrencyMetadata(code);
         var name = apiMetadata && apiMetadata.name || fallback.name;
         var info = CURRENCY_META[code] || {};
         var regions = REGIONS_BY_CURRENCY[code] || [];
@@ -352,6 +380,7 @@ setTimeout(function() {
     function renderOptions() {
         var data = currencyData;
         var query = normalize(search.value);
+        if (data === renderedData && query === renderedQuery && selected === renderedSelection) return;
         var rows = [];
         var codes = data ? Object.keys(data.rates) : [];
         if (codes.indexOf('CNY') === -1) codes.push('CNY');
@@ -372,38 +401,68 @@ setTimeout(function() {
             if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) return;
             rows.push(makeOption(code, data));
         });
-        options.replaceChildren.apply(options, rows);
+        var fragment = document.createDocumentFragment();
+        rows.forEach(function(row) { fragment.appendChild(row); });
         if (!rows.length) {
             var empty = document.createElement('p');
             empty.className = 'currency-option-empty';
             empty.textContent = translate('currency_no_results');
-            options.appendChild(empty);
+            fragment.appendChild(empty);
         }
+        options.replaceChildren(fragment);
+        renderedData = data;
+        renderedQuery = query;
+        renderedSelection = selected;
     }
 
-    function applyReferences() {
-        document.querySelectorAll('[data-price-box]').forEach(function(box) {
-            var reference = box.nextElementSibling;
-            if (!reference || !reference.matches('[data-currency-reference]')) return;
-            reference.textContent = '';
-            if (selected === 'CNY' || box.dataset.cnyPrice === undefined || !currencyData) return;
-            var cny = Number(box.dataset.cnyPrice);
-            var rate = currencyData.rates[selected];
-            if (!Number.isFinite(cny) || cny < 0 || !Number.isFinite(rate) || rate <= 0) return;
-            var amount = cny * rate;
-            if (!Number.isFinite(amount)) return;
-            var fractionDigits = 2;
-            try {
-                fractionDigits = new Intl.NumberFormat(document.documentElement.lang || 'en', { style: 'currency', currency: selected }).resolvedOptions().maximumFractionDigits;
-            } catch (_) { return; }
-            var formatted = new Intl.NumberFormat(document.documentElement.lang || 'en', {
+    function amountFormatter(code) {
+        var locale = document.documentElement.lang || 'en';
+        if (code !== cachedFormatterCode || locale !== cachedFormatterLocale) {
+            var currencyFormatter = new Intl.NumberFormat(locale, { style: 'currency', currency: code });
+            var fractionDigits = currencyFormatter.resolvedOptions().maximumFractionDigits;
+            cachedAmountFormatter = new Intl.NumberFormat(locale, {
                 useGrouping: true,
                 minimumFractionDigits: fractionDigits,
                 maximumFractionDigits: fractionDigits
-            }).format(amount);
-            var rateDate = currencyData.rateDates && currencyData.rateDates[selected] || currencyData.date;
-            reference.textContent = '≈ ' + formatted + ' ' + selected;
-            reference.setAttribute('aria-label', 'Approximately ' + formatted + ' ' + selected + ', reference rate date ' + rateDate);
+            });
+            cachedFormatterCode = code;
+            cachedFormatterLocale = locale;
+        }
+        return cachedAmountFormatter;
+    }
+
+    function applyReferences() {
+        var updates = [];
+        document.querySelectorAll('[data-price-box]').forEach(function(box) {
+            var reference = box.nextElementSibling;
+            if (!reference || !reference.matches('[data-currency-reference]')) return;
+            var text = '';
+            var label = '';
+            if (selected !== 'CNY' && box.dataset.cnyPrice !== undefined && currencyData) {
+                var cny = Number(box.dataset.cnyPrice);
+                var rate = currencyData.rates[selected];
+                if (Number.isFinite(cny) && cny >= 0 && Number.isFinite(rate) && rate > 0) {
+                    var amount = cny * rate;
+                    if (Number.isFinite(amount)) {
+                        try {
+                            var formatted = amountFormatter(selected).format(amount);
+                            var rateDate = currencyData.rateDates && currencyData.rateDates[selected] || currencyData.date;
+                            text = '≈ ' + formatted + ' ' + selected;
+                            label = 'Approximately ' + formatted + ' ' + selected + ', reference rate date ' + rateDate;
+                        } catch (_) {}
+                    }
+                }
+            }
+            updates.push({ reference: reference, text: text, label: label });
+        });
+        updates.forEach(function(update) {
+            var reference = update.reference;
+            if (reference.textContent !== update.text) reference.textContent = update.text;
+            if (update.label) {
+                if (reference.getAttribute('aria-label') !== update.label) reference.setAttribute('aria-label', update.label);
+            } else if (reference.hasAttribute('aria-label')) {
+                reference.removeAttribute('aria-label');
+            }
         });
     }
 
@@ -415,6 +474,29 @@ setTimeout(function() {
         activeTrigger = null;
     }
 
+    function syncRenderedSelection() {
+        var previous = options.querySelector('.currency-option[aria-selected="true"]');
+        if (previous && previous.dataset.currencyCode === selected) {
+            renderedSelection = selected;
+            return;
+        }
+        if (previous) {
+            previous.setAttribute('aria-selected', 'false');
+            var previousMark = previous.querySelector('.currency-option-selected');
+            if (previousMark) previousMark.remove();
+        }
+        var current = options.querySelector('[data-currency-code="' + selected + '"]');
+        if (current) {
+            current.setAttribute('aria-selected', 'true');
+            var mark = document.createElement('span');
+            mark.className = 'currency-option-selected';
+            mark.setAttribute('aria-hidden', 'true');
+            mark.textContent = '✓';
+            current.appendChild(mark);
+        }
+        renderedSelection = selected;
+    }
+
     function openPicker(trigger) {
         activeTrigger = trigger;
         picker.hidden = false;
@@ -422,19 +504,7 @@ setTimeout(function() {
         search.value = '';
         renderOptions();
         updateStatus(currencyData);
-        requestAnimationFrame(function() { search.focus(); });
-        ensureData().then(function(data) {
-            if (picker.hidden) return;
-            currencyData = data;
-            reconcileSelection(data);
-            renderOptions();
-            updateStatus(data);
-            applyReferences();
-        }).catch(function() {
-            if (picker.hidden) return;
-            renderOptions();
-            updateStatus(currencyData, true);
-        });
+        search.focus();
     }
 
     document.addEventListener('click', function(event) {
@@ -456,8 +526,8 @@ setTimeout(function() {
         var code = option.dataset.currencyCode;
         if (!/^[A-Z]{3}$/.test(code || '') || (code !== 'CNY' && (!currencyData || !Number.isFinite(currencyData.rates[code])))) return;
         savePreference(code);
+        syncRenderedSelection();
         applyReferences();
-        renderOptions();
         closePicker();
     });
 

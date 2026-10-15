@@ -20,7 +20,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% block title %}{{ _('page_title_home') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/index.css?v=8">
+<link rel="canonical" href="https://{{ root_domain }}/">
+<meta name="description" content="{{ _('meta_description_home') }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Limooo">
+<meta property="og:title" content="{{ _('page_title_home') }} · Limooo">
+<meta property="og:description" content="{{ _('meta_description_home') }}">
+<meta property="og:url" content="https://{{ root_domain }}/">
+<meta property="og:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Limooo Studio preview">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ _('page_title_home') }} · Limooo">
+<meta name="twitter:description" content="{{ _('meta_description_home') }}">
+<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<link rel="stylesheet" href="/static/css/index.css?v=9">
 {% endblock %}
 
 {% block footer %}{% endblock %}
@@ -48,7 +64,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             {# 卡片数量 = src/static/portfolio 里的图片数量，由 portfolio_items 上下文注入；
                增删图片后重新构建即可，模板不维护文件名。 #}
             {% for item in portfolio_items %}
-            <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.limooo.cn#outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
+            <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.limooo.cn/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
                 {# 卡片画幅跟随图片真实比例（3:4 / 3:2 / 2:3…），竖横幅混排时不会被裁成同一比例 #}
                 <div class="work-frame" style="aspect-ratio: {{ item.ratio }}">
                     <picture>
@@ -73,5 +89,5 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/index.js?v=3" defer></script>
+    <script src="/static/js/index.js?v=5" defer></script>
 {% endblock %}
