@@ -7,6 +7,22 @@
 {% block title %}{{ _('page_title_home') }}{% endblock %}
 
 {% block head_links %}
+<link rel="canonical" href="{{ image_asset_base }}/">
+<meta name="description" content="{{ _('meta_description_images') }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Limooo">
+<meta property="og:title" content="{{ _('meta_title_images') }} · Limooo">
+<meta property="og:description" content="{{ _('meta_description_images') }}">
+<meta property="og:url" content="{{ image_asset_base }}/">
+<meta property="og:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Limooo Studio preview">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ _('meta_title_images') }} · Limooo">
+<meta name="twitter:description" content="{{ _('meta_description_images') }}">
+<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
 <link rel="stylesheet" href="/static/css/images.css?v=1">
 {% endblock %}
 

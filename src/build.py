@@ -205,11 +205,12 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/favicon.svg",
                     "/Limooo-xtext.svg",
                     # 爬虫/AI 工具的入口文件（2026-10-12）：完全绕过 Functions。
-                    # 这两份必须**无门禁**可达——否则未验证的爬虫拿到的是一张
+                    # 这三份必须**无门禁**可达——否则未验证的爬虫拿到的是一张
                     # 403 挑战页（`/robots.txt` 曾被门禁原地替换过），
                     # 既读不到规则，也会把「站点不可访问」写进它们的索引。
                     "/robots.txt",
                     "/llms.txt",
+                    "/sitemap.xml",
                 ],
             },
             f,
@@ -246,18 +247,21 @@ def write_pages_edge_config(out_dir: str) -> None:
             "  Cache-Control: public, max-age=86400\n"
             "/llms.txt\n"
             "  Cache-Control: public, max-age=86400\n"
+            "/sitemap.xml\n"
+            "  Cache-Control: public, max-age=86400\n"
         )
 
 
 # ── 爬虫 / AI 工具的入口文件（2026-10-12）────────────────────────────────
 #
 # 站点对爬虫与 AI 工具是**开放**的（用户 2026-10-12 定），门禁只留给
-# 浏览器/未知来源。robots.txt 现在有**两个身份**，它们是同一份文件：
+# 浏览器/未知来源。robots.txt 的爬虫规则有**两个身份**：
 #
-#   1. 线上 `https://limooo.cn/robots.txt` 的内容（本函数原样落盘，不改一个字）；
-#   2. 门禁放行名单的**唯一来源** —— `ops/check_gate_trust.py` 解析它里面每一条
+#   1. 线上 `/robots.txt` 的爬虫规则（本函数从源文件复制）；
+#   2. 门禁放行名单的**唯一来源** —— `ops/check_gate_trust.py` 解析源文件里的每一条
 #     显式 `User-agent:`（`*` 除外），生成 `GATE_TRUST_CRAWLER_UAS`，
 #      这些 UA 免人机验证（见 functions/_lib/bots.ts）。
+# `Sitemap` 行由本函数根据 config-contract.json 的 root_domain 追加，避免域名重复维护。
 #
 # 2026-10-12 之前这是两份东西（内部名单 docs/lists/crawlers.txt + 构建器里手写的
 # robots 文本），改一个爬虫要同时改两处、还可能改漏。现在只有
@@ -266,11 +270,11 @@ ROBOTS_SOURCE = os.path.join(BASE_DIR, "docs", "lists", "robots.txt")
 
 
 def write_discovery_files(out_dir: str) -> None:
-    """把根路径的 /robots.txt 与 /llms.txt 落进产物。
+    """把 robots.txt、llms.txt 与 sitemap.xml 落进产物根目录。
 
-    robots.txt 是**原样复制** `docs/lists/robots.txt`（唯一事实源，见上），
-    llms.txt 仍是这里生成的手写内容。两份都必须放在产物根目录：放进 `static/`
-    会变成 `/static/robots.txt`，那不是爬虫会去读的地址。
+    robots.txt 的爬虫规则来自 `docs/lists/robots.txt`；Sitemap 行使用契约里的
+    root_domain 生成。三份都必须放在产物根目录：放进 `static/` 会变成
+    `/static/robots.txt`，那不是爬虫会去读的地址。
     """
     with open(ROBOTS_SOURCE, encoding="utf-8") as f:
         robots = f.read()
@@ -279,7 +283,19 @@ def write_discovery_files(out_dir: str) -> None:
     if "User-agent: *" not in robots or "User-agent: GPTBot" not in robots:
         raise RuntimeError(f"{ROBOTS_SOURCE} does not look like the robots.txt source any more")
     with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
-        f.write(robots)
+        f.write(f"{robots.rstrip()}\n\nSitemap: https://{ROOT_DOMAIN}/sitemap.xml\n")
+
+    sitemap_hosts = (ROOT_DOMAIN, SERVICES_HOST, CONTACT_HOST, IMAGE_ASSET_HOST)
+    sitemap = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(
+            f"  <url><loc>https://{host}/</loc></url>\n" for host in sitemap_hosts
+        )
+        + "</urlset>\n"
+    )
+    with open(os.path.join(out_dir, "sitemap.xml"), "w", encoding="utf-8") as f:
+        f.write(sitemap)
 
     llms = (
         "# Limooo\n"
@@ -297,6 +313,7 @@ def write_discovery_files(out_dir: str) -> None:
         "- [Contact](https://contact.limooo.cn/): how to get in touch.\n"
         "- [Portfolio](https://images.limooo.cn/): watermarked portfolio images, the\n"
         "  QR codes and the icon set published for reuse.\n"
+        f"- [Sitemap](https://{ROOT_DOMAIN}/sitemap.xml)\n"
         "\n"
         "## Documentation (docs.limooo.cn)\n"
         "\n"

@@ -12,7 +12,7 @@
     .card { text-align: center; }
     .spinner {
         width: 22px; height: 22px; margin: 0 auto 14px;
-        border: 2px solid rgba(255,255,255,0.15);
+        border: 2px solid var(--spinner-track);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 0.7s linear infinite;

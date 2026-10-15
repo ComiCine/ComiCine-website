@@ -41,13 +41,13 @@
         .account-actions { display:flex;gap:2px;flex-shrink:0; }
 
         /* ── 通用按钮（原 login.html） ── */
-        .btn { padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing: calc(0.02em*var(--ls-scale));color:white;transition:opacity 0.2s,transform 0.15s var(--ease-out); }
+        .btn { padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing: calc(0.02em*var(--ls-scale));color:var(--text-inverse);transition:opacity 0.2s,transform 0.15s var(--ease-out); }
         .btn:active { transform:scale(0.96); }
-        .btn-primary { background:var(--accent);color:white; }
+        .btn-primary { background:var(--accent);color:var(--text-inverse); }
         .btn-primary:hover { opacity:0.9; }
         .btn-outline { background:transparent;border:1px solid var(--line);color:var(--text); }
         .btn-outline:hover { background:var(--highlight); }
-        .btn-danger { background:#f43f5e;color:white; }
+        .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
         .btn-danger:hover { opacity:0.8; }
         .btn-sm { padding:4px 12px;font-size:11px; }
         .row-btn {
@@ -56,13 +56,13 @@
             transition:opacity 0.2s,background 0.2s;
         }
         .row-btn:hover { opacity:0.8;background:var(--highlight); }
-        .row-btn.danger:hover { opacity:1;background:rgba(255,71,87,0.12);color:#ff4757; }
+        .row-btn.danger:hover { opacity:1;background:var(--danger-soft);color:var(--danger-strong); }
         .row-btn.active { opacity:0.7;color:var(--accent); }
 
         .empty-state { text-align:center;padding:60px 20px;opacity:0.3; }
         .empty-state .big-icon { font-size:48px;margin-bottom:12px; }
 
-        .modal-overlay { position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center; }
+        .modal-overlay { position:fixed;inset:0;z-index:200;background:var(--overlay-strong);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center; }
         .modal-overlay.hidden { display:none !important; }
         .modal { background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--radius-lg);padding:32px;width:90%;max-width:440px; }
         .modal h2 { font-size:20px;font-weight:700;margin-bottom:4px; }

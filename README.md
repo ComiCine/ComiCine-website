@@ -326,16 +326,19 @@ The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/
 
 Crawlers are a **separate, weaker tier** (challenge-only: no full trust), and their
 list is the site's own [`docs/lists/robots.txt`](docs/lists/robots.txt) — one file
-with two jobs: `src/build.py` publishes it verbatim at `/robots.txt`, and
-`ops/check_gate_trust.py` turns every explicitly named `User-agent:` (everything
-except `*`) into `GATE_TRUST_CRAWLER_UAS` in `functions/_data/gateTrust.ts`, which
+with two jobs: `src/build.py` publishes its crawler rules at `/robots.txt` and
+appends the `Sitemap` URL from `config-contract.json`; `ops/check_gate_trust.py`
+turns every explicitly named `User-agent:` (everything except `*`) into
+`GATE_TRUST_CRAWLER_UAS` in `functions/_data/gateTrust.ts`, which
 `functions/_lib/bots.ts` matches case-insensitively against the first 512
 characters of the `User-Agent` header. Adding a crawler is one `User-agent:` line;
 the kill switch is `gate_trust.ua_allowlist_enabled` in `config-contract.json`.
-The compiled list currently holds **97 tokens** (95 User-Agents plus the
+The compiled list currently holds **109 tokens** (107 User-Agents plus the
 robots-only `Google-Extended` / `Applebot-Extended`, which never match a live
-request). Because a User-Agent is self-declared, this tier never skips the D1
-blocklist, never receives a `__gate` cookie and never counts as a visitor — see
+request). Generic markers cover new bots and link-preview fetchers; Tencent
+markers include QQ and WeChat clients. Because a User-Agent is self-declared,
+this tier never skips the D1 blocklist, never receives a `__gate` cookie and
+never counts as a visitor — see
 [Gate behavior](#gate-behavior).
 
 Per-runtime trust: edge code only treats `IP-CIDR` entries as trusted
@@ -429,11 +432,12 @@ zone's `/settings/*` keys expose this policy.
 
 Discovery files are built by `src/build.py` and excluded from Functions in
 `_routes.json`, so crawlers get them without ever meeting the gate:
-`/robots.txt` — published verbatim from `docs/lists/robots.txt`, which allows
+`/robots.txt` — crawler rules from `docs/lists/robots.txt`, which allows
 everything except the endpoint/admin paths and names the welcome crawlers
 explicitly, including the robots-only `Google-Extended` / `Applebot-Extended`
-tokens (that same file is the gate allow-list above) — and `/llms.txt` (curated
-index of the main site and `docs.limooo.cn`).
+tokens (that same file is the gate allow-list above) — `/llms.txt` (curated index
+of the main site and `docs.limooo.cn`) — and `/sitemap.xml` (the canonical home,
+services, contact and image-gallery URLs; `docs.limooo.cn` has its own sitemap).
 
 Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.limooo.cn`), after which the page reloads the original target. `auth.limooo.cn` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 

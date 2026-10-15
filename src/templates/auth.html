@@ -15,10 +15,10 @@
 <title data-i18n="title">{{ title }}</title>
 <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 <script src="/static/js/theme-preload.js?v=2"></script>
-<link rel="stylesheet" href="/static/css/tokens.css?v=1">
-<link rel="stylesheet" href="/static/css/auth.css?v=16">
+<link rel="stylesheet" href="/static/css/tokens.css?v=2">
+<link rel="stylesheet" href="/static/css/auth.css?v=17">
 <!-- 站点基础样式：页脚 .global-footer 等结构样式复用主站 base.css -->
-<link rel="stylesheet" href="/static/css/base.css?v=18">
+<link rel="stylesheet" href="/static/css/base.css?v=19">
 </head>
 <body data-lang="{{ lang }}" {% include "_lang_attrs.html" %} data-gate-error="{{ error_html }}">
 <div class="gate-controls">
@@ -64,6 +64,6 @@
 {% include "_footer.html" %}
     <script id="gate-i18n" type="application/json">{{ gate_i18n_json | safe }}</script>
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/auth.js?v=7" defer></script>
+    <script src="/static/js/auth.js?v=8" defer></script>
 </body>
 </html>

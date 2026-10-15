@@ -40,6 +40,13 @@ var workBoxes = document.querySelectorAll('.work-box');
 var heroTitle = document.getElementById('hero-title');
 var navLogo = document.getElementById('nav-logo');
 
+function setPortfolioPath(replace) {
+    var url = new URL('/portfolio', location.href);
+    if (location.pathname !== url.pathname || location.hash) {
+        history[replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search);
+    }
+}
+
 /* nav-logo 永久隐藏，由 hero-title 取代 */
 if (navLogo) navLogo.classList.add('is-hidden');
 
@@ -114,14 +121,17 @@ function showPortfolio() {
     portfolioScreen.style.visibility = 'visible';
     portfolioScreen.style.opacity = '1';
     loadWorkImages();
-    // 下滑切换到作品区：地址栏渲染 /#portfolio
-    if (location.hash !== '#portfolio') location.hash = 'portfolio';
+    // 下滑切换到作品区时使用独立路径。
+    setPortfolioPath(false);
 
     setTimeout(function() {
         if (seq !== animSeq) return;
         portfolioTitle.classList.add('show');
         workBoxes.forEach(function(box, index) {
-            setTimeout(function() { box.classList.add('show'); }, index * staggerStep());
+            setTimeout(function() {
+                if (seq !== animSeq) return;
+                box.classList.add('show');
+            }, index * staggerStep());
         });
         isOnHome = false;
         isTransitioning = false;
@@ -145,7 +155,7 @@ function triggerCapture() {
     }, 533);
 }
 
-/* 直达例图（#portfolio）：不播滚动切换动画，直接展示作品区，
+/* 直达例图（/portfolio）：不播滚动切换动画，直接展示作品区，
    仅保留 work-box 原有的级联淡入 */
 function showPortfolioDirect() {
     if (isTransitioning) return;
@@ -167,7 +177,10 @@ function showPortfolioDirect() {
         if (seq !== animSeq) return;
         portfolioTitle.classList.add('show');
         workBoxes.forEach(function(box, index) {
-            setTimeout(function() { box.classList.add('show'); }, index * staggerStep());
+            setTimeout(function() {
+                if (seq !== animSeq) return;
+                box.classList.add('show');
+            }, index * staggerStep());
         });
         isOnHome = false;
         isTransitioning = false;
@@ -208,8 +221,8 @@ function reverseToHome() {
         resetHomeItems();
         isOnHome = true;
         isTransitioning = false;
-        // 返回主页：把整个 hash（连 # 一起）从地址栏去掉
-        if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        // 返回主页时规范回根路径。
+        if (location.pathname === '/portfolio' || location.hash) history.replaceState(null, '', '/' + location.search);
     }, Math.max(ANIM_DELAY.reverseExit, 400));
 }
 
@@ -233,9 +246,9 @@ document.addEventListener('touchend', function(event) {
     if (!isOnHome && swipeDistance < -SWIPE_THRESHOLD && portfolioScreen.scrollTop <= 0) { reverseToHome(); }
 }, { passive: true });
 
-/* 浏览器前进 / 后退时，让页面与地址栏 hash 保持同步 */
-window.addEventListener('hashchange', function() {
-    if (location.hash === '#portfolio') {
+/* 浏览器前进 / 后退时，让页面与地址栏路径保持同步 */
+window.addEventListener('popstate', function() {
+    if (location.pathname === '/portfolio' || location.hash === '#portfolio') {
         if (isOnHome && !isTransitioning) showPortfolioDirect();
     } else {
         if (!isOnHome && !isTransitioning) reverseToHome();
@@ -253,7 +266,8 @@ setTimeout(function() {
     });
 }, 500);
 
-/* 从服务页「查看例图」带 #portfolio 进入时，直接展示作品区（不播切换动画） */
-if (location.hash === '#portfolio') {
+/* 直接访问作品集路径时展示作品区（旧 hash 链接继续兼容） */
+if (location.pathname === '/portfolio' || location.hash === '#portfolio') {
+    if (location.hash === '#portfolio') history.replaceState(null, '', '/portfolio' + location.search);
     setTimeout(function() { showPortfolioDirect(); }, 100);
 }

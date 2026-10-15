@@ -170,7 +170,7 @@
             transform: translateY(-4px) scale(0.92);
             transform-origin: top right;
             transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), visibility 150ms;
-            box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 28px var(--shadow-soft);
         }
         .theme-menu.open {
             opacity: 1; visibility: visible; transform: translateY(0) scale(1);

@@ -68,7 +68,7 @@ function applyTheme(theme) {
   var schemeMeta = document.querySelector('meta[name="color-scheme"]');
   if (schemeMeta) schemeMeta.content = theme;
   var themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (themeMeta) themeMeta.content = theme === 'light' ? '#FFFFFF' : '#1E1E1E';
+  if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
   var sw = document.querySelector('.appearance-switch');
   if (sw) sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
 }
