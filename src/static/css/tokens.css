@@ -23,6 +23,10 @@
     --panel-bg: #202127;
     --highlight-surface: #2a2a2f;
     --highlight: var(--highlight-surface);
+    --hover-highlight: #ffffff;
+    --hover-highlight-soft: rgba(255, 255, 255, 0.12);
+    --hover-highlight-border: rgba(255, 255, 255, 0.68);
+    --hover-highlight-overlay: rgba(255, 255, 255, 0.14);
     --footer-border: var(--line);
     --accent: #05A5A6;
     --accent-soft: rgba(5, 165, 166, 0.12);

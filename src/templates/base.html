@@ -34,6 +34,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <script src="/static/js/theme-preload.js?v=2"></script>
     {% endblock %}
 
+    <!-- 提前下载全站交互脚本，避免页面内容已出现后才开始取脚本。 -->
+    <link rel="preload" href="/static/js/actions.js?v=1" as="script">
+    <link rel="preload" href="/static/js/base.js?v=12" as="script">
+
     <!-- ── 图标 ── -->
     <!-- ?v= 必须带：/static/*.svg 在 _headers 里是 immutable 一年，换图标后不带版本号会一直吃老缓存 -->
     <link rel="icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3" type="image/svg+xml">
@@ -54,7 +58,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 
 <!-- 设计令牌（颜色/圆角/缓动，全站单一事实源；独立页面 auth/redirect 也引用它） -->
-    <link rel="stylesheet" href="/static/css/tokens.css?v=2">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- 站点基础样式（由模板内联样式轻量化后抽出的统一 CSS） -->
     <link rel="stylesheet" href="/static/css/base.css?v=19">

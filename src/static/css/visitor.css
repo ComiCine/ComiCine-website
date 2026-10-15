@@ -34,11 +34,11 @@
         .btn { padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing: calc(0.02em*var(--ls-scale));color:var(--text-inverse);transition:opacity 0.2s,transform 0.15s var(--ease-out); }
         .btn:active { transform:scale(0.96); }
         .btn-primary { background:var(--accent);color:var(--text-inverse); }
-        .btn-primary:hover { opacity:0.9; }
+        .btn-primary:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-outline { background:transparent;border:1px solid var(--line);color:var(--text); }
-        .btn-outline:hover { background:var(--highlight); }
+        .btn-outline:hover { background:var(--hover-highlight-soft);border-color:var(--hover-highlight);color:var(--hover-highlight); }
         .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
-        .btn-danger:hover { opacity:0.8; }
+        .btn-danger:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-sm { padding:4px 12px;font-size:11px; }
         .chip {
             border: 1px solid var(--line); background: none; color: var(--text); opacity: 0.5;
@@ -49,7 +49,7 @@
         .chip:active { transform: scale(0.94); }
         .chip.active { opacity: 1; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
         .chip .cnt { opacity: 0.45; font-size: 10px; margin-left: 4px; font-weight: 600; }
-        @media (hover: hover) and (pointer: fine) { .chip:hover { opacity: 1; } }
+        @media (hover: hover) and (pointer: fine) { .chip:hover { opacity: 1;color:var(--hover-highlight);border-color:var(--hover-highlight);background:var(--hover-highlight-soft); } }
 
         /* ── 列表头部 ── */
         .list-header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 12px 0; flex-shrink: 0; }
@@ -64,8 +64,8 @@
         }
         .panel-btn:active { transform: scale(0.95); }
         @media (hover: hover) and (pointer: fine) {
-            .panel-btn:hover { opacity: 1; border-color: var(--highlight); }
-            .panel-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+            .panel-btn:hover { opacity: 1; border-color: var(--hover-highlight); color:var(--hover-highlight); }
+            .panel-btn.danger:hover { border-color: var(--hover-highlight); color: var(--hover-highlight); background:var(--hover-highlight-soft); }
         }
 
         /* ── IP 列表 ── */
@@ -78,7 +78,7 @@
             border-bottom: 1px solid var(--row-border-ghost); border-radius: var(--radius-md);
             transition: background 0.15s var(--ease-out); cursor: pointer;
         }
-        .visitor-row:hover { background: var(--highlight); }
+        .visitor-row:hover { background: var(--hover-highlight-soft); }
         .visitor-row .dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
         .visitor-row .dot.geo { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
         .visitor-row .dot.nogeo { background: var(--text-ghost); }

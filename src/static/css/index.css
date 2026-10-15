@@ -54,7 +54,7 @@
     pointer-events: none; z-index: 2;
 }
 @media (hover: hover) and (pointer: fine) {
-    .work-box:hover .work-box-hint { opacity: 1; }
+    .work-box:hover .work-box-hint { opacity: 1; color: var(--hover-highlight); }
 }
 /* 裁剪层：固定圆角（外层 16 − 内边距 10），不随 hover 变化。
    画幅由模板按图片真实比例写入内联 aspect-ratio（3:4 / 3:2 / 2:3…），

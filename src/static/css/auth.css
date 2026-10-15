@@ -134,7 +134,7 @@
     color: var(--text-inverse); background: var(--accent);
     border: none; border-radius: 6px; cursor: pointer;
   }
-  .gate-retry:hover { filter: brightness(1.08); }
+  .gate-retry:hover { background-image: linear-gradient(var(--hover-highlight-overlay), var(--hover-highlight-overlay)); }
   .gate-retry[hidden] { display: none; }
   .blocked-detail { margin: -8px 0 18px; text-align: center; font-size: 13px; color: var(--text-muted); }
   .divider { border: none; border-top: 1px solid var(--line); margin: 0 0 16px; }

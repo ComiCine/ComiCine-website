@@ -16,7 +16,7 @@
     }
     .path-card.active { border-color: var(--accent); }
     @media (hover: hover) and (pointer: fine) {
-        .path-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .path-card:hover { border-color: var(--hover-highlight); transform: translateY(-2px); }
     }
     .path-card .pc-name { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; }
     .path-card .pc-path {
@@ -63,5 +63,5 @@
         background: var(--accent); opacity: 0.55; flex-shrink: 0;
     }
     @media (hover: hover) and (pointer: fine) {
-        .file-list a:hover { color: var(--accent); border-color: var(--accent); }
+        .file-list a:hover { color: var(--hover-highlight); border-color: var(--hover-highlight); }
     }
