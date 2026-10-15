@@ -105,8 +105,8 @@ setTimeout(function() {
 
 /* Currency display is informational only; CSV prices remain the CNY source of truth. */
 (function() {
-    var API_ROOT = 'https://api.frankfurter.dev/v2';
-    var CACHE_KEY = 'limooo-services-fx-v1';
+    var API_PATH = '/api/currency-rates';
+    var CACHE_KEY = 'limooo-services-fx-v2';
     var PREFERENCE_KEY = 'limooo-services-currency-v1';
     var FRESH_MS = 6 * 60 * 60 * 1000;
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -174,44 +174,67 @@ setTimeout(function() {
 
     function fetchJson(url, signal) {
         return fetch(url, { headers: { Accept: 'application/json' }, signal: signal }).then(function(response) {
-            if (!response.ok) throw new Error('Frankfurter HTTP ' + response.status);
+            if (!response.ok) throw new Error('Rates HTTP ' + response.status);
             return response.json();
         });
+    }
+
+    var SYMBOLS_BY_CURRENCY = Object.create(null);
+
+    function currencySymbol(code) {
+        if (Object.prototype.hasOwnProperty.call(SYMBOLS_BY_CURRENCY, code)) return SYMBOLS_BY_CURRENCY[code];
+        var symbol = '';
+        try {
+            var part = new Intl.NumberFormat('en', { style: 'currency', currency: code })
+                .formatToParts(1)
+                .filter(function(item) { return item.type === 'currency'; })[0];
+            if (part && part.value !== code) symbol = part.value;
+        } catch (_) {}
+        SYMBOLS_BY_CURRENCY[code] = symbol;
+        return symbol;
+    }
+
+    function localCurrencyMetadata(code) {
+        var name = '';
+        if (currencyNames) {
+            try { name = currencyNames.of(code); } catch (_) {}
+        }
+        if (!name || name === code) name = code;
+        return { name: name, symbol: currencySymbol(code) };
+    }
+
+    function reconcileSelection(data) {
+        if (selected === 'CNY' || (data && Number.isFinite(data.rates[selected]) && data.rates[selected] > 0)) return;
+        selected = 'CNY';
+        try { localStorage.removeItem(PREFERENCE_KEY); } catch (_) { /* Ignore unavailable storage. */ }
     }
 
     function refreshData() {
         if (requestPromise) return requestPromise;
         var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 8000);
-        requestPromise = Promise.all([
-            fetchJson(API_ROOT + '/currencies', controller.signal),
-            fetchJson(API_ROOT + '/rates?base=CNY', controller.signal)
-        ]).then(function(responses) {
-            if (!Array.isArray(responses[0]) || !Array.isArray(responses[1]) || !responses[1].length) {
-                throw new Error('Invalid Frankfurter response');
-            }
+        var timeout = setTimeout(function() { controller.abort(); }, 12000);
+        requestPromise = fetchJson(API_PATH, controller.signal).then(function(response) {
+            if (!Array.isArray(response) || !response.length) throw new Error('Invalid currency rates response');
             var currencies = Object.create(null);
-            responses[0].forEach(function(item) {
-                if (!item || typeof item.iso_code !== 'string' || !/^[A-Z]{3}$/.test(item.iso_code) || typeof item.name !== 'string') return;
-                if (currencies[item.iso_code]) return;
-                currencies[item.iso_code] = { name: item.name, symbol: typeof item.symbol === 'string' ? item.symbol : '' };
-            });
             var rates = Object.create(null);
+            var rateDates = Object.create(null);
             var date = '';
-            responses[1].forEach(function(item) {
+            response.forEach(function(item) {
                 if (!item || item.base !== 'CNY' || typeof item.quote !== 'string' || !/^[A-Z]{3}$/.test(item.quote)) return;
-                if (!Number.isFinite(item.rate) || item.rate <= 0 || !currencies[item.quote] || rates[item.quote]) return;
+                if (item.quote === 'CNY' || !Number.isFinite(item.rate) || item.rate <= 0 || rates[item.quote]) return;
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(item.date)) return;
-                date = date || item.date;
-                if (date !== item.date) return;
+                if (!date || item.date > date) date = item.date;
                 rates[item.quote] = item.rate;
+                rateDates[item.quote] = item.date;
+                currencies[item.quote] = localCurrencyMetadata(item.quote);
             });
-            if (!date || !rates.USD) throw new Error('Frankfurter CNY rates missing or invalid');
-            currencies.CNY = currencies.CNY || { name: 'Chinese Yuan Renminbi', symbol: '¥' };
+            if (!date || !Object.keys(rates).length) throw new Error('Currency rates missing or invalid');
+            currencies.CNY = localCurrencyMetadata('CNY');
             rates.CNY = 1;
-            var data = { date: date, savedAt: Date.now(), rates: rates, currencies: currencies };
+            var data = { date: date, savedAt: Date.now(), rates: rates, rateDates: rateDates, currencies: currencies };
             currencyData = data;
             saveCache(data);
+            reconcileSelection(data);
             return data;
         }).finally(function() {
             clearTimeout(timeout);
@@ -224,6 +247,7 @@ setTimeout(function() {
         if (currencyData && Date.now() - currencyData.savedAt <= FRESH_MS) return Promise.resolve(currencyData);
         if (currencyData) {
             refreshData().then(function(data) {
+                reconcileSelection(data);
                 renderOptions();
                 applyReferences();
                 updateStatus(data);
@@ -231,10 +255,6 @@ setTimeout(function() {
             return Promise.resolve(currencyData);
         }
         return refreshData();
-    }
-
-    function cacheIsStale(data) {
-        return !data || Math.max(0, Date.now() - data.savedAt) > FRESH_MS;
     }
 
     function updateStatus(data, failed) {
@@ -276,11 +296,8 @@ setTimeout(function() {
 
     function currencyMetadata(code, data) {
         var apiMetadata = data && data.currencies[code];
-        var name = apiMetadata && apiMetadata.name;
-        if (!name && currencyNames) {
-            try { name = currencyNames.of(code); } catch (_) {}
-        }
-        if (!name || name === code) name = code;
+        var fallback = localCurrencyMetadata(code);
+        var name = apiMetadata && apiMetadata.name || fallback.name;
         var info = CURRENCY_META[code] || {};
         var regions = REGIONS_BY_CURRENCY[code] || [];
         var flag = info.flag || '';
@@ -289,7 +306,7 @@ setTimeout(function() {
                 return 0x1F1E6 + letter.charCodeAt(0) - 65;
             }));
         }
-        return { name: name, symbol: apiMetadata && apiMetadata.symbol || '', flag: flag };
+        return { name: name, symbol: apiMetadata && apiMetadata.symbol || fallback.symbol, flag: flag };
     }
 
     function matchesSearch(haystack, query) {
@@ -298,7 +315,7 @@ setTimeout(function() {
         return words.length > 1 && words.every(function(word) { return haystack.includes(word); });
     }
 
-    function makeOption(code, metadata, data) {
+    function makeOption(code, data) {
         var info = currencyMetadata(code, data);
         var row = document.createElement('button');
         var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0);
@@ -317,8 +334,8 @@ setTimeout(function() {
         codeLabel.textContent = code;
         var name = document.createElement('span');
         name.className = 'currency-option-name';
-        name.textContent = metadata.name + (available ? '' : ' — ' + translate('currency_rate_unavailable'));
-        row.setAttribute('aria-label', (info.flag ? info.flag + ' ' : '') + code + ', ' + metadata.name + (available ? '' : ', ' + translate('currency_rate_unavailable')));
+        name.textContent = info.name;
+        row.setAttribute('aria-label', (info.flag ? info.flag + ' ' : '') + code + ', ' + info.name);
         row.appendChild(flag);
         row.appendChild(codeLabel);
         row.appendChild(name);
@@ -336,10 +353,7 @@ setTimeout(function() {
         var data = currencyData;
         var query = normalize(search.value);
         var rows = [];
-        var codes = data ? Object.keys(data.currencies) : [];
-        Object.keys(REGIONS_BY_CURRENCY).forEach(function(code) {
-            if (codes.indexOf(code) === -1) codes.push(code);
-        });
+        var codes = data ? Object.keys(data.rates) : [];
         if (codes.indexOf('CNY') === -1) codes.push('CNY');
         codes.sort(function(a, b) {
             var ai = PRIORITY.indexOf(a); var bi = PRIORITY.indexOf(b);
@@ -356,7 +370,7 @@ setTimeout(function() {
             var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
             var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.name));
             if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) return;
-            rows.push(makeOption(code, metadata, data));
+            rows.push(makeOption(code, data));
         });
         options.replaceChildren.apply(options, rows);
         if (!rows.length) {
@@ -387,8 +401,9 @@ setTimeout(function() {
                 minimumFractionDigits: fractionDigits,
                 maximumFractionDigits: fractionDigits
             }).format(amount);
-            reference.textContent = '≈ ' + formatted + ' ' + selected + ' · ' + currencyData.date;
-            reference.setAttribute('aria-label', 'Approximately ' + formatted + ' ' + selected + ', reference rate date ' + currencyData.date);
+            var rateDate = currencyData.rateDates && currencyData.rateDates[selected] || currencyData.date;
+            reference.textContent = '≈ ' + formatted + ' ' + selected;
+            reference.setAttribute('aria-label', 'Approximately ' + formatted + ' ' + selected + ', reference rate date ' + rateDate);
         });
     }
 
@@ -411,6 +426,7 @@ setTimeout(function() {
         ensureData().then(function(data) {
             if (picker.hidden) return;
             currencyData = data;
+            reconcileSelection(data);
             renderOptions();
             updateStatus(data);
             applyReferences();
@@ -422,7 +438,7 @@ setTimeout(function() {
     }
 
     document.addEventListener('click', function(event) {
-        var trigger = event.target.closest && event.target.closest('.currency-trigger');
+        var trigger = event.target.closest && event.target.closest('[data-currency-open]');
         if (trigger) {
             event.preventDefault();
             openPicker(trigger);
@@ -438,7 +454,7 @@ setTimeout(function() {
             return;
         }
         var code = option.dataset.currencyCode;
-        if (!/^[A-Z]{3}$/.test(code || '') || !currencyData || !Number.isFinite(currencyData.rates[code])) return;
+        if (!/^[A-Z]{3}$/.test(code || '') || (code !== 'CNY' && (!currencyData || !Number.isFinite(currencyData.rates[code])))) return;
         savePreference(code);
         applyReferences();
         renderOptions();
@@ -466,16 +482,14 @@ setTimeout(function() {
         }
     });
 
-    if (selected !== 'CNY') {
-        ensureData().then(function(data) {
-            if (!data.currencies[selected] || !Number.isFinite(data.rates[selected])) {
-                selected = 'CNY';
-                try { localStorage.removeItem(PREFERENCE_KEY); } catch (_) { /* Ignore unavailable storage. */ }
-                return;
-            }
-            applyReferences();
-        }).catch(function() {
-            if (currencyData && Number.isFinite(currencyData.rates[selected])) applyReferences();
-        });
-    }
+    ensureData().then(function(data) {
+        currencyData = data;
+        reconcileSelection(data);
+        renderOptions();
+        updateStatus(data);
+        applyReferences();
+    }).catch(function() {
+        renderOptions();
+        updateStatus(currencyData, true);
+    });
 })();

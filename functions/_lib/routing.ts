@@ -384,6 +384,8 @@ export const EXEMPT_PATH_PREFIXES = [
   "/api/apple-account",
   "/api/auth",
   "/api/ray",
+  // 公共参考汇率走边缘缓存，避免每次访问都增加一次 D1 封禁名单读取。
+  "/api/currency-rates",
 ] as const;
 
 export function isExemptPath(pathname: string): boolean {

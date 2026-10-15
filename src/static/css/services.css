@@ -90,7 +90,7 @@
 .modal-body {
     max-height: calc(min(85vh, 680px) - 64px);
     overflow-y: auto;
-    padding: 0 28px 36px;
+    padding: 0 28px 44px;
 }
 .modal-index { font-size: 10px; font-family: monospace; font-weight: bold; opacity: 0.3; }
 .modal-close {
@@ -119,7 +119,7 @@
     text-align: center;
 }
 .plan-tag { font-size: 10px; font-weight: 600; letter-spacing: calc(0.2em*var(--ls-scale)); opacity: 0.5; margin: 0 0 8px; }
-/* 价格数字在价格区垂直居中；单位半高并与数字底边对齐 */
+/* CNY 金额相对整张价目框居中；单位半高并与数字底边对齐 */
 .plan-price {
     position: static;
     height: 56px;
@@ -131,7 +131,9 @@
     justify-content: center;
 }
 .plan-price .price-num {
-    position: relative;
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
     white-space: nowrap;
 }
 /* 单位:相对数字右边缘定位(左 100% + 8px),底部与数字对齐 */
@@ -143,27 +145,25 @@
     line-height: 1;
     white-space: nowrap;
 }
-.currency-trigger {
-    position: absolute;
-    left: 50%; top: 75%;
-    transform: translate(-50%, -50%);
-    width: 25px; height: 25px;
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 0;
-    border: 1px solid var(--line); border-radius: 50%;
-    background: var(--panel-bg); color: var(--text);
-    font: inherit; font-size: 13px; font-weight: 600; line-height: 1;
-    opacity: 0.65; cursor: pointer;
-    transition: opacity 180ms var(--ease-out), color 180ms var(--ease-out), border-color 180ms var(--ease-out), background 180ms var(--ease-out), transform 180ms var(--ease-out);
+.currency-prompt-row { display: flex; justify-content: center; margin: 10px 0 0; }
+.currency-prompt {
+    min-height: 34px; padding: 5px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-md);
+    background: transparent; color: var(--text);
+    font: inherit; font-size: 12px; font-weight: 500;
+    letter-spacing: calc(0.06em*var(--ls-scale));
+    opacity: 0.62; cursor: pointer;
+    transition: opacity 180ms var(--ease-out), color 180ms var(--ease-out), border-color 180ms var(--ease-out), transform 180ms var(--ease-out);
 }
-.currency-trigger:focus-visible { outline: 2px solid var(--highlight); outline-offset: 2px; }
+.currency-prompt:focus-visible { outline: 2px solid var(--highlight); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) {
-    .currency-trigger:hover { opacity: 1; border-color: var(--highlight); color: var(--highlight); }
+    .currency-prompt:hover { opacity: 1; border-color: var(--highlight); color: var(--highlight); }
 }
-.currency-trigger:active { transform: translate(-50%, -50%) scale(0.92); }
+.currency-prompt:active { transform: scale(0.96); }
+.currency-prompt-row + .extras { margin-top: 12px; }
 .currency-reference {
     position: absolute;
-    left: 16px; right: 16px; top: 47%;
+    left: 16px; right: 16px; top: 18px;
     min-height: 24px;
     margin: 0;
     color: var(--text); opacity: 0.62;
@@ -172,15 +172,14 @@
     overflow-wrap: anywhere;
 }
 .currency-reference:empty { visibility: hidden; }
-.plan:has(.plan-tag) .currency-reference { top: 57%; min-height: 0; }
+.plan:has(.plan-tag) .currency-reference { top: 43px; }
 /* 移动端两列时缩小价格,避免与右侧单位重叠 */
 @media (max-width: 639px) {
     .plan { padding-bottom: 45px; }
     .plan-price { font-size: 24px; height: 50px; }
     .plan-price .plan-unit { margin-left: 4px; }
-    .currency-trigger { width: 23px; height: 23px; font-size: 12px; }
     .currency-reference { font-size: 9px; min-height: 23px; }
-    .plan:has(.plan-tag) .currency-reference { top: 55%; min-height: 0; }
+    .plan:has(.plan-tag) .currency-reference { top: 43px; }
 }
 /* 暂不接的服务档位:删除线划过价格数字(两端延伸 2px),单位不划线 */
 .plan-price.strikethrough { opacity: 0.35; }
@@ -200,7 +199,7 @@
 
 /* ── 可选加购 ── */
 .extras { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
-.extras-title { font-size: 9px; font-weight: 600; letter-spacing: calc(0.3em*var(--ls-scale)); opacity: 0.4; margin: 0 0 10px; }
+.extras-title { font-size: 13px; font-weight: 600; letter-spacing: calc(0.3em*var(--ls-scale)); opacity: 0.4; margin: 0 0 10px; }
 .extra-row {
     display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
     font-size: 12.5px; padding: 8px 0;
