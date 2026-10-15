@@ -40,9 +40,8 @@
  */
 
 const ORIGIN = "https://limooo.cn";
-// image.limooo.cn 是资源归一化入口；访问域名根目录时交给可索引的图片门面页，
-// 避免爬虫将裸域误判为软错误或 404。
-const LANDING_PAGE = "https://images.limooo.cn/";
+// image.limooo.cn 是资源归一化入口；访问域名根目录时返回主站。
+const LANDING_PAGE = "https://limooo.cn/";
 
 // 站点上实际使用的图片扩展名（与 public/static 暴露的内容一致）
 const IMAGE_PATH_RE = /\.(png|jpe?g|webp|avif|gif|bmp|ico|svg)$/i;
@@ -59,7 +58,7 @@ const CLIENT_CACHE =
 
 // 水印变体版本号：改了水印外观（build.py 的生成参数）后 +1，
 // 让 Worker 用新的回源 URL 绕过 CDN/本地缓存里的旧版水印图
-const WM_VERSION = "3";
+const WM_VERSION = "4";
 
 /** 去掉 images.limooo.cn 风格的 /static 前缀，得到逻辑路径。 */
 export function logicalPath(pathname) {
@@ -68,7 +67,7 @@ export function logicalPath(pathname) {
     : pathname;
 }
 
-/** image.limooo.cn 的裸域统一跳转到公开图片门面页。 */
+/** image.limooo.cn 的裸域统一跳转到主站。 */
 export function landingRedirect(url) {
   return url.pathname === "/" ? LANDING_PAGE : "";
 }

@@ -118,13 +118,6 @@ export const CONTRACT = {
     "redirect.limooo.cn": {
       "/": "redirect.html",
       "/r": "redirect.html"
-    },
-    "images.limooo.cn": {
-      "/": "images.html",
-      "/index.html": "images.html",
-      "/portfolio": "images.html",
-      "/qr-codes": "images.html",
-      "/icons": "images.html"
     }
   },
   "image_asset_host": "images.limooo.cn",

@@ -28,14 +28,14 @@ def test_load_whitelist(tmp_path: Path):
     path = tmp_path / "whitelist.txt"
     path.write_text(
         "# comment\n"
-        "ASN/4134\n"
-        "ASN/4808\n"
+        "ASN/64500\n"
+        "ASN/64501\n"
         "IP-CIDR/97.64.18.11/32\n"
         "IP-CIDR/2001:db8::/64\n",
         encoding="utf-8",
     )
     asns, networks = check_gate_trust.load_whitelist(path)
-    assert asns == [4134, 4808]
+    assert asns == [64500, 64501]
     assert networks == [("97.64.18.11", 32), ("2001:db8::", 64)]
 
 
