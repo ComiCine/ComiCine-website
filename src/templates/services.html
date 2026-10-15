@@ -36,7 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 <meta name="twitter:title" content="{{ _('page_title_services') }} · Limooo">
 <meta name="twitter:description" content="{{ _('meta_description_services') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
-<link rel="stylesheet" href="/static/css/services.css?v=11">
+<link rel="stylesheet" href="/static/css/services.css?v=12">
 {% endblock %}
 
 
@@ -106,11 +106,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <div class="plan">
                 <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
                     <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}{% if plan.unit_key %}<span class="plan-unit" data-i18n="{{ plan.unit_key }}">{{ _(plan.unit_key) }}</span>{% endif %}</span>
-                    <button class="currency-trigger" type="button" aria-label="{{ _('currency_choose') }}" title="{{ _('currency_choose') }}" data-i18n-attr="aria-label,title:currency_choose">?</button>
                 </p>
                 <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>
             {% endfor %}
+        </div>
+
+        <div class="currency-prompt-row">
+            <button class="currency-prompt" type="button" data-currency-open aria-label="{{ _('currency_prompt') }}" data-i18n="currency_prompt" data-i18n-attr="aria-label:currency_prompt">{{ _('currency_prompt') }}</button>
         </div>
 
         <div class="extras">
@@ -152,11 +155,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
                 <p class="plan-tag" data-i18n="{{ plan.plan_key }}">{{ _(plan.plan_key) }}</p>
                 <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
                     <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}<span class="plan-unit" data-i18n="unit_per_hour">{{ _('unit_per_hour') }}</span></span>
-                    <button class="currency-trigger" type="button" aria-label="{{ _('currency_choose') }}" title="{{ _('currency_choose') }}" data-i18n-attr="aria-label,title:currency_choose">?</button>
                 </p>
                 <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>
             {% endfor %}
+        </div>
+
+        <div class="currency-prompt-row">
+            <button class="currency-prompt" type="button" data-currency-open aria-label="{{ _('currency_prompt') }}" data-i18n="currency_prompt" data-i18n-attr="aria-label:currency_prompt">{{ _('currency_prompt') }}</button>
         </div>
 
         <div class="extras">
@@ -201,5 +207,5 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
 {% block scripts %}
     <script src="/static/js/currency-data.js?v=1" defer></script>
-    <script src="/static/js/services.js?v=5" defer></script>
+    <script src="/static/js/services.js?v=6" defer></script>
 {% endblock %}
