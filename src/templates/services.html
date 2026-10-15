@@ -20,7 +20,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% block title %}{{ _('page_title_services') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/services.css?v=9">
+<link rel="canonical" href="https://{{ services_host }}/">
+<meta name="description" content="{{ _('meta_description_services') }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Limooo">
+<meta property="og:title" content="{{ _('page_title_services') }} · Limooo">
+<meta property="og:description" content="{{ _('meta_description_services') }}">
+<meta property="og:url" content="https://{{ services_host }}/">
+<meta property="og:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Limooo Studio preview">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ _('page_title_services') }} · Limooo">
+<meta name="twitter:description" content="{{ _('meta_description_services') }}">
+<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<link rel="stylesheet" href="/static/css/services.css?v=11">
 {% endblock %}
 
 
