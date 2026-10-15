@@ -26,7 +26,7 @@
 #     and consume none of that quota (tasks/17 section 10 already established this);
 #   * an Access Rule with `mode=whitelist` makes Cloudflare bypass its security
 #     features (including the challenge tier) for matching traffic, which is exactly
-#     what "low-risk trusted ASN" means.
+#     the behavior this explicit manual rule controls.
 # The zone already used this mechanism for a single trusted IP
 # (`97.64.18.11`), so this is the same thing at ASN granularity.
 #
@@ -50,7 +50,7 @@ SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 ZONE_ID="${CLOUDFLARE_ZONE_ID:-9fae48942c655fd03a4a483b4866c1c3}"
 WHITELIST="$ROOT/docs/lists/whitelist.txt"
 API="https://api.cloudflare.com/client/v4"
-NOTES="limooo: trusted low-risk ASN (managed by ops/waf_whitelist.sh from docs/lists/whitelist.txt)"
+NOTES="limooo: trusted ASN (managed by ops/waf_whitelist.sh from docs/lists/whitelist.txt)"
 
 MODE=dry-run
 case "${1:-}" in
@@ -112,8 +112,8 @@ WHITELIST = os.environ["WHITELIST"]
 RULES_URL = f"{API}/zones/{ZONE}/firewall/access_rules/rules"
 
 # 每页条数（2026-10-11）：默认 100 条时响应约 40 KB，实测会被中途截断
-# （`IncompleteRead` / 半截 JSON）。25 条约 7.5 KB，稳定；319 条 = 13 页，
-# 对 5 万条的配额上限也只是几十次请求。
+# （`IncompleteRead` / 半截 JSON）。25 条约 7.5 KB，稳定，即使规则较多也只需
+# 合理数量的请求。
 PER_PAGE = 25
 
 
@@ -215,10 +215,9 @@ if MODE == "show":
 to_add = [a for a in want if a not in have]
 to_remove = [a for a in have if a not in want]
 
-# 大规模删除保护（2026-10-11 加）：这个脚本会删 zone 上它管的 ASN 规则，而
-# 「白名单里一个 ASN 都没有」也可能是**上游解析抖动**造成的假象。一次删掉几十条
-# 属于安全面的重大变更，值得让人再确认一次。阈值 50 针对当下的量级
-# （三家运营商约 319 条）；要批量清理就显式设 LIMOOO_WAF_ALLOW_BULK_REMOVE=1。
+# 大规模删除保护（2026-10-11 加）：这个脚本会删 zone 上它管的 ASN 规则。
+# 一次删掉几十条属于安全面的重大变更，值得让人再确认一次；要批量清理就显式设
+# LIMOOO_WAF_ALLOW_BULK_REMOVE=1。
 BULK_REMOVE_LIMIT = 50
 if len(to_remove) > BULK_REMOVE_LIMIT and os.environ.get("LIMOOO_WAF_ALLOW_BULK_REMOVE") != "1":
     print(

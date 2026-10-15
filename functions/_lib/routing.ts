@@ -121,7 +121,7 @@ export const SKIP_PATHS = new Set<string>([
   "/login/callback",
 ]);
 
-/** 门禁/封禁白名单：只认 data/whitelist.txt 生成的门禁信任配置。 */
+/** 门禁/封禁白名单：只认 docs/lists/whitelist.txt 生成的门禁信任配置。 */
 export function isGateTrustedIp(ip: string): boolean {
   const normalized = normalizeIp(ip);
   if (!normalized) return false;

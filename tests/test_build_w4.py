@@ -286,13 +286,12 @@ def test_check_image_prerequisites_requires_pillow_and_cairosvg(tmp_path, monkey
     source = tmp_path / "src"
     (source / "portfolio").mkdir(parents=True)
     _write_image(source / "portfolio" / "shot.webp", (1080, 1440))
-    watermark = source / "icons" / "Limooo-watermark.svg"
+    watermark = source / "icons" / "Limooo-xtext.svg"
     watermark.parent.mkdir(parents=True)
     watermark.write_text("<svg/>", encoding="utf-8")
 
     # 依赖齐全：通过
     monkeypatch.setattr(build, "Image", object())
-    monkeypatch.setattr(build, "ImageDraw", object())
     monkeypatch.setattr(build, "cairosvg", object())
     assert build.check_image_prerequisites(str(source), str(watermark)) is True
 

@@ -44,9 +44,9 @@ from flask import Flask, g, render_template
 # `x = None` 与 import 推出的 Module 冲突，这里是全仓库唯一需要放行的地方，
 # 精确到 assignment 一条——不写裸 ignore，也不全局关掉检查。
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image
 except ImportError:
-    Image = ImageDraw = None  # type: ignore[assignment]
+    Image = None  # type: ignore[assignment]
 
 try:
     # 本仓库不带 cairosvg stub，类型由 typings/cairosvg/__init__.pyi 提供。
@@ -285,7 +285,7 @@ def write_discovery_files(out_dir: str) -> None:
     with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(f"{robots.rstrip()}\n\nSitemap: https://{ROOT_DOMAIN}/sitemap.xml\n")
 
-    sitemap_hosts = (ROOT_DOMAIN, SERVICES_HOST, CONTACT_HOST, IMAGE_ASSET_HOST)
+    sitemap_hosts = (ROOT_DOMAIN, SERVICES_HOST, CONTACT_HOST)
     sitemap = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -311,8 +311,6 @@ def write_discovery_files(out_dir: str) -> None:
         "- [Services](https://services.limooo.cn/): convention (studio) and outdoor\n"
         "  shoot pricing, per shoot type and head count.\n"
         "- [Contact](https://contact.limooo.cn/): how to get in touch.\n"
-        "- [Portfolio](https://images.limooo.cn/): watermarked portfolio images, the\n"
-        "  QR codes and the icon set published for reuse.\n"
         f"- [Sitemap](https://{ROOT_DOMAIN}/sitemap.xml)\n"
         "\n"
         "## Documentation (docs.limooo.cn)\n"
@@ -332,7 +330,7 @@ def write_discovery_files(out_dir: str) -> None:
         "  Cloudflare region; the default is en-us).\n"
         "- Crawling: `/robots.txt` allows everything except the endpoint and admin\n"
         "  paths; `/api/` is not content. Images are served from\n"
-        "  `images.limooo.cn` (thumbnails and watermarked copies).\n"
+        "  `images.limooo.cn` (thumbnails, watermarked copies, QR codes and icons).\n"
     )
     with open(os.path.join(out_dir, "llms.txt"), "w", encoding="utf-8") as f:
         f.write(llms)
@@ -352,8 +350,6 @@ PAGES = (
     ("index.html", "index.html", "/", None),
     ("services.html", "services.html", "/services", None),
     ("contact.html", "contact.html", "/contact", None),
-    # images.limooo.cn 门面页（继承 base.html），由中间件按主机名吐出到 / 与三个前端路径
-    ("images.html", "images.html", "/images", None),
     # 子域专属管理页（visitor.limooo.cn / account.limooo.cn/apple），由中间件按主机名吐出
     ("visitor.html", "visitor.html", "/visitor", None),
     ("apple-account.html", "apple-account.html", "/apple-account", None),
@@ -793,7 +789,7 @@ def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> b
     public/（W9-22）。放到 main() 开头先跑，失败就什么都不写。
     """
     source_root = source_root or STATIC_DIR
-    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "Limooo-watermark.svg")
+    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
     portfolio_dir = os.path.join(source_root, "portfolio")
     has_portfolio = os.path.isdir(portfolio_dir) and any(
         name.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
@@ -802,7 +798,7 @@ def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> b
     if not has_portfolio:
         return False
 
-    if Image is None or ImageDraw is None:
+    if Image is None:
         raise RuntimeError(
             "Pillow is not installed, cannot generate portfolio thumbnails or watermarks. "
             "Run `pip install -r ops/requirements.txt` before build.py."
@@ -823,16 +819,12 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     规则（与 Worker 里的 shouldWatermark 保持一致）：
       - 只处理 portfolio/ 下的 png / jpg / jpeg / webp
       - 其他路径（icons / qr-codes 等）不生成水印变体
-    水印尺寸：图片短边的 25%（下限 96px），左下角 2% 边距（下限 12px）。
-    水印原文件约 40% 透明度，这里提高到约 72%，并垫一块半透明深色圆角底衬，
-    保证浅色照片上也能看清。想调整显眼程度直接改下面的常量。
+    使用 Limooo-xtext.svg 并保留素材本身的透明度，直接叠在照片左下角，不添加底色。
+    水印尺寸：图片短边的 25%（下限 96px），边距为图片短边的 2%（下限 12px）。
     """
-    # 显眼程度参数（可按喜好调整）
+    # 尺寸参数；水印颜色和透明度由 SVG 素材自身决定。
     WATERMARK_SCALE = 0.25       # 水印宽度 = 图片短边的比例
     WATERMARK_MIN_W = 96         # 水印宽度下限（px）
-    WATERMARK_ALPHA_BOOST = 1.8  # 水印本身透明度增强系数（40% → ~72%）
-    BACKDROP_ALPHA = 105         # 深色底衬不透明度（0-255，0 = 不要底衬）
-    PAD_RATIO = 0.08             # 底衬相对水印宽度的内边距
 
     # A2：水印变体由源原图（src/static/portfolio）生成，公开 bundle 只发布
     # /static/wm/portfolio/*，原图不再对外。
@@ -841,7 +833,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
 
     # CI runner 不含 gitignore 的 src/static/portfolio：没有源图时无需水印，
     # 跳过而不是失败；只有确实要水印却缺素材/缺依赖时才报错。
-    wm_path = os.path.join(STATIC_DIR, "icons", "Limooo-watermark.svg")
+    wm_path = os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
     if not check_image_prerequisites(source_root, wm_path):
         print("[build] no portfolio files to watermark, skipping watermark generation", flush=True)
         return 0
@@ -872,27 +864,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
             margin = max(12, round(base * 0.02))
             resampling = getattr(Image, "Resampling", Image).LANCZOS
             wm_resized = wm.resize((target_w, wm_h), resampling)
-            # 提高水印本身的不透明度（原文件约 40% → ~72%）
-            if WATERMARK_ALPHA_BOOST != 1:
-                r, g, b, a = wm_resized.split()
-                a = a.point(lambda v: min(255, int(round(float(v) * WATERMARK_ALPHA_BOOST))))
-                wm_resized = Image.merge("RGBA", (r, g, b, a))
-
             canvas = im.copy()
-            # 半透明深色圆角底衬：浅色照片上水印也清晰
-            if BACKDROP_ALPHA > 0:
-                pad = max(8, round(target_w * PAD_RATIO))
-                bg = Image.new("RGBA", im.size, (0, 0, 0, 0))
-                box = (
-                    max(0, margin - pad),
-                    max(0, im.size[1] - wm_h - margin - pad),
-                    min(im.size[0], margin + target_w + pad),
-                    im.size[1] - margin + pad,
-                )
-                ImageDraw.Draw(bg).rounded_rectangle(
-                    box, radius=max(8, pad), fill=(12, 16, 20, BACKDROP_ALPHA)
-                )
-                canvas = Image.alpha_composite(canvas, bg)
             canvas.alpha_composite(
                 wm_resized,
                 (margin, im.size[1] - wm_h - margin),
@@ -1032,7 +1004,7 @@ def verify_manifest(out_dir: str | None = None) -> int:
 
 
 def main() -> int:
-    # 从 data/whitelist.txt 生成门禁信任配置，与中间件共用同一事实源。
+    # 从 docs/lists/whitelist.txt 生成门禁信任配置，与中间件共用同一事实源。
     subprocess.run(
         [
             sys.executable,

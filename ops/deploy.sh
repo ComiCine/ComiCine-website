@@ -38,7 +38,7 @@
 #
 # Default output is QUIET, and each phase collapses into a single word (2026-10-13):
 #   Deploy: start
-#   Prepare: done            <- Lists + Bans + WAF + Check
+#   Prepare: done            <- Lists + Bans + Check
 #   Git: committed 997f680
 #      M ops/deploy.sh       <- changed files, one per line
 #   Git: pushed to GitHub
@@ -84,18 +84,14 @@
 #   LIMOOO_SKIP_CHECKS=1 bash ops/deploy.sh --all
 #
 # Two list-maintenance steps run FIRST, before the dirty-tree gate and CI (both
-# produce changes, so running them later would trip the gate and skip CI):
-#   1. ops/fetch_china_asn.py      -- refresh the mainland-China ASN whitelist from
-#                                     GitHub (that source updates daily); the list
-#                                     keeps only the three carriers' ASNs, see
-#                                     docs/lists/README.md
-#   2. ops/reconcile_blocklist.sh  -- two-way reconcile of the ban list with D1
-#                                     `blocked_ips` (the authority): entries only in
-#                                     the file are pushed up, active entries only in
-#                                     D1 are pulled back into the file
-# Both are best-effort by default: a source or network hiccup must not stop code
-# from shipping. Make one fatal with LIMOOO_STRICT_ASN=1 / LIMOOO_STRICT_BLOCKLIST=1,
-# or skip it with LIMOOO_SKIP_ASN_FETCH=1 / LIMOOO_SKIP_BLOCKLIST_RECONCILE=1.
+# can produce changes, so running them later would trip the gate and skip CI):
+#   1. ops/sync_whitelist.py       -- generate the edge/WAF whitelist from own-ips.txt
+#   2. ops/reconcile_blocklist.sh  -- reconcile the ban list with D1 `blocked_ips`
+#                                     (the authority)
+# Blocklist reconciliation is best-effort by default; make it fatal with
+# LIMOOO_STRICT_BLOCKLIST=1 or skip it with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1.
+# Zone-level ASN Access Rules are managed manually with ops/waf_whitelist.sh --apply;
+# a full deploy does not change those live rules.
 #
 # A failed git push aborts BEFORE the Pages deploy (never let the edge run ahead of
 # GitHub). Emergency override:
@@ -232,7 +228,7 @@ fi
 # 用法：run_step "<标签>" <命令...>
 # 成功行合并（2026-10-13，用户逐行批注 + 定词）：默认安静模式下，同一阶段的步骤不再各占
 # 一行，而是攒起来由 flush_steps 打印成**一个词**：
-#   Lists + Bans + WAF + Check   -> `Prepare: done`   （提交前的全部准备）
+#   Lists + Bans + Check         -> `Prepare: done`   （提交前的全部准备）
 #   Pages + Docs + Workers       -> `Release: done`   （把产物发出去）
 # 失败与跳过**照旧单独出声**（跳过会自己 echo、失败直接抛日志并中止），所以合并只隐藏
 # 「一切正常」这一种情况，不会藏住问题 —— 代价是顺利时看不出闸门跑没跑（靠没有 skip/fail
@@ -274,9 +270,8 @@ if [ "$DRY_RUN" = 1 ]; then
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; } && echo "  requires: branch main (FATAL exit 2 on any other branch)"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with LIMOOO_SKIP_CHECKS=1)"
     [ "$DO_PAGES" = 1 ] && echo "  would-run: bash ops/pages_deploy.sh"
-    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: python3 ops/fetch_china_asn.py   (mainland-China ASN whitelist; skip with LIMOOO_SKIP_ASN_FETCH=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: python3 ops/sync_whitelist.py"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
-    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/waf_whitelist.sh --apply   (trusted ASNs to zone IP Access Rules; skip with LIMOOO_SKIP_WAF_WHITELIST=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
@@ -354,8 +349,7 @@ worktree_snapshot() {
 
 STAGED_TREE_BEFORE=""
 # 注意：stage + 快照**不在这里**做，而在白名单/封禁名单刷新之后、CI 之前
-# （见下面的「⓪a-2 stage 与快照」）。那两步会合法地改动工作区（mainland-asn-catalog.txt /
-# whitelist.txt / blocklist.txt 刷新），放在它们之前取快照的话，每次上游名单一变，
+# （见下面的「⓪a-2 stage 与快照」）。名单同步会合法地改动工作区，放在它们之前取快照，
 # ⓪c 的比对就必然报「检查期间工作区又被改动」，部署需要跑两遍才过
 # （2026-10-12 实测踩到）。
 
@@ -400,21 +394,12 @@ if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
 fi
 
-# ── 白名单刷新（在任何闸门之前）────────────────────────────────────
-# 中国大陆 ASN 名单每次部署从 GitHub 拉一次（源每日更新）。位置有意放在脏树闸门与
-# CI 之前：刷新会产生改动，放后面会被判成脏树、也漏过 CI 校验。
-# **失败不阻断部署**（脚本默认非 strict）—— 源临时抽风不该让代码发不出去；
-# 抓不到时保留上一次的白名单。要强制失败用：LIMOOO_STRICT_ASN=1 bash ops/deploy.sh。
-# 准备阶段（Lists / Bans / WAF / Check）的成功行合并成一个词：`Prepare: done`。
+# ── 白名单生成（在任何闸门之前）────────────────────────────────────
+# 本地从 own-ips.txt 生成 whitelist.txt，不访问外部名单源。
+# 准备阶段（Lists / Bans / Check）的成功行合并成一个词：`Prepare: done`。
 DEFERRED_LABEL="Prepare"
 if [ "$NEED_CHECKS" = 1 ]; then
-    if [ "${LIMOOO_SKIP_ASN_FETCH:-0}" = 1 ]; then
-        echo "Lists: skipped ASN refresh (LIMOOO_SKIP_ASN_FETCH=1)"
-    elif [ "${LIMOOO_STRICT_ASN:-0}" = 1 ]; then
-        run_step "Lists" python3 ops/fetch_china_asn.py --strict
-    else
-        run_step "Lists" python3 ops/fetch_china_asn.py
-    fi
+    run_step "Lists" python3 ops/sync_whitelist.py
 fi
 
 # ── 封禁名单双向对账（同样在闸门之前）──────────────────────────────
@@ -438,27 +423,10 @@ if [ "$NEED_CHECKS" = 1 ]; then
     fi
 fi
 
-# ── 白名单推给 WAF（同样在闸门之前，因为它读刚刷新好的名单）────────────
-# 把白名单里的 ASN 推成 zone 级 IP Access Rule（`mode=whitelist`、`target=asn`），
-# 让名单在边缘**真的生效**（低风险 ASN 不再被挑战）。Free 计划自定义规则只有 5 条，
-# 而 Access Rules 有 5 万条且不占配额 —— 这也是本仓库既有的做法（信任 IP
-# `97.64.18.11` 就是一条同模式的规则）。
-#
-# 这一步**默认失败即停**（与上面两步不同）：它改的是线上安全面，静默留下
-# 「文件和实际不符」比部署失败更危险。整步跳过用 LIMOOO_SKIP_WAF_WHITELIST=1。
-if [ "$NEED_CHECKS" = 1 ]; then
-    if [ "${LIMOOO_SKIP_WAF_WHITELIST:-0}" = 1 ]; then
-        echo "WAF: skipped ASN whitelist push (LIMOOO_SKIP_WAF_WHITELIST=1)"
-    else
-        run_step "WAF" bash ops/waf_whitelist.sh --apply
-    fi
-fi
-
-# ── ⓪a-2 stage 与快照（必须在名单刷新之后、CI 之前）────────────────────
-# 上面三步（Lists / Bans / WAF）会合法地改写工作区里的名单文件，所以「要提交的
+# ── ⓪a-2 stage 与快照（必须在名单同步之后、CI 之前）──────────────────
+# 上面两步（Lists / Bans）会合法地改写工作区里的名单文件，所以「要提交的
 # 那棵树」到这里才定稿：先 git add -A 把内容并入索引，再取一次工作区快照
-# （供 ⓪c 比对）。2026-10-12 之前这三步排在 stage 之后，于是上游 ASN 名单只要有
-# 变化，第一次部署必然以「working tree changed during checks」告终、必须重跑一遍。
+# （供 ⓪c 比对）。
 STAGED_TREE_BEFORE=""
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     show_cmd git add -A -- . ':!limooo.cn.png'

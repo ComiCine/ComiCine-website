@@ -27,6 +27,8 @@ Referer to bypass.
   at `/static/<path>`.
 - Accepts the `images.limooo.cn` style `/static/portfolio/...` too: the `/static`
   prefix is stripped before normalisation.
+- The roots of `images.limooo.cn` and `image.limooo.cn` redirect to `https://limooo.cn/`;
+  `images.limooo.cn` remains the static asset host.
 - Never proxies `/api/*`; anything that is not an image or a known directory -> 404.
 - A missing watermark variant returns 404 and **never falls back to the original**
   (so an old cached clean image cannot be mistaken for an origin response).
@@ -79,8 +81,9 @@ rewrite the live route set, which this repository cannot diff or roll back.
 
 ## Publishing a watermark appearance change
 
-The watermark size / opacity / backing-plate constants live at the top of
-`generate_watermarks()` in `src/build.py`. After changing them:
+`src/build.py` composites `src/static/icons/Limooo-xtext.svg` directly onto each
+portfolio image. The SVG's own opacity is preserved and no backing plate is added.
+After changing the SVG or composite placement/size:
 
 1. `bash ops/pages_deploy.sh` (regenerate and deploy the variants)
 2. bump `WM_VERSION` in `src/index.js` (to bypass the old CDN cache), then
