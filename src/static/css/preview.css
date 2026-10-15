@@ -14,4 +14,4 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
         border-radius: 8px; color: var(--text); text-decoration: none; font-size: 13px;
         transition: border-color 160ms ease, color 160ms ease;
     }
-    a:hover { border-color: var(--accent); color: var(--accent); }
+    a:hover { border-color: var(--hover-highlight); color: var(--hover-highlight); background: var(--hover-highlight-soft); }

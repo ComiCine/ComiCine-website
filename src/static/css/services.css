@@ -20,7 +20,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
     .service-card:hover::before { opacity: 1; }
-    .service-card:hover { transform: translateY(-2px); border-color: var(--highlight); }
+    .service-card:hover { transform: translateY(-2px); border-color: var(--hover-highlight); }
 }
 .service-card:active { transform: scale(0.97); }
 
@@ -33,7 +33,7 @@
 }
 .detail-hint svg { transition: transform 250ms var(--ease-out); }
 @media (hover: hover) and (pointer: fine) {
-    .service-card:hover .detail-hint { opacity: 0.9; }
+    .service-card:hover .detail-hint { color: var(--hover-highlight); opacity: 1; }
     .service-card:hover .detail-hint svg { transform: translateX(4px); }
 }
 
@@ -102,7 +102,7 @@
 }
 .modal-close:active { transform: scale(0.9); }
 @media (hover: hover) and (pointer: fine) {
-    .modal-close:hover { background: var(--highlight); }
+    .modal-close:hover { background: var(--hover-highlight-soft); border-color: var(--hover-highlight-border); color: var(--hover-highlight); }
 }
 .modal-title { font-size: 22px; font-weight: 600; letter-spacing: calc(0.25em*var(--ls-scale)); }
 
@@ -153,11 +153,11 @@
     font: inherit; font-size: 12px; font-weight: 500;
     letter-spacing: calc(0.06em*var(--ls-scale));
     cursor: pointer;
-    transition: transform 250ms var(--ease-out), border-color 250ms var(--ease-out), background-color 180ms var(--ease-out), color 180ms var(--ease-out);
+    transition: transform 180ms var(--ease-out), border-color 180ms var(--ease-out), background-color 180ms var(--ease-out), color 180ms var(--ease-out);
 }
 .currency-prompt:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {
-    .currency-prompt:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .currency-prompt:hover { transform: translateY(-2px); border-color: var(--hover-highlight); color: var(--hover-highlight); background: var(--hover-highlight-soft); }
 }
 .currency-prompt:active { transform: scale(0.97); border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 .currency-prompt-row + .extras { margin-top: 12px; }
@@ -219,7 +219,7 @@
     transition: opacity 250ms var(--ease-out), border-color 250ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-    .cta-link:hover { opacity: 1; border-color: var(--text); }
+    .cta-link:hover { opacity: 1; border-color: var(--hover-highlight); color: var(--hover-highlight); }
 }
 
 /* ── 服务项文字（不换行） ── */
@@ -243,6 +243,9 @@ h1, h3 { font-weight: 600 !important; }
 .currency-picker-heading h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: calc(0.08em*var(--ls-scale)); }
 .currency-picker-close { width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; }
 .currency-picker-close:focus-visible, .currency-option:focus-visible, .currency-search:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+    .currency-picker-close:hover, .currency-option:not(:disabled):hover { color: var(--hover-highlight); border-color: var(--hover-highlight-border); background: var(--hover-highlight-soft); }
+}
 .currency-search-label { margin: 16px 0 6px; font-size: 11px; opacity: 0.65; }
 .currency-search { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
 .currency-picker-status { margin: 10px 0 7px; min-height: 1.25em; font-size: 11px; line-height: 1.4; opacity: 0.62; }

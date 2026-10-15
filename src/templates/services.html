@@ -36,7 +36,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 <meta name="twitter:title" content="{{ _('page_title_services') }} · Limooo">
 <meta name="twitter:description" content="{{ _('meta_description_services') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
-<link rel="stylesheet" href="/static/css/services.css?v=13">
+<link rel="preload" as="script" href="/static/js/currency-data.js?v=1">
+<link rel="preload" as="script" href="/static/js/services.js?v=9">
+<link rel="preload" as="fetch" href="/api/currency-rates" crossorigin="anonymous">
+<link rel="stylesheet" href="/static/css/services.css?v=14">
 {% endblock %}
 
 
@@ -207,5 +210,5 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
 {% block scripts %}
     <script src="/static/js/currency-data.js?v=1" defer></script>
-    <script src="/static/js/services.js?v=8" defer></script>
+    <script src="/static/js/services.js?v=9" defer></script>
 {% endblock %}
