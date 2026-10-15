@@ -130,6 +130,8 @@ function defer(context: RequestContext, promise: Promise<unknown>): void {
  */
 const PAGE_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
 const PAGE_CACHE_VARY = "Accept-Language";
+const PRIVATE_PAGE_HOSTS = new Set([VISITOR_HOSTNAME, APPLE_ACCOUNT_HOSTNAME]);
+const PRIVATE_PAGE_CACHE_CONTROL = "private, no-store";
 const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/",
   "/index.html",
@@ -188,6 +190,23 @@ export function pageCacheKey(host: string, assetPath: string, lang: string): URL
 }
 
 /**
+ * Access 保护的管理页不能进入浏览器缓存：Access 会话过期或退出后，Safari 若
+ * 仍显示旧 HTML，里面的 API fetch 会被边缘重定向到 cloudflareaccess.com，
+ * 页面拿不到登录表单，只会显示「加载失败」。内部 Cache API 仍可复用静态 HTML。
+ */
+function applyBrowserPageCachePolicy(response: Response, hostname: string): Response {
+  if (!PRIVATE_PAGE_HOSTS.has(hostname)) return response;
+  const headers = new Headers(response.headers);
+  preserveSetCookie(headers, response.headers);
+  headers.set("Cache-Control", PRIVATE_PAGE_CACHE_CONTROL);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+/**
  * 按 host + 语言缓存预渲染页面，避免每次请求都重复读取 ASSETS。
  *
  * `host` 可选：调用方已经知道请求主机（中间件在编排层解析过一次）时直接传进来，
@@ -202,14 +221,15 @@ async function cachedPageAsset(
   const { env, request } = context;
   if (!env.ASSETS) return null;
 
-  const cacheUrl = pageCacheKey(host ?? requestUrl(request).hostname, assetPath, lang);
+  const pageHost = host ?? requestUrl(request).hostname;
+  const cacheUrl = pageCacheKey(pageHost, assetPath, lang);
   const cache = typeof caches !== "undefined"
     ? (caches as unknown as { default?: CacheLike }).default
     : undefined;
 
   if (cache) {
     const hit = await cache.match(new Request(cacheUrl));
-    if (hit) return hit;
+    if (hit) return applyBrowserPageCachePolicy(hit, pageHost);
   }
 
   const asset = await env.ASSETS.fetch(new URL(assetPath, BASE_URL));
@@ -238,7 +258,7 @@ async function cachedPageAsset(
     context.waitUntil?.(put);
     if (!context.waitUntil) void put;
   }
-  return response;
+  return applyBrowserPageCachePolicy(response, pageHost);
 }
 
 /**

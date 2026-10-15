@@ -688,8 +688,7 @@ export async function isBlocked(
 }
 
 /**
- * 门禁 widget 期望的 action。当前 `src/static/js/auth.js` 没有给 widget 设 action，
- * 所以 siteverify 也不会返回它——只有真的返回了才做比对（见下）。
+ * 门禁 widget 与 siteverify 响应共用的 action 标识。
  */
 export const GATE_TURNSTILE_ACTION = "gate";
 
@@ -712,6 +711,7 @@ export async function verifyTurnstile(
   token: string,
   remoteip: string,
   secret: string,
+  diagnostics?: { reason?: string },
 ): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SITEVERIFY_TIMEOUT_MS);
@@ -727,11 +727,31 @@ export async function verifyTurnstile(
       success?: boolean;
       hostname?: unknown;
       action?: unknown;
+      "error-codes"?: unknown;
     };
-    if (data.success !== true) return false;
+    if (data.success !== true) {
+      const errorCodes = Array.isArray(data["error-codes"])
+        ? data["error-codes"].filter(
+            (code: unknown): code is string =>
+              typeof code === "string" && /^[a-z0-9-]{1,40}$/.test(code),
+          ).slice(0, 4)
+        : [];
+      if (diagnostics) {
+        diagnostics.reason = errorCodes.length
+          ? `siteverify_${errorCodes.join("_")}`
+          : "siteverify_rejected";
+      }
+      return false;
+    }
     const hostname = typeof data.hostname === "string" ? data.hostname : "";
-    if (!isPublicHost(hostname)) return false;
-    if (typeof data.action === "string" && data.action !== GATE_TURNSTILE_ACTION) return false;
+    if (!isPublicHost(hostname)) {
+      if (diagnostics) diagnostics.reason = "hostname_rejected";
+      return false;
+    }
+    if (typeof data.action === "string" && data.action !== GATE_TURNSTILE_ACTION) {
+      if (diagnostics) diagnostics.reason = "action_rejected";
+      return false;
+    }
     return true;
   } finally {
     clearTimeout(timer);
@@ -783,6 +803,7 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
 
   let success = false;
   let unavailable = false;
+  const verifyDiagnostics: { reason?: string } = { reason: "turnstile_rejected" };
   // 两把密钥都要在：TURNSTILE_SECRET 用来问题目，GATE_HMAC_KEY 用来签 cookie。
   // 此前只查前者，GATE_HMAC_KEY 为空时会走到 gateCookieHeaders("") 并用**空密钥**
   // 签发一枚 __gate —— 今天靠中间件的 runtimeConfigError 兜住，但这个函数是
@@ -791,7 +812,12 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
     unavailable = true;
   } else {
     try {
-      success = token !== "" && (await verifyTurnstile(token, remoteip, env.TURNSTILE_SECRET));
+      success = token !== "" && (await verifyTurnstile(
+        token,
+        remoteip,
+        env.TURNSTILE_SECRET,
+        verifyDiagnostics,
+      ));
     } catch {
       unavailable = true;
     }
@@ -811,7 +837,7 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
               : "turnstile_secret_missing"
             : "gate_hmac_key_missing"
           : token
-            ? "turnstile_rejected"
+            ? verifyDiagnostics.reason ?? "turnstile_rejected"
             : "missing_token",
       }),
     );

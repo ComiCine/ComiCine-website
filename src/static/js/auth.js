@@ -135,6 +135,8 @@ function resetTurnstile() {
      一直卡在人机验证）。重新求解只由用户主动重试或切换语言/主题触发。 */
   turnstileWidget = window.turnstile.render(wrap, {
     sitekey: TURNSTILE_SITEKEY,
+    /* 与 gate.ts 的 siteverify 校验值保持一致。 */
+    action: 'gate',
     callback: submitGateVerification,
     'error-callback': function () {
       showError('failed');
@@ -158,14 +160,19 @@ function retryGateVerification() {
 }
 
 /* 验证在当前门禁页完成：接口只返回 Set-Cookie，不再跳转到 redirect 子域。 */
-function submitGateVerification() {
+function submitGateVerification(token) {
   var form = document.getElementById('gate');
   if (!form || gateVerificationInFlight) return;
   gateVerificationInFlight = true;
+  var formData = new FormData(form);
+  /* 直接提交成功回调给出的 token，避免依赖 Turnstile 隐藏字段的更新时序。 */
+  if (typeof token === 'string' && token) {
+    formData.set('cf-turnstile-response', token);
+  }
 
   fetch(form.action, {
     method: 'POST',
-    body: new FormData(form),
+    body: formData,
     credentials: 'same-origin',
     headers: { 'Accept': 'application/json' }
   })
