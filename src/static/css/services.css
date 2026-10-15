@@ -114,14 +114,15 @@
 .plan {
     position: relative;
     border: 1px solid var(--line); border-radius: var(--radius-md);
-    background: var(--bg); padding: 18px 16px;
+    /* 将原汇率行占用的高度留在卡片内，保持卡片外框尺寸不变 */
+    background: var(--bg); padding: 18px 16px 46px;
     text-align: center;
 }
 .plan-tag { font-size: 10px; font-weight: 600; letter-spacing: calc(0.2em*var(--ls-scale)); opacity: 0.5; margin: 0 0 8px; }
 /* 价格数字在价格区垂直居中；单位半高并与数字底边对齐 */
 .plan-price {
-    position: relative;
-    height: 120px;
+    position: static;
+    height: 56px;
     margin: 0 0 16px;
     font-size: 34px; font-weight: 600;
     line-height: 1;
@@ -161,20 +162,25 @@
 }
 .currency-trigger:active { transform: translate(-50%, -50%) scale(0.92); }
 .currency-reference {
+    position: absolute;
+    left: 16px; right: 16px; top: 47%;
     min-height: 24px;
-    margin: -10px 0 14px;
+    margin: 0;
     color: var(--text); opacity: 0.62;
     font-size: 10px; font-weight: 500; line-height: 1.25;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
 .currency-reference:empty { visibility: hidden; }
+.plan:has(.plan-tag) .currency-reference { top: 57%; min-height: 0; }
 /* 移动端两列时缩小价格,避免与右侧单位重叠 */
 @media (max-width: 639px) {
-    .plan-price { font-size: 24px; height: 96px; }
+    .plan { padding-bottom: 45px; }
+    .plan-price { font-size: 24px; height: 50px; }
     .plan-price .plan-unit { margin-left: 4px; }
     .currency-trigger { width: 23px; height: 23px; font-size: 12px; }
     .currency-reference { font-size: 9px; min-height: 23px; }
+    .plan:has(.plan-tag) .currency-reference { top: 55%; min-height: 0; }
 }
 /* 暂不接的服务档位:删除线划过价格数字(两端延伸 2px),单位不划线 */
 .plan-price.strikethrough { opacity: 0.35; }
