@@ -90,12 +90,12 @@ def gate_trust_facts() -> dict:
     """信任清单计数：ASN 读 docs/lists/whitelist.txt（唯一事实源），其余读生成产物。
 
     ASN 不再 emit 进 functions/_data/gateTrust.ts（运行时只消费 verified_bot /
-    ip_cidrs，ASN 是 WAF 的输入，见 tasks/22 W4-4），所以计数必须从 whitelist.txt
+    ip_cidrs，ASN 只供手动运行的 zone-level Access Rule 脚本使用），所以计数必须从 whitelist.txt
     现读；继续对生成物做正则只会读到 0。ip_cidrs 与 crawler_uas 仍以生成物为准，
     顺便能发现“名单改了但没重新 build”的漂移。
     """
     # 2026-10-11 从 data/ 移到 docs/lists/（与封禁名单同目录）；
-    # 该文件是生成物，由 ops/fetch_china_asn.py 每次部署刷新。
+    # 该文件是生成物，由 ops/sync_whitelist.py 每次部署刷新。
     whitelist = read(os.path.join(BASE_DIR, "docs", "lists", "whitelist.txt"))
     asns = {
         int(match.group(1))
@@ -232,7 +232,7 @@ def print_repo_facts(facts: dict) -> None:
         print(f"  {table:<22} {days}d")
     trust = facts["gate_trust"]
     print("gate trust")
-    print(f"  {'low_risk_asns':<22} {trust['asns']}")
+    print(f"  {'asns':<22} {trust['asns']}")
     print(f"  {'ip_cidrs':<22} {trust['ip_cidrs']}")
     print(f"  {'verified_bot':<22} {trust['verified_bot']}")
     print(f"  {'crawler_uas':<22} {trust['crawler_uas']}")

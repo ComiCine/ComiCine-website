@@ -40,10 +40,10 @@ test("logicalPath strips the /static prefix (images.limooo.cn style paths)", () 
   assert.equal(logicalPath("/static/qr-codes/a.png"), "/qr-codes/a.png");
 });
 
-test("bare domain redirects to the indexable gallery page; asset paths do not", () => {
+test("bare domain redirects to the main site; asset paths do not", () => {
   assert.equal(
     landingRedirect(new URL("https://image.limooo.cn/")),
-    "https://images.limooo.cn/",
+    "https://limooo.cn/",
   );
   assert.equal(
     landingRedirect(new URL("https://image.limooo.cn/portfolio/a.webp")),
@@ -58,7 +58,7 @@ test("worker returns a permanent redirect for bare-domain requests", async () =>
     { waitUntil() {} },
   );
   assert.equal(response.status, 301);
-  assert.equal(response.headers.get("location"), "https://images.limooo.cn/");
+  assert.equal(response.headers.get("location"), "https://limooo.cn/");
 });
 
 test("only top-level portfolio png/jpg/jpeg/webp get watermarked; thumbs do not", () => {
@@ -110,5 +110,5 @@ test("never proxies /api/* or unknown paths", () => {
 test("watermark origin URL hits /static/wm/ with a version param", () => {
   const target = wmTarget(ORIGIN, "/portfolio/a.webp", "?v=1");
   assert.equal(new URL(target).pathname, "/static/wm/portfolio/a.webp");
-  assert.ok(target.includes("__wmver=3"));
+  assert.ok(target.includes("__wmver=4"));
 });

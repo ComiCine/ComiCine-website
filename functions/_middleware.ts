@@ -47,6 +47,7 @@ import {
   GATE_HOSTNAME,
   IMAGES_HOSTNAME,
   LANG_COOKIE,
+  ROOT_DOMAIN,
   VISITOR_HOSTNAME,
   WWW_HOSTNAME,
 } from "./_lib/config";
@@ -129,6 +130,20 @@ function defer(context: RequestContext, promise: Promise<unknown>): void {
  */
 const PAGE_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
 const PAGE_CACHE_VARY = "Accept-Language";
+const IMAGE_ASSET_LANDING_PATHS = new Set([
+  "/",
+  "/index.html",
+  "/portfolio",
+  "/qr-codes",
+  "/icons",
+]);
+const LEGACY_PAGE_REDIRECTS = new Map<string, string>([
+  [`${ROOT_DOMAIN}\0/index.html`, `${BASE_URL}/`],
+  [`${ROOT_DOMAIN}\0/services.html`, `https://services.${ROOT_DOMAIN}/`],
+  [`services.${ROOT_DOMAIN}\0/services.html`, `https://services.${ROOT_DOMAIN}/`],
+  [`${ROOT_DOMAIN}\0/contact.html`, `https://contact.${ROOT_DOMAIN}/`],
+  [`contact.${ROOT_DOMAIN}\0/contact.html`, `https://contact.${ROOT_DOMAIN}/`],
+]);
 
 type CacheLike = {
   match(request: RequestInfo): Promise<Response | undefined>;
@@ -396,18 +411,25 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
 
-  // images.<root_domain>：图片子域公开访问；页面路径吐门面页，其余映射 /static。
+  // images.limooo.cn 只保留静态资源服务；旧目录页 URL 永久回到主站。
+  const normalizedImagePath = pathname.replace(/\/+$/, "") || "/";
+  if (hostname === IMAGES_HOSTNAME && IMAGE_ASSET_LANDING_PATHS.has(normalizedImagePath)) {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        Location: `${BASE_URL}/`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // images.<root_domain> 仅公开静态资源；/icons、/portfolio/thumbs 等路径映射到 /static。
   if (hostname === IMAGES_HOSTNAME) {
-    const lang = detectLang(request);
-    const page = pageAsset(hostname, pathname, lang);
-    if (page) {
-      const resp = await cachedPageAsset(context, page, lang, hostname);
-      if (resp?.ok) {
-        return withLangCookie(request, resp, lang);
-      }
-    }
     if (env.ASSETS) {
-      const staticAsset = await env.ASSETS.fetch(new URL(`/static${pathname}`, BASE_URL));
+      const staticPath = pathname === "/static" || pathname.startsWith("/static/")
+        ? pathname
+        : `/static${pathname}`;
+      const staticAsset = await env.ASSETS.fetch(new URL(`${staticPath}${url.search}`, BASE_URL));
       if (staticAsset.ok) {
         return new Response(staticAsset.body, {
           headers: {
@@ -432,7 +454,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     }));
   }
 
-  // 快速切换主题触发的强制挑战：即使来自中国大陆 ASN、白名单 IP、
+  // 快速切换主题触发的强制挑战：即使来自白名单 IP、
   // 只有有效 __gate cookie 或经 Cloudflare verifiedBot 验证才放行；cf_clearance 不再作为绕过依据。
   if (forceChallenge) {
     defer(
@@ -445,6 +467,17 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
       }),
     );
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
+  }
+
+  const legacyPageTarget = LEGACY_PAGE_REDIRECTS.get(`${hostname}\0${pathname}`);
+  if (legacyPageTarget) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${legacyPageTarget}${url.search}`,
+        "Cache-Control": "no-store",
+      },
+    });
   }
 
   const trust = await resolveGateTrust(context);
