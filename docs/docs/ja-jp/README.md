@@ -261,7 +261,7 @@ Cloudflare API か Git 経由で実行されます。
  VitePress ルート（1 ページ 1 言語につき 1 つの markdown ファイル）が入り、`services/` には
  services.limooo.cn の価格表 CSV が入ります。言語コードは URL の**最後**のセグメントで、
 内容ページは常に明示的に付けます（`/README/zh-cn`、`/README/en-us`）。サフィックスなしの
-`/README` は `/README/zh-cn` へ 302 で転送され、ホームの `/` だけが例外です。
+`/README` は `/README/zh-cn` へ 302 で転送されます。ドキュメントサイトのルート `/` は `https://limooo.cn` へ 302 で転送されます。
 
 `.vitepress/rewrites.json`（コンテンツの隣）がソースをサフィックス付きルートにマッピングし、
 `.vitepress/config.mts` が `additionalConfig` を通じて各ページに固有の `lang` / `themeConfig` を与えます。
@@ -483,7 +483,7 @@ docs.limooo.cn に公開されることはありません。
 4. **Access** が `visitor.limooo.cn`、`account.limooo.cn`、`admin.limooo.cn` を self-hosted アプリとして前段で保護します。自前の IdP も独自のログインフォームもありません
 5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.limooo.cn` と `sink.limooo.cn` は Worker のカスタムドメインです
 6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります）
-7. **スモークチェック**：`https://limooo.cn/_health` → 200、`https://limooo.cn/?challenge=1` → 403、`https://docs.limooo.cn/` と `https://status.limooo.cn/` → 200
+7. **スモークチェック**：`https://limooo.cn/_health` → 200、`https://limooo.cn/?challenge=1` → 403、`https://docs.limooo.cn/` → `https://limooo.cn` へ 302、`https://status.limooo.cn/` → 200
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス

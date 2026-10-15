@@ -1,3 +1,6 @@
+# 根路径回主站；文档内容均从带路径的 URL 进入
+/ https://limooo.cn 302
+
 # 旧的语言前缀式 URL → 新的「语言码在最后一段」式 URL（2026-09-27 改版）
 /en-us/video-platform  /video-platform/en-us  301
 /ja-jp/video-platform  /video-platform/ja-jp  301

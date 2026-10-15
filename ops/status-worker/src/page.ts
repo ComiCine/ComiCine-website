@@ -62,6 +62,8 @@ const SVG_SUN =
   '<svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
 const SVG_MOON =
   '<svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+const SVG_MENU =
+  '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 const SVG_EXTERNAL =
   '<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>';
 const SVG_GITHUB =
@@ -69,7 +71,7 @@ const SVG_GITHUB =
 const SVG_BILIBILI =
   '<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/></svg>';
 
-/** 页头：对应 base.html 的 <nav>（品牌字 → 三个导航链接 → 语言浮层 → 深浅胶囊 → 社交）。 */
+/** 页头：对应 base.html 的 <nav>（品牌字 → 三个导航链接 → 语言浮层 → 深浅胶囊 → 移动菜单/桌面社交）。 */
 export function navHtml(lang: Lang): string {
   const links: Array<[string, string]> = [
     [HOME_URL, t(lang, "nav_home")],
@@ -97,13 +99,20 @@ export function navHtml(lang: Lang): string {
     `<button class="lang-btn" id="lang-btn" type="button" aria-label="${esc(t(lang, "lang_aria"))}" aria-haspopup="true" aria-expanded="false">${SVG_LANG}${SVG_CHEVRON}</button>` +
     `<div id="langMenu" class="theme-menu" role="menu">${options}</div>` +
     "</div>" +
-    '<span class="nav-divider"></span>' +
+    '<span class="nav-divider nav-divider-mobile"></span>' +
     `<button class="appearance-switch" id="theme-switch" type="button" role="switch" aria-checked="false" aria-label="${esc(t(lang, "theme_aria"))}">` +
     `<span class="appearance-check"><span class="appearance-icon">${SVG_SUN}${SVG_MOON}</span></span>` +
     "</button>" +
-    '<span class="nav-divider"></span>' +
-    `<a class="icon-btn" href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">${SVG_GITHUB}</a>` +
-    `<a class="icon-btn" href="${BILIBILI_URL}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t(lang, "visit_bilibili"))}" title="${esc(t(lang, "visit_bilibili"))}">${SVG_BILIBILI}</a>` +
+    '<span class="nav-divider nav-divider-mobile"></span>' +
+    `<a class="icon-btn nav-social-link" href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">${SVG_GITHUB}</a>` +
+    `<a class="icon-btn nav-social-link" href="${BILIBILI_URL}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t(lang, "visit_bilibili"))}" title="${esc(t(lang, "visit_bilibili"))}">${SVG_BILIBILI}</a>` +
+    '<div class="theme-toggle nav-mobile-menu">' +
+    `<button class="theme-btn" id="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="${esc(t(lang, "nav_menu_aria"))}">${SVG_MENU}</button>` +
+    '<div id="navLinksDropdown" class="theme-menu" role="menu">' +
+    `<a class="nav-menu-option" role="menuitem" href="${HOME_URL}">${esc(t(lang, "nav_home"))}</a>` +
+    `<a class="nav-menu-option" role="menuitem" href="${SERVICES_URL}">${esc(t(lang, "nav_services"))}</a>` +
+    `<a class="nav-menu-option" role="menuitem" href="${CONTACT_URL}">${esc(t(lang, "nav_contact"))}</a>` +
+    '</div></div>' +
     "</div></nav>"
   );
 }
@@ -158,10 +167,15 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-external{display:inline-block;margin-left:4px;width:11px;height:11px;flex-shrink:0;opacity:.45}
 .nav-divider{display:none;width:1px;height:24px;background:var(--line);margin:0 12px;flex-shrink:0}
 @media(min-width:768px){.nav-divider{display:block}}
-.icon-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--text);opacity:.75;transition:transform 200ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
-.icon-btn:active{transform:scale(.92)}
-.icon-btn .icon-svg{width:18px;height:18px}
-@media(hover:hover) and (pointer:fine){.icon-btn:hover{background:var(--highlight);opacity:1}}
+.nav-divider-mobile{display:none}
+@media(max-width:767px){.nav-divider-mobile{display:block}}
+.icon-btn,.theme-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--text);opacity:.75;transition:transform 200ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
+.icon-btn:active,.theme-btn:active{transform:scale(.92)}
+.icon-btn .icon-svg,.theme-btn .icon-svg{width:18px;height:18px}
+@media(hover:hover) and (pointer:fine){.icon-btn:hover,.theme-btn:hover{background:var(--highlight);opacity:1}}
+@media(max-width:767px){.nav-social-link{display:none}}
+.nav-mobile-menu{position:relative;display:flex;align-items:center}
+@media(min-width:768px){.nav-mobile-menu{display:none}}
 .lang-btn{display:flex;align-items:center;padding:0 12px;height:36px;border:none;background:none;cursor:pointer;color:var(--text);transition:color 200ms var(--ease-out)}
 @media(hover:hover) and (pointer:fine){.lang-btn:hover{color:var(--accent)}}
 .lang-btn .lang-icon{width:16px;height:16px}
@@ -179,10 +193,10 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .theme-toggle{position:relative;display:flex;align-items:center}
 .theme-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:120px;background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--radius-md);padding:4px;z-index:200;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.92);transform-origin:top right;transition:opacity 150ms var(--ease-out),transform 150ms var(--ease-out),visibility 150ms;box-shadow:0 8px 28px var(--shadow-soft)}
 .theme-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out)}
-.theme-option{padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));cursor:pointer;white-space:nowrap;transition:background 150ms var(--ease-out);opacity:.5}
+.theme-option,.nav-menu-option{display:block;padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));cursor:pointer;white-space:nowrap;transition:background 150ms var(--ease-out);opacity:.5;color:inherit;text-decoration:none}
 .lang-flag{margin-right:6px}
 .theme-option.selected{opacity:1;background:var(--highlight)}
-@media(hover:hover) and (pointer:fine){.theme-option:hover{opacity:1;background:var(--highlight)}}
+@media(hover:hover) and (pointer:fine){.theme-option:hover,.nav-menu-option:hover{opacity:1;background:var(--highlight)}}
 
 /* ── 页脚（_footer.html 的等价 CSS）── */
 .global-footer{position:fixed;bottom:0;left:0;width:100%;z-index:90;border-top:1px solid var(--footer-border);background:var(--bg);display:flex;align-items:center;justify-content:center}
@@ -191,7 +205,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .footer-text>span,.footer-text>a{white-space:nowrap}
 .footer-text>.footer-item{display:inline-block}
 .footer-text>.footer-item:not(:first-child)::before{content:"\\00b7";margin:0 .55em;opacity:.7}
-@media(max-width:559px){.footer-text>.footer-copyright{flex-basis:100%}.footer-text>.footer-copyright+.footer-item::before{content:none}}
+@media(max-width:559px){.footer-text>.footer-copyright{flex:0 0 100%;white-space:nowrap}.footer-text>.footer-copyright+.footer-item::before{content:none}}
 .footer-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;letter-spacing:.02em;font-size:10px;font-size-adjust:.6552}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
@@ -281,12 +295,14 @@ export const STATUS_JS =
   "function paint(t){html.classList.toggle('light-mode',t==='light');if(sw)sw.setAttribute('aria-checked',t==='dark'?'true':'false')}" +
   "if(sw){paint(theme());sw.addEventListener('click',function(){var n=theme()==='light'?'dark':'light';" +
   "try{localStorage.setItem('theme',n)}catch(e){}save(THEME_COOKIE,n);paint(n)})}" +
-  "var menu=doc.getElementById('langMenu'),btn=doc.getElementById('lang-btn'),fly=doc.querySelector('.lang-flyout');" +
+  "var menu=doc.getElementById('langMenu'),btn=doc.getElementById('lang-btn'),fly=doc.querySelector('.lang-flyout'),navMenu=doc.getElementById('navLinksDropdown'),navBtn=doc.getElementById('nav-menu-btn');" +
   "function open(o){if(!menu)return;menu.classList.toggle('open',o);if(btn)btn.setAttribute('aria-expanded',o?'true':'false')}" +
-  "if(btn)btn.addEventListener('click',function(e){e.stopPropagation();open(!menu.classList.contains('open'))});" +
+  "function openNav(o){if(!navMenu)return;navMenu.classList.toggle('open',o);if(navBtn)navBtn.setAttribute('aria-expanded',o?'true':'false')}" +
+  "if(btn)btn.addEventListener('click',function(e){e.stopPropagation();open(!menu.classList.contains('open'));openNav(false)});" +
+  "if(navBtn)navBtn.addEventListener('click',function(e){e.stopPropagation();openNav(!navMenu.classList.contains('open'));open(false)});" +
   "if(fly&&window.matchMedia('(hover: hover) and (pointer: fine)').matches){" +
   "fly.addEventListener('mouseenter',function(){open(true)});fly.addEventListener('mouseleave',function(){open(false)})}" +
-  "doc.addEventListener('click',function(){open(false)});" +
+  "doc.addEventListener('click',function(){open(false);openNav(false)});" +
   "if(menu)menu.addEventListener('click',function(e){e.stopPropagation();var el=e.target.closest('[data-lang]');if(!el)return;" +
   "var c=el.getAttribute('data-lang');if(LANGS.indexOf(c)<0)return;save(LANG_COOKIE,c);" +
   "var u=new URL(location.href);u.searchParams.set('lang',c);location.href=u.toString()});" +

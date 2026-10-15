@@ -257,7 +257,7 @@ docs，即「完整部署」契约。若要只发布本地已提交的内容，
 VitePress 根（每种语言每页一个 markdown 文件），
 `services/` 存放 services.limooo.cn 的价目表 CSV。
 语言码是 URL 的**最后**一段，内容页一律显式带上（`/README/zh-cn`、`/README/en-us`）；
-无后缀的 `/README` 会 302 到 `/README/zh-cn`，首页 `/` 是唯一例外。
+无后缀的 `/README` 会 302 到 `/README/zh-cn`；文档站根路径 `/` 会 302 到 `https://limooo.cn`。
 
 `.vitepress/rewrites.json`（与内容同级）把源文件映射到带后缀的路由，
 `.vitepress/config.mts` 通过 `additionalConfig` 为每个页面设置各自的
@@ -473,7 +473,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 4. **Access** 以前置自建应用（self-hosted）保护 `visitor.limooo.cn`、`account.limooo.cn` 与 `admin.limooo.cn`；没有自建 IdP，也没有自定义登录页
 5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.limooo.cn` 与 `sink.limooo.cn` 是 Worker 自定义域名
 6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；动态重定向阶段为空，`ops/waf/rules.snapshot.json` 是刷新时刻对该空阶段的镜像（删掉的规则只存在于 git 历史里）
-7. **冒烟检查**：`https://limooo.cn/_health` → 200，`https://limooo.cn/?challenge=1` → 403，`https://docs.limooo.cn/` 与 `https://status.limooo.cn/` → 200
+7. **冒烟检查**：`https://limooo.cn/_health` → 200，`https://limooo.cn/?challenge=1` → 403，`https://docs.limooo.cn/` → 302 到 `https://limooo.cn`，`https://status.limooo.cn/` → 200
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证

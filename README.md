@@ -266,7 +266,7 @@ Cloudflare API or Git.
 VitePress root (one markdown file per page per language), `services/` holds the
 services.limooo.cn price-list CSVs. The language code is the **last** URL segment and
 content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`); a suffix-less
-`/README` 302s to `/README/zh-cn`, and the home page `/` is the one exception.
+`/README` 302s to `/README/zh-cn`. The bare docs root `/` 302s to `https://limooo.cn`.
 
 `.vitepress/rewrites.json` (beside the content) maps the markdown sources onto those suffixed
 routes, and `.vitepress/config.mts` gives each page its own `lang` / `themeConfig`
@@ -553,7 +553,7 @@ The shape of the live deployment, re-read any time with
 4. **Access** fronts `visitor.limooo.cn`, `account.limooo.cn` and `admin.limooo.cn` as self-hosted applications; there is no self-hosted IdP and no custom login form
 5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.limooo.cn` and `sink.limooo.cn` are Worker custom domains
 6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the dynamic-redirect phase is empty, and `ops/waf/rules.snapshot.json` is a refresh-time mirror of that empty phase (removed rules live only in git history)
-7. **Smoke checks**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` and `https://status.limooo.cn/` → 200
+7. **Smoke checks**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → 302 to `https://limooo.cn`, `https://status.limooo.cn/` → 200
 
 The gate renders in place on every host, the real visitor IP is shown in the gate page
 and logs, and Access remains the only identity source.

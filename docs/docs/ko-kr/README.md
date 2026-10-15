@@ -260,7 +260,7 @@ Git을 거칩니다.
 VitePress 루트(언어별·페이지별 마크다운 파일 하나)가, `services/`에는
 services.limooo.cn 가격표 CSV가 들어 있습니다. 언어 코드는 URL의 **마지막** 세그먼트이고,
 콘텐츠 페이지는 항상 명시적으로 붙입니다(`/README/zh-cn`, `/README/en-us`). 접미사 없는
-`/README`는 `/README/zh-cn`으로 302되며, 홈 `/`만 예외입니다.
+`/README`는 `/README/zh-cn`으로 302되며, docs 루트 `/`는 `https://limooo.cn`으로 302됩니다.
 
 `.vitepress/rewrites.json`(콘텐츠 옆에 있음)이 소스들을 접미사가 붙은 라우트로
 매핑하고, `.vitepress/config.mts`가 `additionalConfig`를 통해 각 페이지에 고유한
@@ -470,7 +470,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 4. **Access**가 `visitor.limooo.cn`, `account.limooo.cn`, `admin.limooo.cn`를 self-hosted 애플리케이션으로 앞단에서 보호합니다. 자체 IdP도, 사용자 지정 로그인 폼도 없습니다
 5. **Worker**는 독립적으로 실행됩니다: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive`, `image-watermark`. `status.limooo.cn`과 `sink.limooo.cn`은 Worker 사용자 지정 도메인입니다
 6. **Cloudflare 규칙**: 사용자 지정 방화벽 단계는 비어 있습니다(`limooo_blocklist` IP List가 규칙을 기다리는 상태). 캐시 단계는 정적 자산, 레거시 이미지 경로, 워터마크 Worker 응답을 1년간 캐시하고 두 개의 HTML 페이지 캐시 규칙은 비활성입니다. 동적 리다이렉트 단계는 비어 있고, `ops/waf/rules.snapshot.json`은 그 빈 단계를 갱신 시점에 그대로 반영합니다(삭제된 규칙은 git 기록에만 남습니다)
-7. **스모크 검사**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/`와 `https://status.limooo.cn/` → 200
+7. **스모크 검사**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → `https://limooo.cn`으로 302, `https://status.limooo.cn/` → 200
 
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
 ## 라이선스
