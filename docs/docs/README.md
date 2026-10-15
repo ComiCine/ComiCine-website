@@ -380,7 +380,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.limooo.cn/` → 访客面板（需要登录）；`account.limooo.cn/apple` → Apple Account 管理器（需要登录）
 - `images.limooo.cn/` → 301 到 `limooo.cn/`；其他路径提供作品集图片、favicon、logo 与二维码等静态资源。`image.limooo.cn/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径也 301 到 `limooo.cn/`）
 - `www.limooo.cn` → 301 到主站
-- 旧 `.html` 地址返回 302 到规范首页：`/index.html` 到 `limooo.cn/`，`/services.html` 到 `services.limooo.cn/`，`/contact.html` 到 `contact.limooo.cn/`；主域与对应子域都适用
+- 根路径下的 `x.html` 别名在 `x` 是现有公开首页子域名（`services`、`contact`、`docs`、`status`）时返回 302 到 `x.limooo.cn/`；名称无效时返回 302 到当前站点首页。`index.html` 返回当前主机的规范首页
 - 导航链接保持绝对子域 URL（`https://services.limooo.cn` 等）；语言切换是纯前端的 `applyLang()`，不重新加载、不改变 URL
 
 ### services.limooo.cn 价目表（CSV 驱动）
