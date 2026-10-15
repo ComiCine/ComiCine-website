@@ -20,8 +20,9 @@
 /**
  * 爬虫 / AI 工具的 UA 名单判定（2026-10-12）。
  *
- * 名单本体就是站点自己的 `docs/lists/robots.txt`（同一份文件原样发布到
- * `/robots.txt`）：`ops/check_gate_trust.py --emit` 把其中每条**显式**
+ * 名单本体就是站点自己的 `docs/lists/robots.txt`（爬虫规则发布到
+ * `/robots.txt`，构建器另追加契约生成的 Sitemap 行）：
+ * `ops/check_gate_trust.py --emit` 把其中每条**显式**
  * `User-agent:`（`*` 除外）转小写后生成到 `functions/_data/gateTrust.ts` 的
  * `GATE_TRUST_CRAWLER_UAS`，这里只做匹配。
  *

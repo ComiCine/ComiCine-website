@@ -143,6 +143,8 @@ def create_render_app() -> Flask:
             "gate_url": f"https://{config.GATE_HOST}/__gate",
             "image_asset_base": config.IMAGE_ASSET_BASE_URL,
             "image_watermark_base": config.IMAGE_WATERMARK_BASE_URL,
+            "services_host": config.SERVICES_HOST,
+            "contact_host": config.CONTACT_HOST,
             "source_url": config.SOURCE_REPO_URL,
             "copyright_current_year": datetime.now(UTC).year,
             # 前端只读的事实：语言列表 / cookie 名与 TTL / 根域名全部来自契约，

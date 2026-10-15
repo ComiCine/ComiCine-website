@@ -19,8 +19,9 @@
 站点对爬虫与 AI 工具是**开放**的。这里不再有自造格式的 `crawlers.txt`：
 `docs/lists/robots.txt` 一份文件、两个身份 ——
 
-1. `src/build.py` 把它**原样**发布成线上 `https://limooo.cn/robots.txt`（产物根目录，
-   并在 `_routes.json` 里排除 Functions，所以拿到的永远是这份文件本身，不会被门禁页替换）；
+1. `src/build.py` 发布爬虫规则并追加生成的 Sitemap 行到线上
+   `https://limooo.cn/robots.txt`（产物根目录，并在 `_routes.json` 里排除
+   Functions，所以爬虫拿到公开规则而不是门禁页；Sitemap 行由构建器按契约追加）；
 2. `ops/check_gate_trust.py` 解析其中每一条**显式** `User-agent:`（`*` 除外），
    转小写生成 `functions/_data/gateTrust.ts` 的 `GATE_TRUST_CRAWLER_UAS`，
    这些 UA 免人机验证（匹配逻辑见 `functions/_lib/bots.ts`）。
@@ -105,7 +106,7 @@ ASN/140245-140261   # 连号闭区间（5231 条压成 753 行；教育网有一
 | --- | --- |
 | 刷新 ASN 名单 + 重新合并白名单（**部署时会自动做**） | `bash ops/fetch_china_asn.py` |
 | 把白名单与 `robots.txt` 的爬虫放行名单生效到边缘（生成 `functions/_data/gateTrust.ts`） | `bash ops/ci_check.sh`（内含 `check_gate_trust.py --emit`） |
-| 只调整爬虫放行名单 | 改 `robots.txt` 的 `User-agent:` 行，照常部署（构建会重新解析并原样发布同一份文件） |
+| 只调整爬虫放行名单 | 改 `robots.txt` 的 `User-agent:` 行，照常部署（构建会重新解析名单并发布规则） |
 | 关掉整份爬虫放行名单（不动文件） | 把 `config-contract.json` 的 `gate_trust.ua_allowlist_enabled` 改成 `false` 后重新 build |
 | **黑名单双向对账**（D1 有而文件没有的拉回来，文件有而 D1 没有的推上去） | `python3 src/auto_block.py reconcile --dry-run` 先看差异，去掉 `--dry-run` 才写 |
 | 只推不拉（旧行为） | `python3 src/auto_block.py d1 --dry-run` |
