@@ -453,7 +453,7 @@ The middleware also enforces the normalized D1 blocklist and records privacy-min
 - `visitor.limooo.cn/` → visitor panel (login required); `account.limooo.cn/apple` → Apple Account manager (login required)
 - `images.limooo.cn/` → 301 to `limooo.cn/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.limooo.cn/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `limooo.cn/`)
 - `www.limooo.cn` → 301 to the main site
-- Legacy `.html` URLs return 302 to their canonical homepages: `/index.html` to `limooo.cn/`, `/services.html` to `services.limooo.cn/`, and `/contact.html` to `contact.limooo.cn/`, on both the main domain and the matching service/contact subdomain.
+- Root-level `x.html` aliases return 302 to `x.limooo.cn/` for active public homepage subdomains (`services`, `contact`, `docs`, `status`); an unknown name returns 302 to the current site's homepage. `index.html` returns to the current canonical homepage.
 - Nav links keep absolute subdomain URLs (`https://services.limooo.cn` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
 
 ### services.limooo.cn pricing (CSV-driven)

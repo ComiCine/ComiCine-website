@@ -137,13 +137,34 @@ const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/qr-codes",
   "/icons",
 ]);
-const LEGACY_PAGE_REDIRECTS = new Map<string, string>([
-  [`${ROOT_DOMAIN}\0/index.html`, `${BASE_URL}/`],
-  [`${ROOT_DOMAIN}\0/services.html`, `https://services.${ROOT_DOMAIN}/`],
-  [`services.${ROOT_DOMAIN}\0/services.html`, `https://services.${ROOT_DOMAIN}/`],
-  [`${ROOT_DOMAIN}\0/contact.html`, `https://contact.${ROOT_DOMAIN}/`],
-  [`contact.${ROOT_DOMAIN}\0/contact.html`, `https://contact.${ROOT_DOMAIN}/`],
-]);
+// Root-level .html aliases may target only public subdomains with a live DNS record
+// and a homepage service. Keep this list in sync with those host deployments.
+const LEGACY_HTML_SUBDOMAINS = new Set(["contact", "docs", "services", "status"]);
+
+function legacyHtmlRedirectTarget(
+  hostname: string,
+  pathname: string,
+): string | null {
+  if (hostname !== ROOT_DOMAIN && !hostname.endsWith(`.${ROOT_DOMAIN}`)) return null;
+  const match = pathname.match(/^\/([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.html$/i);
+  if (!match) return null;
+
+  const subdomain = match[1].toLowerCase();
+  if (subdomain === "index") {
+    return hostname === ROOT_DOMAIN ||
+      hostname === WWW_HOSTNAME ||
+      hostname === IMAGES_HOSTNAME
+      ? `${BASE_URL}/`
+      : `https://${hostname}/`;
+  }
+  if (subdomain === "www") return `${BASE_URL}/`;
+  if (LEGACY_HTML_SUBDOMAINS.has(subdomain)) {
+    return `https://${subdomain}.${ROOT_DOMAIN}/`;
+  }
+  return hostname === WWW_HOSTNAME || hostname === IMAGES_HOSTNAME
+    ? `${BASE_URL}/`
+    : `https://${hostname}/`;
+}
 
 type CacheLike = {
   match(request: RequestInfo): Promise<Response | undefined>;
@@ -469,12 +490,12 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
 
-  const legacyPageTarget = LEGACY_PAGE_REDIRECTS.get(`${hostname}\0${pathname}`);
-  if (legacyPageTarget) {
+  const legacyHtmlTarget = legacyHtmlRedirectTarget(hostname, pathname);
+  if (legacyHtmlTarget) {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${legacyPageTarget}${url.search}`,
+        Location: `${legacyHtmlTarget}${url.search}`,
         "Cache-Control": "no-store",
       },
     });
