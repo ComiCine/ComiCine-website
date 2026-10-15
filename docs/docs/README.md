@@ -73,9 +73,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
 ├── .vscode/                                          # editor settings and recommended extensions
-├── data/                                             # runtime data (generated; git-ignored except blocklist.txt / whitelist.txt)
-│   ├── blocklist.txt                                 # auditable snapshot of D1 blocked_ips (D1 is the sole authority)
-│   └── whitelist.txt                                 # trusted ASNs (low-risk) + fully allowed IPs/CIDRs
+├── data/                                             # runtime databases and caches (generated; git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -303,18 +301,14 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## 白名单
 
-可信来源维护在 [`data/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/data/whitelist.txt) 中，每行一条：
+手工维护的可信来源位于 [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt)，部署时会生成 [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt)：
 
 | 条目 | 效果 |
 | --- | --- |
-| `ASN/<number>` | 低风险来源（中国电信 / 中国移动 / 中国联通，含铁通与骨干网 AS9929）。本应下发 Cloudflare 非交互式质询（Non-Interactive Challenge，`js_challenge`）而不是 Turnstile 门禁；该 WAF 规则目前未部署（见下）。 |
-| `IP-CIDR/<ip>/<mask>` | 完全放行的来源（例如 `IP-CIDR/97.64.18.11/32`）；同时跳过黑名单与质询门禁。 |
+| `ASN/<number>` | 可选的 Cloudflare 区域级 ASN Access Rule 条目。需要手动运行 `bash ops/waf_whitelist.sh --apply` 才会更改区域规则；ASN 条目不会绕过 Pages Functions 门禁。 |
+| `IP-CIDR/<ip>/<mask>` | Pages 边缘完全放行来源（例如 `IP-CIDR/97.64.18.11/32`），同时跳过封禁检查与人机验证。 |
 
-ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（每日更新）。生成的边缘副本当前包含 **319 个低风险 ASN** 与 **2 个完全放行 IP**。目前没有任何 WAF 自定义规则在用它：该区域的 `http_request_firewall_custom` 阶段是空的，`ops/waf/rules.snapshot.json` 按 `captured_at` 记录**刷新那一刻**的线上状态（上次刷新为 0 条规则）——在 Dashboard 里删掉的规则只留在 git 历史里。
-
-各运行时的信任范围：边缘代码只把 `IP-CIDR` 条目视为可信（`isGateTrustedIp` →
-`functions/_data/gateTrust.ts`）。修改 `data/whitelist.txt` 之后，通过一次构建重新生成边缘副本
-（`bash ops/build.sh`，它会跑 `ops/check_gate_trust.py --emit`）。
+当前生成名单有 **0 个 ASN 条目**和 **2 个 IP 网段**。完整部署只生成本地白名单，不会更改 Cloudflare 区域级 ASN Access Rules。编辑 `own-ips.txt` 后，部署会运行 `ops/sync_whitelist.py`；构建随后运行 `ops/check_gate_trust.py --emit` 生成边缘副本。
 
 ## 权威来源
 
@@ -327,7 +321,7 @@ ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mai
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.limooo.cn` 与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。Pages 各主机的 DNS 都指向 `limooo.pages.dev`。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.limooo.cn` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。Pages 各主机的 DNS 都指向 `limooo.pages.dev`。
 
 运行时划分：
 
@@ -369,7 +363,7 @@ ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mai
 
 ### 门禁行为
 
-每个请求都会检查已签名的 `__gate` cookie。Cloudflare 的 `botManagement.verifiedBot` 被视为经过验证的搜索引擎信任信号；任意伪造的 `Googlebot`/`GPTBot` User-Agent 字符串以及客户端自带的 `cf_clearance` cookie 都不能绕过门禁。低风险的中国电信 / 移动 / 联通 ASN 只是登记给 WAF 的 `js_challenge` 层使用（该规则目前未部署），而边缘代码只信任生成的白名单（`data/whitelist.txt` → `functions/_data/gateTrust.ts`）来做完全绕过。
+每个请求都会检查已签名的 `__gate` cookie。Cloudflare 的 `botManagement.verifiedBot` 被视为经过验证的搜索引擎信任信号；任意伪造的 `Googlebot`/`GPTBot` User-Agent 字符串以及客户端自带的 `cf_clearance` cookie 都不能绕过门禁。边缘代码只信任生成的白名单（`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`）来做完全绕过。
 
 未验证的请求会**原地**获得 Turnstile 门禁页：主机与路径始终不变。中间件在请求的 URL 上以状态码 `403` 渲染 `public/<lang>/auth.html`，`POST /__gate/verify` 在同一来源上返回 `Set-Cookie: __gate=…`（1 小时，`Domain=.limooo.cn`），随后页面重新加载最初的目标地址。`auth.limooo.cn` 是门禁主机 —— 它在自己的根路径上提供同一个页面，且拥有 `/__gate/config|diag|verify` 端点。
 
@@ -384,8 +378,9 @@ ASN 列表来源于 [china-mainland-asn](https://github.com/xingpingcn/china-mai
 - `limooo.cn/` → 首页；`limooo.cn/services` / `limooo.cn/contact` → 对应页面
 - `services.limooo.cn/` → 服务页；`contact.limooo.cn/` → 联系页（子域直接提供内容，不 301 到主站）
 - `visitor.limooo.cn/` → 访客面板（需要登录）；`account.limooo.cn/apple` → Apple Account 管理器（需要登录）
-- `images.limooo.cn/` → 作品集画廊，同时是 favicon/logo/二维码的资源主机；`image.limooo.cn/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径 301 到 `images.limooo.cn`）
+- `images.limooo.cn/` → 301 到 `limooo.cn/`；其他路径提供作品集图片、favicon、logo 与二维码等静态资源。`image.limooo.cn/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径也 301 到 `limooo.cn/`）
 - `www.limooo.cn` → 301 到主站
+- 旧 `.html` 地址返回 302 到规范首页：`/index.html` 到 `limooo.cn/`，`/services.html` 到 `services.limooo.cn/`，`/contact.html` 到 `contact.limooo.cn/`；主域与对应子域都适用
 - 导航链接保持绝对子域 URL（`https://services.limooo.cn` 等）；语言切换是纯前端的 `applyLang()`，不重新加载、不改变 URL
 
 ### services.limooo.cn 价目表（CSV 驱动）

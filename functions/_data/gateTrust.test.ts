@@ -20,8 +20,8 @@
 /**
  * tasks/22 W4-4：`functions/_data/gateTrust.ts` 只应带运行时会消费的字段。
  *
- * 320 条低风险 ASN 在运行时零消费（`GATE_TRUST.verified_bot`、`GATE_TRUST_IPS`、
- * `GATE_TRUST_NETWORKS` 才有人读），ASN 的真实消费方是 WAF 的 js_challenge 规则。
+ * ASN 条目不进入运行时 payload（`GATE_TRUST.verified_bot`、`GATE_TRUST_IPS`、
+ * `GATE_TRUST_NETWORKS` 才有人读），ASN 只由手动运行的 zone-level Access Rule 脚本消费。
  * 这里把生成物钉成契约：一旦有人把 ASN 塞回 isolate，测试直接红。
  */
 
@@ -37,8 +37,8 @@ describe("gateTrust runtime payload", () => {
     ]);
   });
 
-  it("does not carry the low-risk ASN list anymore", () => {
-    expect("low_risk_asns" in GATE_TRUST).toBe(false);
+  it("does not carry ASN entries", () => {
+    expect("asns" in GATE_TRUST).toBe(false);
   });
 
   it("keeps the fully allowed IPs usable", () => {

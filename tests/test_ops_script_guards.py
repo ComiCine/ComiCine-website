@@ -81,13 +81,10 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
         ("docs_deploy.sh", '#!/bin/bash\necho "STUB docs_deploy ran"\n'),
-        # 白名单刷新（2026-10-11 加）：deploy.sh 在闸门之前跑它。
-        # 桩化是必须的 —— 真脚本要联网拉 china-mainland-asn，测试不该依赖外网。
-        ("fetch_china_asn.py", '#!/usr/bin/env python3\nprint("STUB fetch_china_asn ran (args: $*)")\n'),
+        # 白名单生成：deploy.sh 在闸门之前从 own-ips.txt 生成它。
+        ("sync_whitelist.py", '#!/usr/bin/env python3\nprint("STUB sync_whitelist ran (args: $*)")\n'),
         # 封禁名单双向对账（2026-10-11 加）：要读 D1，测试里桩掉。
         ("reconcile_blocklist.sh", '#!/bin/bash\necho "STUB reconcile_blocklist ran (args: $*)"\n'),
-        # 白名单推 WAF（2026-10-11 加）：会改 zone 的 IP Access Rules，必须桩掉。
-        ("waf_whitelist.sh", '#!/bin/bash\necho "STUB waf_whitelist ran (args: $*)"\n'),
     ):
         path = repo / "ops" / name
         path.write_text(body)
@@ -226,7 +223,7 @@ def test_ci_check_stays_as_strict_as_ci():
 
 
 def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
-    """安静模式下每个阶段收成一个词：`Prepare`（Lists+Bans+WAF+Check）/ `Release`
+    """安静模式下每个阶段收成一个词：`Prepare`（Lists+Bans+Check）/ `Release`
     （Pages+Docs+Workers）；`CI: tests success, …` 整行去掉（2026-10-13 用户逐行批注 +
     定词）。提交行的文件清单另有批注：恢复逐行列出 —— 由 test_deploy_commits… 覆盖。
     """
@@ -243,7 +240,7 @@ def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
     assert "+" not in ran.stdout.replace("++", ""), "阶段标签不该再是 A+B+C 形状"
     assert not any(line.startswith("CI:") for line in ran.stdout.splitlines()), ran.stdout
     # 子步骤的个别行不再出现在成功路径上（跳过/失败才出声）
-    for gone in ("Lists: done", "Bans: done", "WAF: done", "Check: done",
+    for gone in ("Lists: done", "Bans: done", "Check: done",
                  "Pages: done", "Docs: done", "Workers: done"):
         assert gone not in ran.stdout, f"{gone} 应该被并进阶段行"
 
@@ -259,30 +256,29 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
     # 真实执行序列用 --full 断言（它逐条回显命令，不合并）：
-    #   ① 名单刷新必须**先于** CI（2026-10-11）—— 它会产生改动，放在 CI 之后会被脏树
+    #   ① 白名单生成必须**先于** CI —— 它会产生改动，放在 CI 之后会被脏树
     #      闸门拦下，也漏过 CI 对该名单的校验；
     #   ② 闸门必须**先于**发布 —— 检查没跑过就不许发。
     full = run([BASH, "ops/deploy.sh", "--pages", "--full"], cwd=repo)
     assert full.returncode == 0, full.stdout + full.stderr
-    assert full.stdout.index("ops/fetch_china_asn.py") < full.stdout.index("ops/ci_check.sh")
+    assert full.stdout.index("ops/sync_whitelist.py") < full.stdout.index("ops/ci_check.sh")
     assert full.stdout.index("ops/ci_check.sh") < full.stdout.index("ops/pages_deploy.sh")
 
 
-def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
-    """名单刷新改了工作区，一次性提交仍要成功（2026-10-12 修）。
+def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path):
+    """名单同步改了工作区，一次性提交仍要成功。
 
-    回归点：stage + 工作区快照原先排在 Lists / Bans / WAF **之前**，而这三步会
-    合法地改写 mainland-asn-catalog.txt / whitelist.txt / blocklist.txt —— 于是上游名单一变，
-    ⓪c 的比对必然报「检查期间工作区又被改动」，第一次部署永远要跑两遍。
-    这里让桩 fetch_china_asn.py 真的改一个已跟踪文件来复现那个场景。
+    回归点：stage + 工作区快照必须在 Lists / Bans 之后，否则名单同步改动会让
+    ⓪c 报「检查期间工作区又被改动」，第一次部署需要重跑。
+    这里让桩 sync_whitelist.py 真的改一个已跟踪文件来复现那个场景。
     """
     repo = make_repo(tmp_path)
-    stub = repo / "ops" / "fetch_china_asn.py"
+    stub = repo / "ops" / "sync_whitelist.py"
     stub.write_text(
         "#!/usr/bin/env python3\n"
         "from pathlib import Path\n"
         "Path('tracked.txt').write_text('v1\\nrefreshed-by-the-list-step\\n')\n"
-        "print('STUB fetch_china_asn rewrote tracked.txt')\n"
+        "print('STUB sync_whitelist rewrote tracked.txt')\n"
     )
     stub.chmod(0o755)
 
@@ -311,27 +307,6 @@ def test_deploy_commit_output_lists_every_changed_file(tmp_path):
     for name in names:
         assert f"   A {name}" in lines
     assert not any("... and " in line for line in lines)
-
-
-def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
-    """两个逃生阀：跳过抓取 / 抓不到就失败。
-
-    断言用**安静模式真正可见**的东西：`run_step` 把子进程输出吞进日志、只在失败时
-    吐出来，所以桩里的 echo 看不见 —— 判据只能是步骤行的有无。
-    """
-    repo = make_repo(tmp_path)
-
-    skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_SKIP_ASN_FETCH": "1"})
-    assert skipped.returncode == 0, skipped.stdout + skipped.stderr
-    assert "skipped ASN refresh" in skipped.stdout
-    # 阶段行现在只说 `Prepare: done`（不点名子步骤）；哪一步被跳过由它自己的跳过行负责，
-    # 所以判据是「跳过行在、且那一步没有以 done 形状出现」。
-    assert "Lists: done" not in skipped.stdout
-
-    # strict 走 run_step（参数传错会 FATAL），所以能证明那一步真的执行了。
-    strict = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_STRICT_ASN": "1"})
-    assert strict.returncode == 0, strict.stdout + strict.stderr
-    assert "Prepare: done" in strict.stdout
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
@@ -523,31 +498,6 @@ def test_apply_failure_does_not_touch_the_local_cache(tmp_path):
 def test_scripts_are_syntactically_valid(name):
     result = run([BASH, "-n", name])
     assert result.returncode == 0, result.stderr
-
-
-def test_deploy_pushes_the_whitelist_to_the_waf(tmp_path):
-    """白名单推送是「完整部署」的一部分，且**默认失败即停**（与名单刷新不同）。
-
-    它改的是线上安全面：静默留下「文件说 319 条、zone 上不是」比部署失败更危险。
-    跳过要显式 LIMOOO_SKIP_WAF_WHITELIST=1。
-    """
-    repo = make_repo(tmp_path)
-
-    ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
-    assert ran.returncode == 0, ran.stdout + ran.stderr
-    assert "Prepare: done" in ran.stdout, ran.stdout
-
-    # 顺序：名单先刷新，再推 WAF（推的是刷新后的名单）。安静模式把三行并成一个标签，
-    # 所以用 --full 看真实执行序列（它逐条回显命令，不合并）。
-    full = run([BASH, "ops/deploy.sh", "--pages", "--full"], cwd=repo)
-    assert full.returncode == 0, full.stdout + full.stderr
-    assert full.stdout.index("ops/fetch_china_asn.py") < full.stdout.index("ops/waf_whitelist.sh --apply")
-
-    skipped = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo,
-                  env={"LIMOOO_SKIP_WAF_WHITELIST": "1"})
-    assert skipped.returncode == 0, skipped.stdout + skipped.stderr
-    assert "skipped ASN whitelist push" in skipped.stdout
-    assert "WAF: done" not in skipped.stdout
 
 
 def test_deploy_bootstraps_missing_tooling(tmp_path):

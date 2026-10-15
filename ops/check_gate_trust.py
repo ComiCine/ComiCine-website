@@ -39,7 +39,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_PATH = ROOT / "config-contract.json"
 # 白名单放在 docs/lists/（与封禁名单同目录，便于手工维护）；
-# 生成物 mainland-asn-catalog.txt / whitelist.txt 由 ops/fetch_china_asn.py 刷新。
+# 生成物 whitelist.txt 由 ops/sync_whitelist.py 从 own-ips.txt 刷新。
 # 见 docs/lists/README.md。
 WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
 # robots.txt 是**唯一**的爬虫名单来源（2026-10-12 起）：它同时是线上
@@ -170,9 +170,9 @@ def main() -> int:
 
     contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     gate_trust = contract.get("gate_trust", {})
-    # ASN 仍要解析、仍要校验格式：WAF 的 js_challenge 规则从 data/whitelist.txt
+    # ASN 仍要解析、仍要校验格式：WAF Access Rules 从 docs/lists/whitelist.txt
     # 的 ASN 段生成。但运行时（functions/_middleware.ts）只读 verified_bot /
-    # ip_cidrs，所以下面的 runtime payload 不带 low_risk_asns —— 320 条 ASN
+    # ip_cidrs，所以下面的 runtime payload 不带 ASN
     # 打进 isolate 只是死数据，真实消费方是 WAF（W4-4）。
     asns, networks = load_whitelist(WHITELIST_PATH)
     crawlers = load_crawler_agents(ROBOTS_PATH)

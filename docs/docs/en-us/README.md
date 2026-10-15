@@ -73,9 +73,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
 ├── .vscode/                                          # editor settings and recommended extensions
-├── data/                                             # runtime data (generated; git-ignored except blocklist.txt / whitelist.txt)
-│   ├── blocklist.txt                                 # auditable snapshot of D1 blocked_ips (D1 is the sole authority)
-│   └── whitelist.txt                                 # trusted ASNs (low-risk) + fully allowed IPs/CIDRs
+├── data/                                             # runtime databases and caches (generated; git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -310,19 +308,14 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Whitelist
 
-Trusted sources are maintained in [`data/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/data/whitelist.txt), one entry per line:
+Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt) and copied to the generated [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt) during deployment:
 
 | Entry | Effect |
 | --- | --- |
-| `ASN/<number>` | Low-risk source (China Telecom / China Mobile / China Unicom, incl. Tietong and backbone AS9929). Intended to be served a Cloudflare Non-Interactive Challenge (`js_challenge`) instead of the Turnstile gate; that WAF rule is not deployed right now (see below). |
-| `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
+| `ASN/<number>` | Optional entry for a zone-level Cloudflare ASN Access Rule. Run `bash ops/waf_whitelist.sh --apply` manually to change zone rules; ASN entries do not bypass the Pages Functions gate. |
+| `IP-CIDR/<ip>/<mask>` | Fully allowed source at the Pages edge (for example, `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
 
-The ASN list is sourced from [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn) (updated daily). The generated edge copy currently carries **319 low-risk ASNs** and **2 fully allowed IPs**. No WAF custom rule consumes these lists right now: the zone's `http_request_firewall_custom` phase is empty, and `ops/waf/rules.snapshot.json` mirrors the live phase as of its `captured_at` timestamp (0 rules at the last refresh) — rules deleted in the dashboard survive only in git history.
-
-Per-runtime trust: edge code only treats `IP-CIDR` entries as trusted
-(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing `data/whitelist.txt`,
-regenerate the edge copy with a build (`bash ops/build.sh`, which runs
-`ops/check_gate_trust.py --emit`).
+The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full deploy generates the local whitelist but does not change zone-level ASN Access Rules. After editing `own-ips.txt`, deployment runs `ops/sync_whitelist.py`; the build then runs `ops/check_gate_trust.py --emit` to generate the edge copy.
 
 ## Source of truth
 
@@ -335,7 +328,7 @@ regenerate the edge copy with a build (`bash ops/build.sh`, which runs
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, `images.limooo.cn` and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. DNS for the Pages hosts points at `limooo.pages.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.limooo.cn` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. DNS for the Pages hosts points at `limooo.pages.dev`.
 
 Runtime split:
 
@@ -377,7 +370,7 @@ Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real valu
 
 ### Gate behavior
 
-Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Low-risk China Telecom / Mobile / Unicom ASNs are listed for the WAF `js_challenge` tier (no such rule is deployed at the moment), while edge code trusts only the generated whitelist (`data/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
+Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Edge code trusts only the generated whitelist (`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
 
 Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.limooo.cn`), after which the page reloads the original target. `auth.limooo.cn` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 
@@ -392,8 +385,9 @@ The middleware also enforces the normalized D1 blocklist and records privacy-min
 - `limooo.cn/` → home page; `limooo.cn/services` / `limooo.cn/contact` → corresponding pages
 - `services.limooo.cn/` → services page; `contact.limooo.cn/` → contact page (subdomains serve content directly, no 301 to the main site)
 - `visitor.limooo.cn/` → visitor panel (login required); `account.limooo.cn/apple` → Apple Account manager (login required)
-- `images.limooo.cn/` → portfolio gallery plus the favicon/logo/QR asset host; `image.limooo.cn/portfolio/<img>` → watermarked variant from the normalization Worker (its root 301s to `images.limooo.cn`)
+- `images.limooo.cn/` → 301 to `limooo.cn/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.limooo.cn/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `limooo.cn/`)
 - `www.limooo.cn` → 301 to the main site
+- Legacy `.html` URLs return 302 to their canonical homepages: `/index.html` to `limooo.cn/`, `/services.html` to `services.limooo.cn/`, and `/contact.html` to `contact.limooo.cn/`, on both the main domain and the matching service/contact subdomain.
 - Nav links keep absolute subdomain URLs (`https://services.limooo.cn` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
 
 ### services.limooo.cn pricing (CSV-driven)

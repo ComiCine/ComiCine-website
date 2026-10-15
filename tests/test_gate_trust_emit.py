@@ -17,7 +17,7 @@
 
 """tasks/22 W4-4：门禁信任配置的「生成物只带运行时要用的部分」。
 
-`functions/_data/gateTrust.ts` 曾经同时带 320 条低风险 ASN（运行时零消费，
+`functions/_data/gateTrust.ts` 曾经同时带 ASN 列表（运行时零消费，
 真正消费方是 WAF 的 js_challenge 规则）与 2 个全放行 IP。这里钉住：
   - 生成物只含 verified_bot / ip_cidrs；
   - docs/lists/whitelist.txt 的 ASN 段仍然照旧解析与计数（WAF 的来源，不许删）；
@@ -40,9 +40,9 @@ def fake_repo(tmp_path, monkeypatch):
     whitelist = tmp_path / "whitelist.txt"
     whitelist.write_text(
         "# 注释行\n"
-        "ASN/4134\n"
-        "ASN/4808\n"
-        "ASN/4134\n"  # 重复项只算一次
+        "ASN/64500\n"
+        "ASN/64501\n"
+        "ASN/64500\n"  # 重复项只算一次
         "IP-CIDR/97.64.18.11/32\n"
         "IP-CIDR/2001:db8::/64\n",
         encoding="utf-8",
@@ -70,14 +70,14 @@ def fake_repo(tmp_path, monkeypatch):
     return output
 
 
-def test_emit_omits_low_risk_asns(fake_repo, monkeypatch, capsys):
+def test_emit_omits_asn_lists(fake_repo, monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["check_gate_trust.py", "--emit"])
 
     assert check_gate_trust.main() == 0
 
     emitted = fake_repo.read_text(encoding="utf-8")
-    assert "low_risk_asns" not in emitted
-    assert "LOW_RISK_ASNS" not in emitted
+    assert "asns" not in emitted
+    assert "ASNS" not in emitted
     assert '"ip_cidrs": [["97.64.18.11", 32], ["2001:db8::", 64]]' in emitted
     assert 'export const GATE_TRUST_IPS: Set<string> = new Set(["97.64.18.11", "2001:db8::"]);' in emitted
     # 爬虫名单进 isolate：只取显式 User-agent（`*` 不在里面）、一律小写
@@ -96,7 +96,7 @@ def test_emit_omits_low_risk_asns(fake_repo, monkeypatch, capsys):
 def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
 
-    assert asns == [4134, 4808]
+    assert asns == [64500, 64501]
     assert networks == [("97.64.18.11", 32), ("2001:db8::", 64)]
 
     (tmp_path / "bad.txt").write_text("ASN/not-a-number\n", encoding="utf-8")
@@ -177,9 +177,7 @@ def test_repo_whitelist_and_generated_file_agree():
     """真实仓库：生成物与两份名单（白名单、robots.txt 里的爬虫）的数量一致。
 
     ASN 的**具体条数刻意不写死**（2026-10-11 改）：那份名单由
-    `ops/fetch_china_asn.py` 在每次部署时从 china-mainland-asn 刷新，
-    条数天然会变（当时 320 → 5231）。写死数字只会让测试在名单更新时变红，
-    而它真正要守的是「生成物与名单一致」这条**关系**。
+    ASN 条数由 `own-ips.txt` 的手工条目决定；这里守的是「生成物与名单一致」这条关系。
     """
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
     agents = check_gate_trust.load_crawler_agents(check_gate_trust.ROBOTS_PATH)
@@ -189,7 +187,7 @@ def test_repo_whitelist_and_generated_file_agree():
     assert len(agents) > 20, "robots.txt 里的显式爬虫不该被清空"
 
     emitted = check_gate_trust.OUTPUT_PATH.read_text(encoding="utf-8")
-    assert "low_risk_asns" not in emitted
+    assert "asns" not in emitted
 
     facts = readme_facts.gate_trust_facts()
     assert facts["asns"] == len(asns)

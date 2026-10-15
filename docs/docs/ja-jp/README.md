@@ -73,9 +73,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
 ├── .vscode/                                          # editor settings and recommended extensions
-├── data/                                             # runtime data (generated; git-ignored except blocklist.txt / whitelist.txt)
-│   ├── blocklist.txt                                 # auditable snapshot of D1 blocked_ips (D1 is the sole authority)
-│   └── whitelist.txt                                 # trusted ASNs (low-risk) + fully allowed IPs/CIDRs
+├── data/                                             # runtime databases and caches (generated; git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -308,19 +306,14 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## ホワイトリスト
 
-信頼できるソースは [`data/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/data/whitelist.txt) で管理し、1 行に 1 エントリを記述します：
+信頼するソースは [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt) で手動管理し、デプロイ時に生成ファイル [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt) へ反映します。
 
 | エントリ | 効果 |
 | --- | --- |
-| `ASN/<number>` | 低リスクのソース（中国電信／中国移動／中国聯通、鉄通とバックボーン AS9929 を含む）。Turnstile ゲートの代わりに Cloudflare の非対話型チャレンジ（`js_challenge`）を返す想定ですが、その WAF ルールは現在デプロイされていません（下記参照）。 |
-| `IP-CIDR/<ip>/<mask>` | 完全に許可されたソース（例：`IP-CIDR/97.64.18.11/32`）。ブロックリストとチャレンジゲートの両方をスキップします。 |
+| `ASN/<number>` | 任意の Cloudflare ゾーン単位 ASN Access Rule エントリです。ゾーンルールを変更するには `bash ops/waf_whitelist.sh --apply` を手動実行します。ASN エントリは Pages Functions のゲートを迂回しません。 |
+| `IP-CIDR/<ip>/<mask>` | Pages エッジで完全に許可されるソースです（例：`IP-CIDR/97.64.18.11/32`）。ブロックリストとチャレンジゲートの両方をスキップします。 |
 
-ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainland-asn)（毎日更新）から取得します。生成されたエッジ側のコピーは現在 **319 件の低リスク ASN** と **2 件の完全許可 IP** を含みます。現時点でこれを参照する WAF カスタムルールはありません（ゾーンの `http_request_firewall_custom` フェーズは空で、`ops/waf/rules.snapshot.json` は `captured_at` の**更新時点**のライブ状態をそのまま写します。直近の更新では 0 ルールです）。ダッシュボードで削除されたルールは git の履歴にのみ残ります。
-
-ランタイムごとの信頼範囲：エッジのコードが信頼するのは `IP-CIDR` のエントリだけです
-（`isGateTrustedIp` → `functions/_data/gateTrust.ts`）。`data/whitelist.txt` を編集したら、
-ビルドでエッジ側のコピーを再生成してください（`bash ops/build.sh` が
-`ops/check_gate_trust.py --emit` を実行します）。
+現在の生成リストには **ASN が 0 件**、**IP-CIDR が 2 件**あります。通常のデプロイはローカルのホワイトリストを生成しますが、ゾーン単位の ASN Access Rules は変更しません。`own-ips.txt` の編集後、デプロイ時に `ops/sync_whitelist.py` を実行し、その後ビルドで `ops/check_gate_trust.py --emit` がエッジ用ファイルを生成します。
 
 ## 唯一の情報源
 
@@ -333,7 +326,7 @@ ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainla
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.limooo.cn`、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Pages ホストの DNS は `limooo.pages.dev` を指します。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.limooo.cn` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Pages ホストの DNS は `limooo.pages.dev` を指します。
 
 ランタイムの分担：
 
@@ -375,7 +368,7 @@ ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainla
 
 ### ゲートの挙動
 
-すべてのリクエストで署名済み `__gate` cookie を確認します。Cloudflare の `botManagement.verifiedBot` は検証済み検索エンジンの信頼シグナルとして受理されますが、任意の `Googlebot`/`GPTBot` の User-Agent 文字列やクライアントが送ってきた `cf_clearance` cookie がゲートを迂回することはありません。低リスクの中国電信／移動／聯通の ASN は WAF の `js_challenge` 層向けに登録されているだけで（そのルールは現在デプロイされていません）、エッジのコードが完全なバイパスを信頼するのは生成されたホワイトリスト（`data/whitelist.txt` → `functions/_data/gateTrust.ts`）だけです。
+すべてのリクエストで署名済み `__gate` cookie を確認します。Cloudflare の `botManagement.verifiedBot` は検証済み検索エンジンの信頼シグナルとして受理されますが、任意の `Googlebot`/`GPTBot` の User-Agent 文字列やクライアントが送ってきた `cf_clearance` cookie がゲートを迂回することはありません。エッジコードが完全なバイパスを認めるのは、生成されたホワイトリスト（`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`）にある IP-CIDR だけです。
 
 未検証のリクエストには Turnstile ゲートページを**その場で**返します。ホストもパスも変わりません。ミドルウェアは要求された URL に `public/<lang>/auth.html` をステータス `403` でレンダリングし、`POST /__gate/verify` が同じオリジンで `Set-Cookie: __gate=…`（1 時間、`Domain=.limooo.cn`）を返し、その後ページが元のターゲットを再読み込みします。`auth.limooo.cn` はゲートのホストです — 自身のルートで同じページを配信し、`/__gate/config|diag|verify` エンドポイントを持ちます。
 
@@ -390,8 +383,9 @@ ASN リストは [china-mainland-asn](https://github.com/xingpingcn/china-mainla
 - `limooo.cn/` → ホームページ、`limooo.cn/services` / `limooo.cn/contact` → それぞれ対応するページ
 - `services.limooo.cn/` → サービスページ、`contact.limooo.cn/` → お問い合わせページ（サブドメインはメインサイトへの 301 なしで直接コンテンツを配信します）
 - `visitor.limooo.cn/` → ビジターパネル（要ログイン）、`account.limooo.cn/apple` → Apple Account マネージャー（要ログイン）
-- `images.limooo.cn/` → ポートフォリオギャラリー兼 favicon/ロゴ/QR のアセットホスト、`image.limooo.cn/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートは `images.limooo.cn` へ 301）
+- `images.limooo.cn/` → `limooo.cn/` へ 301、その他のパスはポートフォリオ画像、favicon、ロゴ、QR などの静的アセットを配信します。`image.limooo.cn/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートも `limooo.cn/` へ 301）
 - `www.limooo.cn` → メインサイトへ 301
+- 旧 `.html` URL は 302 で正規ページへ転送します。`/index.html` は `limooo.cn/`、`/services.html` は `services.limooo.cn/`、`/contact.html` は `contact.limooo.cn/` へ転送し、メインドメインと対応するサブドメインの両方で適用します。
 - ナビのリンクは絶対サブドメイン URL（`https://services.limooo.cn` など）を維持します。言語切り替えは純粋にフロントエンドの `applyLang()` で、リロードも URL 変更もありません
 
 ### services.limooo.cn の価格表（CSV 駆動）

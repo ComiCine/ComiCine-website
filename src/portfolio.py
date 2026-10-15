@@ -17,7 +17,7 @@
 
 """作品集（portfolio）图片清单：从 ``src/static/portfolio`` 动态扫描。
 
-首页作品区与 images.limooo.cn 门面页都按这里的清单排版：往
+首页作品区按这里的清单排版：往
 ``src/static/portfolio`` 里增删图片后重新构建，卡片数量与排版会自动
 跟着变，模板里不再维护任何图片文件名。
 
