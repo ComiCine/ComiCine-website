@@ -385,7 +385,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.limooo.cn/` → ビジターパネル（要ログイン）、`account.limooo.cn/apple` → Apple Account マネージャー（要ログイン）
 - `images.limooo.cn/` → `limooo.cn/` へ 301、その他のパスはポートフォリオ画像、favicon、ロゴ、QR などの静的アセットを配信します。`image.limooo.cn/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートも `limooo.cn/` へ 301）
 - `www.limooo.cn` → メインサイトへ 301
-- 旧 `.html` URL は 302 で正規ページへ転送します。`/index.html` は `limooo.cn/`、`/services.html` は `services.limooo.cn/`、`/contact.html` は `contact.limooo.cn/` へ転送し、メインドメインと対応するサブドメインの両方で適用します。
+- ルート直下の `x.html` は、`x` が公開ホームページを持つ稼働中のサブドメイン（`services`、`contact`、`docs`、`status`）なら `x.limooo.cn/` へ 302 で転送し、不明な名前なら現在のサイトのホームへ 302 で転送します。`index.html` は現在のホストの正規ホームへ転送します。
 - ナビのリンクは絶対サブドメイン URL（`https://services.limooo.cn` など）を維持します。言語切り替えは純粋にフロントエンドの `applyLang()` で、リロードも URL 変更もありません
 
 ### services.limooo.cn の価格表（CSV 駆動）
