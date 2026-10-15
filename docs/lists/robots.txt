@@ -2,7 +2,8 @@
 #
 # Public site: search engines, crawlers and AI agents are all welcome.
 #
-# This file is served verbatim at /robots.txt **and** it is the source of the
+# The crawler rules below are published at /robots.txt; src/build.py appends
+# a Sitemap line from config-contract.json. This file is also the source of the
 # edge allow-list: every explicitly named User-agent below (everything except
 # `*`) is compiled into functions/_data/gateTrust.ts as GATE_TRUST_CRAWLER_UAS,
 # and those User-Agents skip the human-verification gate (see
@@ -99,6 +100,30 @@ User-agent: AI2Bot
 # have no User-Agent of their own, so they never match a live request.
 User-agent: Google-Extended
 User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /logout
+Disallow: /gate
+Disallow: /__gate
+Disallow: /visitor
+Disallow: /account
+Disallow: /apple
+
+# Generic crawler markers and Tencent app previews. These are self-declared
+# UA signals, not identity checks; they only skip the human-verification gate.
+User-agent: bot
+User-agent: crawler
+User-agent: spider
+User-agent: preview
+User-agent: fetcher
+User-agent: LLM
+User-agent: AI-
+User-agent: QQ/
+User-agent: QQBot
+User-agent: MQQBrowser
+User-agent: MicroMessenger
+User-agent: WeChat
 Allow: /
 Disallow: /api/
 Disallow: /login

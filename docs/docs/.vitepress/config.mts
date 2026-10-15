@@ -254,6 +254,22 @@ const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
 )
 
+const SOCIAL_IMAGE = 'https://images.limooo.cn/static/icons/social-preview.png'
+
+function canonicalUrlForPage(page: string): string | null {
+  const sourcePage = page.startsWith('/') ? page.slice(1) : page
+  if (sourcePage === '404.md') return null
+  const outputPage = sourcePage === 'index.md'
+    ? ''
+    : REWRITES[sourcePage] ?? sourcePage
+  const route = outputPage.endsWith('/index.md')
+    ? outputPage.slice(0, -'/index.md'.length)
+    : outputPage.endsWith('.md')
+      ? outputPage.slice(0, -'.md'.length)
+      : outputPage
+  return new URL(route ? '/' + route : '/', SITE_URL).toString()
+}
+
 /**
  * 价目表 CSV 现在在 site/docs/services/，与 VitePress 根（site/docs/docs/）
  * **同级**，本来就不会进入构建工作区，所以不再需要专门排除 services/。
@@ -273,9 +289,7 @@ export default defineConfig({
     ['link', { rel: 'apple-touch-icon', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
-    ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'Limooo Docs' }],
-    ['meta', { property: 'og:url', content: SITE_URL }],
     [
       'link',
       {
@@ -292,6 +306,30 @@ export default defineConfig({
     ['script', { id: 'limooo-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
   ],
   sitemap: { hostname: SITE_URL },
+  transformHead({ page, title, description }) {
+    const canonicalUrl = canonicalUrlForPage(page)
+    if (!canonicalUrl) return []
+    const pathname = new URL(canonicalUrl).pathname
+    const isHome = pathname === '/' || pathname === '/en-us'
+      || pathname === '/ja-jp' || pathname === '/ko-kr'
+    const pageType = isHome ? 'website' : 'article'
+    return [
+      ['link', { rel: 'canonical', href: canonicalUrl }],
+      ['meta', { property: 'og:type', content: pageType }],
+      ['meta', { property: 'og:title', content: title }],
+      ['meta', { property: 'og:description', content: description }],
+      ['meta', { property: 'og:url', content: canonicalUrl }],
+      ['meta', { property: 'og:image', content: SOCIAL_IMAGE }],
+      ['meta', { property: 'og:image:type', content: 'image/png' }],
+      ['meta', { property: 'og:image:width', content: '1280' }],
+      ['meta', { property: 'og:image:height', content: '640' }],
+      ['meta', { property: 'og:image:alt', content: 'Limooo Studio preview' }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:title', content: title }],
+      ['meta', { name: 'twitter:description', content: description }],
+      ['meta', { name: 'twitter:image', content: SOCIAL_IMAGE }]
+    ]
+  },
   rewrites: REWRITES,
   themeConfig: themeFor(DEFAULT_LANG),
   // 按**源目录**给页面套上对应语言的 lang + themeConfig（纯数据，可序列化）

@@ -36,8 +36,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
     <!-- ── 图标 ── -->
     <!-- ?v= 必须带：/static/*.svg 在 _headers 里是 immutable 一年，换图标后不带版本号会一直吃老缓存 -->
-    <link rel="icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=2" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=2">
+    <link rel="icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3">
     <link rel="preconnect" href="{{ image_asset_base }}">
     <link rel="dns-prefetch" href="{{ image_asset_base }}">
     <link rel="preconnect" href="{{ image_watermark_base }}">
@@ -54,10 +54,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 
 <!-- 设计令牌（颜色/圆角/缓动，全站单一事实源；独立页面 auth/redirect 也引用它） -->
-    <link rel="stylesheet" href="/static/css/tokens.css?v=1">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=2">
 
 <!-- 站点基础样式（由模板内联样式轻量化后抽出的统一 CSS） -->
-    <link rel="stylesheet" href="/static/css/base.css?v=18">
+    <link rel="stylesheet" href="/static/css/base.css?v=19">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -153,7 +153,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=11" defer></script>
+    <script src="/static/js/base.js?v=12" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>

@@ -176,10 +176,11 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
     assert headers.count("/robots.txt\n") == 1
     assert headers.count("/llms.txt\n") == 1
 
-    # robots.txt 是**原样发布** docs/lists/robots.txt —— 同一份文件既是线上规则，
-    # 又是门禁放行名单的唯一来源（ops/check_gate_trust.py 解析它的 User-agent 行）。
+    # 爬虫规则原样来自 docs/lists/robots.txt；构建器按 config-contract.json
+    # 追加 Sitemap，避免在名单源文件里重复维护域名。
     source = Path(build.ROBOTS_SOURCE).read_text(encoding="utf-8")
-    assert (tmp_path / "robots.txt").read_text(encoding="utf-8") == source
+    published = (tmp_path / "robots.txt").read_text(encoding="utf-8")
+    assert published == f"{source.rstrip()}\n\nSitemap: https://{build.ROOT_DOMAIN}/sitemap.xml\n"
     assert "User-agent: *\nAllow: /\n" in source
     for agent in ("GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"):
         assert f"User-agent: {agent}\n" in source

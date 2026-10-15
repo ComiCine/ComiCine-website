@@ -43,7 +43,7 @@ CONTRACT_PATH = ROOT / "config-contract.json"
 # 见 docs/lists/README.md。
 WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
 # robots.txt 是**唯一**的爬虫名单来源（2026-10-12 起）：它同时是线上
-# https://limooo.cn/robots.txt 的内容（src/build.py 原样落盘），这里再解析出
+# https://limooo.cn/robots.txt 的爬虫规则（构建器另追加 Sitemap 行），这里再解析出
 # 每条显式 User-agent 作为门禁放行名单。语义见 docs/lists/README.md。
 ROBOTS_PATH = ROOT / "docs" / "lists" / "robots.txt"
 OUTPUT_PATH = ROOT / "functions" / "_data" / "gateTrust.ts"
