@@ -281,12 +281,32 @@ check_code() {
     echo "[docs] ${path} = ${expected} OK"
 }
 
+check_root_redirect() {
+    local i result code location
+    for i in 1 2 3 4 5 6; do
+        result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}/" || true)"
+        code="${result%%$'\n'*}"
+        location="${result#*$'\n'}"
+        if [ "$code" = 302 ] && [ "$location" = "https://limooo.cn/" ]; then
+            break
+        fi
+        sleep 10
+    done
+    if [ "$code" != 302 ] || [ "$location" != "https://limooo.cn/" ]; then
+        echo "FATAL: https://${DOCS_HOST}/ = ${code} Location: ${location:--} (expected 302 to https://limooo.cn/)" >&2
+        exit 1
+    fi
+    echo "[docs] / = 302 to https://limooo.cn OK"
+}
+
 # 无后缀的内容页路径必须 302 到对应的 /<page>/zh-cn
 for path in /video-platform /README /LICENSE; do
     check_code "$path" 302
 done
 
-for path in / /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \
+check_root_redirect
+
+for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \
     /README/zh-cn /README/en-us /README/ja-jp /README/ko-kr \
     /LICENSE/zh-cn /LICENSE/en-us /LICENSE/ja-jp /LICENSE/ko-kr; do
     check_code "$path" 200
