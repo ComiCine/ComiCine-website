@@ -384,7 +384,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.limooo.cn/` → 방문자 패널(로그인 필요); `account.limooo.cn/apple` → Apple Account 관리자(로그인 필요)
 - `images.limooo.cn/` → `limooo.cn/`으로 301, 다른 경로에서는 포트폴리오 이미지, favicon, logo, QR 코드 등의 정적 자산 제공. `image.limooo.cn/portfolio/<img>` → 정규화 Worker가 만든 워터마크 버전(이 호스트의 루트도 `limooo.cn/`으로 301)
 - `www.limooo.cn` → 메인 사이트로 301
-- 이전 `.html` 주소는 302로 표준 홈페이지에 전달됩니다. `/index.html`은 `limooo.cn/`, `/services.html`은 `services.limooo.cn/`, `/contact.html`은 `contact.limooo.cn/`으로 전달되며, 메인 도메인과 해당 하위 도메인 모두에 적용됩니다.
+- 루트의 `x.html` 별칭은 `x`가 실제 공개 홈페이지 하위 도메인(`services`, `contact`, `docs`, `status`)이면 `x.limooo.cn/`으로 302 전달되고, 알 수 없는 이름이면 현재 사이트의 홈페이지로 302 전달됩니다. `index.html`은 현재 호스트의 표준 홈페이지로 이동합니다.
 - 내비게이션 링크는 절대 서브도메인 URL(`https://services.limooo.cn` 등)을 유지합니다. 언어 전환은 순수 프런트엔드 `applyLang()`이며 새로고침도, URL 변경도 없습니다
 
 ### services.limooo.cn 가격(CSV 기반)
