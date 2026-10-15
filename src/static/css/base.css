@@ -71,7 +71,7 @@
            注意不能用 ::after 造换行——伪元素在 flex item 内部，
            管不到父 flex 容器的换行。 */
         @media (max-width: 559px) {
-            .footer-text > .footer-copyright { flex-basis: 100%; }
+            .footer-text > .footer-copyright { flex: 0 0 100%; white-space: nowrap; }
             /* 换行处不需要 "·"：第二行行首的「保留所有权利」前不能带点 */
             .footer-text > .footer-copyright + .footer-item::before { content: none; }
         }
@@ -104,6 +104,9 @@
             transition: transform 200ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
         }
         .icon-btn:active, .theme-btn:active { transform: scale(0.92); }
+        @media (max-width: 767px) {
+            .site-nav .icon-btn { display: none; }
+        }
         @media (hover: hover) and (pointer: fine) {
             .icon-btn:hover, .theme-btn:hover { background: var(--highlight); opacity: 1; }
         }
@@ -226,6 +229,10 @@
             background: var(--line);
             margin: 0 12px;
             flex-shrink: 0;
+        }
+        .nav-divider-mobile { display: none; }
+        @media (max-width: 767px) {
+            .nav-divider-mobile { display: block; }
         }
 
         /* ── 导航展开菜单 ── */

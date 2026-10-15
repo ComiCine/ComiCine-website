@@ -61,7 +61,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- 站点基础样式（由模板内联样式轻量化后抽出的统一 CSS） -->
-    <link rel="stylesheet" href="/static/css/base.css?v=19">
+    <link rel="stylesheet" href="/static/css/base.css?v=20">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -117,7 +117,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
                     {% endfor %}
                 </div>
             </div>
-            <span class="nav-divider hidden md:block"></span>
+            <span class="nav-divider nav-divider-mobile"></span>
 
             {% block theme_toggle %}
             <!-- 深浅切换（太阳-月亮胶囊滑块） -->
@@ -130,7 +130,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
                 </span>
             </button>
             {% endblock %}
-            <span class="nav-divider hidden md:block"></span>
+            <span class="nav-divider nav-divider-mobile"></span>
 
             {% block social_links %}
             <a class="icon-btn" href="https://github.com/Limooooo-Studio" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
@@ -141,7 +141,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             </a>
             {% endblock %}
 
-            {% block nav_dropdown %}{% endblock %}
+            {% block nav_dropdown %}
+            <div class="theme-toggle nav-mobile-menu">
+                <button class="theme-btn" data-action="toggleMobileMenu" data-needs-event aria-label="{{ _('nav_menu_aria') }}" data-i18n-attr="aria-label:nav_menu_aria">
+                    <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="4" y1="6" x2="20" y2="6"></line>
+                        <line x1="4" y1="12" x2="20" y2="12"></line>
+                        <line x1="4" y1="18" x2="20" y2="18"></line>
+                    </svg>
+                </button>
+                <div id="navLinksDropdown" class="theme-menu">
+                    <div class="theme-option{% if page == 'home' %} selected{% endif %}" data-i18n="nav_home" data-action="navigateTo" data-arg="{{ home_url }}">{{ _('nav_home') }}</div>
+                    <div class="theme-option{% if page == 'services' %} selected{% endif %}" data-i18n="nav_services" data-action="navigateTo" data-arg="{{ services_url }}">{{ _('nav_services') }}</div>
+                    <div class="theme-option{% if page == 'contact' %} selected{% endif %}" data-i18n="nav_contact" data-action="navigateTo" data-arg="{{ contact_url }}">{{ _('nav_contact') }}</div>
+                </div>
+            </div>
+            {% endblock %}
         </div>
     </nav>
     {% endblock %}
