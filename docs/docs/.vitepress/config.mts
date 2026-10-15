@@ -10,8 +10,8 @@
  *
  * **内容页的 URL 一律带显式语言段，默认语言 zh-cn 也不例外**；不带语言段的
  * `/video-platform`、`/README`、`/LICENSE` 由 docs/public/_redirects 302 到
- * 对应的 `/.../zh-cn`（2026-10-08 定）。首页是唯一的例外：`/` 就是 zh-cn，
- * `/en-us`、`/ja-jp`、`/ko-kr` 是其它语言。
+ * 对应的 `/.../zh-cn`（2026-10-08 定）。docs 主域根路径 `/` 由 public/_redirects
+ * 302 到主站；其它语言首页仍是 `/en-us`、`/ja-jp`、`/ko-kr`。
  *
  * site/docs/ 是**按子域分目录**的容器：docs/ 归 docs.limooo.cn（本目录），
  * services/ 归 services.limooo.cn（价目表 CSV，由 src/services_pricing.py 读取）。
@@ -91,6 +91,7 @@ interface Labels {
   sidebarMenuLabel: string
   darkModeSwitchLabel: string
   langMenuLabel: string
+  navMenuLabel: string
   prev: string
   next: string
   footerRights: string
@@ -114,6 +115,7 @@ const labels: Record<string, Labels> = {
     sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '外观',
     langMenuLabel: '切换语言',
+    navMenuLabel: '菜单',
     prev: '上一页',
     next: '下一页',
     footerRights: '保留所有权利',
@@ -135,6 +137,7 @@ const labels: Record<string, Labels> = {
     sidebarMenuLabel: 'Menu',
     darkModeSwitchLabel: 'Appearance',
     langMenuLabel: 'Change language',
+    navMenuLabel: 'Menu',
     prev: 'Previous page',
     next: 'Next page',
     footerRights: 'All rights reserved',
@@ -156,6 +159,7 @@ const labels: Record<string, Labels> = {
     sidebarMenuLabel: 'メニュー',
     darkModeSwitchLabel: '外観',
     langMenuLabel: '言語を変更',
+    navMenuLabel: 'メニュー',
     prev: '前のページ',
     next: '次のページ',
     footerRights: 'All rights reserved',
@@ -177,6 +181,7 @@ const labels: Record<string, Labels> = {
     sidebarMenuLabel: '메뉴',
     darkModeSwitchLabel: '테마',
     langMenuLabel: '언어 변경',
+    navMenuLabel: '메뉴',
     prev: '이전 페이지',
     next: '다음 페이지',
     footerRights: '모든 권리 보유',
@@ -214,6 +219,7 @@ function themeFor(code: string): DefaultTheme.Config {
     sidebarMenuLabel: L.sidebarMenuLabel,
     darkModeSwitchLabel: L.darkModeSwitchLabel,
     langMenuLabel: L.langMenuLabel,
+    navMenuLabel: L.navMenuLabel,
     docFooter: { prev: L.prev, next: L.next },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/Limooooo-Studio' },
@@ -305,7 +311,10 @@ export default defineConfig({
     // 灌进 localStorage，避免与主站深浅模式不一致造成的首屏闪烁。
     ['script', { id: 'limooo-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
   ],
-  sitemap: { hostname: SITE_URL },
+  sitemap: {
+    hostname: SITE_URL,
+    transformItems: (items) => items.filter((item) => new URL(item.url, SITE_URL).pathname !== '/')
+  },
   transformHead({ page, title, description }) {
     const canonicalUrl = canonicalUrlForPage(page)
     if (!canonicalUrl) return []
