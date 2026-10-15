@@ -169,9 +169,6 @@
     overflow-wrap: anywhere;
 }
 .currency-reference:empty { visibility: hidden; }
-/* 正片卡(有 tag):价格组相对整卡垂直居中。用 translateY 平移(不参与布局,
-   不会撑高卡片导致中心漂移),内容贴底对齐保持不变 */
-.plan:has(.plan-tag) .plan-price { transform: translateY(-8px); }
 /* 移动端两列时缩小价格,避免与右侧单位重叠 */
 @media (max-width: 639px) {
     .plan-price { font-size: 24px; height: 96px; }
