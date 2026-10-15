@@ -107,7 +107,6 @@
 #   LIMOOO_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
 #   LIMOOO_ALLOW_DIRTY=1      deploy --pages / --docs with a dirty working tree
 #   LIMOOO_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
-#   LIMOOO_GIT_FILE_LIST_LIMIT=N  max file names printed per commit (default 20)
 # Credentials are read from local secrets/webauthn.env; never written to disk or echoed.
 # END-USAGE
 
@@ -125,8 +124,6 @@ WORKER=""
 DRY_RUN=0
 COMMIT_MESSAGE=""
 VERBOSE="${LIMOOO_DEPLOY_VERBOSE:-0}"
-# 提交时最多列出多少个文件名，超出只报剩余数量（避免一次提交刷屏）
-GIT_FILE_LIST_LIMIT="${LIMOOO_GIT_FILE_LIST_LIMIT:-20}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -508,8 +505,6 @@ if [ "$DO_COMMIT" = 1 ]; then
         else
             # 文件名与状态要先取：短 SHA 只有提交后才知道，所以先 commit，再打印这一块
             staged_status="$(git diff --cached --name-status)"
-            staged_total=0
-            [ -n "$staged_status" ] && staged_total="$(printf '%s\n' "$staged_status" | wc -l | tr -d ' ')"
             # 提交信息：有 -m/--message 就 "deploy: <msg>"，否则沿用带时间戳的自动信息
             if [ -n "$COMMIT_MESSAGE" ]; then
                 commit_subject="deploy: $COMMIT_MESSAGE"
@@ -520,28 +515,20 @@ if [ "$DO_COMMIT" = 1 ]; then
             git commit -m "$commit_subject" >/dev/null
             # 版本号 = 本次新提交的短 SHA
             committed_sha="$(git rev-parse --short HEAD)"
-            # 变更文件表（2026-10-13 改）：**少数文件并进同一行**，多了才逐行列出。
-            # 用户对旧输出的原话是「有些条目可以合并」—— 提交行 + 缩进的文件清单本来是
-            # 1+N 行，而绝大多数部署只有一两个文件，值不得那份版面。
             # 状态字母取自 git --name-status（A 新增 / D 删除 / M 修改 / R 重命名...）。
+            # 提交里的文件必须完整列出，不按数量截断。
             STAGED_LINES=()
-            staged_shown=0
             while IFS="$(printf '\t')" read -r st path_old path_new; do
                 [ -z "$st" ] && continue
-                [ "$staged_shown" -ge "$GIT_FILE_LIST_LIMIT" ] && break
                 # git 对重命名/复制给出 "R100\told\tnew"，展示新路径
                 [ -n "$path_new" ] && path_old="$path_new"
                 STAGED_LINES+=("${st:0:1} ${path_old}")
-                staged_shown=$((staged_shown + 1))
             done <<< "$staged_status"
-            staged_more=$((staged_total - staged_shown))
-            # 用户 2026-10-13 明确「撤回此修改」：提交行回到原样 —— `committed <sha>`
-            # 单独一行，变更文件逐行缩进列出（不再挤成 `(N files: a, b, +N more)`）。
+            # `committed <sha>` 单独一行，提交中的每个文件逐行缩进列出。
             echo "Git: committed $committed_sha"
             for staged_line in "${STAGED_LINES[@]}"; do
                 echo "   ${staged_line}"
             done
-            [ "$staged_more" -gt 0 ] && echo "     ... and ${staged_more} more"
         fi
         # 刚提交的这棵树就是 ⓪ 里检查过的内容，pre-push hook 不必再跑一遍。
         export LIMOOO_CI_CHECKED_SHA="$(git rev-parse HEAD)"

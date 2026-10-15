@@ -297,6 +297,22 @@ def test_deploy_commits_when_the_list_refresh_changes_the_tree(tmp_path):
     assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
 
 
+def test_deploy_commit_output_lists_every_changed_file(tmp_path):
+    repo = make_repo(tmp_path)
+    names = [f"changed_{index:02}.txt" for index in range(25)]
+    for name in names:
+        (repo / name).write_text("changed\n")
+    git(["add", *names], repo)
+
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = result.stdout.splitlines()
+    for name in names:
+        assert f"   A {name}" in lines
+    assert not any("... and " in line for line in lines)
+
+
 def test_deploy_lists_step_can_be_skipped_and_made_strict(tmp_path):
     """两个逃生阀：跳过抓取 / 抓不到就失败。
 

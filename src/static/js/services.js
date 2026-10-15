@@ -153,6 +153,7 @@ setTimeout(function() {
     var activeTrigger = null;
     var currencyData = readCache();
     var requestPromise = null;
+    var ratesFailed = false;
     var currencyMetadataCache = Object.create(null);
     var cachedFormatterCode = '';
     var cachedFormatterLocale = '';
@@ -160,6 +161,10 @@ setTimeout(function() {
     var renderedData = null;
     var renderedQuery = null;
     var renderedSelection = null;
+    var renderedCountryIndexReady = false;
+    var countrySearchIndexReady = false;
+    var countrySearchIndexScheduled = false;
+    var renderGeneration = 0;
 
     function translate(key, params) {
         return typeof window.limoooTranslate === 'function' ? window.limoooTranslate(key, params) : key;
@@ -220,15 +225,20 @@ setTimeout(function() {
         return symbol;
     }
 
-    function localCurrencyMetadata(code) {
-        if (Object.prototype.hasOwnProperty.call(currencyMetadataCache, code)) return currencyMetadataCache[code];
-        var name = '';
-        if (currencyNames) {
-            try { name = currencyNames.of(code); } catch (_) {}
+    function localCurrencyMetadata(code, includeSymbol) {
+        var metadata = currencyMetadataCache[code];
+        if (!metadata) {
+            var name = '';
+            if (currencyNames) {
+                try { name = currencyNames.of(code); } catch (_) {}
+            }
+            if (!name || name === code) name = code;
+            metadata = { name: name };
+            currencyMetadataCache[code] = metadata;
         }
-        if (!name || name === code) name = code;
-        var metadata = { name: name, symbol: currencySymbol(code) };
-        currencyMetadataCache[code] = metadata;
+        if (includeSymbol && !Object.prototype.hasOwnProperty.call(metadata, 'symbol')) {
+            metadata.symbol = currencySymbol(code);
+        }
         return metadata;
     }
 
@@ -261,6 +271,7 @@ setTimeout(function() {
             rates.CNY = 1;
             var data = { date: date, savedAt: Date.now(), rates: rates, rateDates: rateDates, currencies: currencies };
             currencyData = data;
+            ratesFailed = false;
             saveCache(data);
             reconcileSelection(data);
             return data;
@@ -306,8 +317,10 @@ setTimeout(function() {
         map[key].push(value);
     }
 
-    function buildCountrySearchIndex() {
-        Object.keys(TERRITORY_CURRENCIES).forEach(function(region) {
+    var territoryCodes = Object.keys(TERRITORY_CURRENCIES);
+    var territoryIndexCursor = 0;
+
+    function indexTerritory(region) {
             var name = '';
             try { name = regionNames ? regionNames.of(region) : ''; } catch (_) {}
             var aliases = [region, name].concat(TERRITORY_ALIASES[region] || []);
@@ -317,14 +330,39 @@ setTimeout(function() {
                 if (REGIONS_BY_CURRENCY[code].indexOf(region) === -1) REGIONS_BY_CURRENCY[code].push(region);
                 aliases.forEach(function(alias) { addUnique(COUNTRY_ALIASES_BY_CURRENCY, code, alias); });
             });
-        });
     }
 
-    buildCountrySearchIndex();
+    function scheduleCountrySearchIndex() {
+        if (countrySearchIndexReady || countrySearchIndexScheduled) return;
+        countrySearchIndexScheduled = true;
+        function processChunk() {
+            var end = Math.min(territoryIndexCursor + 24, territoryCodes.length);
+            while (territoryIndexCursor < end) {
+                indexTerritory(territoryCodes[territoryIndexCursor]);
+                territoryIndexCursor += 1;
+            }
+            if (territoryIndexCursor < territoryCodes.length) {
+                if (typeof window.requestIdleCallback === 'function') {
+                    window.requestIdleCallback(processChunk, { timeout: 500 });
+                } else {
+                    window.setTimeout(processChunk, 0);
+                }
+                return;
+            }
+            countrySearchIndexReady = true;
+            countrySearchIndexScheduled = false;
+            if (!picker.hidden) renderOptions();
+        }
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(processChunk, { timeout: 500 });
+        } else {
+            window.setTimeout(processChunk, 0);
+        }
+    }
 
-    function currencyMetadata(code, data) {
+    function currencyMetadata(code, data, includeSymbol) {
         var apiMetadata = data && data.currencies[code];
-        var fallback = apiMetadata && apiMetadata.name && apiMetadata.symbol ? apiMetadata : localCurrencyMetadata(code);
+        var fallback = localCurrencyMetadata(code, includeSymbol);
         var name = apiMetadata && apiMetadata.name || fallback.name;
         var info = CURRENCY_META[code] || {};
         var regions = REGIONS_BY_CURRENCY[code] || [];
@@ -334,7 +372,7 @@ setTimeout(function() {
                 return 0x1F1E6 + letter.charCodeAt(0) - 65;
             }));
         }
-        return { name: name, symbol: apiMetadata && apiMetadata.symbol || fallback.symbol, flag: flag };
+        return { name: name, symbol: apiMetadata && apiMetadata.symbol || fallback.symbol || '', flag: flag };
     }
 
     function matchesSearch(haystack, query) {
@@ -346,7 +384,7 @@ setTimeout(function() {
     function makeOption(code, data) {
         var info = currencyMetadata(code, data);
         var row = document.createElement('button');
-        var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0);
+        var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0) || (!data && !ratesFailed);
         row.type = 'button';
         row.className = 'currency-option';
         row.setAttribute('role', 'option');
@@ -380,9 +418,15 @@ setTimeout(function() {
     function renderOptions() {
         var data = currencyData;
         var query = normalize(search.value);
-        if (data === renderedData && query === renderedQuery && selected === renderedSelection) return;
-        var rows = [];
-        var codes = data ? Object.keys(data.rates) : [];
+        if (data === renderedData && query === renderedQuery && selected === renderedSelection && countrySearchIndexReady === renderedCountryIndexReady) return;
+        var codes = data ? Object.keys(data.rates) : Object.keys(CURRENCY_META);
+        if (!data) {
+            Object.keys(TERRITORY_CURRENCIES).forEach(function(region) {
+                TERRITORY_CURRENCIES[region].forEach(function(code) {
+                    if (codes.indexOf(code) === -1) codes.push(code);
+                });
+            });
+        }
         if (codes.indexOf('CNY') === -1) codes.push('CNY');
         codes.sort(function(a, b) {
             var ai = PRIORITY.indexOf(a); var bi = PRIORITY.indexOf(b);
@@ -391,28 +435,46 @@ setTimeout(function() {
             if (bi === -1) return -1;
             return ai - bi;
         });
-        codes.forEach(function(code) {
-            if (!/^[A-Z]{3}$/.test(code)) return;
-            var metadata = currencyMetadata(code, data);
-            var info = CURRENCY_META[code] || {};
-            var countryAliases = COUNTRY_ALIASES_BY_CURRENCY[code] || [];
-            var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
-            var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.name));
-            if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) return;
-            rows.push(makeOption(code, data));
-        });
-        var fragment = document.createDocumentFragment();
-        rows.forEach(function(row) { fragment.appendChild(row); });
-        if (!rows.length) {
-            var empty = document.createElement('p');
-            empty.className = 'currency-option-empty';
-            empty.textContent = translate('currency_no_results');
-            fragment.appendChild(empty);
-        }
-        options.replaceChildren(fragment);
+        var includeSymbols = /[$£€¥￥₩₹฿₫₱₪₦₵₡₲₴₭₮₺₸₽₨₼₾¢₿]/.test(query);
+        var generation = ++renderGeneration;
+        var cursor = 0;
+        var matchCount = 0;
+        options.replaceChildren();
         renderedData = data;
         renderedQuery = query;
         renderedSelection = selected;
+        renderedCountryIndexReady = countrySearchIndexReady;
+
+        function renderBatch() {
+            if (generation !== renderGeneration) return;
+            var fragment = document.createDocumentFragment();
+            var end = Math.min(cursor + 24, codes.length);
+            while (cursor < end) {
+                var code = codes[cursor++];
+                if (!/^[A-Z]{3}$/.test(code)) continue;
+                var metadata = currencyMetadata(code, data, includeSymbols);
+                var info = CURRENCY_META[code] || {};
+                var countryAliases = COUNTRY_ALIASES_BY_CURRENCY[code] || [];
+                var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
+                var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.name));
+                if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) continue;
+                fragment.appendChild(makeOption(code, data));
+                matchCount += 1;
+            }
+            if (fragment.childNodes.length) options.appendChild(fragment);
+            if (cursor < codes.length) {
+                window.setTimeout(renderBatch, 0);
+                return;
+            }
+            if (!matchCount && generation === renderGeneration) {
+                var empty = document.createElement('p');
+                empty.className = 'currency-option-empty';
+                empty.textContent = translate('currency_no_results');
+                options.appendChild(empty);
+            }
+        }
+
+        renderBatch();
     }
 
     function amountFormatter(code) {
@@ -469,6 +531,9 @@ setTimeout(function() {
     function closePicker() {
         if (picker.hidden) return;
         picker.hidden = true;
+        renderGeneration += 1;
+        renderedData = undefined;
+        renderedQuery = null;
         document.body.style.overflow = document.querySelector('.service-modal.open') ? 'hidden' : '';
         if (activeTrigger && document.contains(activeTrigger)) activeTrigger.focus();
         activeTrigger = null;
@@ -514,7 +579,11 @@ setTimeout(function() {
             openPicker(trigger);
             return;
         }
-        if (event.target.closest && event.target.closest('[data-currency-close]')) {
+    });
+
+    picker.addEventListener('click', function(event) {
+        var closeTrigger = event.target.closest && event.target.closest('[data-currency-close]');
+        if (closeTrigger) {
             closePicker();
             return;
         }
@@ -524,7 +593,7 @@ setTimeout(function() {
             return;
         }
         var code = option.dataset.currencyCode;
-        if (!/^[A-Z]{3}$/.test(code || '') || (code !== 'CNY' && (!currencyData || !Number.isFinite(currencyData.rates[code])))) return;
+        if (!/^[A-Z]{3}$/.test(code || '') || (code !== 'CNY' && ratesFailed && (!currencyData || !Number.isFinite(currencyData.rates[code])))) return;
         savePreference(code);
         syncRenderedSelection();
         applyReferences();
@@ -532,7 +601,6 @@ setTimeout(function() {
     });
 
     search.addEventListener('input', renderOptions);
-    picker.querySelector('.currency-picker-panel').addEventListener('click', function(event) { event.stopPropagation(); });
     document.addEventListener('keydown', function(event) {
         if (picker.hidden) return;
         if (event.key === 'Escape') {
@@ -552,13 +620,16 @@ setTimeout(function() {
         }
     });
 
+    scheduleCountrySearchIndex();
     ensureData().then(function(data) {
         currencyData = data;
         reconcileSelection(data);
-        renderOptions();
+        if (!picker.hidden) renderOptions();
         updateStatus(data);
         applyReferences();
     }).catch(function() {
+        ratesFailed = true;
+        reconcileSelection(currencyData);
         renderOptions();
         updateStatus(currencyData, true);
     });

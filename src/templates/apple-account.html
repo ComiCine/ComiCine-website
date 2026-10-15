@@ -20,7 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% block title %}{{ _('page_title_apple_account') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/apple-account.css?v=2">
+<link rel="preload" as="script" href="/static/js/apple-account.js?v=3">
+<link rel="stylesheet" href="/static/css/apple-account.css?v=3">
 {% endblock %}
 
 {% block nav_links %}

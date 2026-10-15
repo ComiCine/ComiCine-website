@@ -18,17 +18,23 @@
 }
 .copyable:hover .bubble-tip {
     opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+    color: var(--hover-highlight); border-color: var(--hover-highlight-border);
 }
 
 /* ── 悬停底部线条（仿链接下划线动效） ── */
 .copyable { position: relative; cursor: pointer; }
 .hover-line {
     position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
-    background-color: var(--text);
+    background-color: var(--hover-highlight);
     transform: scaleX(0); transform-origin: left;
     transition: transform 0.5s var(--ease-out);
 }
 .copyable:hover .hover-line { transform: scaleX(1); }
+
+@media (hover: hover) and (pointer: fine) {
+    .copyable:hover { color: var(--hover-highlight); }
+    .copyable a:hover { color: var(--hover-highlight); opacity: 1; }
+}
 
 /* ── 桌面端：二维码浮层（悬停社交链接时在屏幕右侧显示） ── */
 @media (hover: hover) {
