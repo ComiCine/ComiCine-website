@@ -1,72 +1,72 @@
-# ── Python ──
+# Python
 __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# ── Python 覆盖率产物（pytest-cov / vitest --coverage） ──
+# Python 覆盖率产物（pytest-cov / vitest --coverage）
 .coverage
 .coverage.*
 coverage/
 htmlcov/
 
-# ── macOS ──
+# macOS
 .DS_Store
 
-# ── 本地开发文件 ──
+# 本地开发文件
 chrome.txt
 node_modules/
 
-# ── Claude Code 配置 ──
+# Claude Code 配置
 .claude/
 
-# ── D1 迁移本地状态（不入库；apply 记录只在本机有意义） ──
+# D1 迁移本地状态（不入库；apply 记录只在本机有意义）
 .d1-migrations/
 
-# ── Cloudflare Pages 本地密钥 ──
+# Cloudflare Pages 本地密钥
 .dev.vars
 .dev.vars.example
 
-# ── wrangler 本地运行缓存 ──
+# wrangler 本地运行缓存
 .wrangler/
 
-# ── npm 恢复期留下的依赖备份（体积巨大，只能靠本规则挡住；见 docs/22 W8-2） ──
+# npm 恢复期留下的依赖备份（体积巨大，只能靠本规则挡住；见 docs/22 W8-2）
 node_modules.recovery-*
 
-# ── Pages 本地构建环境（自动创建，不入库；含 iCloud 冲突副本 ".venv-build 2"） ──
+# Pages 本地构建环境（自动创建，不入库；含 iCloud 冲突副本 ".venv-build 2"）
 .venv-build*/
 
-# ── Pages 构建产物（仅保留占位文件） ──
+# Pages 构建产物（仅保留占位文件）
 public/*
 !public/.gitkeep
 
-# ── 子域预览（构建生成，仅本地预览用） ──
+# 子域预览（构建生成，仅本地预览用）
 preview/*
 !preview/.gitkeep
 
-# ── 作品原图（体积大，不入库；本地保留 + 私有 R2 桶 limooo-originals） ──
+# 作品原图（体积大，不入库；本地保留 + 私有 R2 桶 limooo-originals）
 src/static/portfolio/
 
-# ── 迁移导出（含加密密码等敏感数据，绝不入库） ──
+# 迁移导出（含加密密码等敏感数据，绝不入库）
 ops/out/
 
-# ── 运行时数据库（服务端自动生成） ──
+# 运行时数据库（服务端自动生成）
 *.db
 *.db-shm
 *.db-wal
 
-# ── 密钥与证书（私钥、令牌一律不入库；凭据只走 Secrets 或本机 secrets/） ──
+# 密钥与证书（私钥、令牌一律不入库；凭据只走 Secrets 或本机 secrets/）
 secrets/
 *.pem
 *.key
 
-# ── GeoIP 数据库（体积大，不入库） ──
+# GeoIP 数据库（体积大，不入库）
 *.mmdb
 
-# ── 本地运维文件 ──
+# 本地运维文件
 各种密钥.txt
 Logs/
 data/*.log
 
-# ── 服务器重置备份（数据库 dump 等，绝不入库） ──
+# 服务器重置备份（数据库 dump 等，绝不入库）
 backup-limooo-*/
 ops/backups/

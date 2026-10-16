@@ -22,7 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <!-- ── 子页面可覆盖的 meta（配色方案各页面不同） ── -->
+    <!-- 子页面可覆盖的 meta（配色方案各页面不同） -->
     {% block head_meta %}
     <meta name="color-scheme" content="dark light">
     {% endblock %}
@@ -38,7 +38,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
     <link rel="preload" href="/static/js/base.js?v=12" as="script">
 
-    <!-- ── 图标 ── -->
+    <!-- 图标 -->
     <!-- ?v= 必须带：/static/*.svg 在 _headers 里是 immutable 一年，换图标后不带版本号会一直吃老缓存 -->
     <link rel="icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3">
@@ -70,7 +70,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <!-- 闪光灯组件（由各页面按需启用，默认隐藏） -->
     {% block flash %}{% endblock %}
 
-    <!-- ═══ 导航栏 ═══ -->
+    <!-- 导航栏 -->
     {% set is_prod = request.host.endswith('limooo.cn') %}
     {% set home_url = 'https://limooo.cn' if is_prod else '/' %}
     {% set services_url = 'https://services.limooo.cn' if is_prod else '/services' %}
@@ -161,10 +161,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </nav>
     {% endblock %}
 
-    <!-- ═══ 主体内容（各页面各自填充） ═══ -->
+    <!-- 主体内容（各页面各自填充） -->
     {% block content %}{% endblock %}
 
-    <!-- ═══ 底部版权（页脚“源码在此”可点击直达源码仓库） ═══ -->
+    <!-- 底部版权（页脚“源码在此”可点击直达源码仓库） -->
     {% block footer %}
     {% block footer_markup %}
     {% include "_footer.html" %}

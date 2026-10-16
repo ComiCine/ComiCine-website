@@ -138,7 +138,7 @@ export function fmt(template: string, params: Record<string, string>): string {
 
 /** 基准语言 = 键集的唯一事实源；其余语言由类型系统强制对齐。 */
 const ZH_CN = {
-  // ── 页面本体 ──────────────────────────────────────────────
+  // 页面本体
   title: "系统状态",
   sub: "Limooo 各项服务的实时可用性。",
   overall_all: "全部系统运行正常",
@@ -159,7 +159,7 @@ const ZH_CN = {
   card_d1: "Limooo D1 健康检查",
   card_status: "边缘静态资源",
 
-  // ── 页面级故障（渲染失败 / 地址不存在）──────────────────────
+  // 页面级故障（渲染失败 / 地址不存在）
   err_title: "状态数据暂时不可用",
   err_text: "无法从数据库读取探针数据，请稍后重试。",
   err_retry: "重试",
@@ -168,7 +168,7 @@ const ZH_CN = {
   back_status: "状态页",
   back_home: "回到 limooo.cn",
 
-  // ── 页头 / 页脚（与 site/locales/*.json 同名键同值）──────────
+  // 页头 / 页脚（与 site/locales/*.json 同名键同值）
   nav_home: "主页",
   nav_services: "服务",
   nav_contact: "联系方式",
@@ -180,7 +180,7 @@ const ZH_CN = {
   footer_source: "AGPL-3.0",
   footer_source_link: "源码",
 
-  // ── 探针结果码 ────────────────────────────────────────────
+  // 探针结果码
   err_ok: "探针正常",
   err_no_data: "暂无探测记录",
   err_unexpected_result: "探针返回了非预期结果",

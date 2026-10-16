@@ -1,6 +1,6 @@
-        /* ═══════════════════════════════════════════════════════════════
+        /*
            Apple Account 页面样式（导航栏 / 主题菜单 / 全局基础样式见 base.html）
-           ═══════════════════════════════════════════════════════════════ */
+           */
 
         /* base 的 html,body 为 overflow:hidden,本页需纵向滚动 */
         html, body { overflow-y: auto; height: auto; min-height: 100%; }
@@ -40,7 +40,7 @@
 
         .account-actions { display:flex;gap:2px;flex-shrink:0; }
 
-        /* ── 通用按钮（原 login.html） ── */
+        /* 通用按钮（原 login.html） */
         .btn { padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing: calc(0.02em*var(--ls-scale));color:var(--text-inverse);transition:opacity 0.2s,transform 0.15s var(--ease-out); }
         .btn:active { transform:scale(0.96); }
         .btn-primary { background:var(--accent);color:var(--text-inverse); }
