@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""tasks/14 门禁信任白名单解析测试。"""
+"""Task 14: Tests for gate trust whitelist parsing."""
 
 from pathlib import Path
 
 import pytest
 
-from ops import check_gate_trust
+from ops import check_gate_trust, sync_whitelist
 
 
 def test_load_whitelist(tmp_path: Path):
@@ -39,8 +39,60 @@ def test_load_whitelist(tmp_path: Path):
     assert networks == [("97.64.18.11", 32), ("2001:db8::", 64)]
 
 
+def test_normalizes_valid_networks_and_accepts_policy_boundaries():
+    asns, networks = check_gate_trust.parse_whitelist(
+        [
+            "ASN/1",
+            "ASN/4294967295",
+            "IP-CIDR/198.51.100.27/24",
+            "IP-CIDR/2001:db8:1::1/64",
+            "IP-CIDR/2001:db8::1/128",
+        ]
+    )
+
+    assert asns == [1, 4294967295]
+    assert networks == [
+        ("198.51.100.0", 24),
+        ("2001:db8:1::", 64),
+        ("2001:db8::1", 128),
+    ]
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "ASN/0",
+        "ASN/4294967296",
+        "IP-CIDR/not-an-ip/32",
+        "IP-CIDR/97.64.18.11/33",
+        "IP-CIDR/97.64.18.0/23",
+        "IP-CIDR/0.0.0.0/0",
+        "IP-CIDR/2001:db8::/63",
+        "IP-CIDR/2001:db8::/129",
+    ],
+)
+def test_rejects_invalid_or_overbroad_entries(entry: str):
+    with pytest.raises(RuntimeError):
+        check_gate_trust.parse_whitelist([entry])
+
+
 def test_rejects_unknown_line(tmp_path: Path):
     path = tmp_path / "whitelist.txt"
     path.write_text("BOGUS/1\n", encoding="utf-8")
     with pytest.raises(RuntimeError):
         check_gate_trust.load_whitelist(path)
+
+
+def test_sync_source_validation_prevents_overwriting_generated_list(
+    tmp_path: Path, monkeypatch, capsys
+):
+    source = tmp_path / "own-ips.txt"
+    target = tmp_path / "whitelist.txt"
+    source.write_text("IP-CIDR/0.0.0.0/0\n", encoding="utf-8")
+    target.write_text("keep existing output\n", encoding="utf-8")
+    monkeypatch.setattr(sync_whitelist, "OWN_IPS", source)
+    monkeypatch.setattr(sync_whitelist, "WHITELIST", target)
+
+    assert sync_whitelist.main() == 1
+    assert target.read_text(encoding="utf-8") == "keep existing output\n"
+    assert "CIDR is too broad" in capsys.readouterr().err

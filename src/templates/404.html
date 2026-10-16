@@ -1,0 +1,43 @@
+{# Limooo - branded not-found page
+
+Copyright (C) 2026 Limooo <https://limooo.cn/>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
+
+{% extends "base.html" %}
+
+{% block head_meta %}
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="refresh" content="3;url=https://{{ root_domain }}/">
+{% endblock %}
+
+{% block title %}{{ _('not_found_title') }}{% endblock %}
+
+{% block head_links %}
+<link rel="stylesheet" href="/static/css/404.css?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="not-found-main" aria-labelledby="not-found-heading">
+    <section class="not-found-panel">
+        <p class="not-found-code" aria-hidden="true">404</p>
+        <span class="not-found-divider" aria-hidden="true"></span>
+        <h1 id="not-found-heading" data-i18n="not_found_heading">{{ _('not_found_heading') }}</h1>
+        <p class="not-found-message" data-i18n="not_found_message">{{ _('not_found_message') }}</p>
+        <p class="not-found-redirect" data-i18n="not_found_redirect">{{ _('not_found_redirect') }}</p>
+        <a class="not-found-home" href="https://{{ root_domain }}/" data-i18n="nav_home">{{ _('nav_home') }}</a>
+    </section>
+</main>
+{% endblock %}

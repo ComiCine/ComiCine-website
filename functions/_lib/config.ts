@@ -81,6 +81,7 @@ export const CONTRACT = {
       "/index.html": "index.html",
       "/services": "services.html",
       "/contact": "contact.html",
+      "/404": "not-found.html",
       "/portfolio": "index.html"
     },
     "www.limooo.cn": {
