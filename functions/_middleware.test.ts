@@ -297,6 +297,133 @@ describe("force theme challenge", () => {
   });
 });
 
+describe("legacy HTML redirects", () => {
+  it.each([
+    ["https://limooo.cn/www.html", "https://limooo.cn/"],
+    ["https://limooo.cn/images.html", "https://limooo.cn/"],
+    ["https://limooo.cn/portfolio.html", "https://limooo.cn/portfolio"],
+    ["https://limooo.cn/visitor.html", "https://visitor.limooo.cn/"],
+    ["https://limooo.cn/apple-account.html", "https://account.limooo.cn/"],
+    ["https://limooo.cn/redirect.html", "https://redirect.limooo.cn/"],
+    ["https://limooo.cn/status.html", "https://status.limooo.cn/"],
+    ["https://services.limooo.cn/index.html", "https://services.limooo.cn/"],
+  ])("redirects known alias %s to %s", async (requestUrl, target) => {
+    const resp = await handleOnRequest(context(new Request(requestUrl)));
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe(target);
+  });
+
+  it("redirects known aliases before the images static-only handler and preserves query", async () => {
+    let assetCalls = 0;
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://images.limooo.cn/services.html?from=legacy"),
+        {
+          ASSETS: {
+            fetch: async () => {
+              assetCalls += 1;
+              return new Response("missing", { status: 404 });
+            },
+          },
+        },
+      ),
+    );
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe(
+      "https://services.limooo.cn/?from=legacy",
+    );
+    expect(assetCalls).toBe(0);
+  });
+
+  it("routes known www aliases directly to their destination", async () => {
+    const resp = await handleOnRequest(
+      context(new Request("https://www.limooo.cn/contact.html")),
+    );
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe("https://contact.limooo.cn/");
+  });
+
+  it("sends the docs alias to the main site without the docs-root redirect hop", async () => {
+    const resp = await handleOnRequest(
+      context(new Request("https://limooo.cn/docs.html")),
+    );
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+  });
+
+  it("does not turn unknown html paths into redirects to the current host root", async () => {
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://limooo.cn/not-a-page.html", {
+          headers: { "CF-Connecting-IP": "97.64.18.11" },
+        }),
+      ),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Location")).toBeNull();
+    await expect(resp.text()).resolves.toBe("next");
+  });
+
+  it("does not apply legacy aliases to unlisted subdomains", async () => {
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://preview.limooo.cn/services.html", {
+          headers: { "CF-Connecting-IP": "97.64.18.11" },
+        }),
+      ),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Location")).toBeNull();
+  });
+
+  it("keeps forced challenges ahead of known aliases", async () => {
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://limooo.cn/services.html?challenge=1", {
+          headers: { "CF-Connecting-IP": "97.64.18.11" },
+        }),
+        {
+          ASSETS: {
+            fetch: async () => new Response("{{host}} {{next}}", {
+              headers: { "Content-Type": "text/html" },
+            }),
+          },
+        },
+      ),
+    );
+
+    expect(resp.status).toBe(403);
+    expect(resp.headers.get("Location")).toBeNull();
+  });
+});
+
+describe("images host routing", () => {
+  it("keeps permanent redirects for retired landing paths", async () => {
+    const resp = await handleOnRequest(
+      context(new Request("https://images.limooo.cn/index.html")),
+    );
+
+    expect(resp.status).toBe(301);
+    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+  });
+
+  it("never forwards API paths to Pages Functions", async () => {
+    const resp = await handleOnRequest(
+      context(new Request("https://images.limooo.cn/api/visitors")),
+    );
+
+    expect(resp.status).toBe(404);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    await expect(resp.text()).resolves.toBe("Not Found");
+  });
+});
+
 describe("public /files", () => {
   const assetsEnv = (env: Partial<Env> = {}) => ({
     ASSETS: {
