@@ -63,7 +63,7 @@ def test_window_is_complete_utc_days_only() -> None:
     assert end == f"(unixepoch() / {DAY}) * {DAY}", "the window must end at the current UTC midnight"
     assert start == f"{end} - {7 * DAY}", "the window must be a whole number of days back"
     sql = prune_d1._aggregate_sql(7)
-    # 旧写法是 `ts >= unixepoch() - 86400`：包含当天、且与整点无关。
+    # The old expression `ts >= unixepoch() - 86400` included the current day and was not aligned to UTC midnight.
     assert "unixepoch() - 86400" not in sql
     assert f"ts >= {start} AND ts < {end}" in sql
     assert f"last_ts >= {start} AND last_ts < {end}" in sql
@@ -85,7 +85,7 @@ def test_aggregation_never_shrinks_and_skips_the_current_day() -> None:
             (1, "h1", "US", 200, yesterday + 3600, "home"),
             (2, "h1", "US", 200, yesterday + 7200, "home"),
             (3, "h2", "JP", 200, two_days_ago + 3600, "home"),
-            (4, "h3", "US", 200, today + 60, "home"),  # 当天：不能进聚合表
+            (4, "h3", "US", 200, today + 60, "home"),  # Current day: must not enter the aggregate table.
         ],
     )
     con.execute(
@@ -105,10 +105,10 @@ def test_aggregation_never_shrinks_and_skips_the_current_day() -> None:
     assert first[yesterday_key][5] == 7  # 2 detail rows + rollup requests=5
     assert first[yesterday_key][4] == 1  # one distinct ip_hash
 
-    con.execute(sql)  # 幂等
+    con.execute(sql)  # Idempotency.
     assert {row[0]: row for row in con.execute("SELECT * FROM visitors_daily")} == first
 
-    # 明细被清理后重算只覆盖一天：旧值只能保持，绝不能变小（INSERT OR REPLACE 会变小）。
+    # After detail rows are pruned, recomputation covers only one day. Keep the old value; never reduce it (INSERT OR REPLACE could do that).
     con.execute("DELETE FROM visitors_v2 WHERE ts >= ?", (yesterday,))
     con.execute(
         "INSERT INTO visitors_v2 (id, ip_hash, country, status, ts, page_slug) "
@@ -126,7 +126,7 @@ def test_python_retention_policy_is_read_from_the_owner() -> None:
     buckets, columns = prune_d1.parse_retention_source()
     assert buckets == prune_d1.BUCKETS
     assert columns == prune_d1.RETENTION_TIMESTAMP_COLUMNS
-    # owner 是唯一事实源：它必须真的被解析出内容，而不是空集合。
+    # The owner is the only source of truth; it must parse to a non-empty result.
     assert buckets["auth_sessions"] == 60 * DAY
     assert columns["auth_sessions"] == "exp"
     assert len(buckets) == len(prune_d1.BUCKETS) >= 7

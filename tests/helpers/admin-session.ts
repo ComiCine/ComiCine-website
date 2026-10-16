@@ -18,36 +18,44 @@
  */
 
 /**
- * `functions/_lib/session` 的模块桩，供 7 个 admin 路由测试共用（tasks/22 W5-15）。
+ * Module mock for `functions/_lib/session`, shared by seven admin route tests (tasks/22 W5-15).
  *
- * 位置说明（为什么在 `tests/` 而不是 `functions/_lib/__mocks__/`）：
- * `tests/` 在 Pages 项目的 `functions/` 根之外，`wrangler pages functions build`
- * 从根上就看不见它。实测（隔离副本里做的对照）：把同一个文件放进
- * `functions/_lib/` 且**没有任何路由 import** 时不会进 bundle，但只要有一条路由
- * import 它，产物里立刻出现（179283 vs 178926 字节）——也就是说
- * 「放在 functions/ 下不进 bundle」只是当前 wrangler 的扫描细节，不是保证；
- * 放在 `tests/` 则是结构上不可能被生产打包。
- * `vitest.config.ts` 的 `include` 只收 `functions/` 下的 `.test.ts` 与三个
- * Worker 的 `.test.ts`，所以这份 helper 不会被当成用例收集（名字也不以
- * `.test.ts` 结尾）。
- * 「不进 bundle」的验证：对本仓库跑
- * `npx wrangler pages functions build --outdir=<dir> --project-directory=.`，
- * 与本改动前的产物逐字节相同（只差一行 wrangler 临时目录名的注释），
- * 且 `grep -c createSessionModuleMock index.js` = 0（见 tasks/22 执行记录）。
+ * Why this lives in `tests/` instead of `functions/_lib/__mocks__/`:
+ * `tests/` is outside the Pages project's `functions/` root, so
+ * `wrangler pages functions build` cannot see it. In an isolated comparison,
+ * placing this file in `functions/_lib/` did not add it to the bundle when no
+ * route imported it, but importing it from one route added it immediately
+ * (179283 vs. 178926 bytes). Excluding files under `functions/` is therefore a
+ * detail of the current Wrangler scan, not a guarantee; files under `tests/`
+ * cannot be included in the production bundle by directory structure.
+ * `vitest.config.ts` includes only `.test.ts` files under `functions/` and the
+ * three Worker test trees, so this helper is not collected as a test (its name
+ * also does not end in `.test.ts`).
+ * To verify that the helper is not bundled, run
+ * `npx wrangler pages functions build --outdir=<dir> --project-directory=.`
+ * in this repository. The output is byte-for-byte identical to the pre-change
+ * bundle apart from one comment containing Wrangler's temporary directory name,
+ * and `grep -c createSessionModuleMock index.js` returns 0 (see tasks/22).
  *
- * 语义与生产 `requireAdminSession`（`functions/_lib/session.ts`）**逐条对齐**：
- * `requireAuth` 抛错（`AuthSessionUnavailableError`，D1 撤销表不可用）→ 委托给
- * `authUnavailableResponse()`（默认 503；三个测试文件会在 `beforeEach` 里把它
- * 覆盖成生产的 `{ error: "auth_sessions_unavailable" }` 体）；
- * 未登录 → 401 `{error:"未登录"}` + `Cache-Control: no-store`；
- * 非 admin → 403 `{error: forbidden}` + `Cache-Control: no-store`，`forbidden`
- * 默认沿用生产的「只读账户，无写入权限」；通过则返回 `{ session }`。
+ * Its behavior matches production `requireAdminSession` in
+ * `functions/_lib/session.ts`:
+ * `requireAuth` errors (`AuthSessionUnavailableError`, when the D1 revocation
+ * table is unavailable) are delegated to `authUnavailableResponse()` (503 by
+ * default; three test files override the body in `beforeEach` with the production
+ * `{ error: "auth_sessions_unavailable" }` response).
+ * Unauthenticated requests receive 401 with the localized unauthenticated
+ * message and `Cache-Control: no-store`. Non-admin requests receive 403 with
+ * `{ error: forbidden }` and `Cache-Control: no-store`; `forbidden` defaults to
+ * the production read-only-account denial message. Authorized requests return
+ * `{ session }`.
  *
- * 注意：原先把这段桩复制进 7 个文件时**漏了 503 分支**（`auth_unavailable` 在
- * 那些文件里被 `beforeEach` 配好却永远走不到，是死配置），审计 W5-15 点名了这一点；
- * 这里补上 catch 之后，`mockRejectedValueOnce` 才真的能验「D1 down → 503」。
+ * When this mock was duplicated across seven files, its 503 branch was missing:
+ * `auth_unavailable` was configured in `beforeEach` but never reached. Audit
+ * W5-15 identified this dead configuration. Adding the catch makes
+ * `mockRejectedValueOnce` exercise the D1-unavailable 503 response.
  *
- * 用法（`vi.mock` 工厂里动态 import，工厂内不许引用外层变量）：
+ * Usage: dynamically import this helper inside the `vi.mock` factory, which
+ * cannot reference variables from the outer scope.
  *
  * ```ts
  * vi.mock("../../_lib/session", async () => {
@@ -59,18 +67,18 @@
 
 import { vi } from "vitest";
 
-/** 与生产 `ADMIN_REQUIRED_MESSAGE` 同文案（只读账户 / 非管理员的默认拒绝语）。 */
+/** Same text as production `ADMIN_REQUIRED_MESSAGE`, the default denial for non-admin accounts. */
 export const ADMIN_REQUIRED_MESSAGE = "只读账户，无写入权限";
 
-/** `functions/_lib/session` 的模块桩；每个测试文件调用一次（模块注册表按文件隔离）。 */
+/** Module mock for `functions/_lib/session`; call once per test file because module registries are isolated. */
 export function createSessionModuleMock() {
   const requireAuth = vi.fn();
-  // 默认体与原内联桩逐字相同（纯文本 503）；需要生产 JSON 体的文件自行覆盖。
+  // Match the original inline mock's plain-text 503 body; tests needing the production JSON body override it.
   const authUnavailableResponse = vi.fn(
     () => new Response("unavailable", { status: 503 }),
   );
-  // 与生产同策略：委托给桩化的 requireAuth，未登录 401、非 admin 403、
-  // requireAuth 抛错 → 503（fail-closed，不允许凭 cookie 放行）。
+  // Match production policy: delegate to the mocked requireAuth; return 401 for
+  // unauthenticated requests, 403 for non-admins, and fail closed with 503 on errors.
   const requireAdminSession = vi.fn(
     async (env: unknown, request: Request, forbidden: string = ADMIN_REQUIRED_MESSAGE) => {
       let session: unknown;

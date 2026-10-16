@@ -48,11 +48,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
-# 迁移 017 落地的那条索引；名字与列序都是契约的一部分（排序方向显式 DESC）。
+# The index created by migration 017; its name and column order are part of the contract, including explicit DESC ordering.
 RAY_INDEX = "idx_ray_log_v2_ip_hash_ts"
 RAY_INDEX_MIGRATION = "017_ray_log_v2_ip_hash_index.sql"
 
-# 005 建、008 刻意删掉，且不该被重新建起来的索引。
+# This index was created in 005 and deliberately removed in 008; it must not be recreated.
 DROPPED_RAY_INDEX = "idx_ray_log_v2_host_ts"
 
 
@@ -75,11 +75,11 @@ def _plan(con: sqlite3.Connection, sql: str) -> str:
 
 
 def _assert_searches(plan: str, table: str) -> None:
-    """断言计划是 SEARCH（而不是 SCAN）。
+    """Assert that the query plan uses SEARCH rather than SCAN.
 
-    SQLite 在索引本身就能满足整个查询时说 `USING COVERING INDEX`，否则说
-    `USING INDEX`——两者都是我们要的 SEARCH，所以这里只把「不是 SCAN」钉死；
-    具体走了哪个索引由调用方单独断言。
+    SQLite reports `USING COVERING INDEX` when the index satisfies the whole query,
+    and `USING INDEX` otherwise. Both are SEARCH plans, so this helper only rules out
+    SCAN; callers assert the specific index separately.
     """
     assert f"SEARCH {table} USING" in plan, plan
     assert f"SCAN {table}" not in plan, plan
@@ -87,7 +87,7 @@ def _assert_searches(plan: str, table: str) -> None:
 
 @pytest.fixture(scope="module")
 def migrated_db() -> Iterator[sqlite3.Connection]:
-    """把 ops/migrations/*.sql 按文件名顺序灌进一个内存库（017 之后的状态）。"""
+    """Apply ops/migrations/*.sql in filename order to an in-memory database (state after migration 017)."""
     con = sqlite3.connect(":memory:")
     try:
         for path in _migration_files():
@@ -98,17 +98,18 @@ def migrated_db() -> Iterator[sqlite3.Connection]:
 
 
 def test_index_migration_017_exists_and_is_the_highest_number() -> None:
-    """017 必须存在；以后新增索引要走更大的编号（005 改不动，见文件头注释）。"""
+    """Migration 017 must exist, and future index migrations must use a larger number (005 is immutable)."""
     assert (MIGRATIONS_DIR / RAY_INDEX_MIGRATION).is_file()
     numbers = [int(p.name[:3]) for p in _migration_files()]
     assert max(numbers) >= 17
 
 
 def test_index_migration_is_idempotent() -> None:
-    """`CREATE INDEX IF NOT EXISTS` 意味着这份迁移可以重复执行。
+    """`CREATE INDEX IF NOT EXISTS` makes this migration safe to run more than once.
 
-    migrate_d1.sh 依赖这一点：如果记账行丢了而 schema 已在，它会重跑该文件。
-    所以新迁移不得写裸 `CREATE INDEX`（重复执行会 `index already exists` 报错）。
+    migrate_d1.sh relies on this when a migration record is missing but the schema
+    change already exists. New migrations must not use bare `CREATE INDEX`, which
+    would fail on a rerun with `index already exists`.
     """
     source = (MIGRATIONS_DIR / RAY_INDEX_MIGRATION).read_text(encoding="utf-8")
     assert f"CREATE INDEX IF NOT EXISTS {RAY_INDEX}" in source
@@ -119,7 +120,7 @@ def test_index_migration_is_idempotent() -> None:
     ]
     assert not bare, "new migrations must use CREATE INDEX IF NOT EXISTS: " + "; ".join(bare)
 
-    # 真的重复执行三次：第二次起必须是无操作，而不是报错。
+    # Run it three times; starting with the second run, it must do nothing without raising an error.
     con = sqlite3.connect(":memory:")
     try:
         for path in _migration_files():
@@ -132,14 +133,14 @@ def test_index_migration_is_idempotent() -> None:
 
 
 def test_ip_hash_index_exists_with_expected_columns(migrated_db: sqlite3.Connection) -> None:
-    """索引真的建在 (ip_hash, ts) 上（不是只写在注释里、也没建错列）。"""
+    """Verify that the index is actually created on (ip_hash, ts), not merely documented or built on wrong columns."""
     assert RAY_INDEX in _index_names(migrated_db, "ray_log_v2")
     columns = [str(row[2]) for row in migrated_db.execute(f'PRAGMA index_info("{RAY_INDEX}")')]
     assert columns == ["ip_hash", "ts"], f"unexpected index columns: {columns}"
 
 
 def test_check_visitor_id_query_uses_the_index(migrated_db: sqlite3.Connection) -> None:
-    """ops/check_visitor_id.py:212 —— `WHERE ip_hash = ? ORDER BY ts DESC LIMIT n`。"""
+    """Query in `ops/check_visitor_id.py:212`: `WHERE ip_hash = ? ORDER BY ts DESC LIMIT n`."""
     plan = _plan(
         migrated_db,
         "SELECT ts, host, normalized_path, method, status, country, ua_family "
@@ -151,10 +152,11 @@ def test_check_visitor_id_query_uses_the_index(migrated_db: sqlite3.Connection) 
 
 
 def test_check_ip_rays_query_uses_the_index(migrated_db: sqlite3.Connection) -> None:
-    """ops/check_ip_rays.py:168 —— `WHERE ip_hash IN (...) ORDER BY ts DESC LIMIT n`。
+    """Protect the ops/check_ip_rays.py:168 query shape: `WHERE ip_hash IN (...) ORDER BY ts DESC LIMIT n`.
 
-    这正是 W7-9 记录的「必然全表扫」那条。`IN` 有多个值时 SQLite 可能为合并
-    有序结果再建一个临时 B-tree，但**扫表**必须消失。
+    W7-9 identified this as a guaranteed full-table scan. SQLite may still build a
+    temporary B-tree to merge ordered results when `IN` has multiple values, but the
+    table scan itself must be gone.
     """
     plan = _plan(
         migrated_db,
@@ -167,16 +169,11 @@ def test_check_ip_rays_query_uses_the_index(migrated_db: sqlite3.Connection) -> 
 
 
 def test_ray_prefix_query_searches_the_primary_key(migrated_db: sqlite3.Connection) -> None:
-    """ray 前缀查必须走**主键 seek**，不能再退化成全扫。
+    """The `ray` prefix lookup must seek the primary key, not regress to a full scan.
 
-    历史：`WHERE ray LIKE '<id>%'` 时 SQLite 用不上 PRIMARY KEY，计划是
-    `SCAN ray_log_v2 USING INDEX idx_ray_log_v2_ts`（2026-10-11 实测线上全扫）。
-    落库值带 colo 后缀（`a48923a17e543777-LAX`），所以前缀匹配是**有意**的，
-    不能改成等值；改成主键范围后计划变成
-    `SEARCH ray_log_v2 USING COVERING INDEX sqlite_autoindex_ray_log_v2_1 (ray>? AND ray<?)`。
+    History: with `WHERE ray LIKE '<id>%'`, SQLite could not use the primary key and planned `SCAN ray_log_v2 USING INDEX idx_ray_log_v2_ts` (a full scan observed in production on 2026-10-11). Stored values include a colo suffix (`a48923a17e543777-LAX`), so prefix matching is intentional and cannot become equality. Rewriting the lookup as a primary-key range produced `SEARCH ray_log_v2 USING COVERING INDEX sqlite_autoindex_ray_log_v2_1 (ray>? AND ray<?)`.
 
-    这条测试钉住优化后的形状：有人把它改回 `LIKE` 就红。同时也说明为什么**不该**
-    期待它走 `idx_ray_log_v2_ip_hash_ts`——前缀约束的是主键，不是 ip_hash。
+    This test locks in the optimized plan so reverting to `LIKE` fails. It also explains why the `idx_ray_log_v2_ip_hash_ts` index should not be used: the prefix condition constrains the primary key, not `ip_hash`.
     """
     plan = _plan(
         migrated_db,
@@ -184,18 +181,17 @@ def test_ray_prefix_query_searches_the_primary_key(migrated_db: sqlite3.Connecti
         "WHERE ray >= '9a1b2c3d4e5f6a7b' AND ray < '9a1b2c3d4e5f6a7b' || char(1114111) "
         "ORDER BY ts DESC LIMIT 100",
     )
-    # 断言实质而不是逐字：必须 `SEARCH`（不是 `SCAN`）、走主键自动索引、且两个边界都被约束。
-    # 是否 `COVERING` 取决于 select 列表（取 `ip_hash`/`country` 要回表），不该写死。
+    # Assert the query-plan behavior, not its exact text: it must use SEARCH rather than SCAN, seek the primary-key index, and constrain both bounds.
+    # Whether the index is COVERING depends on the select list (reading ip_hash or country requires a table lookup), so do not hardcode it.
     assert "SEARCH ray_log_v2 USING" in plan and "SCAN" not in plan, plan
     assert "sqlite_autoindex_ray_log_v2_1" in plan, plan
     assert "(ray>? AND ray<?)" in plan, plan
 
 
 def test_no_query_uses_ray_like_on_the_log_tables() -> None:
-    """源码里不得再出现 `ray LIKE` / `request_id LIKE` ——它们会全扫。
+    """Source code must not contain `ray LIKE` or `request_id LIKE`; these predicates cause full scans.
 
-    与上一条互补：上一条钉的是 SQL 形状（在内存库里），这一条钉的是**仓库源码**，
-    防止有人在 `functions/` 或 `ops/` 里新写一条 LIKE 反查又把全扫带回来。
+    This complements the previous test, which locks down the SQL shape in an in-memory database. This one scans repository source to prevent a new `LIKE` lookup in `functions/` or `ops/` from reintroducing full scans.
     """
     offenders: list[str] = []
     for directory in ("functions", "ops"):
@@ -217,10 +213,9 @@ def test_no_query_uses_ray_like_on_the_log_tables() -> None:
 
 
 def test_no_query_filters_ray_log_v2_by_host() -> None:
-    """`host` 索引被 008 删掉的前提是「没有查询按 host 过滤 ray_log_v2」。
+    """The reason index 008 dropped the `host` index was that no query filters `ray_log_v2` by `host`.
 
-    这条断言把这个前提钉住：哪天真的出现按 host 过滤 ray_log_v2 的查询，它会红，
-    提醒重估是否需要 (host, ts) 索引——而不是悄悄漏掉该有的索引。
+    This assertion locks down that assumption: if a host-filtered query appears, the test fails and prompts a reassessment of whether a `(host, ts)` index is needed, rather than silently leaving the query unindexed.
     """
     offenders: list[str] = []
     for directory in ("functions", "ops", "src"):
@@ -251,11 +246,9 @@ def test_no_query_filters_ray_log_v2_by_host() -> None:
 
 
 def test_host_index_is_not_reintroduced(migrated_db: sqlite3.Connection) -> None:
-    """(host, ts) 索引不得被 008 之后的任何迁移重新建起来。
+    """No migration after 008 may recreate the `(host, ts)` index.
 
-    005 建它、008 删它都是历史事实（文件名不能改），所以这里只禁止**新增**：
-    008 之后的迁移里出现 `CREATE INDEX ... idx_ray_log_v2_host_ts` 即失败，
-    同时最终 schema 里它必须不存在。
+    Migration 005 created it and 008 removed it; those historical files cannot be changed. This check therefore prohibits only new additions: a `CREATE INDEX ... idx_ray_log_v2_host_ts` in a migration after 008 fails, and the final schema must not contain the index.
     """
     cutoff = 8
     offenders: list[str] = []
@@ -273,10 +266,9 @@ def test_host_index_is_not_reintroduced(migrated_db: sqlite3.Connection) -> None
 
 
 def test_visitor_rollups_lookup_is_indexed(migrated_db: sqlite3.Connection) -> None:
-    """visitor_rollups 侧不需要新索引：按 ip_hash 取行已经在走 014 建的索引。
+    """The `visitor_rollups` table needs no new index; lookups by `ip_hash` already use the index created in 014.
 
-    `ops/check_ip_rays.py:127`、`check_visitor_id.py:135/168` 都是「按 ip_hash
-    取单行/最近一行」的形状，必须是 SEARCH 而不是扫表。
+    `ops/check_ip_rays.py:127` and `check_visitor_id.py:135/168` both retrieve one row or the latest row by `ip_hash`; these lookups must use SEARCH rather than scan the table.
     """
     plan = _plan(
         migrated_db,

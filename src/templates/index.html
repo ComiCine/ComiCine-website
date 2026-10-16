@@ -46,7 +46,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
 {% block content %}
 <h1 id="hero-title" class="hero-title text-4xl md:text-7xl tracking-[0.05em]"><span class="bracket">「</span>Limooo<span class="bracket">」</span></h1>
-<!-- 首屏（home） -->
+<!-- Initial home view. -->
 <div id="home-screen" class="page-layer">
     <section class="flex-grow flex flex-col justify-center items-center text-center px-6"></section>
     <div class="scroll-hint reveal-item">
@@ -57,16 +57,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </div>
 </div>
 
-<!-- 作品展示（portfolio） -->
+<!-- Portfolio gallery. -->
 <div id="portfolio" class="page-layer">
     <section class="flex flex-col items-center px-6 pt-32 pb-40">
         <p id="port-title" class="portfolio-title reveal-item text-[10px] uppercase tracking-[calc(0.4em*var(--ls-scale))] opacity-50 mb-12 font-bold" data-i18n="portfolio_title">{{ _('portfolio_title') }}</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-6xl px-4">
-            {# 卡片数量 = src/static/portfolio 里的图片数量，由 portfolio_items 上下文注入；
-               增删图片后重新构建即可，模板不维护文件名。 #}
+            {# The card count comes from the images in src/static/portfolio, passed as portfolio_items.
+               Add or remove images and rebuild; filenames are not maintained in this template. #}
             {% for item in portfolio_items %}
             <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.limooo.cn/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
-                {# 卡片画幅跟随图片真实比例（3:4 / 3:2 / 2:3…），竖横幅混排时不会被裁成同一比例 #}
+                {# Match each card to its image's aspect ratio (3:4, 3:2, 2:3, etc.) to avoid cropping mixed orientations. #}
                 <div class="work-frame" style="aspect-ratio: {{ item.ratio }}">
                     <picture>
                         <source type="image/avif"
@@ -74,7 +74,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
                         <img class="work-img"
                             src="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp"
                             srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.webp 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.webp 800w"
-                            {# 竖幅占 1/3 栏、横幅整行铺满；按实际显示宽度声明，避免 srcset 选档偏大 #}
+                            {# Portrait images use one third of the row; landscape images span the row.
+                               Declare the displayed width so srcset does not select an oversized image. #}
                             sizes="{% if item.orientation == 'landscape' %}(min-width: 640px) 840px, 100vw{% else %}(min-width: 1024px) 341px, (min-width: 640px) 33vw, 100vw{% endif %}" width="{{ item.width }}" height="{{ item.height }}" loading="lazy" decoding="async" fetchpriority="{{ 'high' if loop.index <= 3 else 'low' }}" referrerpolicy="origin"
                             alt="{{ _('alt_outdoor_shot', num=item.num) }}" data-i18n-attr="alt:alt_outdoor_shot;num={{ item.num }}">
                     </picture>
@@ -83,7 +84,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             </div>
             {% endfor %}
         </div>
-        <!-- 作品页 footer：继承 base.html 的 footer_markup 块，固定常驻底部 -->
+        <!-- Portfolio footer inherits base.html's footer_markup block and stays fixed at the bottom. -->
         {{ self.footer_markup() }}
     </section>
 </div>

@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** /api/visitors 聚合与状态码兼容测试（mock D1 与登录校验）。 */
+/** Tests /api/visitors aggregation and status-code compatibility; D1 and authentication are mocked. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./visitors";
@@ -27,7 +27,7 @@ import type { Env } from "../_lib/env";
 
 vi.mock("../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -53,14 +53,14 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-  // 必须在这里还原全局桩，不能写在用例末尾：一旦某条用例在它之前断言失败，
-  // 伪造的 `caches.default` 就会泄漏给同一进程里后续的测试文件——实测它会让
-  // functions/_middleware.test.ts 的页面缓存命中一个假的 403
-  // （`expected 403 to be 200`，单跑该文件却是绿的）。审计里 W5-14 点名的就是这个反模式。
+  // Restore the global stub here rather than at the end of a test: if an assertion fails first,
+  // the fake `caches.default` would leak into later test files in the same process. It has been
+  // observed to make the page cache in functions/_middleware.test.ts return a fake 403
+  // (`expected 403 to be 200`) even though that file passes on its own. This is the anti-pattern identified in audit W5-14.
   vi.unstubAllGlobals();
 });
 
-/** 进程内 Cache API 桩：只实现 match/put，并记录 put。键取请求 URL（与线上一致）。 */
+/** In-process Cache API stub: implements only match/put and records put calls; keys use request URLs as in production. */
 function cacheUrlOf(request: RequestInfo): string {
   if (typeof request === "string") return request;
   return request instanceof URL ? request.toString() : request.url;
@@ -138,21 +138,21 @@ describe("visitors API", () => {
     expect(data.max_markers).toBe(500);
   });
 
-  // 回归：国家必须取「最近一次访问」的值。曾经写的是 MAX(country)，那是按
-  // 字母序选（'CN' > 'CH'），与时间无关，导致 CN/CH 混合的访客恒显示 CN。
+  // Regression: the country must come from the most recent visit. The previous MAX(country) implementation
+  // selected by alphabetical order ('CN' > 'CH'), regardless of time, so visitors with both values always showed CN.
   //
-  // 断言按行为写，并且把同样两行**倒序**再喂一次：mock 的行顺序曾经就是
-  // 实现依赖的顺序，正序喂一遍的话「取第一行」这种错法也能过。
+  // Assert behavior and feed the same two rows in **reverse order** as well. The implementation once depended
+  // on mock row order, so a forward-only case would let an incorrect "take the first row" implementation pass.
   //
-  // 已知未修（2026-10-11 实测，见 tasks/22 执行记录 W5-5 未决事项）：
-  // buildMarkers 的 country 取的是**该 ip_hash 的第一行**，不是在
-  // `row.last_ts > acc.last_time` 时一起更新；所以一个访客有多种 status、
-  // 各自 last_ts 不同时，倒序喂进来会给出较早那次的国家（本用例倒序时会得到
-  // CN）。修法是 `functions/api/visitors.ts` 的累加器里同步 `acc.country =
-  // row.country`（属 W9 代理的文件）。修好后把下面的断言升级成两种顺序都等于 CH。
+  // Known unresolved issue (observed 2026-10-11; see the open item W5-5 in the tasks/22 execution log):
+  // buildMarkers takes the country from the **first row for an ip_hash** instead of updating it alongside
+  // `row.last_ts > acc.last_time`. When a visitor has multiple statuses with different last_ts values,
+  // reversed input can therefore select the older country (this case returns CN in reverse order).
+  // Fix it by also setting `acc.country = row.country` in the accumulator in functions/api/visitors.ts
+  // (owned by the W9 agent). After the fix, upgrade the assertions so both orders produce CH.
   it("accumulates markers independently of row order", async () => {
     const rows = [
-      // 同一访客：最近一次是 404（在 CH），更早是 200（在 CN）。
+  // Same visitor: the latest visit is a 404 from CH, and the earlier visit is a 200 from CN.
       { ip_hash: "cnch0001", country: "CH", status: 404, n: 1, last_ts: 1767312000 },
       { ip_hash: "cnch0001", country: "CN", status: 200, n: 2, last_ts: 1767225600 },
     ];
@@ -171,16 +171,16 @@ describe("visitors API", () => {
       markers.push(data.markers[0]);
     }
 
-    // 与行顺序无关的部分：次数、最近时间、状态分布。
+  // These values do not depend on row order: request count, latest time, and status distribution.
     expect(markers[0].count).toBe(3);
     expect(markers[1].count).toBe(3);
     expect(markers[0].last_time).toBe("2026-01-02T00:00:00.000Z");
     expect(markers[1].last_time).toBe("2026-01-02T00:00:00.000Z");
     expect(markers[0].statuses).toEqual({ "404": 1, "200": 2 });
     expect(markers[1].statuses).toEqual({ "404": 1, "200": 2 });
-    // 最近那行的国家：正序与倒序都必须是 'CH'。
-    // 旧实现只在首次见到 ip_hash 时取国家（= D1 返回的第一行），倒序时会给 'CN'；
-    // 展示的国家不能取决于 D1 的行顺序。
+  // The country from the latest row must be CH in both forward and reverse order.
+  // The old implementation took the country only when it first saw an ip_hash (the first row returned by D1),
+  // which yielded CN in reverse order. The displayed country must not depend on D1 row order.
     expect(markers[0].country).toBe("CH");
     expect(markers[1].country).toBe("CH");
 
@@ -188,21 +188,21 @@ describe("visitors API", () => {
       vi.mocked(queryAll).mock.calls.map((call) => String(call[1]))
     ).find((sql) => sql.includes("LIMIT 500"));
     expect(markerSql).toBeTruthy();
-    // SQL 的注释里会引用下面这些反面写法，断言前先剥掉注释，
-    // 否则测的是说明文字而不是真正的 SQL。
+  // The SQL comments mention the prohibited alternatives below, so strip comments before asserting;
+  // otherwise the test would inspect explanatory text rather than the SQL itself.
     const sqlCode = String(markerSql).replace(/--[^\n]*/g, "");
     expect(sqlCode).not.toContain("MAX(v.country)");
-    // 禁止更贵的替代写法（都在线上 D1 实测过，读数远高于 13.1 万的基线）：
-    // 相关子查询 1370 万行、NOT EXISTS 753 万行、ROW_NUMBER 全分区 17.5 万行。
+  // Disallow more expensive alternatives (measured against production D1; each reads far more than the 131,000-row baseline):
+  // correlated subquery: 13.7 million rows; NOT EXISTS: 7.53 million rows; ROW_NUMBER over all partitions: 175,000 rows.
     expect(sqlCode).not.toMatch(/SELECT\s+s2\.country/);
     expect(sqlCode).not.toContain("NOT EXISTS");
     expect(sqlCode).not.toContain("ROW_NUMBER()");
   });
 
   /**
-   * W9-13：/api/visitors 每次轮询都重算 30 天窗口（文件内注释记着「实测 13.1 万行
-   * 读取」），管理页整天开着 ≈ 144 次 × 13 万行，直接逼近 5,000,000 行/天。
-   * 用 caches.default 按 URL 缓存 300 s。
+   * W9-13: /api/visitors recomputes a 30-day window on every poll (the file notes a measured
+   * read of 131,000 rows). Leaving the admin page open all day means about 144 polls × 131,000 rows,
+   * approaching the 5,000,000-row daily limit. Cache by URL in caches.default for 300 seconds.
    */
   describe("edge cache", () => {
     it("serves a repeated poll from cache without touching D1 again", async () => {
@@ -224,7 +224,7 @@ describe("visitors API", () => {
         context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
       );
       const data = await second.json();
-      // 命中缓存：不再打 D1。
+  // A cache hit must not query D1 again.
       expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
       expect(data.markers[0].ip_hash).toBe("cached01");
       vi.unstubAllGlobals();
@@ -341,7 +341,7 @@ describe("visitors API", () => {
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed，不能凭 cookie 放行。
+  // W5-15: fail closed when the revocation table is unavailable; a cookie alone must not grant access.
   it("returns 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestGet(

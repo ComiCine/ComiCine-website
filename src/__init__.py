@@ -15,4 +15,4 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Limooo Flask 应用包（便于 IDE 与类型检查识别模块边界）。"""
+"""Limooo Flask application package for IDE and type-checker module discovery."""

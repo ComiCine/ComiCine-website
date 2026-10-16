@@ -1,5 +1,5 @@
--- 门禁失败次数：同一来源在 24 小时内第 3 次未通过时，由 Pages Function 精确封禁。
--- 只保存 HMAC 后的 IP，成功封禁后该行会立即删除。
+-- Gate failure counts: on the third failed verification from one source within 24 hours, a Pages
+-- Function blocks the source. Store only the HMAC of the IP; delete the row after a successful block.
 
 CREATE TABLE IF NOT EXISTS gate_failures (
     ip_hash           TEXT PRIMARY KEY,
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS gate_failures (
     last_seen_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
--- 访客统计压缩：同一小时/IP/页面/状态只保留一行和精确计数。
+-- Compact visitor statistics: keep one row and exact counts per hour, IP, page, and status.
 CREATE TABLE IF NOT EXISTS visitor_rollups (
     bucket_hour INTEGER NOT NULL,
     ip_hash     TEXT NOT NULL DEFAULT '',
@@ -20,6 +20,6 @@ CREATE TABLE IF NOT EXISTS visitor_rollups (
     PRIMARY KEY (bucket_hour, ip_hash, country, status, page_slug)
 );
 
--- 下列索引没有生产查询使用，却会放大每条写入；主键/时间索引仍保留。
+-- The following indexes are unused by production queries and increase write cost; keep primary-key and time indexes.
 DROP INDEX IF EXISTS idx_ray_log_v2_host_ts;
 DROP INDEX IF EXISTS idx_events_ip_hash_ts;

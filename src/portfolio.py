@@ -15,21 +15,21 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""作品集（portfolio）图片清单：从 ``src/static/portfolio`` 动态扫描。
+"""Portfolio image manifest, discovered dynamically from ``src/static/portfolio``.
 
-首页作品区按这里的清单排版：往
-``src/static/portfolio`` 里增删图片后重新构建，卡片数量与排版会自动
-跟着变，模板里不再维护任何图片文件名。
+The home page portfolio section uses this manifest for its layout. Add or remove
+images in ``src/static/portfolio`` and rebuild; the number and layout of cards
+adjust automatically, with no filenames maintained in the template.
 
-模板上下文（``portfolio_items``）每项字段：
-    name       —— 源图文件名（含扩展名，jpg/png/webp 原样保留）
-    stem       —— 去掉扩展名的文件名（缩略图固定用 .webp/.avif，按 stem 取）
-    ext        —— 小写扩展名
-    num        —— 两位序号（01、02…），用于 alt 文案编号
-    width      —— 源图像素宽（缺 Pillow / 缺源图时为 None）
-    height     —— 源图像素高（同上）
-    ratio      —— CSS aspect-ratio 值（如 "3 / 4"），未知时回退 3 / 4
-    orientation—— "portrait" / "landscape" / "square"，卡片按此选版式
+Each item in the template context (``portfolio_items``) contains:
+    name        source filename, including its original jpg/png/webp extension
+    stem        filename without extension; thumbnails use .webp/.avif and this stem
+    ext         lowercase extension
+    num         two-digit index (01, 02, ...) used in alt text
+    width       source image width in pixels, or None if Pillow or the source is missing
+    height      source image height in pixels, or None if Pillow or the source is missing
+    ratio       CSS aspect-ratio value (such as "3 / 4"), defaulting to 3 / 4 if unknown
+    orientation "portrait", "landscape", or "square", used to select the card layout
 """
 
 from __future__ import annotations
@@ -40,9 +40,11 @@ from math import gcd
 
 from config import STATIC_DIR
 
-#: 源图缺失/尺寸读不到时的兜底清单（顺序与手写模板时代保持一致）。
-#: CI 干净 checkout 里 ``src/static/portfolio/`` 被 .gitignore 排除，
-#: 此时仍渲染出完整卡片结构，避免首页空掉、构建产物每次都不一样。
+#: Fallback portfolio entries used when source images are missing or dimensions
+#: cannot be read. The order matches the manually maintained template.
+#: ``src/static/portfolio/`` is excluded by .gitignore in a clean CI checkout.
+#: Keep rendering the full card structure so the home page is not empty and
+#: build output remains deterministic.
 FALLBACK_PORTFOLIO_IMAGES = (
     "IMG_0203.webp",
     "IMG_0146.webp",
@@ -52,19 +54,20 @@ FALLBACK_PORTFOLIO_IMAGES = (
     "IMG_0179.webp",
 )
 
-#: 读不到原始尺寸时假定的画幅（历史默认，全部按 3:4 竖幅渲染）。
+#: Assumed aspect ratio when the original dimensions cannot be read. The
+#: historical default renders all images in portrait 3:4.
 DEFAULT_RATIO = (3, 4)
 
 _PORTFOLIO_EXTS = re.compile(r"\.(png|jpe?g|webp)$", re.I)
 
 
 def portfolio_source_dir() -> str:
-    """作品集源图目录（本机私有，不入库）。"""
+    """Return the private, untracked source image directory for the portfolio."""
     return os.path.join(STATIC_DIR, "portfolio")
 
 
 def list_portfolio_images(source_dir: str | None = None) -> list[str]:
-    """按文件名排序返回作品集图片名（含扩展名）；目录缺失或为空时返回 []。"""
+    """Return portfolio image filenames, sorted by name; return [] if the directory is missing or empty."""
     source_dir = source_dir or portfolio_source_dir()
     if not os.path.isdir(source_dir):
         return []
@@ -76,10 +79,11 @@ def list_portfolio_images(source_dir: str | None = None) -> list[str]:
 
 
 def image_ratio(path: str) -> tuple[int, int] | None:
-    """读取图片的宽高比（约分后的整数对）；缺 Pillow 或读不到时返回 None。
+    """Read an image's aspect ratio as a reduced integer pair, or return None if unavailable.
 
-    约分后比例保持精确（1080×1440 → 3:4，1350×900 → 3:2），模板写出的
-    ``aspect-ratio`` 不带小数，卡片框与图片实际画幅完全一致。
+    Reduction keeps the ratio exact (1080x1440 becomes 3:4; 1350x900 becomes 3:2).
+    The template emits an integer ``aspect-ratio`` so each card matches the image's
+    actual dimensions without decimal rounding.
     """
     try:
         from PIL import Image
@@ -97,7 +101,7 @@ def image_ratio(path: str) -> tuple[int, int] | None:
 
 
 def portfolio_items(source_dir: str | None = None) -> list[dict[str, object]]:
-    """模板上下文：作品集卡片清单；源图缺失时回退到兜底清单。"""
+    """Return the portfolio card context, falling back to a default list when sources are missing."""
     source_dir = source_dir or portfolio_source_dir()
     names = list_portfolio_images(source_dir)
     if not names:
@@ -106,7 +110,8 @@ def portfolio_items(source_dir: str | None = None) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     for index, name in enumerate(names, start=1):
         stem, ext = os.path.splitext(name)
-        # 兜底清单在干净 checkout 里没有源文件，读不到就按默认 3:4 排版
+        # The fallback entries have no source files in a clean checkout, so use
+        # the default 3:4 layout when dimensions cannot be read.
         ratio = image_ratio(os.path.join(source_dir, name)) or DEFAULT_RATIO
         width, height = ratio
         if height > width:

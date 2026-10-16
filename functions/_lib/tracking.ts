@@ -18,14 +18,17 @@
  */
 
 /**
- * Limooo 访客 / Ray 埋点（仅最小字段）。
+ * Limooo visitor and Ray tracking with minimal fields.
  *
- * 隐私约定：
- * - visitors_v2 / ray_log_v2 不保存完整 IP、UA 或 query；
- * - IP 使用独立 OBSERVABILITY_HMAC_KEY 的 HMAC 前 16 位；
- * - visitor_rollups 额外存一份 **加密** 的 IP（VISITOR_IP_KEY，见 _lib/visitor-ip.ts），
- *   只在 admin 点击某一行时单条解密；列表接口永远不返回它；
- * - 埋点失败只输出控制台，不阻塞业务、不递归写错误事件。
+ * Privacy rules:
+ * - visitors_v2 and ray_log_v2 do not store full IPs, user agents, or queries.
+ * - Hash IPs to the first 16 HMAC characters with the separate
+ *   OBSERVABILITY_HMAC_KEY.
+ * - visitor_rollups also stores an **encrypted** IP (VISITOR_IP_KEY; see
+ *   _lib/visitor-ip.ts). Decrypt one row only when an admin selects it; never
+ *   return this value from list endpoints.
+ * - Tracking failures go to the console only; they do not block requests or
+ *   recursively write error events.
  */
 
 import { execute, executeBatch } from "./d1";
@@ -38,7 +41,7 @@ import { IMAGES_HOSTNAME, REDIRECT_HOSTNAME } from "./config";
 import { clientCountryForLogs, clientIpForLogs, requestUrl } from "./routing";
 
 let trackingSchemaReady = false;
-/** 上次尝试建表的时间戳（毫秒）；见 ensureTrackingSchema 与 tasks/22 W9-19。 */
+/** Time of the last table-creation attempt, in milliseconds; see ensureTrackingSchema and tasks/22 W9-19. */
 let trackingSchemaAttemptAt = 0;
 const SCHEMA_RETRY_COOLDOWN_MS = 60_000;
 
@@ -87,12 +90,12 @@ export function isTrustedCrawler(request: Request): boolean {
   return cf?.botManagement?.verifiedBot === true;
 }
 
-/** 去掉参数后的规范化路径，限制长度，避免超长/恶意路径拖垮 D1。 */
+/** Normalize a path without its query and limit its length to protect D1 from oversized or malicious paths. */
 export function normalizePath(pathname: string): string {
   return pathname.split("?")[0].slice(0, 2048);
 }
 
-/** 访问路径 → 便于聚合的页面 slug。 */
+/** Map a request path to a page slug for aggregation. */
 export function pageSlug(pathname: string): string {
   const p = normalizePath(pathname).replace(/\/+$/, "") || "/";
   if (p === "/" || p === "/index.html") return "home";
@@ -106,7 +109,7 @@ export function pageSlug(pathname: string): string {
   return first || "root";
 }
 
-/** UA 白名单枚举：只保留有限分类，不落原始 UA。 */
+/** Allowlisted user-agent categories; store only a limited classification, never the original UA. */
 export function uaFamily(userAgent: string): string {
   const ua = userAgent.toLowerCase();
   if (!ua) return "";
@@ -131,11 +134,12 @@ export function uaFamily(userAgent: string): string {
 }
 
 /**
- * 访客统计只记录真实用户页面 GET；爬虫/静态/API/门禁/图片/跳转均不记。
+ * Count only real-user page GETs. Exclude crawlers, static assets, APIs, gate
+ * pages, images, and redirects.
  *
- * 爬虫两种都要排掉：verified bot（Cloudflare 判定）与 UA 名单里自报的爬虫
- * （isDeclaredCrawler）。它们放行后拿到的是真站 200，若不排掉就会直接污染
- * 访客表——「访客」的定义是真实用户。
+ * Exclude both Cloudflare-verified bots and crawlers that self-report through
+ * the UA list (`isDeclaredCrawler`). They receive the real site with status
+ * 200, so counting them would pollute visitor data; a visitor means a real user.
  */
 export function shouldTrackVisit(request: Request, url: URL): boolean {
   if (request.method !== "GET") return false;
@@ -156,7 +160,7 @@ export function shouldTrackVisit(request: Request, url: URL): boolean {
   return !/\.(png|webp|jpg|jpeg|gif|ico|svg|css|js|json|webmanifest|txt|xml)$/i.test(p);
 }
 
-/** `/__gate/...`（旧前缀，308 中转）与 `/gate/...`（规范化路径）归一到同一形式。 */
+/** Normalize legacy `/__gate/...` paths (308 redirect) and canonical `/gate/...` paths to the same form. */
 function normalizeGatePath(pathname: string): string {
   return pathname.startsWith("/__gate")
     ? `/gate${pathname.slice("/__gate".length)}`
@@ -164,14 +168,17 @@ function normalizeGatePath(pathname: string): string {
 }
 
 /**
- * 门禁页自身的**接口**路径：前端加载门禁页时依次调用 `/gate/config`（补 sitekey、
- * 文案、root domain）与 `/gate/diag`（显示可反查的 Ray ID），验证表单 POST `/gate/verify`。
+ * **API paths used by the gate page itself**: the frontend calls `/gate/config`
+ * for the sitekey, copy, and root domain; `/gate/diag` for a searchable Ray ID;
+ * and POST `/gate/verify` for challenge verification.
  *
- * 这些请求都属于门禁页自己，不是访客在浏览页面，**访问统计一律不记**。
+ * These requests belong to the gate page and are not visitor page views; **never count them**.
  *
- * 历史坑：排除名单里只写了旧前缀 `/__gate`，前端实际打的是 `/gate/config` 与
- * `/gate/diag`（`/__gate` 只是 308 中转）。于是未验证访客每看一次门禁页就换 1–2 条
- * D1 写入，任何人（含扫描器）都能匿名放大写额度——正是 2026-09-17 事故的形态。
+ * The exclusion list previously covered only `/__gate`, while the frontend
+ * calls `/gate/config` and `/gate/diag`; `/__gate` is only a 308 redirect.
+ * Each unverified page view therefore caused one or two D1 writes, allowing
+ * anonymous write amplification by anyone, including scanners. This matched
+ * the failure pattern from 2026-09-17.
  */
 function isGateEndpointPath(pathname: string): boolean {
   const p = normalizeGatePath(pathname);
@@ -179,19 +186,21 @@ function isGateEndpointPath(pathname: string): boolean {
 }
 
 /**
- * 门禁页里**唯一允许记 Ray** 的路径。
+ * The **only path allowed to record a Ray ID** on the gate page.
  *
- * 用显式白名单而不是「从黑名单里挑几个排除」：以后再加 `/gate/*` 接口时，
- * 忘记登记只会漏记（可接受），不会像黑名单那样悄悄开始按请求写库。
- * 必须保留它的原因：门禁页展示的 Ray ID 要能在 Ray 日志里反查。
+ * Use an explicit allowlist rather than a list of exclusions. If a new
+ * `/gate/*` endpoint is added without registration, it will be omitted from
+ * logs (acceptable) rather than silently writing one row per request. Keep
+ * this endpoint because the gate page displays a Ray ID that must be searchable.
  */
 function isTraceableGatePath(pathname: string): boolean {
   const p = normalizeGatePath(pathname);
   return p === "/gate/diag";
 }
 
-/** Ray 记录只保留页面和少量入口；静态、全部 API、门禁接口、图片/跳转子域不记。
- *  例外：`/gate/diag`（auth 页展示的 Ray ID 必须可反查）。 */
+/** Record Ray data only for pages and a small set of entry points; exclude
+ * static assets, APIs, gate endpoints, images, and redirect subdomains.
+ * Exception: `/gate/diag`, whose Ray ID is displayed on the auth page. */
 export function shouldTrackRay(request: Request, url: URL): boolean {
   if (request.method !== "GET" && request.method !== "POST" && request.method !== "PUT" && request.method !== "DELETE") return false;
   if (url.hostname === IMAGES_HOSTNAME || url.hostname === REDIRECT_HOSTNAME) return false;
@@ -211,11 +220,13 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
 }
 
 /**
- * 每个 isolate 首次写入前幂等建表（tasks/22 W9-19）。
+ * Create tables idempotently before the first write in each isolate (tasks/22 W9-19).
  *
- * 与 `logging.ts` 的 ensureEventSchema 同一策略：记住「已尝试」+ 每分钟最多重试
- * 一次（D1 故障期间不能让每个请求都先打一批必然失败的 DDL），并把多条 DDL 压成
- * 一次 `db.batch` 往返；只有 `db.batch` 不存在时才退回逐句执行。
+ * Use the same strategy as `ensureEventSchema` in logging.ts: remember each
+ * attempt and retry at most once per minute so every request does not send a
+ * batch of failing DDL during a D1 outage. Combine statements in one
+ * `db.batch` round trip; fall back to individual statements only when batch is
+ * unavailable.
  */
 async function ensureTrackingSchema(env: Env): Promise<void> {
   if (trackingSchemaReady || !env.DB) return;
@@ -235,11 +246,11 @@ async function ensureTrackingSchema(env: Env): Promise<void> {
     }
     trackingSchemaReady = true;
   } catch {
-    // 冷却窗口过后重试；埋点失败不影响业务。
+// Retry after the cooldown; tracking failures do not affect the request.
   }
 }
 
-/** 响应完成后记录访客；同一小时/IP/页面/状态聚合为一行，计数仍保持精确。 */
+/** Record a visitor after the response; aggregate by hour, IP, page, and status while keeping exact counts. */
 export async function recordVisit(env: Env, request: Request, status: number): Promise<void> {
   if (!env.DB) return;
   const url = requestUrl(request);
@@ -266,12 +277,12 @@ export async function recordVisit(env: Env, request: Request, status: number): P
       await encryptVisitorIp(ip, env),
     );
   } catch (error) {
-    // 不递归写错误事件，仅保留 Pages 控制台。
+// Do not recursively write error events; keep the error in the Pages console only.
     console.error(JSON.stringify({ event: "visit_record_error", message: String(error) }));
   }
 }
 
-/** 响应完成后记录 Ray 请求；只写 ray、时间、host、规范路径、方法、状态、耗时、ip_hash、country、ua_family。 */
+/** Record a Ray request after the response with only ray, time, host, normalized path, method, status, duration, ip_hash, country, and ua_family. */
 export async function recordRay(
   env: Env,
   request: Request,
@@ -300,7 +311,7 @@ export async function recordRay(
       uaFamily(request.headers.get("User-Agent") ?? ""),
     );
   } catch (error) {
-    // fail-open + 不递归写错误事件。
+// Fail open and do not recursively write error events.
     console.error(JSON.stringify({ event: "ray_record_error", message: String(error) }));
   }
 }

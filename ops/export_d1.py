@@ -44,12 +44,12 @@ from cidr import normalize_cidr, parse_cidr  # noqa: E402
 
 
 def open_private(path: str) -> TextIO:
-    """以 0600 创建文件再写。
+    """Create a file with mode 0600 before writing.
 
-    不能先 `open(path, "w")` 再 chmod：默认 umask 022 下文件会有一段时间是
-    0644（内含 Apple 账号邮箱/密码/备注），中途 Ctrl-C 更会永久停在 0644。
-    os.open 的 mode 只在**创建**时生效，所以 chmod 仍留作兜底（覆盖已存在的
-    宽松文件）。
+    Do not call `open(path, "w")` and chmod afterward: with the default umask 022, the file would
+    briefly be 0644 while containing Apple account email/password/notes. An interrupt could leave
+    it permanently at 0644. os.open applies mode only when creating, so keep chmod as a fallback
+    for an existing file with broader permissions.
     """
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     return os.fdopen(fd, "w", encoding="utf-8")
@@ -91,7 +91,7 @@ def export_apple_account(db_path: str) -> int:
             for r in rows
         ]
         f.write(",\n".join(values) + ";\n")
-    # 兜底：文件已存在且模式更宽松时（例如上一版留下的 0644）在这里收紧。
+    # Fallback: tighten permissions if the file already exists with a broader mode, such as 0644 from a previous version.
     os.chmod(json_path, 0o600)
     os.chmod(sql_path, 0o600)
     print(f"[export] {len(rows)} rows -> ops/out/apple-account.sql / apple-account.json", flush=True)
@@ -99,7 +99,7 @@ def export_apple_account(db_path: str) -> int:
 
 
 def normalize_blocklist(line: str) -> str | None:
-    """统一委托给 src/cidr.py，输出 canonical CIDR。"""
+    """Delegate to src/cidr.py and return a canonical CIDR."""
     return normalize_cidr(line)
 
 

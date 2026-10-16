@@ -1,7 +1,7 @@
 /**
- * docs.limooo.cn 站点级样式补充。
- * 品牌令牌、页头、页脚都在 fork（Limooooo-Studio/vitepress）的 limooo.css 里，
- * 这里只放文档站自己的排版微调。
+ * Site-level style additions for docs.limooo.cn.
+ * Brand tokens, header, and footer are in limooo.css in the
+ * Limooooo-Studio/vitepress fork. This file contains documentation typography tweaks.
  */
 :root {
   --vp-font-family-base:
@@ -9,12 +9,13 @@
     'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
 
-/* 平台清单表格
-   5 列长内容 + ~690px 正文列，处理方式：
-   1) 表格自身当横向滚动容器（display:block + overflow-x），
-      内层匿名表格按 min-content 撑开，不够宽就滚动，不挤成竖排；
-   2) 单元格里的链接（文档名）不折行——原来为了长 URL 加的 break-all
-      会把《哔哩哔哩未成年人个人信息保护指引》拆成每行两三个字。 */
+/* Platform directory table.
+   Long content in five columns inside a roughly 690px article column is handled as follows:
+   1) Make the table a horizontal scroll container (display: block + overflow-x).
+      Its anonymous inner table uses min-content sizing and scrolls when it does not fit,
+      instead of collapsing into a vertical layout.
+   2) Keep document-name links in cells on one line. The previous break-all rule for long
+      URLs split link text into only a few characters per line. */
 .vp-doc table {
   display: block;
   max-width: 100%;

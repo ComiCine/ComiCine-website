@@ -111,9 +111,9 @@ REPORT_ONLY = (
 
 # REPORT_ONLY keys whose value would block or challenge non-verified bots.
 #
-# bot_preference_sync_enabled 不在其中：它只是「把 AI 偏好同步成 robots.txt」，
-# 不拦流量（真正决定 robots.txt 归谁管的是 is_robots_txt_managed，那一项已由
-# --apply 关掉）。把它算成阻断会在 --show 里给出误导性的 review 提示。
+# bot_preference_sync_enabled is excluded because it only syncs AI preferences to robots.txt and does not block traffic.
+# is_robots_txt_managed controls who manages robots.txt and is disabled by
+# --apply. Treating this setting as a blocking control would produce a misleading review notice in --show.
 REPORT_BLOCKING = {
     "fight_mode": "true",
     "content_bots_protection": "block",
@@ -190,7 +190,7 @@ def plan(config: dict) -> dict:
 
 
 def describe(config: dict) -> None:
-    # 定宽对齐要同时覆盖两组的键名，否则 report-only 那几行会把列冲散。
+    # Fixed-width alignment must cover keys from both groups, or report-only rows will shift the columns.
     width = max(len(key) for key, _ in MANAGED + tuple((key, None) for key in REPORT_ONLY))
     print("ai bot policy")
     for key, desired in MANAGED:
@@ -266,8 +266,8 @@ def main() -> int:
     try:
         return run(args)
     except RuntimeError as error:
-        # 权限缺失、API 报错、快照读不到：一律只输出一行 FATAL，不吐 Python traceback ——
-        # 这条脚本的读者往往是「手上只有一个受限 token 的人」。
+        # For missing permissions, API errors, or unreadable snapshots, print one FATAL line without a Python traceback.
+        # The reader may have only a restricted token.
         print(f"FATAL: {error}", file=sys.stderr)
         return 1
 
@@ -306,9 +306,9 @@ def run(args: argparse.Namespace) -> int:
     if not changes:
         return 0
 
-    # PUT，不是 PATCH：这个端点对 PATCH 回
+    # Use PUT, not PATCH: this endpoint returns
     # `405 / code 10405 Method not allowed for this authentication scheme`
-    # （2026-10-12 实测；API 文档里也只有 `PUT /zones/{zone_id}/bot_management`）。
+    # 405 for PATCH (verified on 2026-10-12; the API docs also list only `PUT /zones/{zone_id}/bot_management`).
     api(token, "PUT", ENDPOINT.format(zone_id=zone_id), changes)
     after = fetch_config(token, zone_id)
     write_snapshot(zone_id, after)

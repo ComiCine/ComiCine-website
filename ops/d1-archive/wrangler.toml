@@ -1,4 +1,4 @@
-# 每日 UTC 00:00 将前一天的分析明细压缩归档到 R2。
+# Archive the previous day's analytics details to R2 daily at 00:00 UTC.
 name = "limooo-d1-archive"
 main = "src/index.ts"
 compatibility_date = "2026-08-15"

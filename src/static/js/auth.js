@@ -1,10 +1,10 @@
-/** 门禁页前端交互：运行时从 /gate/config 获取 sitekey 与 i18n。 */
+/** Gate page interactions. Fetch the sitekey and i18n from /gate/config at runtime. */
 
 var turnstileWidget = null;
 var CONFIG = null;
 var GATE_I18N = {};
 var TURNSTILE_SITEKEY = "";
-/* 契约事实由 build.py 注入 <body data-*>（模板 _lang_attrs.html），这里只读。 */
+/* build.py injects contract values into <body data-*> through _lang_attrs.html; this file only reads them. */
 function gateBodyAttr(name, fallback) {
   var value = document.body && document.body.getAttribute(name);
   return value === null || value === undefined || value === '' ? (fallback || '') : value;
@@ -24,8 +24,8 @@ var CURRENT_LANG = gateBodyAttr('data-lang', DEFAULT_LANG);
 var gateVerificationInFlight = false;
 document.documentElement.lang = CURRENT_LANG;
 
-/* 构建时把 4 种语言的 gate 文案内联到 HTML；/gate/config 仅用于补 sitekey，
-   即使运行时配置接口暂时不可用，语言切换和首屏文案也不会变成 key 占位符。 */
+/* Build time embeds gate copy for all four languages in the HTML; /gate/config only supplies the sitekey.
+   Language switching and initial copy therefore still work if the runtime config endpoint is unavailable. */
 (function () {
   var el = document.getElementById('gate-i18n');
   if (!el) return;
@@ -110,7 +110,7 @@ function showError(key) {
   if (country) country.hidden = blocked;
 }
 
-/* 把文案中的品牌词（如 "Limooo"）包成 Baloo 2 字体的 span，语言变体同样生效。 */
+/* Wrap brand names such as "Limooo" in a Baloo 2 span for every language variant. */
 function brandifyText(el) {
   var word = el.getAttribute('data-brandify');
   if (!word || !el.textContent || el.textContent.indexOf(word) === -1) return;
@@ -130,17 +130,17 @@ function resetTurnstile() {
     window.turnstile.remove(turnstileWidget);
     turnstileWidget = null;
   }
-  /* 失败后绝不自动 reset：Turnstile 重置后会立即自行重新求解并再次触发
-     callback，形成"失败→reset→自动求解→再失败"的无人值守死循环（表现为
-     一直卡在人机验证）。重新求解只由用户主动重试或切换语言/主题触发。 */
+  /* Never reset automatically after failure. Resetting Turnstile immediately solves again and
+     fires the callback, creating an unattended failure-reset-solve-failure loop that leaves the
+     user stuck on verification. Solve again only after an explicit retry or a language/theme change. */
   turnstileWidget = window.turnstile.render(wrap, {
     sitekey: TURNSTILE_SITEKEY,
-    /* 与 gate.ts 的 siteverify 校验值保持一致。 */
+    /* Keep this value aligned with the siteverify checks in gate.ts. */
     action: 'gate',
     callback: submitGateVerification,
     'error-callback': function () {
       showError('failed');
-      return true; /* 阻止 Turnstile 自行重试，交给用户手动重试 */
+      return true; /* Stop Turnstile from retrying automatically; let the user retry manually. */
     },
     'expired-callback': function () { showError('failed'); },
     theme: effectiveTheme() === 'light' ? 'light' : 'dark',
@@ -148,7 +148,7 @@ function resetTurnstile() {
   });
 }
 
-/* 用户显式重试：清空上一次的错误并按需重新求解。 */
+/* Explicit user retry: clear the previous error and solve again if needed. */
 function retryGateVerification() {
   if (gateVerificationInFlight) return;
   showError('');
@@ -159,13 +159,13 @@ function retryGateVerification() {
   resetTurnstile();
 }
 
-/* 验证在当前门禁页完成：接口只返回 Set-Cookie，不再跳转到 redirect 子域。 */
+/* Complete verification on this gate page. The endpoint only sets a cookie; it no longer redirects to a subdomain. */
 function submitGateVerification(token) {
   var form = document.getElementById('gate');
   if (!form || gateVerificationInFlight) return;
   gateVerificationInFlight = true;
   var formData = new FormData(form);
-  /* 直接提交成功回调给出的 token，避免依赖 Turnstile 隐藏字段的更新时序。 */
+  /* Submit the token from the success callback directly instead of relying on hidden-field update timing. */
   if (typeof token === 'string' && token) {
     formData.set('cf-turnstile-response', token);
   }
@@ -179,7 +179,7 @@ function submitGateVerification(token) {
     .then(function (response) {
       if (response.ok) {
         var next = form.querySelector('input[name="next"]');
-        /* 当前页面直接进入原目标，不走 redirect.limooo.cn 中转页。 */
+        /* Navigate from this page directly to the original target, without redirect.limooo.cn. */
         location.replace(next && next.value ? next.value : '/');
         return null;
       }
@@ -189,8 +189,8 @@ function submitGateVerification(token) {
       if (!result) return;
       showError(result.error || 'failed');
       showRetry();
-      /* 关键：这里不 reset()。Turnstile 重置后会立即自行重新求解并再次触发
-         callback，形成"失败→reset→自动求解→再失败"的无声死循环。 */
+      /* Do not call reset() here. Turnstile would immediately solve again and fire the callback,
+         creating a silent failure-reset-solve-failure loop. */
     })
     .catch(function () {
       showError('unavailable');
@@ -199,7 +199,7 @@ function submitGateVerification(token) {
     .then(function () { gateVerificationInFlight = false; });
 }
 
-/* 失败后给出显式的"重试"入口，用户点了才重新求解，避免自动死循环。 */
+/* Offer an explicit retry after failure; solve again only when the user clicks it. */
 function showRetry() {
   var form = document.getElementById('gate');
   if (!form) return;
@@ -227,7 +227,7 @@ function renderI18n() {
   document.querySelectorAll('[data-i18n]').forEach(function (el) {
     var text = t(el.getAttribute('data-i18n'));
     var key = el.getAttribute('data-i18n');
-    if (text === key) return; /* 字典尚未加载时保留服务端静态文案 */
+    if (text === key) return; /* Keep the server-rendered copy until the dictionary loads. */
     var prefix = el.getAttribute('data-i18n-prefix');
     if (prefix != null) text = text ? prefix + text : '';
     el.textContent = text;
@@ -251,7 +251,7 @@ function renderI18n() {
 }
 
 function saveLangCookie(code) {
-  /* 根域名由 /gate/config 与 <body data-root-domain> 两处提供，优先取运行时配置。 */
+  /* The root domain comes from /gate/config and <body data-root-domain>; prefer runtime config. */
   var rootDomain = (CONFIG && CONFIG.root_domain) || ROOT_DOMAIN;
   var domain = rootDomain && (location.hostname === rootDomain || location.hostname.endsWith('.' + rootDomain))
     ? '; domain=.' + rootDomain
@@ -267,8 +267,8 @@ function fetchI18n(lang, cb) {
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (d) {
-        /* /api/i18n/<lang> 返回的是完整 locale 字典，字段名带 gate_ 前缀；
-           这里只补门禁页需要的键，避免后续 renderI18n 重写失败。 */
+        /* /api/i18n/<lang> returns the full locale dictionary with gate_-prefixed keys.
+           Add only the keys needed by the gate page to avoid later renderI18n failures. */
         var map = {
           title: 'gate_title', heading: 'gate_heading', location: 'gate_location',
           ip: 'gate_ip', ray: 'gate_ray', foot: 'gate_foot',
@@ -295,7 +295,7 @@ function applyLang(lang) {
     fetchI18n(lang, function (d) {
       if (!d) {
         saveLangCookie(lang);
-        location.reload(); /* 字典接口也不可用时，回退到服务端按 cookie 渲染新语言 */
+        location.reload(); /* If the dictionary endpoint also fails, let the server render the selected language from the cookie. */
         return;
       }
       applyLang(lang);
@@ -379,10 +379,10 @@ document.addEventListener('click', function (e) {
   if (!e.target.closest('.theme-toggle')) closeLangMenu();
 });
 
-/* 页面静态文案先按构建语言渲染；运行时加载配置后补齐 Turnstile 与切换能力。 */
+/* Render static copy in the build language first; runtime config adds Turnstile and language switching. */
 applyTheme(effectiveTheme());
 renderI18n();
-/* i18n 不可用时的静态回退也保留品牌字 Baloo 2 渲染。 */
+/* Keep the Baloo 2 brand rendering in the static fallback when i18n is unavailable. */
 var staticBrandTarget = document.querySelector('[data-brandify]');
 if (staticBrandTarget) brandifyText(staticBrandTarget);
 showError(document.body.getAttribute('data-gate-error') || '');

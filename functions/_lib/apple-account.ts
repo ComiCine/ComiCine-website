@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Apple Account 数据校验与脱敏（Pages 侧） */
+/** Apple Account validation and redaction (Pages side). */
 
 import { APPLE_ACCOUNT_DOMAIN } from "./config";
 

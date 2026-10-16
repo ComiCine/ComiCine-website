@@ -18,48 +18,56 @@
  */
 
 /**
- * 爬虫 / AI 工具的 UA 名单判定（2026-10-12）。
+ * Match crawler and AI tool user agents (2026-10-12).
  *
- * 名单本体就是站点自己的 `docs/lists/robots.txt`（爬虫规则发布到
- * `/robots.txt`，构建器另追加契约生成的 Sitemap 行）：
- * `ops/check_gate_trust.py --emit` 把其中每条**显式**
- * `User-agent:`（`*` 除外）转小写后生成到 `functions/_data/gateTrust.ts` 的
- * `GATE_TRUST_CRAWLER_UAS`，这里只做匹配。
+ * The site-owned `docs/lists/robots.txt` is the source list. Its crawler rules
+ * are published at `/robots.txt`; the builder adds a contract-generated
+ * Sitemap line. `ops/check_gate_trust.py --emit` lowercases each **explicit**
+ * `User-agent:` entry except `*` and writes it to
+ * `functions/_data/gateTrust.ts` as `GATE_TRUST_CRAWLER_UAS`. This module only
+ * matches against that list.
  *
- * 因此「往 robots.txt 加一个 User-agent」= 同时放宽抓取规则与门禁；两者再也
- * 不会各写一份、改漏一边（2026-10-12 之前是 crawlers.txt + 构建器里的手写文本）。
+ * Adding a User-agent to robots.txt now updates both crawler rules and the gate
+ * allowlist, so they cannot drift apart. Before 2026-10-12 they lived in
+ * crawlers.txt and hardcoded builder text.
  *
- * ## 这一层信任**只免人机验证**，不等于「已信任来源」
+ * This trust layer **only bypasses human verification**; it does not make the source trusted.
  *
- * UA 是访客自报的：任何人都能把它写成 `GPTBot`。因此命中名单的请求：
- *   * 不参与 `sourceTrusted`（中间件照样做 `blocked_ips` 封禁检查）；
- *   * 不签发 `__gate` cookie（不给自报者换一枚可长期复用的签名 cookie）；
- *   * 不计入访客统计。
- * 真正不可自报的身份判定只有两处：Cloudflare verified bot
- * （`request.cf.botManagement.verifiedBot`，见 tracking.ts 的 isTrustedCrawler）
- * 与 IP 白名单（docs/lists/own-ips.txt）。
+ * User agents are self-reported; anyone can claim to be `GPTBot`. A matching
+ * request therefore:
+ *   * Does not set `sourceTrusted`; middleware still checks `blocked_ips`.
+ *   * Does not receive a `__gate` cookie, so a self-reported identity cannot
+ *     obtain a reusable signed cookie.
+ *   * Is not counted in visitor statistics.
+ * The only identity checks that cannot be self-reported are Cloudflare
+ * verified bots (`request.cf.botManagement.verifiedBot`; see isTrustedCrawler
+ * in tracking.ts) and the IP allowlist (docs/lists/own-ips.txt).
  */
 
 import { GATE_TRUST, GATE_TRUST_CRAWLER_UAS } from "../_data/gateTrust";
 
 /**
- * 参与匹配的 UA 前缀长度上限。
+ * Maximum user-agent prefix length considered for matching.
  *
- * User-Agent 头没有长度上限（README 的访客约定里也没人保证这一点），而名单是
- * 近百条子串匹配：截断到 512 字符既能覆盖真实 UA（最长的浏览器 UA 也不到
- * 200 字符），又让「超长 UA 拖慢每个未验证请求」不成立。
+ * User-Agent headers have no length limit, and the visitor contract in README
+ * makes no promise otherwise. The list has nearly 100 substring matches.
+ * Truncating to 512 characters covers real user agents (the longest browser
+ * user agents are under 200 characters) and prevents oversized values from
+ * slowing every unverified request.
  */
 export const CRAWLER_UA_MAX_LENGTH = 512;
 
 /**
- * 命中名单时返回命中的片段（已小写），否则返回空串。
+ * Return the matched lowercase fragment, or an empty string when there is no match.
  *
- * 返回片段而不是布尔值是为了日志能写清「按哪一条放行的」——名单有近百条，
- * 排查「为什么这个 UA 进来了」时只有布尔值是不够的。
+ * Return the fragment instead of a boolean so logs can show which entry
+ * allowed the request. The list has nearly 100 entries, and a boolean alone
+ * cannot explain why a user agent matched.
  *
- * 契约开关：`GATE_TRUST.ua_allowlist_enabled` 为 false 时整份名单不生效
- * （config-contract.json 的 `gate_trust.ua_allowlist_enabled`），这样线上
- * 出问题可以只改契约、不必删名单。
+ * Contract switch: when `GATE_TRUST.ua_allowlist_enabled` is false, the entire
+ * list is disabled (`gate_trust.ua_allowlist_enabled` in
+ * config-contract.json). Production issues can then be handled by changing
+ * the contract without deleting the list.
  */
 export function declaredCrawlerToken(request: Request): string {
   if (GATE_TRUST.ua_allowlist_enabled !== true) return "";
@@ -72,7 +80,7 @@ export function declaredCrawlerToken(request: Request): string {
   return "";
 }
 
-/** 是否命中爬虫 UA 名单（只表示「免人机验证」，见文件头）。 */
+/** Whether a crawler user agent matched; this means only that it bypasses verification (see the file header). */
 export function isDeclaredCrawler(request: Request): boolean {
   return declaredCrawlerToken(request) !== "";
 }

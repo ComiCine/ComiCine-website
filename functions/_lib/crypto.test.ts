@@ -18,18 +18,20 @@
  */
 
 /**
- * `hmacSha256Hex` 的 CryptoKey 缓存（tasks/22 遗留项）。
+ * CryptoKey cache for `hmacSha256Hex` (tasks/22 follow-up).
  *
- * 两件事必须被证明，不能只靠读代码：
+ * Verify both properties directly:
  *
- * 1. **等价性**：缓存前后的签名逐字节相同。基准不用「本实现自己的旧版本」，
- *    而是 Node 内置 `createHmac` 这份独立实现——否则缓存把结果改坏了也可能
- *    自己跟自己一致。
- * 2. **收益**：`importKey` 的调用次数。用 spy 包住真的 `crypto.subtle.importKey`
- *    （保留真实语义），断言 N 次同 key 调用只 import 1 次、交替 key 各 1 次。
+ * 1. **Equivalence**: signatures are byte-for-byte identical before and after
+ *    caching. Use Node's independent `createHmac` implementation as the
+ *    baseline rather than this implementation's old version.
+ * 2. **Benefit**: count `importKey` calls by spying on the real
+ *    `crypto.subtle.importKey`. Repeated calls with one key should import once;
+ *    alternating keys should each import once.
  *
- * 缓存是模块级状态，所以每个用例前 `resetHmacKeyCacheForTests()` 回到冷缓存，
- * 否则「第一次」会命中上一个用例留下的条目，计数就失去意义。
+ * The cache is module-level state. Call `resetHmacKeyCacheForTests()` before
+ * each case so it starts cold; otherwise the first call may reuse an entry
+ * from a previous case and invalidate the call count.
  */
 
 import { createHmac } from "node:crypto";
@@ -38,18 +40,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hmacSha256Hex, resetHmacKeyCacheForTests, timingSafeEqual, toHex } from "./crypto";
 import { mintGateCookie, readGateCookie } from "./gate";
 
-/** 独立基准实现：Node 内置 HMAC-SHA256（与本模块无共享代码）。 */
+/** Independent HMAC-SHA256 baseline using Node's built-in implementation. */
 function referenceHex(key: string, data: string): string {
   return createHmac("sha256", key).update(data, "utf8").digest("hex");
 }
 
 /**
- * 用例内固定的输入向量：短 key、非 ASCII、互为前缀的 key。
+ * Fixed test inputs: short keys, non-ASCII data, and keys that are prefixes of one another.
  *
- * 这里**没有**空串 key：WebCrypto 本身拒绝零长度 HMAC 密钥（Node 与 Workers
- * 都报 `DataError: Zero-length key is not supported`），而生产调用点也都是
- * fail-closed 的——`GATE_HMAC_KEY` / `SESSION_HMAC_KEY` 为空时中间件直接 503，
- * 根本走不到 `hmacSha256Hex`。所以空串不是缓存必须支持的输入。
+ * There is **no empty key** here: WebCrypto rejects zero-length HMAC keys
+ * (`DataError: Zero-length key is not supported` in Node and Workers). The
+ * production callers also fail closed: middleware returns 503 when
+ * `GATE_HMAC_KEY` or `SESSION_HMAC_KEY` is empty, before reaching
+ * `hmacSha256Hex`. Empty keys are not a required cache input.
  */
 const KEYS = {
   gate: "gate-hmac-secret-aaaaaaaaaaaaaaaa",
@@ -68,7 +71,7 @@ const DATASETS = {
   long: "x".repeat(4096),
 } as const;
 
-/** 每个用例前的 importKey 调用计数（spy 装在真的 importKey 外面）。 */
+/** Count importKey calls before each case; the spy wraps the real implementation. */
 let importKeyCalls = 0;
 let importKeySpy: ReturnType<typeof vi.spyOn>;
 
@@ -100,7 +103,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
   });
 
   it("is stable across repeated and interleaved calls (no cache-induced drift)", async () => {
-    // 第一次（冷缓存）的签名就是基准，之后同 key/不同 key 交替调用都必须相等。
+// Use the first cold-cache signature as the baseline; signatures must remain equal across repeated and alternating keys.
     const baseline = new Map<string, string>();
     for (const key of Object.values(KEYS)) {
       baseline.set(key, await hmacSha256Hex(key, "issued.expiry"));
@@ -108,7 +111,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
 
     for (let round = 0; round < 5; round += 1) {
       for (const [name, key] of Object.entries(KEYS)) {
-        // 交替：每个 key 之后都插一次别的 key，逼缓存来回换手。
+// Alternate keys by inserting a different key between calls to force cache turnover.
         await hmacSha256Hex(KEYS.gate, `filler-${round}`);
         expect(await hmacSha256Hex(key, "issued.expiry")).toBe(baseline.get(key));
         expect(await hmacSha256Hex(key, "issued.expiry")).toBe(referenceHex(key, "issued.expiry"));
@@ -134,7 +137,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     }
     expect(importKeyCalls).toBe(2);
 
-    // 第三次换手不应再 import：两把都已在缓存里。
+// The third switch must not import again; both keys are cached.
     await hmacSha256Hex(KEYS.gate, "again");
     await hmacSha256Hex(KEYS.session, "again");
     expect(importKeyCalls).toBe(2);
@@ -148,7 +151,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     await hmacSha256Hex(KEYS.unicode, "d");
     expect(importKeyCalls).toBe(5);
 
-    // 互为前缀的两把 key，也必须分开缓存，不能串味。
+// Keys that are prefixes of one another must have separate cache entries.
     expect(await hmacSha256Hex(KEYS.prefix, "d")).toBe(referenceHex(KEYS.prefix, "d"));
     expect(await hmacSha256Hex(KEYS.short, "d")).toBe(referenceHex(KEYS.short, "d"));
     expect(await hmacSha256Hex(KEYS.session, "d")).toBe(referenceHex(KEYS.session, "d"));
@@ -156,7 +159,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
   });
 
   it("bounds the cache: the 9th distinct key evicts the least recently used one", async () => {
-    // 上限 8 条：k0..k7 填满，k8 挤掉最久未用的 k0。
+// Fill the eight-entry limit with k0..k7; k8 must evict the least recently used key, k0.
     for (let i = 0; i < 8; i += 1) {
       await hmacSha256Hex(`cache-key-${i}`, "d");
     }
@@ -165,15 +168,15 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     await hmacSha256Hex("cache-key-8", "d");
     expect(importKeyCalls).toBe(9);
 
-    // k0 已被淘汰 -> 再次调用必须重新 import（证明缓存确实有界）。
+// k0 was evicted, so the next call must import it again and prove the cache is bounded.
     await hmacSha256Hex("cache-key-0", "d");
     expect(importKeyCalls).toBe(10);
 
-    // 而 k8 仍在缓存里 -> 不再 import。
+// k8 is still cached and must not be imported again.
     await hmacSha256Hex("cache-key-8", "d");
     expect(importKeyCalls).toBe(10);
 
-    // 淘汰后重新 import 的 k0 签名仍与基准一致。
+// The signature for re-imported k0 must still match the baseline.
     expect(await hmacSha256Hex("cache-key-0", "d")).toBe(referenceHex("cache-key-0", "d"));
   });
 
@@ -181,7 +184,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     for (let i = 0; i < 8; i += 1) {
       await hmacSha256Hex(`lru-key-${i}`, "d");
     }
-    // 触碰 k0 -> 它变成最新，被淘汰的应该是 k1。
+// Touching k0 makes it newest, so k1 should be evicted next.
     await hmacSha256Hex("lru-key-0", "d");
     expect(importKeyCalls).toBe(8);
 
@@ -189,9 +192,9 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     expect(importKeyCalls).toBe(9);
 
     await hmacSha256Hex("lru-key-0", "d");
-    expect(importKeyCalls).toBe(9); // 仍在
+    expect(importKeyCalls).toBe(9); // Still cached.
     await hmacSha256Hex("lru-key-1", "d");
-    expect(importKeyCalls).toBe(10); // 已淘汰
+    expect(importKeyCalls).toBe(10); // Evicted.
   });
 
   it("keeps verifying signatures after a key rotation (old key still works, new key signs new)", async () => {
@@ -200,7 +203,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     const oldValue = oldCookie.slice(oldCookie.indexOf("=") + 1);
     const [issuedRaw, expiryRaw, oldSignature] = oldValue.split(".");
 
-    // 轮换到新 key 后，旧 cookie 的签名仍是用**旧 key** 算出来的那串（逐字节不变）。
+// After key rotation, an old cookie's signature must remain byte-for-byte identical and use the **old key**.
     expect(oldSignature).toBe(referenceHex(KEYS.session, `${issuedRaw}.${expiryRaw}`));
 
     const rotatedCookie = (await mintGateCookie(KEYS.rotated)).split(";")[0];
@@ -210,17 +213,17 @@ describe("hmacSha256Hex CryptoKey cache", () => {
     expect(newSignature).not.toBe(oldSignature);
     expect(timingSafeEqual(oldSignature, newSignature)).toBe(false);
 
-    // 旧 key 仍能验旧 cookie（rotation 不破坏已签发凭据的校验路径）。
+// The old key must still validate old cookies; rotation must preserve already-issued credentials.
     const oldState = await readGateCookie(oldValue, KEYS.session);
     expect(oldState.valid).toBe(true);
     expect(oldState.reason).toBe("ok");
 
-    // 新 key 验旧 cookie 必须失败（否则等于接受已作废的密钥）。
+// The new key must reject old cookies, or a retired key would still be accepted.
     const mixed = await readGateCookie(oldValue, KEYS.rotated);
     expect(mixed.valid).toBe(false);
     expect(mixed.reason).toBe("bad_signature");
 
-    // 轮换后再走一轮：新 key 已缓存、旧 key 仍命中，两者签名都不漂移。
+// After rotation, both the cached new key and matching old key must produce stable signatures.
     const callsBefore = importKeyCalls;
     await hmacSha256Hex(KEYS.session, `${issuedRaw}.${expiryRaw}`);
     await hmacSha256Hex(KEYS.rotated, `${issuedRaw}.${expiryRaw}`);
@@ -238,7 +241,7 @@ describe("hmacSha256Hex CryptoKey cache", () => {
   });
 
   it("leaves toHex untouched by the cache", () => {
-    // 顺带钉住 toHex：不在本轮改动范围，行为必须原样。
+// Keep toHex behavior unchanged; it is outside this change.
     expect(toHex(new Uint8Array([0, 1, 15, 16, 255]))).toBe("00010f10ff");
   });
 });

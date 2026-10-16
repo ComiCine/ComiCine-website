@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** CSRF 双提交保护测试；不读取真实密钥。 */
+/** CSRF double-submit protection tests; no real secrets are read. */
 
 import { describe, expect, it } from "vitest";
 import type { Env } from "./env";
@@ -64,7 +64,7 @@ describe("csrf", () => {
   it("rejects a token issued for a different session", async () => {
     const { token } = await createCsrfToken(env, SID_A);
     expect(await verifyCsrf(env, request("https://account.limooo.cn", token), SID_B)).toBe(false);
-    // 同一个 token 在自己的会话里仍然有效，排除“因为签名坏了一律拒绝”的假阴性。
+// The same token remains valid in its own session, ruling out a false pass caused by rejecting every signature.
     expect(await verifyCsrf(env, request("https://account.limooo.cn", token), SID_A)).toBe(true);
   });
 
@@ -87,7 +87,7 @@ describe("csrf", () => {
     const localEnv = { ...env, ALLOW_LOCAL_ORIGINS: "1" } as Env;
     expect(await verifyCsrf(localEnv, request("http://localhost:8788", token), SID_A)).toBe(true);
     expect(await verifyCsrf(localEnv, request("http://127.0.0.1:8080", token), SID_A)).toBe(true);
-    // 除了 "1" 之外的值一律视为关闭
+// Treat every value except "1" as disabled.
     const offEnv = { ...env, ALLOW_LOCAL_ORIGINS: "true" } as Env;
     expect(await verifyCsrf(offEnv, request("http://localhost:8788", token), SID_A)).toBe(false);
   });

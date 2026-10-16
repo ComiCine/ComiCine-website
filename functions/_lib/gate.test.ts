@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** isBlocked 的 CIDR 精确匹配测试（tasks/10）。 */
+/** CIDR exact-match tests for isBlocked (tasks/10). */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -148,9 +148,10 @@ describe("handleVerify", () => {
   });
 
   it("fails closed when GATE_HMAC_KEY is missing instead of signing with an empty key", async () => {
-    // handleVerify 此前只检查 TURNSTILE_SECRET；GATE_HMAC_KEY 为空时它会继续签发
-    // 一枚用空密钥签的 __gate cookie（今天靠中间件的 runtimeConfigError 兜住，
-    // 但「中间件路由缺失时的兜底入口」自己必须有这道门）。
+// handleVerify previously checked only TURNSTILE_SECRET and would issue a
+// __gate cookie signed with an empty key when GATE_HMAC_KEY was missing. The
+// middleware runtimeConfigError currently catches this, but the fallback
+// entry point must enforce the check itself in case middleware routing is absent.
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "limooo.cn" })));
     const resp = await handleVerify({
       request: verifyRequest("application/json"),
@@ -191,11 +192,12 @@ describe("handleVerify", () => {
   });
 
   /**
-   * W9-16：siteverify 返回的 hostname / action 一并校验（纵深防御）。
+    * W9-16: validate the hostname and action returned by siteverify as defense in depth.
    *
-   * 同一个 sitekey 若被加到别的域名或别的组件（widget）上，其它站点解出的 token
-   * 也能通过我们的 siteverify —— 只校验 success 就等于把「本站访客」的定义
-   * 交给 Cloudflare 与 sitekey 配置。这里按 managed hosts 收紧。
+    * If the same sitekey is used on another domain or widget, tokens solved
+    * there can also pass our siteverify call. Checking only success would let
+    * Cloudflare and the sitekey configuration define who counts as a visitor
+    * to this site. Restrict the result to managed hosts here.
    */
   it("rejects a token solved on a host we do not manage", async () => {
     vi.stubGlobal(
@@ -236,7 +238,7 @@ describe("handleVerify", () => {
   });
 
   it("rejects a siteverify response with no hostname at all", async () => {
-    // 缺 hostname 时不能按「没给就别管」放行，否则这份纵深防御等于可被省略。
+// Reject a missing hostname; accepting it would make this defense optional.
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true })));
     const resp = await handleVerify(verifyContext(verifyRequest("application/json")));
     expect(resp.status).toBe(403);
@@ -258,7 +260,7 @@ describe("__gate cookie: signature, expiry and renewal", () => {
   it("signs issued+expiry so a valid cookie cannot be extended by rewriting it", async () => {
     const value = await mintAt(1_700_000_000);
     const [issued, expiry, signature] = value.split(".");
-    // 攻击者把过期时间往后推，签名对不上 -> 无效。
+// Extending the expiry changes the signed payload and invalidates the cookie.
     const forged = `${issued}.${Number(expiry) + 86400}.${signature}`;
     vi.useFakeTimers();
     vi.setSystemTime(1_700_000_100 * 1000);
@@ -289,13 +291,13 @@ describe("__gate cookie: signature, expiry and renewal", () => {
   it("only asks for renewal once the cookie is 3/4 through its TTL", async () => {
     const value = await mintAt(1_700_000_000);
     vi.useFakeTimers();
-    // 刚签发：不续期，避免每次请求都重签（滑动窗口漂移）。
+// A newly issued cookie is not renewed, avoiding a sliding expiry window.
     vi.setSystemTime((1_700_000_000 + 60) * 1000);
     await expect(readGateCookie(value, KEY)).resolves.toMatchObject({
       valid: true,
       shouldRenew: false,
     });
-    // 走完 3/4 TTL：开始续期。
+// Start renewal after three quarters of the TTL have elapsed.
     vi.setSystemTime((1_700_000_000 + GATE_RENEW_AFTER_SECONDS + 1) * 1000);
     await expect(readGateCookie(value, KEY)).resolves.toMatchObject({
       valid: true,
@@ -321,11 +323,11 @@ describe("duplicate __gate names and issue-time cleanup", () => {
     vi.useRealTimers();
 
     expect(headers).toHaveLength(2);
-    // 第一条删除 host-only 变体：不能带 Domain，否则删不掉它。
+// First, delete the host-only variant. Do not include Domain or it will not be removed.
     expect(headers[0]).toContain("__gate=;");
     expect(headers[0]).toContain("Max-Age=0");
     expect(headers[0]).not.toContain("Domain=");
-    // 第二条写入正常的 1h 域级 cookie。
+// Then write the regular one-hour domain cookie.
     expect(headers[1]).toContain("Domain=.limooo.cn");
     expect(headers[1]).toContain("Max-Age=3600");
   });
@@ -348,17 +350,18 @@ describe("duplicate __gate names and issue-time cleanup", () => {
 });
 
 /**
- * blocked_ips 进程内缓存（tasks/22 增量 ①）。
+ * Process-local blocked_ips cache (tasks/22 increment 1).
  *
- * 这些用例把「缓存命中不再查库」「TTL 过期重查」「读失败回退且不放大故障」
- * 「不同 env.DB 不串味」以及「缓存路径与逐前缀查询路径判定逐项一致」钉死。
- * 上面的既有用例走的是 `env.DB = {}`（没有 prepare）→ 全量读必然失败 →
- * 回退路径，因此改动前后行为不变。
+ * These cases cover cache hits, reload after TTL expiry, fallback after read
+ * failures without amplifying them, isolation between different env.DB
+ * bindings, and parity between cached and per-prefix matching. Earlier tests
+ * use `env.DB = {}` without prepare(), so the full-list read fails and follows
+ * the fallback path; their behavior remains unchanged.
  */
 describe("isBlocked blocked_ips cache", () => {
   type Row = { cidr: string; network: string; prefix: number; active?: number };
 
-  /** 复刻 D1 上 blocked_ips 两条查询形态的桩（含 active 过滤与排序/限行语义）。 */
+/** Stub both blocked_ips query shapes, including active filtering, ordering, and limits. */
   function fakeDb(rows: Row[], options: { listReadFails?: boolean } = {}) {
     const counters = { prepare: 0, blocked: 0, listReads: 0 };
     const visible = () => rows.filter((row) => (row.active ?? 1) === 1);
@@ -400,7 +403,7 @@ describe("isBlocked blocked_ips cache", () => {
     return db;
   }
 
-  /** 让被 mock 掉的 queryAll 走真实桩，从而同时覆盖回退路径（绑定参数必须照传）。 */
+/** Route the mocked queryAll through the real stub to cover fallback behavior and preserve bound parameters. */
   function wireQueryAll(db: ReturnType<typeof fakeDb>) {
     vi.mocked(queryAll).mockImplementation(
       async (_db: unknown, sql: string, ...values: unknown[]) => {
@@ -423,7 +426,7 @@ describe("isBlocked blocked_ips cache", () => {
     expect(await isBlocked(env, request, "1.2.3.10")).toBe(true);
 
     expect(db.counters.listReads).toBe(1);
-    // 全过程只有那一次全量读，逐前缀查询一次都没跑。
+// Only the single full-list read ran; no per-prefix query was issued.
     expect(db.counters.blocked).toBe(1);
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
   });
@@ -439,12 +442,12 @@ describe("isBlocked blocked_ips cache", () => {
       expect(await isBlocked(env, request, "1.2.3.9")).toBe(true);
       expect(db.counters.listReads).toBe(1);
 
-      // TTL 内：仍然是同一次读取。
+// Within the TTL, reuse the same read.
       vi.setSystemTime(1_700_000_000_000 + BLOCKED_LIST_TTL_MS - 1);
       expect(await isBlocked(env, request, "1.2.3.9")).toBe(true);
       expect(db.counters.listReads).toBe(1);
 
-      // 越过 TTL：必须重查。
+// After the TTL expires, read again.
       vi.setSystemTime(1_700_000_000_000 + BLOCKED_LIST_TTL_MS);
       expect(await isBlocked(env, request, "1.2.3.9")).toBe(true);
       expect(db.counters.listReads).toBe(2);
@@ -462,55 +465,59 @@ describe("isBlocked blocked_ips cache", () => {
     expect(vi.mocked(queryAll)).toHaveBeenCalled();
     expect(vi.mocked(logEvent)).toHaveBeenCalled();
 
-    // 失败也要记住：冷却窗口内不再重试全量读，否则 D1 抖动期间每个请求都会多打一次。
+// Cache failures too: do not retry the full-list read during the cooldown, or every request will add another failing D1 call.
     expect(await isBlocked(env, request, "1.2.3.9")).toBe(true);
     expect(db.counters.listReads).toBe(1);
   });
 
   it("does not treat a failed list read as an empty blocklist", async () => {
-    // 驱动回 success=false 时绝不能把空列表当结论：必须回退并照常封禁。
+// Never treat an empty list as authoritative when the driver returns success=false; fall back and keep enforcing blocks.
     const db = fakeDb(blocking, { listReadFails: true });
     wireQueryAll(db);
     expect(await isBlocked({ DB: db } as never, request, "1.2.3.9")).toBe(true);
   });
 
   it("keeps enforcing the last known list when a re-read fails", async () => {
-    // 这条是 2026-10-11 的行为变更，也是「把 fail-open 的暴露面缩到最小」的落点。
+// This behavior changed on 2026-10-11 to minimize the exposure of fail-open behavior.
     //
-    // 旧行为：TTL 到点后重读失败 → `readBlockedList` 把缓存写成 `{ rows: null }`
-    // → 只能走逐前缀查询 → 那条再失败就 fail-open。于是 D1 一抖，应用层封禁整条静默失效。
-    // 新行为：重读失败时**保留上一次成功的名单**，拿几秒前刚读到的数据继续判。
+// Old behavior: a failed refresh after TTL expiry stored `{ rows: null }`,
+// forcing per-prefix queries that could also fail and open the gate. A D1
+// disruption therefore disabled all application-level blocking.
+// New behavior: **keep the last successfully read list** and continue using it
+// when a refresh fails.
     //
-    // ⚠️ 必须**跨过 TTL**才走到重读那条路径。第一版这条用例没有推进时间，第二次调用
-    // 仍命中缓存、根本没重读，所以把实现改回旧写法它照样全绿 —— 是我自己的反向抽查
-    // 抓出来的假保护。现在用 fake timers 推进 61s，确保真的触发重读。
+// The test must **advance past the TTL** to reach the refresh path. The first
+// version did not advance time, so the second call reused the cache and the
+// test passed even with the old implementation. Fake timers now advance 61s to
+// ensure a refresh actually occurs.
     //
-    // 为什么不是字面 fail-closed：那会让每个**非白名单访客**在 D1 抖动时都撞门禁页，
-    // 而门禁页自身的验证也读 D1 —— 等于把一次抖动升级成全站下线。近 90 天实测有
-    // 8 次 D1 相关失败，这个差别不是理论问题。
+// Do not fail closed literally: every **non-allowlisted visitor** would hit
+// the gate during a D1 disruption, and gate verification also reads D1. That
+// would turn one transient failure into a site-wide outage. There were eight
+// D1-related failures in the last 90 days, so this distinction is practical.
     vi.useFakeTimers();
     try {
       vi.setSystemTime(1_700_000_000_000);
-      // `options` 是可变对象，桩在每次 all() 时现读它。
+// options is mutable; the stub reads it on each all() call.
       const options: { listReadFails?: boolean } = {};
       const db = fakeDb(blocking, options);
       wireQueryAll(db);
 
-      // 1) 先成功读一次，把名单放进缓存。
+// 1) Read successfully once to populate the cache.
       await expect(isBlocked({ DB: db } as never, request, "1.2.3.9")).resolves.toBe(true);
       expect(db.counters.listReads).toBe(1);
 
-      // 2) 跨过 TTL，并把「全量读」与「逐前缀回退」都打掉。
+// 2) Advance past the TTL and fail both the full-list read and per-prefix fallback.
       vi.setSystemTime(1_700_000_000_000 + BLOCKED_LIST_TTL_MS + 1_000);
       options.listReadFails = true;
       vi.mocked(queryAll).mockRejectedValue(new Error("D1_ERROR: blocked_ips unavailable"));
 
-      // 3) 仍然拦得住：用的是保留下来的那份名单，不是 fail-open。
+// 3) Blocking still works from the retained list instead of failing open.
       await expect(isBlocked({ DB: db } as never, request, "1.2.3.9")).resolves.toBe(true);
-      // 确实发生了重读（否则这条用例没有覆盖到那条路径）。
+// Confirm that a refresh really happened; otherwise this case would not cover that path.
       expect(db.counters.listReads).toBe(2);
       expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
-      // 对照：不在名单里的地址照样放行，没有把所有人都拦下。
+// Control: an address outside the list is still allowed; the test did not block everyone.
       await expect(isBlocked({ DB: db } as never, request, "9.9.9.9")).resolves.toBe(false);
     } finally {
       vi.useRealTimers();
@@ -518,22 +525,25 @@ describe("isBlocked blocked_ips cache", () => {
   });
 
   it("returns false (fail-open) when both the list read and the fallback query throw", async () => {
-    // 把**现状**钉死：D1 抛错时 isBlocked() 返回 false（放行），不是 403。
-    // 依据是 gate.ts 的契约注释「DB 异常时放行 / fail-open 语义不变」与
-    // isBlocked() 末尾那个空 catch —— 应用层拦截在数据库不可用时让路。
+// Pin the **current behavior**: when D1 throws, isBlocked() returns false
+// (allow) rather than 403. This follows gate.ts's documented fail-open
+// contract and the empty catch at the end of isBlocked(); application blocking
+// yields when the database is unavailable.
     //
-    // 这条用例记录的是当前语义，**不是**在宣告它正确：改成 fail-closed 会让它变红，
-    // 而那是线上行为变更（D1 一抖全站 403），必须单独决策，见 tasks/22 的风险项。
+// This records current semantics; it does **not** endorse them. Changing to
+// fail-closed would fail this test and change production behavior, potentially
+// returning 403 site-wide during a D1 disruption. That requires a separate
+// decision; see the risk item in tasks/22.
     const db = {
       prepare() {
         throw new Error("D1_ERROR: blocked_ips unavailable");
       },
     };
-    // 全量读（prepare 抛）与逐前缀回退读（queryAll 拒绝）两条路都失败。
+// Both the full-list read (prepare throws) and per-prefix fallback (queryAll rejects) fail.
     vi.mocked(queryAll).mockRejectedValue(new Error("D1_ERROR: blocked_ips unavailable"));
 
     await expect(isBlocked({ DB: db } as never, request, "1.2.3.9")).resolves.toBe(false);
-    // 放行不是「命中后放行」：一次 block_match 都不该记。
+// This is an allow decision, not a block match; do not record block_match.
     expect(vi.mocked(logEvent)).not.toHaveBeenCalled();
   });
 
@@ -543,7 +553,7 @@ describe("isBlocked blocked_ips cache", () => {
     wireQueryAll(blockingDb);
 
     expect(await isBlocked({ DB: blockingDb } as never, request, "1.2.3.9")).toBe(true);
-    // 同一个 IP、另一个 DB 绑定：必须是它自己的（空）名单，不能命中前一个环境的缓存。
+// The same IP with a different DB binding must use that binding's empty list, not the previous environment's cache.
     expect(await isBlocked({ DB: cleanDb } as never, request, "1.2.3.9")).toBe(false);
     expect(cleanDb.counters.listReads).toBe(1);
   });
@@ -557,7 +567,7 @@ describe("isBlocked blocked_ips cache", () => {
       { cidr: "2001:db8::/32", network: "2001:db8::", prefix: 32 },
       { cidr: "2001:db8:dead:beef::/64", network: "2001:db8:dead:beef::", prefix: 64 },
       { cidr: "2001:db8:dead:beef::1/128", network: "2001:db8:dead:beef::1", prefix: 128 },
-      // active=0 的行两侧都必须忽略（软删除的解封语义）。
+// Both query paths must ignore active=0 rows, preserving soft-delete unblocking semantics.
       { cidr: "172.16.0.0/12", network: "172.16.0.0", prefix: 12, active: 0 },
       { cidr: "192.0.2.77/32", network: "192.0.2.77", prefix: 32, active: 0 },
       { cidr: "2001:db9:2::/48", network: "2001:db9:2::", prefix: 48, active: 0 },
@@ -598,27 +608,28 @@ describe("isBlocked blocked_ips cache", () => {
       return out;
     };
 
-    // 缓存路径（全量读成功）vs 查询路径（全量读失败 → 回退到改动前的实现）。
+// Compare the cache path (successful full-list read) with the query path (failed full-list read and legacy fallback).
     const cached = await verdictsFor(false);
     const queried = await verdictsFor(true);
 
     expect(cached).toEqual(queried);
-    // 用例本身必须有区分度：既要有命中的，也要有放行的。
+// Include both matching and allowed addresses so the comparison is meaningful.
     expect(cached.filter(([, blocked]) => blocked).length).toBeGreaterThan(5);
     expect(cached.filter(([, blocked]) => !blocked).length).toBeGreaterThan(3);
-    // /32 必须压过同段的 /24（cidr 取值与查询路径一致）。
+// A /32 must take precedence over a matching /24, as in the query path.
     expect(cached.find(([ip]) => ip === "203.0.113.9")?.[2]).toBe("cidr=203.0.113.9/32");
-    // active=0 的行无论如何都不能命中。
+// An active=0 row must never match.
     expect(cached.find(([ip]) => ip === "172.16.5.5")?.[1]).toBe(false);
     expect(cached.find(([ip]) => ip === "192.0.2.77")?.[1]).toBe(false);
     expect(cached.find(([ip]) => ip === "2001:db9:2::1")?.[1]).toBe(false);
-    // 对照：active=1 的 /32 网段里同类地址照样命中（说明上面不是「整个网段都没查」）。
+// Control: a matching address in an active /32 still matches, proving the entire network was not skipped.
     expect(cached.find(([ip]) => ip === "2001:db8:2::1")?.[1]).toBe(true);
   });
 
   it("treats a /0 row as a match for its own address family only", async () => {
-    // 边界前缀 0：缓存路径用 contains 判、查询路径用 networkAddress 判，
-    // 两条路都必须「只匹配同一地址族」。既有用例只覆盖到 /8、/24、/128。
+// Prefix zero exercises the address-family boundary: the cache path uses
+// contains and the query path uses networkAddress. Both must match only the
+// same address family; earlier cases covered only /8, /24, and /128.
     const rows: Row[] = [
       { cidr: "0.0.0.0/0", network: "0.0.0.0", prefix: 0 },
       { cidr: "::/0", network: "::", prefix: 0 },
@@ -649,7 +660,7 @@ describe("isBlocked blocked_ips cache", () => {
   });
 });
 
-/** 门禁页模板文本缓存（tasks/22 增量 ③）。 */
+/** Gate-page template text cache (tasks/22 increment 3). */
 describe("renderGatePage template cache", () => {
   const TEMPLATE = "<html><body>{{host}}|{{next}}|{{error}}</body></html>";
 
@@ -717,10 +728,12 @@ describe("renderGatePage template cache", () => {
 });
 
 /**
- * 爬虫 UA 名单（2026-10-12）：命中即免人机验证，但**拿不到** __gate cookie。
+ * Crawler user-agent allowlist (2026-10-12): a match bypasses human
+ * verification but **does not receive** a __gate cookie.
  *
- * 后者是本节的要害：UA 自报，如果 /gate 顺手发一枚 1 小时的签名 cookie，
- * 「自称 GPTBot」就等于换到一张可复用的通行证，门禁形同虚设。
+ * This is the key requirement: user agents are self-reported. If /gate issued a
+ * one-hour signed cookie, claiming to be GPTBot would provide a reusable pass
+ * and make the gate ineffective.
  */
 describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
   const CRAWLER_UA =
@@ -743,7 +756,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
 
     expect(trust.declaredCrawler).toBe(true);
     expect(trust.crawlerToken).toBe("gptbot");
-    // trusted 保持 false：中间件据此继续做 blocked_ips 封禁检查（见 _middleware.ts）。
+// Keep trusted false so middleware continues checking blocked_ips (see _middleware.ts).
     expect(trust.trusted).toBe(false);
     expect(trust.cookieValid).toBe(false);
   });
@@ -782,7 +795,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
 
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe("https://services.limooo.cn/");
-    // 只有语言 cookie，没有 __gate（见本节标题：自报 UA 换不到签名会话）。
+// Only the language cookie is present; a self-reported user agent cannot obtain a signed session.
     expect(resp.headers.get("Set-Cookie") ?? "").not.toContain("__gate=");
   });
 

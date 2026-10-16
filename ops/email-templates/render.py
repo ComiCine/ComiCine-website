@@ -34,13 +34,13 @@ Usage (Python):
     from render import render_email
     html, plaintext = render_email(
         lang="zh-cn",
-        title="您的验证码",
-        body="感谢您使用 Limooo Studio 的服务。请使用下方验证码完成您的请求。",
-        code="123456",                 # 可选：显示高亮块
-        cta_label="前往查看",         # 可选：主按钮
+        title="Your verification code",
+        body="Thank you for using Limooo Studio. Enter the code below to continue.",
+        code="123456",                 # optional: show the highlighted code block
+        cta_label="Continue",          # optional: primary button
         cta_url="https://limooo.cn",
-        hint="如果您未发起此操作，可忽略本邮件。",  # 可选：次要提示
-        preheader="您的验证码是 123456",  # 可选：收件箱预览
+        hint="If you did not request this, you can ignore this email.",  # optional: secondary hint
+        preheader="Your verification code is 123456",  # optional: inbox preview
     )
 
 CLI debug: python3 render.py --lang en-us --title 'Hi' --body 'Hello' --code 123456
@@ -66,7 +66,7 @@ def _load_i18n() -> dict:
 
 
 def _code_block(code: str, lang: str) -> str:
-    """验证码/关键值高亮块（绿色、大字、等宽数字间距）。"""
+    """Return the highlighted code/value block with green text, large type, and tabular spacing."""
     return (
         '<table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0"'
         ' role="presentation" style="background-color:#f4f4f5;border-radius:12px;margin:24px 0;'
@@ -78,7 +78,7 @@ def _code_block(code: str, lang: str) -> str:
 
 
 def _cta_block(label: str, url: str) -> str:
-    """主按钮（青绿色 brand 色 #05A5A6）。"""
+    """Return the primary button in the teal brand color #05A5A6."""
     safe_label = html_lib.escape(label)
     safe_url = html_lib.escape(url, quote=True)
     return (
@@ -108,13 +108,13 @@ def render_email(
     preheader: str | None = None,
     footer_rights: str | None = None,
 ) -> tuple[str, str]:
-    """渲染通用邮件框架，返回 (html, plaintext)。"""
+    """Render the shared email framework and return (HTML, plaintext)."""
     if lang not in SUPPORTED_LANGS:
         raise ValueError(f"unsupported lang: {lang}")
     i18n = _load_i18n()
     d = i18n[lang]
 
-    # 可选块（用注释包裹，置空则整段移除）
+    # Optional blocks are wrapped in comments and removed entirely when empty.
     code_block = _code_block(code, lang) if code else ""
     cta_block = _cta_block(cta_label, cta_url or "#") if cta_label else ""
     hint_html = (
@@ -129,13 +129,13 @@ def render_email(
     html = html.replace("__TITLE__", html_lib.escape(title))
     html = html.replace("__PREHEADER__", html_lib.escape(preheader or title))
     html = html.replace("__BODY__", body)
-    # 可选块先替换，再删除被标记为空的块
+    # Replace optional blocks first, then remove blocks marked as empty.
     html = (
         html.replace("<!--BR_CHECK__CODE_BLOCK__-->", code_block)
         .replace("<!--BR_CHECK__CTA_BLOCK__-->", cta_block)
         .replace("<!--BR_CHECK__HINT__-->", hint_html)
     )
-    # 若某可选块为空，清掉对应的骨架标记（无副作用）
+    # If an optional block is empty, remove its scaffold markers without side effects.
     html = html.replace("<!--BR_CHECK__CODE_BLOCK__-->", "").replace(
         "<!--BR_CHECK__CTA_BLOCK__-->", ""
     ).replace("<!--BR_CHECK__HINT__-->", "")
@@ -179,7 +179,7 @@ def _main() -> None:
     except Exception as e:  # noqa: BLE001
         print(f"[render] ERROR: {e}", file=sys.stderr)
         sys.exit(1)
-    # 纯英文、无装饰符号（AGENTS.md）：标题行本身就是分隔，不需要额外符号包装。
+    # Use plain English without decorative symbols (AGENTS.md): the heading itself separates the section, so no extra symbols are needed.
     print("plain")
     print(plain)
     print()

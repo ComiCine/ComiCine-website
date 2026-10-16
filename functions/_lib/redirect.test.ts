@@ -18,13 +18,14 @@
  */
 
 /**
- * 统一跳转页 `renderRedirectPage` 测试（tasks/22 W5-11）。
+ * Tests for the shared redirect page `renderRedirectPage` (tasks/22 W5-11).
  *
- * 零测试的这段代码把**请求方可控**的 `?to=` 注入生成好的 HTML：`escapeHtml`
- * 是唯一的防线，而没有任何用例锁住它。这里用真实实现（路由 / 语言 cookie /
- * 转义）跑，只把 `env.ASSETS` 换成固定 HTML。`{{lang}}` 占位符已随 W1-4 从
- * 模板与产物中移除（语言在构建期由 `<html lang="{{ g.lang }}">` 渲染），
- * 因此这里只断言运行时注入的三个占位符。
+ * This code injects the **request-controlled** `?to=` value into generated
+ * HTML, with `escapeHtml` as its only defense, but previously had no tests.
+ * Use the real routing, language-cookie, and escaping logic while stubbing
+ * `env.ASSETS` with fixed HTML. W1-4 removed the `{{lang}}` placeholder from
+ * templates and output because the build renders `<html lang="{{ g.lang }}">`;
+ * assert only the three runtime placeholders here.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -73,13 +74,13 @@ describe("renderRedirectPage", () => {
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Content-Type")).toContain("text/html");
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
-    // 仍在 https 允许范围内，因此原样保留（只做转义，不改写）。
+// This remains within the allowed HTTPS scope, so preserve it after escaping.
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>alert(1)</script>");
-    // 引号必须被转义，否则能把 data 属性的 JSON 提前闭合。
+// Escape quotes so the data attribute cannot be closed early.
     expect(html).not.toContain('https://evil.example.com/">');
     expect(html).not.toContain('{"to":"https://evil.example.com/"');
-    // 三个占位符都必须被替换掉。
+// Replace all three placeholders.
     expect(html).not.toContain("{{");
   });
 
@@ -118,7 +119,7 @@ describe("renderRedirectPage", () => {
     expect(first.resp.headers.getSetCookie()).toHaveLength(1);
     expect(first.resp.headers.get("Set-Cookie")).toContain(`${LANG_COOKIE}=`);
 
-    // 已经有语言 cookie：不再重复下发，并且按 cookie 的语言取页面。
+// When a language cookie exists, do not set it again and use its language for the page.
     const router = assets();
     const withCookie = await renderRedirectPage({
       request: new Request(url, { headers: { Cookie: `${LANG_COOKIE}=ko-kr` } }),
@@ -162,8 +163,9 @@ describe("isRedirectHost", () => {
 });
 
 /**
- * 模板文本缓存（tasks/22 增量 ③）：同一语言的模板只从 ASSETS 取一次，
- * 注入仍然逐请求执行；不同语言各取各的；取回失败不缓存。
+ * Template-text cache (tasks/22 increment 3): fetch each language template
+ * from ASSETS once, but perform injection per request. Keep languages
+ * separate and do not cache failed fetches.
  */
 describe("renderRedirectPage template cache", () => {
   it("fetches the template once for repeated renders of the same language", async () => {

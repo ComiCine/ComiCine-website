@@ -1,17 +1,17 @@
 <!--
-  验证码邮件 —— 基于 framework.html 的用例（不再自带完整版式，改由 render.py 渲染）。
+  Verification code email example using framework.html (render.py supplies the layout).
 
-  用法（Python）：
+  Usage (Python):
       from render import render_email
       html, plain = render_email(
-          lang="zh-cn",  # 或 en-us / ja-jp / ko-kr
-          title="您的验证码",
-          body="感谢您使用 Limooo Studio 的服务。请使用下方验证码完成您的请求。",
+          lang="zh-cn",  # or en-us / ja-jp / ko-kr
+          title="Your verification code",
+          body="Thank you for using Limooo Studio. Use the code below to complete your request.",
           code="654321",
-          hint="如果您未发起此操作，可忽略本邮件。出于安全考虑，请勿将验证码告知任何人。",
-          preheader="您的验证码是 654321",
+          hint="If you did not request this, you can ignore this email. Never share your verification code.",
+          preheader="Your verification code is 654321",
       )
 
-  主题文案（subject / title / body / hint / plain）见 verification-code.i18n.json（四语种）。
-  版式与可选块（CTA / code 高亮 / hint）由 framework.html + render.py 提供。
+  Localized copy (subject / title / body / hint / plain) is in verification-code.i18n.json.
+  The layout and optional blocks (CTA / highlighted code / hint) come from framework.html and render.py.
 -->

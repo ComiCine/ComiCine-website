@@ -1,14 +1,15 @@
-# Limooo — Cloudflare Pages 配置（Pages 项目根 = 本仓库的 site/ 目录）
+# Limooo Cloudflare Pages configuration (the Pages project root is this site's directory).
 name = "limooo"
 compatibility_date = "2026-08-15"
 pages_build_output_dir = "public"
 
-# 三个密钥在 Pages 项目设置 → Environment variables 里配成 Encrypt（Secret）：
+# Configure these three keys as encrypted secrets in Pages project settings:
 #   TURNSTILE_SITEKEY / TURNSTILE_SECRET / GATE_HMAC_KEY
-# 本地开发复制 .dev.vars.example 为 .dev.vars 填入真实值（.dev.vars 已 gitignore）。
+# For local development, copy .dev.vars.example to .dev.vars and fill in the real values.
+# .dev.vars is listed in .gitignore.
 
-# D1 数据库：已通过 Pages 项目设置绑定（binding = DB，database_id 见下）。
-# 本地 wrangler pages dev 调试用：
+# D1 database binding configured in Pages project settings (binding = DB; see database_id below).
+# Used for local development with wrangler pages dev:
 [[d1_databases]]
 binding = "DB"
 database_name = "limooo"

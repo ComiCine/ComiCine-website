@@ -15,11 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Limooo 构建期只读渲染应用。
+"""Read-only Limooo rendering application used during builds.
 
-构建静态页面时不需要启动 Flask 业务应用，也不需要读取生产密钥、创建
-SQLite 数据库或初始化路由。这里提供一个最小 Flask 应用，只注册模板所需
-的 i18n 上下文，供 ``src/build.py`` 预渲染使用。
+Static page builds do not need to start the Flask business application, read production
+secrets, create a SQLite database, or initialize routes. This module provides a minimal
+Flask app with only the i18n context required by templates for prerendering in
+``src/build.py``.
 """
 
 from __future__ import annotations
@@ -29,16 +30,20 @@ from datetime import UTC, datetime
 
 from flask import Flask, g
 
-# 契约常量同理：语言列表 / cookie 名与 TTL / 根域名都要**在调用时**从 config
-# 模块现读。import 时绑定会让 monkeypatch 了 config.SUPPORTED_LANGS 的测试拿到
-# 旧列表，lru_cache 更会把旧结果钉死——渲染用例假绿、加语言不生效（W1-3 的
-# 「加语言只改契约一处」正是靠这条成立）。
+# Contract values follow the same rule: read the language list, cookie names
+# and TTLs, and root domain from the config module **at call time**. Binding
+# these at import time would make tests that monkeypatch config.SUPPORTED_LANGS
+# receive a stale list. lru_cache would preserve the stale result, causing
+# rendering tests to pass incorrectly and new languages not to take effect.
+# W1-3's rule that adding a language only changes the contract depends on this.
 import config
 
-# SERVICES_DIR 必须**在调用时**从模块读，不能在 import 时绑定成常量：
-# 构建期缓存把它当 cache key，而测试会 monkeypatch services_pricing.SERVICES_DIR
-# 指向临时 CSV 目录。import 时绑定会让缓存永远只认仓库里那份，测试静默假绿
-# （2026-10-11 实测：全量 pytest 下渲染用例拿到真 CSV 的价格）。
+# Read SERVICES_DIR from the module **at call time** instead of binding it at
+# import time. The build cache uses it as a key, and tests monkeypatch
+# services_pricing.SERVICES_DIR to point to a temporary CSV directory. Binding
+# it at import time would make the cache always use the repository's CSV and
+# let tests pass incorrectly. Verified on 2026-10-11: rendering tests used real
+# CSV prices during the full pytest run.
 import services_pricing
 from config import (
     DEFAULT_LANG,
@@ -53,34 +58,37 @@ from services_pricing import load_pricing
 
 @functools.cache
 def _cached_portfolio_items(source_dir: str) -> list[dict[str, object]]:
-    """作品集卡片清单：一次构建里 ``src/static/portfolio`` 不会变，只扫描一次。
+    """Return portfolio cards, scanning ``src/static/portfolio`` only once per build.
 
-    ``portfolio_items()`` 会为每张源图 ``PIL.Image.open`` 读尺寸，而
-    ``context_processor`` 每个页面都会取一次上下文，缓存前一次构建要调用
-    33 次（4 语言 × 8 页 + 门禁页）。构建产物必须逐字节一致，所以这里只
-    做记忆化，不改 ``portfolio.portfolio_items`` 的返回内容。
+    ``portfolio_items()`` opens each source with ``PIL.Image.open`` to read its size,
+    while the context processor runs once per page. Before caching, one build called
+    it 33 times (four languages x eight pages plus the gate page). Build output must
+    remain byte-for-byte reproducible, so this only memoizes the result and does not
+    change ``portfolio.portfolio_items`` output.
 
-    源目录是**显式参数**（由调用方现读 ``portfolio_source_dir()``）而不是闭包里的
-    模块常量：同一个进程里换过 ``STATIC_DIR`` / ``SERVICES_DIR`` 的测试必须自然
-    失配，否则会静默读到上一轮测试的临时目录（缓存串味）。
+    The source directory is an explicit argument, read by the caller with
+    ``portfolio_source_dir()``, rather than a module constant captured in a closure.
+    Tests that replace ``STATIC_DIR`` or ``SERVICES_DIR`` in one process must produce
+    a cache miss automatically, or they could silently read a previous test's temp dir.
     """
     return portfolio_items(source_dir)
 
 
 @functools.cache
 def _cached_pricing(services_dir: str) -> dict[str, object]:
-    """价目表：``docs/services/*.csv`` 每个 (目录) 只读一次（原先每次渲染都读）。
+    """Load each ``docs/services/*.csv`` directory once instead of once per render.
 
-    参数化理由同上：``services_dir`` 进 cache key，换目录即重新读。
+    As above, ``services_dir`` is part of the cache key, so changing directories reloads the data.
     """
     return load_pricing(services_dir)
 
 
 def _lang_flag(code: str) -> str:
-    """语言码的地区子标签 → 国旗 emoji（zh-cn → 🇨🇳）；没有地区段时返回空串。
+    """Map a language region subtag to a flag emoji (zh-cn to 🇨🇳), or return an empty string if absent.
 
-    语言码全部来自契约 supported_langs，这里不写任何语言码字面量：新增一门
-    语言只改契约，浮层自动多一项（文案键取主语言子标签，即 lang_<primary>）。
+    Language codes come from the contract's supported_langs; none are hard-coded here.
+    Adding a language only requires changing the contract, and the menu gains an item
+    automatically. Its label key uses the primary language subtag, such as lang_<primary>.
     """
     parts = code.split("-")
     if len(parts) < 2 or len(parts[1]) != 2 or not parts[1].isalpha():
@@ -91,13 +99,13 @@ def _lang_flag(code: str) -> str:
 
 @functools.cache
 def _cached_lang_options(supported_langs: tuple[str, ...]) -> list[dict[str, str]]:
-    """语言浮层数据源：契约的 supported_langs 决定条目，模板只负责渲染。
+    """Return language-menu data from the contract's supported_langs; the template only renders it.
 
-    ``supported_langs`` 是**显式参数**（调用方现读 ``config.SUPPORTED_LANGS``）：
-    它既是数据源也是 cache key，换契约或换测试的 monkeypatch 都自然重新计算，
-    不会出现「改了语言列表、渲染却拿到缓存里的旧列表」这种假绿（与
-    ``_cached_pricing(services_dir)`` / ``_cached_portfolio_items(source_dir)``
-    同一模式）。
+    ``supported_langs`` is an explicit argument, read by the caller from
+    ``config.SUPPORTED_LANGS``. It is both the data source and cache key, so contract
+    changes and test monkeypatches trigger recomputation automatically. This prevents
+    stale cached language lists from hiding changes, following the same pattern as
+    ``_cached_pricing(services_dir)`` and ``_cached_portfolio_items(source_dir)``.
     """
     return [
         {
@@ -110,7 +118,7 @@ def _cached_lang_options(supported_langs: tuple[str, ...]) -> list[dict[str, str
 
 
 def create_render_app() -> Flask:
-    """创建只包含模板与 i18n 上下文的 Flask 应用。"""
+    """Create a Flask app containing only templates and the i18n context."""
     app = Flask(
         __name__,
         template_folder=str(TEMPLATES_DIR),
@@ -133,8 +141,9 @@ def create_render_app() -> Flask:
 
     @app.context_processor
     def inject_i18n() -> dict[str, object]:
-        # 每次渲染现读契约（config 模块属性），不消费 import 时绑定的副本：
-        # 测试 monkeypatch config.* 之后必须立刻生效。
+        # Read the contract from config module attributes for each render instead
+        # of using copies bound at import time. Test monkeypatches to config.*
+        # must take effect immediately.
         contract_langs = tuple(config.SUPPORTED_LANGS)
         lang = getattr(g, "lang", config.DEFAULT_LANG)
         return {
@@ -147,8 +156,10 @@ def create_render_app() -> Flask:
             "contact_host": config.CONTACT_HOST,
             "source_url": config.SOURCE_REPO_URL,
             "copyright_current_year": datetime.now(UTC).year,
-            # 前端只读的事实：语言列表 / cookie 名与 TTL / 根域名全部来自契约，
-            # 由 _lang_attrs.html 注入到 <body data-*>，JS 不再写死（W1-3）。
+            # Frontend read-only values (language list, cookie names and TTLs,
+            # and root domain) all come from the contract. _lang_attrs.html
+            # injects them into <body data-*> so JavaScript has no hardcoded
+            # copies (W1-3).
             "root_domain": config.ROOT_DOMAIN,
             "default_lang": config.DEFAULT_LANG,
             "supported_langs": list(contract_langs),
@@ -157,10 +168,12 @@ def create_render_app() -> Flask:
             "theme_cookie": config.THEME_COOKIE,
             "theme_cookie_max_age": config.THEME_COOKIE_MAX_AGE,
             "lang_options": _cached_lang_options(contract_langs),
-            # 作品区卡片：数量由 src/static/portfolio 里的图片决定
-            # （portfolio_source_dir() 现读 portfolio.STATIC_DIR，缓存键随之变化）
+            # Portfolio card count is determined by images in
+            # src/static/portfolio. portfolio_source_dir() reads
+            # portfolio.STATIC_DIR at call time, so the cache key changes too.
             "portfolio_items": _cached_portfolio_items(portfolio_source_dir()),
-            # 价目表：来自 docs/services/*.csv（改价不用动模板）
+            # Pricing comes from docs/services/*.csv; changing prices requires
+            # no template edits.
             "pricing": _cached_pricing(services_pricing.SERVICES_DIR),
         }
 

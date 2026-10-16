@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Ray API 权限与最小字段测试。 */
+/** Tests Ray API authorization and minimal response fields. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./[id]";
@@ -27,7 +27,7 @@ import type { Env } from "../../_lib/env";
 
 vi.mock("../../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -82,7 +82,7 @@ describe("ray API", () => {
     expect((await onRequestGet(context() as never)).status).toBe(403);
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（503），不能降级成放行或 401。
+  // W5-15: fail closed with 503 when the revocation table is unavailable; do not allow the request or downgrade to 401.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestGet(context() as never);
@@ -108,27 +108,27 @@ describe("ray API", () => {
     expect(resp.headers.get("Access-Control-Allow-Origin")).not.toBe("*");
   });
 
-  // 线上实测（2026-10-11）：`LIKE '<id>%'` 让 D1 退化成 `SCAN … USING INDEX
-  // idx_ray_log_v2_ts`（全表扫），而 `ray` 是 TEXT PRIMARY KEY —— 改写成主键范围后
-  // 计划变成 `SEARCH … USING INDEX sqlite_autoindex_ray_log_v2_1 (ray>? AND ray<?)`。
-  // 这条用例把那个形状钉住：改回 LIKE 就红。
+  // Observed in production on 2026-10-11: `LIKE '<id>%'` makes D1 scan the table using
+  // `idx_ray_log_v2_ts`, while `ray` is a TEXT PRIMARY KEY. A primary-key range changes the
+  // plan to `SEARCH … USING INDEX sqlite_autoindex_ray_log_v2_1 (ray>? AND ray<?)`.
+  // This case locks in that query plan and fails if the code switches back to LIKE.
   it("looks the ray up with a primary-key range, not a LIKE scan", async () => {
     await onRequestGet(context() as never);
 
-    // queryAll(db, sql, ...values) —— 第一个参数是 D1 绑定，SQL 在第二个位置。
+  // queryAll(db, sql, ...values): the first argument is the D1 binding and SQL is second.
     const [, sql, ...bounds] = vi.mocked(queryAll).mock.calls[0] as [unknown, string, ...string[]];
     expect(sql).toContain("WHERE ray >= ? AND ray < ?");
     expect(sql).not.toMatch(/ray\s+LIKE/i);
-    // 下界是 16 位十六进制 id；上界必须是"比任何后缀都大"的那个值，
-    // 否则带 colo 后缀的落库值（`…-LAX`）会漏掉，或将来换后缀就查不到。
+  // The lower bound is the 16-character hexadecimal ID. The upper bound must exceed every possible suffix,
+  // or stored values with colo suffixes such as `…-LAX` will be missed, as could values with future suffixes.
     expect(bounds[0]).toBe("0123456789abcdef");
     expect(bounds[1]).toBe("0123456789abcdef\u{10ffff}");
     expect(bounds[1]! > "0123456789abcdef-LAX").toBe(true);
   });
 
   it("matches a stored ray that carries a colo suffix", async () => {
-    // 回归保护：落库值是 `a48923a17e543777-LAX`（20 字符），调用方只给 16 位十六进制。
-    // 桩把"库里带后缀的那一行"返回，断言端点把它当成命中而不是空结果。
+  // Regression guard: the stored value is `a48923a17e543777-LAX` (20 characters), while callers provide only 16 hex characters.
+  // The stub returns the suffixed database row to verify that the endpoint matches it instead of returning an empty result.
     vi.mocked(queryAll).mockResolvedValueOnce([{
       ray: "0123456789abcdef-LAX",
       ts: 7,

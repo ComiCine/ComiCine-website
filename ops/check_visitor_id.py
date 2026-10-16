@@ -18,26 +18,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""按访客 ID（ip_hash）反查该访客的真实 IP 与访问概况，供管理员终端排障。
+"""Look up a visitor's real IP and visit summary by visitor ID (ip_hash) for troubleshooting.
 
-访客页每行显示的 `ID: xxxxxxxxxxxxxxxx` 就是 `visitor_rollups.ip_hash`
-（HMAC-SHA256 前 16 位）。完整 IP 从 2026-09-26 起以 Fernet 密文存在
-`visitor_rollups.ip_enc`，密钥是本机 secrets/webauthn.env 里的 VISITOR_IP_KEY
-（与 Worker `functions/_lib/visitor-ip.ts` 用的是同一把，互相可解）。
+Each row on the visitor page displays `ID: xxxxxxxxxxxxxxxx`, which is `visitor_rollups.ip_hash`
+(the first 16 characters of HMAC-SHA256). Since 2026-09-26, the full IP is stored as Fernet
+ciphertext in `visitor_rollups.ip_enc`, encrypted with VISITOR_IP_KEY from the local
+secrets/webauthn.env. The Worker `functions/_lib/visitor-ip.ts` uses the same key, so either side
+can decrypt it.
 
-数据源：D1 `visitor_rollups`（按 (ip_hash, last_ts) 索引精确取行，不扫表）。
-`--requests` 会额外读 ray_log_v2；该表自迁移 017 起有 (ip_hash, ts DESC) 索引，
-所以这条查询也是按 ip_hash 精确定位，不再扫 7 天明细表。默认仍然关闭。
+Data source: D1 `visitor_rollups`, queried by its (ip_hash, last_ts) index without scanning the
+table. `--requests` also reads ray_log_v2; migration 017 added an (ip_hash, ts DESC) index, so this
+query is indexed too and no longer scans seven days of request details. It is disabled by default.
 
-注意：**2026-09-26 之前的行没有密文**，只有不可逆的哈希。脚本把
-「查不到这个 ID」和「有记录但没密文」分开返回，不会把后者误报成不存在。
+Rows from before 2026-09-26 have no ciphertext, only an irreversible hash. The script distinguishes
+an unknown ID from a record without ciphertext and does not misreport the latter as nonexistent.
 
-用法：
+Usage:
     python3 ops/check_visitor_id.py d51153cb767fc758
     VISITOR_ID=d51153cb767fc758 python3 ops/check_visitor_id.py
     python3 ops/check_visitor_id.py d51153cb767fc758 --requests 10
 
-退出码：0 解出 IP；1 无记录 / 查询失败 / 缺密钥；2 ID 非法；3 有记录但无密文。
+Exit codes: 0 if IP decrypted; 1 if no record, query failure, or key missing; 2 for invalid ID;
+3 if a record exists without ciphertext.
 """
 
 from __future__ import annotations
@@ -59,7 +61,7 @@ SECRETS_FILE = ROOT / "secrets" / "webauthn.env"
 
 
 def normalize(raw: str) -> str:
-    """接受 'd51153cb767fc758' / 'ID: d51153cb767fc758' / 大写，统一成小写 16 位。"""
+    """Accept 'd51153cb767fc758', 'ID: d51153cb767fc758', or uppercase; return 16 lowercase characters."""
     value = (raw or "").strip()
     value = re.sub(r"^(?:id|visitor)[\s:=]+", "", value, flags=re.IGNORECASE).strip()
     value = value.lower()
@@ -75,15 +77,15 @@ def fmt_ts(value: object) -> str:
 
 
 def d1_query_retry(cfg: dict[str, str], sql: str, tries: int = 4) -> list[dict]:
-    """持续失败时直接抛出（与其它 check_* 脚本的返回 None 语义不同）。"""
+    """Raise on persistent failure, unlike other check_* scripts that return None."""
     return d1_client.d1_query_retry(cfg, sql, tries, raise_on_failure=True) or []
 
 
 def decrypt_ip(token: str, key: str) -> str:
-    """Fernet 解密；密钥/密文有问题时抛异常，由调用方给出可操作提示。"""
+    """Decrypt Fernet ciphertext; raise on an invalid key or token so the caller can give guidance."""
     try:
         from cryptography.fernet import Fernet
-    except ImportError as exc:  # pragma: no cover - 取决于本机解释器
+    except ImportError as exc:  # pragma: no cover - Depends on the Python interpreter.
         raise RuntimeError(
             "this interpreter lacks cryptography, cannot decrypt ip_enc.\n"
             "  use an interpreter that has it: /tmp/limooo-venv/bin/python "
@@ -163,7 +165,7 @@ def main() -> int:
     print(f"  status     {summarize(statuses)}")
     print("  pages      " + (" ".join(f"{r['page_slug']}×{r['n']}" for r in pages) or "-"))
 
-    # 密文只取最近一条：同一个 IP 的小时行很多，但密文内容一致。
+    # Read only the latest ciphertext: an IP may have many hourly rows, but the ciphertext is identical.
     tokens = d1_query_retry(
         cfg,
         "SELECT ip_enc, last_ts FROM visitor_rollups "
@@ -194,9 +196,9 @@ def main() -> int:
 
     if args.requests > 0:
         print(f"recent requests (ray_log_v2, up to {args.requests})", flush=True)
-        # tasks/22 W7-9 + 迁移 017：这条查询现在走 (ip_hash, ts DESC) 索引精确取行。
-        # 仍然先报出规模：排障脚本要在开扫之前说清楚会读到什么，别自己撞上
-        # D1 读取预算。
+        # tasks/22 W7-9 and migration 017: this query uses the (ip_hash, ts DESC) index for an exact lookup.
+        # Report the scan size first so the diagnostic script says what it will read before starting and does not exceed
+        # the D1 read budget.
         warn(
             "  "
             + d1_client.scan_note(

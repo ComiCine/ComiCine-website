@@ -76,8 +76,9 @@ while [ $# -gt 0 ]; do
         --typescript) RUN_PY=0 ;;
         --python) RUN_TS=0 ;;
         --no-build) DO_BUILD=0 ;;
-        # 帮助文本就是文件顶部那段注释（"# Local replica" 到 "set -euo pipefail" 之前）。
-        # 故意不写死行号：注释一增删，sed 的固定区间就会**悄悄**截断帮助文本。
+        # The help text is the comment block at the top of this file, from "# Local replica"
+        # through the line before "set -euo pipefail". Do not hard-code line numbers: editing
+        # the comments would silently truncate the help text if sed used a fixed range.
         --help|-h)
             awk '/^# Local replica/,/^set -euo pipefail/' "$0" | sed '$d'
             exit 0
@@ -91,14 +92,15 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# 隔离的构建输出：别在 iCloud 同步区里反复 rm -rf public/
-# 默认路径必须**每进程唯一**：两个 ci_check.sh 并发时，build.py 开头的 rmtree 会
-# 互删对方的中转目录（Errno 66 Directory not empty / FileNotFoundError），审计期间
-# 已经因此浪费了两个代理的排查时间。显式传入时行为完全不变——沿用传入值、不做
-# 唯一化、退出时也绝不删（那是调用方的目录，不是本进程的临时目录）。
+# Isolate build output instead of repeatedly removing public/ inside the iCloud-synced tree.
+# The default path must be unique per process: concurrent ci_check.sh runs would otherwise
+# remove each other's staging directories when build.py starts (Errno 66 Directory not empty /
+# FileNotFoundError). This has already wasted investigation time during an audit. An explicitly
+# supplied path keeps its existing behavior: use it as given, do not uniquify it, and never
+# remove it on exit because it belongs to the caller.
 CI_TMP_PUBLIC=""
 CI_TMP_PREVIEW=""
-# TMPDIR 在 macOS 上以 / 结尾，直接拼会写出 "//" —— 去掉尾斜杠只为输出干净。
+# macOS TMPDIR ends in /; strip it to avoid producing a double slash in paths.
 SCRATCH_ROOT="${TMPDIR:-/tmp}"
 SCRATCH_ROOT="${SCRATCH_ROOT%/}"
 if [ -z "${LIMOOO_PUBLIC_DIR:-}" ]; then
@@ -120,18 +122,18 @@ if [ -n "$CI_TMP_PUBLIC" ] || [ -n "$CI_TMP_PREVIEW" ]; then
     echo "[ci] scratch dirs: public=$LIMOOO_PUBLIC_DIR preview=$LIMOOO_PREVIEW_DIR (temporary, removed on exit)"
 fi
 
-# Python 解释器：优先用构建 venv（依赖齐），其次 python3。
+# Prefer the build venv, which has all dependencies, then fall back to python3.
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 if [ -x "$ROOT/.venv-build/bin/python" ]; then
     PYTHON_BIN="$ROOT/.venv-build/bin/python"
 fi
 
-# 闸门工具：缺了就装，而不是 SKIP（2026-10-12 改）
-# 以前 ruff / mypy / pytest-cov 是「探测式」：没装只打印一行 SKIP 就算过。可 CI 那边
-# 它们是**装了**的（ops/requirements.txt 里钉着版本），于是本地「全绿」与 CI 的真实
-# 结果可以不一致 —— 这正是 2026-10-12 那次「本地全绿、push 完 CI 红」的一半原因。
-# 现在缺什么装什么（装到 CI 用的那个解释器里）；装不上（离线等）才退回 SKIP，
-# 并把这句 SKIP 说得更刺眼一点，让人知道本地这一项**没验**。
+# Install missing gate tools instead of silently skipping them (changed 2026-10-12).
+# Previously, ruff, mypy, and pytest-cov were only probed: if missing, a SKIP line still counted
+# as success. CI installs them from pinned versions in ops/requirements.txt, so local and CI
+# results could differ. This contributed to the 2026-10-12 case where local checks passed but CI
+# failed after a push. Install missing tools into the same interpreter CI uses; only fall back to
+# SKIP if installation fails, such as when offline, and make clear that the check was not run.
 ensure_gate_tools() {
     [ "${LIMOOO_SKIP_TOOL_INSTALL:-0}" = 1 ] && return 0
     local missing=()
@@ -149,9 +151,9 @@ cleanup() {
     if [ -n "$WORKTREE" ] && [ -d "$WORKTREE" ]; then
         git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || rm -rf "$WORKTREE"
     fi
-    # 只删本进程 mktemp 出来的目录（显式传入的路径不归我们管，见上）。
-    # 用 if 而不是 `[ -n x ] && rm`：后者条件为假时返回 1，set -e 下的 EXIT trap
-    # 不该让清理逻辑本身变成失败来源。
+    # Remove only directories created by this process with mktemp; caller-supplied paths are
+    # not ours to remove (see above). Use if instead of `[ -n x ] && rm`: when false, the latter
+    # returns 1, and cleanup in an EXIT trap must not become a source of failure under set -e.
     if [ -n "$CI_TMP_PUBLIC" ]; then
         rm -rf "$CI_TMP_PUBLIC"
     fi
@@ -161,7 +163,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 选定要检查的树
+# Select the tree to check.
 TARGET="$ROOT"
 if [ -n "$REF" ]; then
     if ! git rev-parse --verify --quiet "$REF^{commit}" >/dev/null; then
@@ -169,10 +171,10 @@ if [ -n "$REF" ]; then
         exit 2
     fi
     WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/limooo-ci-check.XXXXXX")"
-    # git worktree add 要求目录为空或不存在
+    # git worktree add requires the destination to be empty or absent.
     rmdir "$WORKTREE"
     git worktree add --detach "$WORKTREE" "$REF" >/dev/null
-    # 复用主仓库的依赖，避免在临时目录里重新装一遍
+    # Reuse the main repository's dependencies instead of reinstalling them in the temporary tree.
     [ -d "$ROOT/node_modules" ] && ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
     [ -d "$ROOT/.venv-build" ] && ln -s "$ROOT/.venv-build" "$WORKTREE/.venv-build"
     TARGET="$WORKTREE"
@@ -181,12 +183,12 @@ else
     echo "[ci] checking working tree at $ROOT"
 fi
 
-# 守卫 1：iCloud 冲突副本（"build 2.py" / ".venv-build 2" 这类）
-# 冲突副本既可以是文件，也可以是**整个目录**——iCloud 把 `site/.venv-build`
-# 复制成 `site/.venv-build 2` 时只有目录名带序号，`-type f` 永远看不到它。
-# 所以这里用 `\( -type f -o -type d \)` 同时扫，模式统一放在 -name 列表里。
-# 剪枝只针对**正本**目录名（node_modules/.venv-build/...），带序号的副本不在
-# 剪枝名单内，否则又会把它们跳过——这正是旧写法的洞。
+# Guard 1: detect iCloud conflict copies such as "build 2.py" or ".venv-build 2".
+# A conflict copy can be a file or an entire directory. When iCloud copies
+# `site/.venv-build` to `site/.venv-build 2`, only the directory name gets a suffix, so
+# `-type f` would miss it. Search both files and directories with `\( -type f -o -type d \)`.
+# Prune only the original dependency directories (node_modules/.venv-build/...), not numbered
+# copies; otherwise the copies would be skipped, which was a gap in the previous version.
 CONFLICTS="$(cd "$TARGET" && find functions src locales tests ops .github \
     \( -type d \( -name node_modules -o -name .venv-build -o -name .wrangler \
        -o -name out -o -name coverage -o -name .pytest_cache -o -name .ruff_cache \
@@ -201,14 +203,14 @@ if [ -n "$CONFLICTS" ]; then
     exit 1
 fi
 
-# 守卫 2：敏感文件绝不能被提交
-# 背景：checkout 里如果缺少 .gitignore（新 clone / AI 工具自动开的 worktree），
-# `git add -A` 会把 secrets/、*.db、*.pem 一并提交。.gitignore 现已入库，但
-# 守卫仍然必需：`git add -f` 和「先 add 后改规则」都能绕过它。
+# Guard 2: sensitive files must never be committed.
+# If a checkout lacks .gitignore (for example, a new clone or a worktree created by an AI tool),
+# `git add -A` can stage secrets/, *.db, and *.pem. .gitignore is now tracked, but this guard is
+# still needed because `git add -f` and changing ignore rules after staging can bypass it.
 #
-# 检查两个来源：已暂存（staged）+ 未被忽略且未跟踪（untracked）。
-# --directory 把整个被忽略目录折叠成一行，既省输出也避免逐文件刷屏。
-# 模式清单与仓库根 .gitignore 的敏感段落对应，改一边记得改另一边。
+# Check both staged files and untracked files that are not ignored.
+# --directory collapses an ignored directory into one line, keeping output concise.
+# Keep these patterns in sync with the sensitive-file section of the repository's .gitignore.
 SENSITIVE_PATTERNS=(
     'secrets/*' '.dev.vars' '*.db' '*.db-shm' '*.db-wal' '*.pem' '*.key'
     'ops/out/*' 'ops/backups/*' 'backup-limooo-*' '各种密钥.txt' '*.mmdb'
@@ -224,7 +226,7 @@ sensitive_paths() {
 match_sensitive_path() {
     local path="$1" pattern
     for pattern in "${SENSITIVE_PATTERNS[@]}"; do
-        # shellcheck disable=SC2254 # 这里就是要让 pattern 参与通配匹配
+        # shellcheck disable=SC2254 # The pattern must be expanded for wildcard matching.
         case "$path" in $pattern) return 0 ;; esac
     done
     return 1
@@ -246,9 +248,9 @@ if [ -n "$SENSITIVE_HITS" ]; then
     exit 1
 fi
 
-# 守卫 3：生成的 TS 产物必须由 build 现场再生，且与仓库一致
-# build 之后如果 functions/_lib/config.ts、functions/_data/*.ts、
-# src/config.py 相对 HEAD 有差异，说明提交时忘了带上它们 —— 这正是 CI 变红的根因。
+# Guard 3: regenerate generated TypeScript artifacts during the build and ensure they match Git.
+# If functions/_lib/config.ts, functions/_data/*.ts, or src/config.py differs from HEAD after
+# the build, those generated files were omitted from the commit, a known cause of CI failures.
 GENERATED_PATHS=(functions/_lib/config.ts functions/_data src/config.py)
 
 echo "[ci] typescript job"
@@ -282,13 +284,13 @@ if [ "$RUN_TS" = 1 ]; then
     echo "[ci] npm test"
     (cd "$TARGET" && npm test)
 
-    # 覆盖率只报告、不设阈值（W6-3），**这一步永远不决定 CI 成败**：
-    #   - 缺 @vitest/coverage-v8 → 跳过（提示装依赖）；
-    #   - 测试失败时 vitest 不输出覆盖率报告 → 上面 `npm test` 已经拦下了，
-    #     这里再报一次「覆盖率没跑成」只会掩盖真正的失败点；
-    #   - vitest 第二次跑（带 v8 插桩）可能与第一次读数不同（同一进程里的
-    #     模块状态），把这种差异算成闸门失败会变成随机红。
-    # 刻意不写 `if ! npm run ...` —— 那会把 exit 1 变成 0，掩盖真正的失败。
+    # Coverage is reported without a threshold (W6-3) and never determines CI success:
+    #   - Skip if @vitest/coverage-v8 is missing, and tell the user to install dependencies.
+    #   - If tests fail, vitest emits no coverage report; `npm test` above already catches the
+    #     failure, and reporting another coverage failure would obscure the real cause.
+    #   - A second instrumented vitest run can produce different numbers because module state
+    #     changes within a process; treating that difference as a gate failure would be flaky.
+    # Do not write `if ! npm run ...`: that would turn exit code 1 into 0 and hide failures.
     if [ ! -d "$TARGET/node_modules/@vitest/coverage-v8" ]; then
         echo "[ci] SKIP coverage: @vitest/coverage-v8 is not installed (npm ci first)"
     else
@@ -302,9 +304,8 @@ fi
 if [ "$RUN_PY" = 1 ]; then
     echo "[ci] python job"
 
-    # ruff / mypy 与 pytest-cov：上面 ensure_gate_tools 已经尽力装好，这里只判断
-    # 最终有没有 —— 有就跑（与 CI 同一套），没有就打印一行刺眼的 SKIP，
-    # 明确写出「这一项本地没验」，而不是让闸门看起来全绿。
+    # ensure_gate_tools above tried to install ruff, mypy, and pytest-cov. Run each tool if
+    # available, matching CI; otherwise print a clear SKIP so the local run cannot look fully green.
     if (cd "$TARGET" && "$PYTHON_BIN" -m ruff --version >/dev/null 2>&1); then
         echo "[ci] python -m ruff check src ops tests"
         (cd "$TARGET" && "$PYTHON_BIN" -m ruff check src ops tests)
@@ -320,14 +321,14 @@ if [ "$RUN_PY" = 1 ]; then
     fi
 
     echo "[ci] python -m pytest (no ambient git identity: a CI runner has none)"
-    # 覆盖率只报告、不设阈值（W6-3）。pytest-cov 不在 requirements.lock 里，
-    # 所以先探测再决定加不加 --cov；缺了只跳过且不影响退出码。
+    # Coverage is reported without a threshold (W6-3). pytest-cov is not in requirements.lock,
+    # so probe before adding --cov; if missing, skip it without affecting the exit code.
     #
-    # **git 身份必须在这里抹掉**：2026-10-12 有一次用例让子进程里的 `deploy.sh --commit`
-    # 真提交，本机因为全局配过 user.name/email 而全绿，GitHub runner 上没有 → `fatal:
-    # empty ident name`、CI 红。这是「本地环境比 CI 宽松」造成的假绿，闸门得自己造出
-    # CI 那种环境：HOME 指向空目录、禁掉 global/system 配置、并关掉身份自动探测
-    # （user.useConfigOnly=true）。用例要提交，就得自己往仓库 config 里写身份。
+    # Strip Git identity here. On 2026-10-12, a test invoked `deploy.sh --commit` in a child
+    # process. It passed locally because the machine had global user.name/email, but failed on
+    # GitHub Actions with `fatal: empty ident name`. To reproduce CI, point HOME to an empty
+    # directory, disable global/system config, and disable identity auto-detection with
+    # user.useConfigOnly=true. Tests that commit must set an identity in their repository config.
     GIT_HOSTILE_HOME="$(mktemp -d -t limooo-ci-home-XXXXXX)"
     if (cd "$TARGET" && "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1); then
         (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
@@ -342,8 +343,9 @@ if [ "$RUN_PY" = 1 ]; then
     rm -rf "$GIT_HOSTILE_HOME"
     echo "[ci] python ops/check_config_contract.py"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_config_contract.py)
-    # 2026-10-11 加：Dependabot 把 cairosvg 升到 2.9.1 而 requirements.lock 仍钉 2.8.2，
-    # 于是升级静默无效（build.sh 装的是 lock），CI 全绿也没发现。这条闸门专门盯它。
+    # Added 2026-10-11: Dependabot upgraded cairosvg to 2.9.1 while requirements.lock still
+    # pinned 2.8.2, so the upgrade had no effect because build.sh installs from the lock file.
+    # CI stayed green without noticing; this guard checks for that mismatch.
     echo "[ci] python ops/check_requirements_lock.py --check"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_requirements_lock.py --check)
     echo "[ci] python ops/check_security_headers.py"

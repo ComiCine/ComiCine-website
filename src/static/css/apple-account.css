@@ -1,8 +1,8 @@
         /*
-           Apple Account 页面样式（导航栏 / 主题菜单 / 全局基础样式见 base.html）
+           Apple Account page styles. See base.html for the navigation, theme menu, and global styles.
            */
 
-        /* base 的 html,body 为 overflow:hidden,本页需纵向滚动 */
+        /* base sets overflow:hidden on html and body; this page needs vertical scrolling. */
         html, body { overflow-y: auto; height: auto; min-height: 100%; }
 
         .nav-title { font-size:24px;font-weight:700;letter-spacing: calc(-0.02em*var(--ls-scale));white-space:nowrap; }
@@ -10,7 +10,7 @@
         @media (max-width:640px) { .nav-title { font-size:18px; } }
 
         /* Dashboard */
-        #dashboard { max-width:800px;margin:0 auto;padding:110px 20px 80px; } /* padding-top 让出 fixed 导航栏高度(100px) */
+        #dashboard { max-width:800px;margin:0 auto;padding:110px 20px 80px; } /* Leave room for the fixed 100px navigation bar. */
         #dashboard.hidden { display:none !important; }
         .search-bar { margin-bottom:20px;display:flex;align-items:center;gap:10px; }
         .search-bar input { flex:1;padding:10px 14px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel-bg);color:var(--text);font-size:14px;outline:none;box-sizing:border-box; }
@@ -40,7 +40,7 @@
 
         .account-actions { display:flex;gap:2px;flex-shrink:0; }
 
-        /* 通用按钮（原 login.html） */
+        /* Shared button styles, formerly in login.html. */
         .btn { padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing: calc(0.02em*var(--ls-scale));color:var(--text-inverse);transition:opacity 0.2s,transform 0.15s var(--ease-out); }
         .btn:active { transform:scale(0.96); }
         .btn-primary { background:var(--accent);color:var(--text-inverse); }
@@ -70,16 +70,16 @@
         .modal label { display:block;font-size:12px;font-weight:600;opacity:0.5;margin-bottom:4px;text-transform:uppercase;letter-spacing: calc(0.1em*var(--ls-scale)); }
         .modal input,.modal textarea { width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--highlight);color:var(--text);font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px; }
         .modal input:focus,.modal textarea:focus { border-color:var(--accent); }
-        /* 密码输入 + 小眼睛：按钮覆盖在输入框右侧 */
+        /* Password input with a visibility toggle overlaid on the right. */
         .pw-field { position:relative; }
-        /* 输入框本身不带 margin-bottom;间距由容器承担,避免容器高度被 margin 撑高导致眼睛 top:50% 偏下 */
+        /* Keep spacing on the container, not the input, so its height does not push the eye icon below 50%. */
         .pw-field input { padding-right:38px; margin-bottom:0; }
         .email-field { display:flex; align-items:center; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--highlight); margin-bottom:16px; overflow:hidden; }
         .email-field input { flex:1; min-width:0; border:none; background:transparent; margin-bottom:0; }
         .email-field:focus-within { border-color:var(--accent); }
         .email-domain { flex-shrink:0; padding:10px 12px; border-left:1px solid var(--line); font-size:14px; opacity:0.5; white-space:nowrap; background:var(--panel-bg); }
         .pw-field { margin-bottom:16px; }
-        /* 密文/明文切换完全由 JS 接管(见 toggleFieldPw / renderFieldPw) */
+        /* JavaScript handles masked and plain text states; see toggleFieldPw and renderFieldPw. */
         .pw-eye {
             position:absolute; top:50%; right:0; width:34px;
             transform:translateY(-50%);

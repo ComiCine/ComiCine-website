@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 人机验证门禁：cookie 校验/签发、Turnstile 验证、门禁页渲染、配置接口。 */
+/** Human-verification gate: cookie validation and issuance, Turnstile verification, gate-page rendering, and config endpoints. */
 
 import { queryAll } from "./d1";
 import { contains, networkAddress, normalizeIp } from "./cidr";
@@ -51,7 +51,7 @@ import { hmacSha256Hex, timingSafeEqual } from "./crypto";
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const SITEVERIFY_TIMEOUT_MS = 3000;
 
-/** 门禁事件日志异步写入，不阻塞验证结果的返回。 */
+/** Write gate event logs asynchronously without delaying the verification response. */
 function deferLog(context: RequestContext, promise: Promise<unknown>): void {
   if (typeof context.waitUntil === "function") {
     context.waitUntil(promise);
@@ -62,29 +62,32 @@ function deferLog(context: RequestContext, promise: Promise<unknown>): void {
 
 
 /**
- * cookie 格式：`<签发时间戳>.<过期时间戳>.<HMAC-SHA256 hex 签名>`。
+ * Cookie format: `<issued-at>.<expires-at>.<HMAC-SHA256 hex signature>`.
  *
- * 签名覆盖完整的 `签发.过期` 载荷，因此 cookie 既不能被篡改，也不能被
- * 用旧 cookie 的签名拼出新过期时间。
+ * Sign the complete `issued.expires` payload so the cookie cannot be altered
+ * or extended using a signature from an older cookie.
  *
- * 历史上这里只签过期时间，**不签签发时间**，于是每次请求都能重新签出一个
- * 「续满 TTL」的新 cookie；只要 TTL 短于访客的访问间隔就会反复回到门禁页。
- * 现在签发时间进入签名，续期是显式的、有上限的：距签发超过
- * `GATE_RENEW_AFTER_SECONDS`（即走完 TTL 的 3/4）才续期一次，因此
- * 「1 小时会话」是可验证的承诺，而不是随请求漂移的滑动窗口。
+ * Previously, only the expiry was signed, so every request could issue a new
+ * cookie with a full TTL. Visitors whose request interval exceeded the TTL
+ * repeatedly returned to the gate. The issued-at time is now signed too, and
+ * renewal is explicit and bounded: renew only after
+ * `GATE_RENEW_AFTER_SECONDS` (three quarters of the TTL). A one-hour session
+ * is therefore a stable guarantee rather than a sliding window.
  */
 export const GATE_RENEW_AFTER_SECONDS = Math.floor(GATE_TTL_SECONDS * 0.75);
 
 /**
- * 每次请求最多校验几枚同名 `__gate`。
+ * Maximum number of same-name `__gate` cookies to validate per request.
  *
- * 正常访客最多两枚（早期 host-only + 现在的域级），8 留足余量；上限存在的意义是
- * 不让攻击者用超长 Cookie 头把每请求的 WebCrypto 次数变成可控的任意值
+ * A normal visitor has at most two (the earlier host-only cookie and the
+ * current domain cookie), so eight leaves ample room. The limit prevents an
+ * attacker from controlling the number of WebCrypto operations per request
+ * with an oversized Cookie header.
  * （tasks/22 W9-10）。
  */
 export const MAX_GATE_COOKIE_VALUES = 8;
 
-/** 校验失败的分类，只用于诊断日志，不回传给访客以免泄露校验细节。 */
+/** Validation failure categories for diagnostic logs only; do not expose them to visitors. */
 export type GateCookieReason =
   | "ok"
   | "absent"
@@ -95,19 +98,21 @@ export type GateCookieReason =
 
 export interface GateCookieState {
   valid: boolean;
-  /** 请求里是否存在 __gate（同名重复只要求至少有一枚）。 */
+/** Whether the request contains at least one __gate cookie. */
   present: boolean;
-  /** 距离过期不足 1/4 TTL，值得在本次响应里续期。 */
+/** Whether less than one quarter of the TTL remains and the response should renew the cookie. */
   shouldRenew: boolean;
   reason: GateCookieReason;
 }
 
 /**
- * 取出同名 cookie 的全部取值。
+ * Get all values for cookies with the same name.
  *
- * 浏览器允许同名 cookie 在**不同作用域**（host-only 与 Domain=、不同 Path）下并存，
- * 并把它们全部放进同一个 Cookie 请求头。只取第一枚会拿到作用域更早/更旧的那份，
- * 表现就是「刚刚验证通过，下一次请求又被拦」——因此门禁必须逐枚校验。
+ * Browsers allow same-name cookies in **different scopes** (host-only,
+ * Domain=, or different Path values) and send them all in one Cookie header.
+ * Checking only the first may select an older value and cause a visitor who
+ * just passed verification to be blocked on the next request. Validate each
+ * value.
  */
 export function allCookieValues(name: string, header: string | null): string[] {
   if (!header) return [];
@@ -126,7 +131,7 @@ export function allCookieValues(name: string, header: string | null): string[] {
   return out;
 }
 
-/** 校验 __gate cookie：签名、格式与过期时间三者都通过才算有效。 */
+/** Validate a __gate cookie; its signature, format, and expiry must all be valid. */
 export async function readGateCookie(
   value: string | undefined,
   key: string,
@@ -155,7 +160,7 @@ export async function readGateCookie(
   if (!Number.isSafeInteger(issued) || !Number.isSafeInteger(expiry)) return fail("malformed");
   const now = Math.floor(Date.now() / 1000);
   if (expiry <= now) return fail("expired");
-  // 签发时间在未来（时钟漂移或伪造）一律视为无效，避免出现永不续期的 cookie。
+// Reject a future issued-at time (clock skew or forgery) to prevent cookies that never renew.
   if (issued > now + 60) return fail("future_issued");
 
   return {
@@ -166,7 +171,7 @@ export async function readGateCookie(
   };
 }
 
-/** 签发 __gate cookie（Domain=. <root_domain>，TTL 来自契约，默认 1 小时）。 */
+/** Issue a __gate cookie for Domain=.<root_domain> with the contract TTL (one hour by default). */
 export async function mintGateCookie(key: string): Promise<string> {
   const ttlSeconds = GATE_TTL_SECONDS;
   const now = Math.floor(Date.now() / 1000);
@@ -177,51 +182,56 @@ export async function mintGateCookie(key: string): Promise<string> {
 }
 
 /**
- * 清掉早期可能存在的 host-only `__gate`（没有 Domain 属性）。
+ * Remove an older host-only `__gate` cookie that has no Domain attribute.
  *
- * host-only 与 Domain=.limooo.cn 两种作用域下的同名 cookie 会**并存**并同时发送，
- * 若旧的那枚一直排在前面且已失效，就会稳定地把有效的那枚挡掉。签发新 cookie 时
- * 顺手删除 host-only 变体，避免这种「验证成功却仍被拦」的僵尸态。
+ * Same-name host-only and Domain=.limooo.cn cookies can **coexist** and are
+ * sent together. If an expired old cookie stays first, it can shadow the valid
+ * one. Delete the host-only variant when issuing a new cookie to avoid a
+ * state where verification succeeds but the visitor remains blocked.
  */
 export function purgeLegacyGateCookie(): string {
   return `${GATE_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax`;
 }
 
-/** 一次签发要下发的全部 Set-Cookie：先清旧作用域，再写新的域级 cookie。 */
+/** Set-Cookie headers for one issuance: clear the old scope, then write the new domain cookie. */
 export async function gateCookieHeaders(key: string): Promise<string[]> {
   return [purgeLegacyGateCookie(), await mintGateCookie(key)];
 }
 
 export interface GateTrustState {
-  /** 白名单 IP 或 Cloudflare 已验证爬虫：本就免验证，不需要 cookie。 */
+/** Allowlisted IPs and Cloudflare-verified bots already bypass verification and need no cookie. */
   trusted: boolean;
   /**
-   * 命中爬虫/AI UA 名单（docs/lists/robots.txt 的显式 User-agent）：**只免人机验证**。
+    * A crawler or AI user agent matches an explicit User-agent in
+    * docs/lists/robots.txt and **bypasses human verification only**.
    *
-   * 与 trusted 分开是有意的：UA 自报，不能让它顺便豁免 blocked_ips 封禁，
-   * 也不能让它换到一枚 __gate cookie（见 _lib/bots.ts 的文件头）。
+    * Keep this separate from trusted because user agents are self-reported.
+    * They must not bypass blocked_ips or receive a __gate cookie (see the
+    * header in _lib/bots.ts).
    */
   declaredCrawler: boolean;
-  /** 命中的 UA 片段（已小写），未命中为空串；只用于日志。 */
+/** Matched lowercase user-agent fragment, or an empty string; used only for logs. */
   crawlerToken: string;
-  /** 持有有效 __gate cookie。 */
+/** Whether the request has a valid __gate cookie. */
   cookieValid: boolean;
-  /** 本次请求应续签 cookie（cookie 仍有效但已走过 3/4 TTL）。 */
+/** Whether to renew the cookie because it is valid and three quarters of its TTL has elapsed. */
   shouldRenew: boolean;
-  /** 请求里带了 __gate 但没有一枚有效：用于诊断「验证后仍被拦」。 */
+/** The request has __gate cookies but none are valid; helps diagnose blocks after verification. */
   cookiePresent: boolean;
-  /** 校验结论分类。 */
+/** Validation result category. */
   cookieReason: GateCookieReason;
 }
 
 /**
- * 门禁放行判定的唯一实现。
+ * The single implementation of the gate decision.
  *
- * 中间件与 /gate 都必须调用它，避免两处各自拼「白名单 || 爬虫 || cookie」
- * 导致语义漂移——历史上正是两份相似的判定逻辑让「看似已通过却又被要求
- * 验证」难以定位。
+ * Middleware and /gate must both call this function rather than duplicating
+ * the allowlist, crawler, and cookie checks. Similar but separate logic
+ * previously caused behavior to drift and made repeated challenges difficult
+ * to diagnose.
  *
- * 同名 __gate 可能有多枚（作用域不同会并存），这里逐枚校验、任意一枚有效即放行。
+ * Same-name __gate cookies may coexist across scopes; validate each and allow
+ * the request if any one is valid.
  */
 export async function resolveGateTrust(
   context: RequestContext,
@@ -229,8 +239,9 @@ export async function resolveGateTrust(
   const { request, env } = context;
   const ip = request.headers.get("CF-Connecting-IP") ?? "";
   const trusted = isGateTrustedIp(ip) || isTrustedCrawler(request);
-  // 已信任来源不必再扫一遍 UA 名单（纯省一次匹配，结论不受影响）；
-  // 其余来源才检查爬虫名单，命中即免人机验证（但不豁免封禁、不发 cookie）。
+// Trusted sources do not need another user-agent match; this only saves work.
+// Check other sources against the crawler list. A match bypasses verification,
+// but not blocking, and does not receive a cookie.
   const crawlerToken = trusted ? "" : declaredCrawlerToken(request);
 
   const values = allCookieValues(GATE_COOKIE, request.headers.get("Cookie"));
@@ -240,10 +251,11 @@ export async function resolveGateTrust(
     shouldRenew: false,
     reason: values.length > 0 ? "malformed" : "absent",
   };
-  // 同名 cookie 的数量没有上限，而每一枚都要跑一次正则 + WebCrypto
-  // importKey + sign：32 KB 的 Cookie 头 ≈ 400 枚 ≈ 400 次 WebCrypto 调用，
-  // 每请求的 CPU 由攻击者决定（tasks/22 W9-10）。只校验前 N 枚。
-  // 正常访客最多只有 2 枚（旧 host-only + 新域级），不影响既有行为。
+// The number of same-name cookies is unbounded, and each requires a regular
+// expression plus WebCrypto importKey and sign operations. A 32 KB Cookie
+// header can contain about 400 cookies, letting an attacker control per-request
+// CPU cost (tasks/22 W9-10). Validate only the first N. Normal visitors have at
+// most two (old host-only and new domain cookies), so existing behavior is unchanged.
   for (const value of values.slice(0, MAX_GATE_COOKIE_VALUES)) {
     const state = await readGateCookie(value, env.GATE_HMAC_KEY);
     if (state.valid) {
@@ -265,12 +277,12 @@ export async function resolveGateTrust(
 }
 
 /**
- * GET /gate：唯一对外的门禁入口。
+ * GET /gate: the only public gate entry point.
  *
- * 已通过者 302 回原页（原主机 + 原路径），未通过者原地渲染门禁页。
- * 「是否已通过」与「是否需要续期」都收敛到 resolveGateTrust 一处，
- * 续期只发生在 cookie 走完 3/4 TTL 时，因此 1 小时会话是稳定承诺，
- * 不会像旧的滑动重签那样随请求漂移。
+ * Redirect verified visitors (302) to the original host and path; render the
+ * gate page in place for others. resolveGateTrust handles both verification
+ * and renewal decisions. Renew only after three quarters of the cookie TTL so
+ * the one-hour session remains stable instead of sliding on every request.
  */
 export async function handleGateEntry(context: RequestContext): Promise<Response> {
   const { request, env } = context;
@@ -297,11 +309,12 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
       }),
     );
     let resp = Response.redirect(`https://${host}${next}`, 302);
-    // 白名单/爬虫本来就没有 cookie，需要补一枚；持 cookie 者只在临近过期时续签。
+// Allowlisted IPs and crawlers have no cookie, so issue one; renew existing cookies only near expiry.
     //
-    // `trust.trusted` 而不是 `passed`：命中 UA 名单的爬虫**不发** cookie ——
-    // UA 是自报的，发 cookie 等于把「自称 GPTBot」换成一枚 1 小时内可复用的
-    // 签名会话，门禁就白设了。爬虫每次请求自带 UA，本来也不需要 cookie。
+// Use `trust.trusted`, not `passed`: crawlers matching the user-agent list do
+// **not** receive a cookie. User agents are self-reported, so issuing one would
+// turn a claim to be GPTBot into a reusable signed session. Crawlers send the
+// user agent with every request and do not need a cookie.
     if (trust.trusted || trust.shouldRenew) {
       const headers = new Headers(resp.headers);
       preserveSetCookie(headers, resp.headers);
@@ -321,11 +334,12 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
 }
 
 /**
- * GET /__gate：旧入口，保留但一律 308 到等价的 /gate。
+ * GET /__gate: preserve the legacy endpoint but always return a 308 to /gate.
  *
- * 线上可能还有正在排队的请求和访客书签指向它；把它固定成跳转而不是
- * 第二套判定逻辑，可以确保 /gate 是唯一被前端与文档引用的地址，
- * 不会再出现「两个入口判定不一致导致反复验证」。查询参数原样保留。
+ * Requests may still be in flight and visitors may have bookmarks to this
+ * endpoint. Redirecting instead of duplicating the gate decision keeps /gate
+ * as the only address used by the frontend and documentation, preventing
+ * inconsistent decisions between two entry points. Preserve query parameters.
  */
 export function handleLegacyGateRedirect(context: RequestContext): Response {
   const url = requestUrl(context.request);
@@ -337,7 +351,7 @@ export function handleLegacyGateRedirect(context: RequestContext): Response {
   });
 }
 
-/** GET /gate/config 与 /__gate/config：只下发非敏感运行时配置，不写死 sitekey 到 HTML。 */
+/** GET /gate/config and /__gate/config: return non-sensitive runtime config without embedding the sitekey in HTML. */
 export function handleGateConfig(context: RequestContext): Response {
   const { env, request } = context;
   return Response.json(
@@ -351,7 +365,7 @@ export function handleGateConfig(context: RequestContext): Response {
   );
 }
 
-/** GET /__gate/diag：动态诊断信息，页面其余部分可缓存。 */
+/** GET /__gate/diag: dynamic diagnostics; the rest of the page may be cached. */
 export function handleGateDiag(context: RequestContext): Response {
   const { request } = context;
   return Response.json(
@@ -369,13 +383,13 @@ export interface GateRenderOptions {
   host?: string;
   errorKey?: string;
   unavailable?: boolean;
-  /** 已通过门禁的访客仍要求看这张页（门禁主机原地渲染）时为 true，状态码用 200。 */
+/** True when a verified visitor requests this page from the gate host; render in place with status 200. */
   passed?: boolean;
-  /** 调用方已经算过 detectLang 时传进来，避免对同一个请求算两遍。 */
+/** Pass the result when the caller already ran detectLang to avoid duplicate work. */
   lang?: string;
 }
 
-/** 从生成好的 <lang>/auth.html 读取门禁页，只注入 host/next/error/lang。 */
+/** Load the generated <lang>/auth.html gate page and inject only host, next, error, and lang. */
 export async function renderGatePage(
   context: RequestContext,
   opts: GateRenderOptions,
@@ -386,24 +400,25 @@ export async function renderGatePage(
   const lang = opts.lang ?? detectLang(request);
   const status = opts.unavailable ? 503 : opts.passed ? 200 : 403;
 
-  // 模板文本按 lang 进程内复用（首次 ASSETS.fetch，之后直读内存）；
-  // 注入逻辑与逐请求渲染路径完全一致，只有取模板这一步被省掉。
+// Reuse template text per language in the process (fetch from ASSETS once,
+// then read from memory). Injection matches the per-request render path; only
+// template loading is skipped.
   const source = await templateText(env, lang, "auth.html");
   if (source === null) return new Response("Gate page unavailable", { status: 503 });
-  // 语言由模板的 <html lang="{{ g.lang }}"> 在构建期渲染；`{{lang}}` 占位符已不在
-  // 任何模板或产物里（对改动前的 public/ 做 grep 零命中），不再做无谓替换。
+// The build renders the language in <html lang="{{ g.lang }}">. No template or
+// artifact contains a `{{lang}}` placeholder, so do not perform a needless replacement.
   const html = source
     .replaceAll("{{host}}", escapeHtml(host))
     .replaceAll("{{next}}", escapeHtml(next))
     .replaceAll("{{error}}", escapeHtml(opts.errorKey ?? ""));
 
-  // 门禁页一律不可缓存。
+// Never cache the gate page.
   //
-  // 这张页会**原地**替换真实内容的 URL 并返回 403；曾经给它 `max-age=300`
-  // （浏览器私有缓存）导致验证通过后 `location.replace` 回同一 URL 时，
-  // 浏览器可能直接重放那份 403 挑战页 —— 表现就是「验证成功又跳回验证页」，
-  // 且每次重放都再触发一次 verify，形成稳定死循环。挑战页没有任何缓存价值，
-  // 直接 no-store 才是正确语义。
+// This page replaces the real-content URL in place and returns 403. A previous
+// `max-age=300` private browser cache could replay the challenge after
+// verification when location.replace returned to the same URL, causing a loop
+// and another verify request on every replay. The challenge has no cache value;
+// no-store is the correct behavior.
   return withLangCookie(
     request,
     new Response(html, {
@@ -425,10 +440,11 @@ interface BlockedRow {
 }
 
 /**
- * 记录未通过门禁的来源；同一 IP 在 24 小时内第 3 次失败时精确封禁该 IP。
+ * Record failed gate attempts and block an IP on its third failure within 24 hours.
  *
- * 计数只保存 HMAC 后的 IP，封禁时才把规范化地址写入 blocked_ips。成功写入
- * blocked_ips 后删除计数器，避免被封来源继续占用表空间或反复触发封禁审计。
+ * Store only the HMAC of each IP. Write the normalized address to blocked_ips
+ * only when blocking it. Delete the counter after a successful write to avoid
+ * retaining rows for blocked sources or repeatedly auditing the same block.
  */
 /* Automatic gate-failure threshold blocking has been removed. */
 async function removedBanAfterGateFailures(
@@ -505,46 +521,48 @@ async function removedBanAfterGateFailures(
     });
     return true;
   } catch {
-    // 封禁计数不可用时维持门禁原有行为，不能误封。
+    // Preserve the gate's existing behavior if the failure counter is unavailable; do not block by mistake.
     return false;
   }*/
 }
 
 /**
- * blocked_ips 全量列表的进程内缓存时长（毫秒）。
+ * Process-local cache duration for the complete blocked_ips list, in milliseconds.
  *
- * 60 秒是「管理员改封禁后最多 1 分钟生效」与「每 isolate 每分钟最多一次全表读」
- * 之间的折中；注意缓存只影响**读**，写路径（/api/blocklist、自动封禁）不进这里。
+ * Sixty seconds balances a maximum one-minute delay for admin changes against
+ * at most one full-table read per isolate per minute. The cache affects reads
+ * only; write paths (/api/blocklist and automatic blocking) do not use it.
  */
 export const BLOCKED_LIST_TTL_MS = 60_000;
 
 /**
- * 缓存键是 **env.DB 绑定对象本身**（WeakMap，不是闭包单例）。
+ * Cache by the **env.DB binding object itself** in a WeakMap, not by a closure singleton.
  *
- * 同一个 isolate 里可能先后出现不同的 DB 绑定（多环境、测试里各自注入的桩），
- * 用绑定对象做键才能保证 A 环境的封禁名单绝不会被拿去判 B 环境的请求。
+ * One isolate may use different DB bindings in different environments or test
+ * stubs. Keying by the binding ensures that environment A's blocklist is never
+ * used to classify requests in environment B.
  */
 interface BlockedListCacheEntry {
-  /** 上一次**成功**读到的全量列表；从未成功过则为 `null`。读失败不会把它清掉。 */
+/** Last **successfully** read full list, or `null` if none; a read failure does not clear it. */
   rows: BlockedRow[] | null;
-  /** 上次尝试读取的时刻；决定冷却窗口何时结束。 */
+/** Time of the last read attempt; determines when the cooldown ends. */
   at: number;
 }
 
 const blockedListCache = new WeakMap<object, BlockedListCacheEntry>();
 
-/** 全量拉取用的一句 SQL；`active = 1` 与逐前缀查询保持同一过滤条件。 */
+/** Full-list query; `active = 1` matches the per-prefix filter. */
 const BLOCKED_LIST_SQL = "SELECT cidr, network, prefix FROM blocked_ips WHERE active = 1";
 
 /**
- * 在内存里复现逐前缀查询的匹配语义。
+ * Reproduce per-prefix query matching in memory.
  *
- * 等价性依据：`blocked_ips.network` 一律是**规范化网络地址**（写侧
- * `_lib/cidr.ts` 的 parseCidr / `src/cidr.py` 都是先掩码再规范化后才落库），
- * 因此 `contains(network, prefix, ip) === true` 与 SQL 的
- * `networkAddress(ip, prefix) = network` 是同一个谓词；`prefix` 越界（超过地址
- * 位宽）两边都判不匹配。最大前缀的选取与查询路径一致（逐块 `ORDER BY prefix
- * DESC LIMIT 1` 后再取全局最大），`cidr` 是主键，同一前缀不可能有两行，故无歧义。
+ * Equivalence relies on `blocked_ips.network` always being a **normalized
+ * network address**. The write paths in `_lib/cidr.ts` and `src/cidr.py` mask
+ * and normalize before storing. Thus `contains(network, prefix, ip) === true`
+ * is equivalent to the SQL predicate `networkAddress(ip, prefix) = network`.
+ * Both paths reject prefixes wider than the address. Select the maximum prefix
+ * as the query path does, and use the `cidr` primary key to avoid ambiguity.
  */
 function matchBlockedRow(
   rows: BlockedRow[],
@@ -567,11 +585,13 @@ function matchBlockedRow(
 }
 
 /**
- * 读一次全量封禁列表，并把**这次尝试**写进缓存（成功写列表、失败写 null）。
+ * Read the full blocklist once and cache **this attempt** (the list on success, null on failure).
  *
- * 失败也写缓存是刻意的：D1 抖动期间不能让每个请求都先打一次必然失败的全量读再回退，
- * 否则一次故障被放大成两倍往返（与 `logging.ensureEventSchema` 的冷却策略同源）。
- * 冷却窗口内直接走原来的逐前缀查询路径，语义与改动前完全一致。
+ * Cache failures too: during a D1 disruption, do not make every request repeat
+ * a full-list read that is certain to fail before falling back. That would
+ * double the requests during one outage (the same cooldown principle as
+ * `logging.ensureEventSchema`). During cooldown, use the original per-prefix
+ * query path with unchanged semantics.
  */
 async function readBlockedList(
   db: import("./env").Env["DB"] & object,
@@ -581,26 +601,30 @@ async function readBlockedList(
   try {
     const stmt = db.prepare(BLOCKED_LIST_SQL);
     const result = await stmt.all<BlockedRow>();
-    // 驱动没有明确回答 success: true 时（老驱动/测试桩）不据此判定，
-    // 一律回退到原来的逐前缀查询——宁可多查一次，也不能凭一个可疑的空列表放行。
+// If a driver or test stub does not explicitly report success: true, fall back
+// to per-prefix queries. An extra query is safer than allowing based on a
+// potentially unreliable empty list.
     if (result?.success === true) rows = result.results ?? [];
   } catch {
     rows = null;
   }
-  // 读失败时**保留上一次成功的名单**，不要用 null 覆盖它：否则冷却窗口内只能走逐前缀
-  // 查询，一旦那条也失败就 fail-open —— 也就是「D1 一抖，应用层封禁整条静默失效」。
-  // 拿着几秒前刚读到的名单继续判，既不会误放行惯犯，也不会把正常访客挡在外面
-  // （对比：字面 fail-closed 会让每个非白名单访客在 D1 抖动时都撞上门禁页，
-  //  而门禁页自身的验证也读 D1 —— 那等于把抖动升级成全站下线）。
+// On read failure, **keep the last successful list** instead of replacing it
+// with null. Otherwise the cooldown forces per-prefix queries, which could
+// also fail and make all application blocking fail open during a D1 outage.
+// Using a list read seconds earlier avoids allowing repeat offenders or
+// blocking normal visitors. Literal fail-closed behavior would send every
+// non-allowlisted visitor to a gate page that also reads D1, turning a brief
+// disruption into a site-wide outage.
   const previous = blockedListCache.get(db)?.rows ?? null;
   const serving = rows ?? previous;
   blockedListCache.set(db, { rows: serving, at: now });
-  // 返回**实际用来判定**的那份：读失败但有旧名单时返回旧名单（调用方据此继续判定），
-  // 只有从未成功读过时才返回 null —— 那时调用方回退到逐前缀查询。
+// Return the list **actually used for the decision**. If a read failed but an
+// older list exists, return it so the caller can keep checking. Return null
+// only before any successful read; the caller then falls back to per-prefix queries.
   return serving;
 }
 
-/** 原来的逐前缀查询路径：缓存未命中或不可用时原样使用（IPv4 1 次 / IPv6 3 次往返）。 */
+/** Original per-prefix query path, used unchanged when the cache is unavailable (one IPv4 or three IPv6 round trips). */
 async function queryBlockedRows(
   db: import("./env").Env["DB"],
   normalized: string,
@@ -612,8 +636,9 @@ async function queryBlockedRows(
     if (network) candidates.push([network, prefix]);
   }
   let matched: BlockedRow | null = null;
-  // 每对 network/prefix 占两个绑定参数；49 对可保持在 D1 单语句 100 参数限制内。
-  // 因而 IPv4 只需一次查询，IPv6 由原先七次降为三次。
+// Each network/prefix pair uses two bind parameters. Forty-nine pairs stay
+// within D1's 100-parameter statement limit, so IPv4 needs one query and IPv6
+// drops from seven to three.
   for (let start = 0; start < candidates.length; start += 49) {
     const chunk = candidates.slice(start, start + 49);
     const conditions = chunk.map(() => "(network = ? AND prefix = ?)").join(" OR ");
@@ -634,11 +659,13 @@ async function queryBlockedRows(
 }
 
 /**
- * 封禁检查：规范化请求 IP 后按 blocked_ips 匹配（DB 异常时放行）。
+ * Check a request IP against blocked_ips after normalization (allow on database errors).
  *
- * 命中进程内缓存（TTL 见 BLOCKED_LIST_TTL_MS）时在 JS 侧匹配全量列表，一次库都不查；
- * 缓存冷或读失败时回退到原来的逐前缀查询路径，fail-open 语义不变。
- * 命中后的 `block_match` 事件字段与判定真值与查询路径逐字段一致（同一 `cidr` 取值）。
+ * On a process-cache hit (TTL is BLOCKED_LIST_TTL_MS), match the full list in
+ * JavaScript without a database read. When cold or after a failed read, use the
+ * original per-prefix query path with unchanged fail-open behavior. A
+ * `block_match` event must have the same fields and decision as the query path,
+ * including its `cidr` value.
  */
 export async function isBlocked(
   env: { DB?: import("./env").Env["DB"] },
@@ -654,20 +681,23 @@ export async function isBlocked(
     const now = Date.now();
     const cached = blockedListCache.get(env.DB);
     const fresh = cached && now - cached.at < BLOCKED_LIST_TTL_MS ? cached : null;
-    // 冷却窗口内直接用缓存里那份；否则重读一次。读失败时 `readBlockedList` 返回 null，
-    // 但它同时**保留了上一次成功的名单**，所以这里的 `rows` 仍可能是「几秒前刚读到的那份」。
+// Use the cached list during cooldown; otherwise refresh it. On read failure,
+// readBlockedList returns null but **preserves the previous successful list**,
+// so rows may still contain data read seconds ago.
     const rows = fresh ? fresh.rows : await readBlockedList(env.DB, now);
 
-    // 回退链（按权威性递减）：
-    //   1. 内存里那份名单（新鲜读到的，或读失败时保留下来的最后一次成功结果）——不查库；
-    //   2. 没有名单时回到最早的逐前缀查询——它能区分「驱动故障」与「未命中」；
-    //   3. 逐前缀查询也失败 → 交给外层 catch（那是唯一剩下的 fail-open 出口）。
+// Fallback order, from most authoritative:
+//   1. Use the in-memory list (newly read or the last successful result); no query.
+//   2. If there is no list, use the original per-prefix query, which distinguishes driver errors from misses.
+//   3. If that query also fails, the outer catch is the remaining fail-open path.
     //
-    // 第 1 步用「保留的旧名单」而不是直接 fail-open，是本改动的要点：此前读失败会把缓存写成
-    // `rows: null`，于是只能走第 2 步，而第 2 步一旦也失败就 fail-open —— D1 一抖，
-    // 应用层封禁整条静默失效。拿几秒前刚读到的名单继续判，既不放行惯犯，也不把正常访客
-    // 挡在外面（字面 fail-closed 会让每个非白名单访客在抖动时都撞门禁页，而门禁页自身的
-    // 验证同样读 D1 —— 那等于把一次抖动升级成全站下线）。
+// Using the retained list in step 1 instead of failing open is the key change.
+// Previously, a failed read replaced the cache with `rows: null`, forcing step
+// 2; if that failed too, all application-level blocking silently failed open
+// during D1 disruptions. A list read seconds earlier blocks repeat offenders
+// while still allowing normal visitors. Literal fail-closed behavior would
+// send every non-allowlisted visitor to a gate page that also reads D1,
+// turning a transient issue into a site-wide outage.
     const matched = rows
       ? matchBlockedRow(rows, normalized, maxPrefix)
       : await queryBlockedRows(env.DB, normalized, maxPrefix);
@@ -682,30 +712,32 @@ export async function isBlocked(
       return true;
     }
   } catch {
-    // fail-open：DB 不可用时不做应用层拦截。
+// Fail open: skip application-level blocking when the database is unavailable.
   }
   return false;
 }
 
 /**
- * 门禁 widget 与 siteverify 响应共用的 action 标识。
+ * Shared action identifier for the gate widget and siteverify response.
  */
 export const GATE_TURNSTILE_ACTION = "gate";
 
 /**
- * 调用 Turnstile siteverify；`remoteip` 只来自 `CF-Connecting-IP`。
+ * Call Turnstile siteverify; derive `remoteip` only from `CF-Connecting-IP`.
  *
- * 除了 `success`，还要校验 **hostname** 属于本站托管的主机（`isPublicHost`，
- * 与回跳白名单同一份契约）：同一个 sitekey 若被加到别的域名上，那些站点解出的
- * token 也能通过 siteverify，只看 `success` 就把「本站访客」的定义交给了
- * sitekey 配置（tasks/22 W9-16，纵深防御）。缺 `hostname` 一律拒绝。
+ * In addition to `success`, require **hostname** to be one of the site's
+ * managed hosts (`isPublicHost`, shared with the redirect allowlist). If the
+ * same sitekey is used on another domain, tokens solved there may also pass
+ * siteverify. Checking only `success` would let the sitekey configuration
+ * define who counts as a visitor (tasks/22 W9-16, defense in depth). Reject a
+ * missing hostname.
  *
- * `action` 只在站点真的声明了才校验：门禁 widget 现在没设 action，siteverify
- * 也不返回；一旦将来给 widget 加上 action，这里用一个固定期望值把它钉住，
- * 别的组件解出的 token 就不能复用。
+ * Validate `action` only if the site declares one. The gate widget currently
+ * has no action and siteverify returns none. If an action is added later, use
+ * a fixed expected value here so tokens from other components cannot be reused.
  *
- * 导出仅为测试可断言「访客自带的转发头不会进入 remoteip」；生产调用点只有
- * `handleVerify` 一处。
+ * Exported so tests can verify that visitor-supplied forwarding headers never
+ * reach remoteip. `handleVerify` is the only production caller.
  */
 export async function verifyTurnstile(
   token: string,
@@ -766,10 +798,11 @@ function gateTarget(host: string, path: string): string {
   return `https://${host}${path}`;
 }
 
-/** POST /__gate/verify：校验 Turnstile，成功签发 cookie。
+/** POST /__gate/verify: validate Turnstile and issue a cookie on success.
  *
- * 门禁页通过 fetch 调用本接口，响应只写 Cookie，不经过 redirect 子域；
- * 无 JavaScript 时仍直接回原站，作为可访问性降级。
+ * The gate page calls this endpoint with fetch. The response sets only a
+ * cookie and does not pass through the redirect subdomain. Without JavaScript,
+ * the page still returns to the original site as an accessibility fallback.
  */
 export async function handleVerify(context: RequestContext): Promise<Response> {
   const { request, env } = context;
@@ -797,17 +830,20 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
   const token = form.get("cf-turnstile-response")?.toString() ?? "";
   const next = safeNextPath(form.get("next")?.toString() ?? null);
   const host = sanitizeHost(form.get("host")?.toString() ?? null);
-  // Turnstile 会拿 remoteip 跟解题来源比对；只传 Cloudflare 认定的连接 IP，
-  // 访客自带的转发头一律不采信（否则等于让访客自己声明校验依据）。
+// Turnstile compares remoteip with the challenge source. Pass only the
+// connection IP identified by Cloudflare; never trust visitor-supplied
+// forwarding headers, which would let visitors choose the verification input.
   const remoteip = clientIpForLogs(request);
 
   let success = false;
   let unavailable = false;
   const verifyDiagnostics: { reason?: string } = { reason: "turnstile_rejected" };
-  // 两把密钥都要在：TURNSTILE_SECRET 用来问题目，GATE_HMAC_KEY 用来签 cookie。
-  // 此前只查前者，GATE_HMAC_KEY 为空时会走到 gateCookieHeaders("") 并用**空密钥**
-  // 签发一枚 __gate —— 今天靠中间件的 runtimeConfigError 兜住，但这个函数是
-  // 「中间件路由缺失时的兜底入口」，自己必须有这道门（tasks/22 W9-11）。
+// Both secrets are required: TURNSTILE_SECRET verifies challenges and
+// GATE_HMAC_KEY signs cookies. Previously only the first was checked, so an
+// empty GATE_HMAC_KEY could reach gateCookieHeaders("") and issue a __gate
+// cookie with an **empty key**. Middleware runtimeConfigError currently catches
+// this, but this handler is the fallback when middleware routing is missing
+// and must enforce the check itself (tasks/22 W9-11).
   if (!env.TURNSTILE_SECRET || !env.GATE_HMAC_KEY) {
     unavailable = true;
   } else {
@@ -856,11 +892,12 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
     });
   }
 
-  // 先清 host-only 旧作用域，再写域级新 cookie。
+// Clear the old host-only scope before writing the new domain cookie.
   //
-  // 这里刻意下发两条 Set-Cookie：旧的同名 host-only cookie 会与新的域级 cookie
-  // 并存并一直排在请求头前面，只写一条新 cookie 并不能解除它的遮挡。
-  // 多条 Set-Cookie 由 preserveSetCookie 保证不被合并（Safari 只认第一条的坑）。
+// Deliberately send two Set-Cookie headers: the old same-name host-only cookie
+// coexists with the new domain cookie and remains first in the request header.
+// Writing only the new cookie would not remove the old one. preserveSetCookie
+// prevents the headers from being merged, avoiding Safari's first-header issue.
   const cookies = await gateCookieHeaders(env.GATE_HMAC_KEY);
   deferLog(
     context,

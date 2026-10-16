@@ -18,23 +18,24 @@
  */
 
 /**
- * 品牌字体子集（**生成物，不要手改**）：Baloo 2，只含 "Limooo Studio" 用到的字形。
+ * Brand font subset (**generated artifact; do not edit manually**): Baloo 2 glyphs used by "Limooo Studio" only.
  *
- * 重新生成（需要 fonttools + brotli；本机用一次性 venv 装，仓库不带这两条依赖）：
+ * Regenerate (requires fonttools + brotli; install them in a temporary local venv, not in the repository):
  *   python3 -m venv /tmp/ft-venv && /tmp/ft-venv/bin/pip install fonttools brotli
  *   /tmp/ft-venv/bin/pyftsubset site/src/static/fonts/baloo2/Baloo2-VariableFont_wght.ttf \
  *     --text="Limooo Studio" --flavor=woff2 --no-hinting --desubroutinize \
  *     --output-file=/tmp/baloo2-wordmark.woff2
- *   然后 base64 -i /tmp/baloo2-wordmark.woff2 | tr -d '\n'
+ *   Then run: base64 -i /tmp/baloo2-wordmark.woff2 | tr -d '\n'
  *
- * 为什么要内联：状态页挂在独立 Worker（status.limooo.cn）上，主站的
- * /static/fonts/** 属于另一个源，跨源 @font-face 需要 CORS 响应头（主站没开），
- * 而且状态页在主站宕机时也必须完整可读、样式不塌——品牌字只能自带。
- * 子集 2.3 KB，base64 后约 3 KB，比主站那份完整拉丁子集（37 KB）小得多。
+ * Why the font is inlined: the status page runs on a separate Worker (status.limooo.cn), and
+ * the main site's /static/fonts/** is cross-origin. Cross-origin @font-face requires CORS
+ * headers, which the main site does not provide. The status page must remain readable and
+ * styled when the main site is down, so the wordmark font must be bundled here.
+ * The subset is 2.3 KB, about 3 KB after base64, much smaller than the main site's full Latin subset (37 KB).
  *
- * 许可：SIL OFL 1.1，与主站同一份字体（site/src/static/fonts/baloo2/OFL.txt）。
- * unicode-range 只声明子集里真实存在的码位；品牌词之外的字符按 CSS 回退链
- * 落到 ui-rounded / system-ui，不会出现豆腐块。
+ * License: SIL OFL 1.1, the same font as the main site (`site/src/static/fonts/baloo2/OFL.txt`).
+ * `unicode-range` lists only code points present in the subset; other text falls back through
+ * the CSS font stack to ui-rounded / system-ui, avoiding missing-glyph boxes.
  */
 export const BRAND_FONT_CSS =
   "@font-face{font-family:'Baloo 2';font-style:normal;font-display:swap;font-weight:100 900;" +

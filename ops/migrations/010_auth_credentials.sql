@@ -1,6 +1,6 @@
--- 自建密码登录凭据（docs/17 阶段 1 替代方案 A）
--- 与 docs/09 的 auth_sessions 撤销表并存：本表只管「身份从哪来」，
--- 会话撤销与 requireAuth 的 fail-closed 语义不变。
+-- Self-managed password login credentials (docs/17, phase 1, alternative A).
+-- This table coexists with the auth_sessions revocation table from docs/09 and only identifies
+-- where an identity comes from; session revocation and requireAuth fail-closed behavior are unchanged.
 
 CREATE TABLE IF NOT EXISTS auth_credentials (
     email          TEXT PRIMARY KEY,

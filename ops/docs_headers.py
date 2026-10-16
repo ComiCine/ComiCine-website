@@ -17,14 +17,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""为 docs.limooo.cn 生成 Cloudflare Pages 的 `_headers`。
+"""Generate Cloudflare Pages `_headers` for docs.limooo.cn.
 
-VitePress 会在 HTML 里内联三段脚本（主题桥接、check-dark-mode、check-mac-os）
-和若干 style，因此不能直接照抄主站那份禁止 inline 的 CSP。这里扫描构建产物，
-把真实出现的内联 <script>/<style> 内容算成 sha256 白名单，脚本侧不放开
-unsafe-inline；style-src 仍保留 unsafe-inline（Vue 的 :style 绑定无法哈希）。
+VitePress inlines three scripts (theme bridge, check-dark-mode, and check-mac-os) and several
+styles in HTML, so the main site's CSP that forbids inline content cannot be copied directly.
+Scan the build output and add SHA-256 hashes for the inline <script>/<style> content that appears.
+Do not enable unsafe-inline for scripts. Keep unsafe-inline in style-src because Vue's :style
+bindings cannot be hashed.
 
-用法：
+Usage:
     python3 ops/docs_headers.py <dist-dir>
 """
 
@@ -68,9 +69,9 @@ def collect(dist: Path) -> tuple[list[str], list[str]]:
 
 
 def csp(scripts: list[str], styles: list[str]) -> str:
-    # script-src 额外放行 Cloudflare Web Analytics 的 beacon 脚本
-    # （static.cloudflareinsights.com），它把 RUM 数据回传到
-    # cloudflareinsights.com，因此 connect-src 也要放行后者。
+    # Allow the Cloudflare Web Analytics beacon script in script-src
+    # (static.cloudflareinsights.com). It sends RUM data to
+    # cloudflareinsights.com, which must also be allowed in connect-src.
     insight_scripts = [
         "http://static.cloudflareinsights.com",
         "https://static.cloudflareinsights.com",

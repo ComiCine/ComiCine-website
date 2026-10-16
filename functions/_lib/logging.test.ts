@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 日志隐私纯函数测试：独立观测密钥 + 敏感文本脱敏，不访问 D1/网络。 */
+/** Pure logging-privacy tests for the separate observability key and sensitive-text redaction; no D1 or network access. */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env";
@@ -70,22 +70,23 @@ describe("logging privacy", () => {
 });
 
 /**
- * W9-19：D1 故障时不能每个请求都先跑一遍建表语句。
+ * W9-19: do not run table-creation statements for every request during a D1 failure.
  *
- * 成功才置位 ready 时，配额耗尽/绑定失效期间**每个**请求都要先打一批必然失败的
- * DDL，把一次故障放大成 N 次。改成「记住已尝试 + 每分钟最多重试一次」，
- * 并把多条 DDL 压成一个 db.batch 往返。
+ * If ready is set only after success, **every** request sends a batch of DDL
+ * that is certain to fail during quota exhaustion or a broken binding. This
+ * amplifies one failure into N failures. Remember each attempt, retry at most
+ * once per minute, and combine DDL into one db.batch round trip.
  */
 describe("event schema bootstrap", () => {
-  /** 记录 prepare/batch 的最小 D1 桩。 */
+/** Minimal D1 stub that records prepare and batch calls. */
   function fakeDb(options: { batch?: boolean; fail?: boolean } = {}) {
     const preparedSql: string[] = [];
     const batches: string[][] = [];
     const db: Record<string, unknown> = {
       prepare(sql: string) {
         preparedSql.push(sql);
-        // 真实 D1PreparedStatement 能读到 SQL；桩也带上，才能断言 batch 里装的是
-        // 真正的建表语句（而不是空串）。
+// Real D1PreparedStatement exposes SQL; include it in the stub so the test can
+// assert that batch contains actual table-creation statements rather than empty strings.
         const stmt = {
           sql,
           bind: (..._values: unknown[]) => stmt,
@@ -121,11 +122,12 @@ describe("event schema bootstrap", () => {
     for (let i = 0; i < 5; i++) await mod.logEvent(env, "gate_entry", request, {});
     consoleSpy.mockRestore();
 
-    // 5 个请求只换来一次 DDL 尝试（一次 batch 往返 = 全部建表语句）。
+// Five requests should cause only one DDL attempt (one batch round trip for all statements).
     expect(batches).toHaveLength(1);
     expect(batches[0].length).toBeGreaterThanOrEqual(4);
-    // 而且 DDL 只 prepare、不逐句 run：preparedSql 里除了 DDL 只剩那条必然失败的
-    // INSERT，没有任何逐句执行建表的痕迹（否则等于把 13 次往返又打了一遍）。
+// DDL is prepared, not run statement by statement. preparedSql contains only
+// the DDL and the expected failing INSERT; no per-statement table creation
+// should add another 13 round trips.
     const preparedDdl = preparedSql.filter((sql) => sql.startsWith("CREATE TABLE"));
     expect(preparedDdl).toHaveLength(1);
   });

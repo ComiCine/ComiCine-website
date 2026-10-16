@@ -108,7 +108,8 @@
 
 set -euo pipefail
 
-# 统一入口及所有子进程的诊断消息语言，同时保留其他 locale 设置。
+# Set the diagnostic message language for this entry point and its child processes, while
+# preserving the other locale settings.
 unset LC_ALL
 export LANG=C
 export LC_MESSAGES=C
@@ -142,8 +143,8 @@ while [ $# -gt 0 ]; do
                 echo "FATAL: --workers and --worker=<name> are mutually exclusive" >&2
                 exit 2
             fi
-            # 空值（`--worker=$W` 且 $W 为空）会让下面的"无参数 = --all"分支成立，
-            # 静默变成 commit + push + Pages + docs 的完整部署（W3-2）。
+            # An empty value (`--worker=$W` when $W is empty) would satisfy the "no arguments =
+            # --all" branch below and silently trigger a full commit + push + Pages + docs deploy (W3-2).
             if [ -z "$WORKER" ]; then
                 echo "FATAL: --worker= needs a Worker name (for example --worker=status-worker)" >&2
                 exit 2
@@ -175,10 +176,10 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# 不带任何参数 = --all（commit + push + Pages + docs + Workers），与 AGENTS.md 的
-# 「完整部署」语义一致。
-# `DO_WORKERS` 必须一起判：少了它，单独 `--workers` 会落进这个分支、静默变成完整部署
-# （实测过：`--workers --dry-run` 打印出了 Pages 与 docs 的步骤）。
+# No arguments means --all (commit + push + Pages + docs + Workers), matching the definition of
+# a full deploy in AGENTS.md.
+# Check `DO_WORKERS` as well: without it, `--workers` alone would enter this branch and silently
+# trigger a full deploy. This happened before: `--workers --dry-run` printed Pages and docs steps.
 if [ "$DO_COMMIT" = 0 ] && [ "$DO_PUSH" = 0 ] && [ "$DO_PAGES" = 0 ] && [ "$DO_DOCS" = 0 ] &&
     [ "${DO_WORKERS:-0}" = 0 ] && [ -z "$WORKER" ]; then
     DO_COMMIT=1
@@ -192,11 +193,12 @@ if [ "${LIMOOO_SKIP_DOCS:-0}" = 1 ]; then
     DO_DOCS=0
 fi
 
-# ⓪0 分支断言：commit / push 只能在 main 上做（W3-1）
-# 历史 bug：脚本比的是 HEAD、推的却是 refs/heads/main。在特性分支上跑完整部署时，
-# 提交进特性分支 → push main（通常 no-op，却仍打印 "pushed"）→ 随后用**特性分支的
-# 工作树**构建 Pages：边缘于是跑在 GitHub 前面，正好破坏本脚本自己的顺序保证。
-# 断言放在 --dry-run 之前：dry-run 也要如实报出「这条路走不通」。
+# Stage 0 branch assertion: commit and push are allowed only on main (W3-1).
+# A past bug compared HEAD but always pushed refs/heads/main. A full deploy from a feature branch
+# committed to that feature branch, pushed main (usually a no-op while still reporting "pushed"),
+# and then built Pages from the feature branch working tree. The edge could get ahead of GitHub,
+# breaking this script's ordering guarantee. Run the assertion before --dry-run so dry runs report
+# the same invalid path.
 IN_GIT_TREE=0
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     IN_GIT_TREE=1
@@ -220,24 +222,25 @@ if [ "$IN_GIT_TREE" = 1 ] && { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; }; th
     fi
 fi
 
-# Pages / docs / Worker 也从当前分支的工作树构建，非 main 时至少要说清后果（不阻断）。
+# Pages, docs, and Workers also build from the current branch's working tree. On a non-main branch,
+# explain the consequence without blocking the deploy.
 if [ "$IN_GIT_TREE" = 1 ] && [ "$CURRENT_BRANCH" != "main" ] \
     && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ]; }; then
     echo "Warning: not on branch main (current: $BRANCH_LABEL); this deploys a tree GitHub does not have yet"
 fi
 
-# 跑一个子步骤。两种模式：
-#   安静（默认）：输出收进临时日志，成功只打一行 "<tag>: done"，
-#                 失败打 "<tag>: FAILED -- full log follows" 并把完整日志吐到 stderr。
-#   --full      ：先回显要跑的命令，再原样透传它的输出，不额外加状态行。
-# 用法：run_step "<标签>" <命令...>
-# 成功行合并（2026-10-13，用户逐行批注 + 定词）：默认安静模式下，同一阶段的步骤不再各占
-# 一行，而是攒起来由 flush_steps 打印成**一个词**：
-#   Lists + Bans + Check         -> `Prepare: done`   （提交前的全部准备）
-#   Pages + Docs + Workers       -> `Release: done`   （把产物发出去）
-# 失败与跳过**照旧单独出声**（跳过会自己 echo、失败直接抛日志并中止），所以合并只隐藏
-# 「一切正常」这一种情况，不会藏住问题 —— 代价是顺利时看不出闸门跑没跑（靠没有 skip/fail
-# 行推断）。`--full` / LIMOOO_DEPLOY_VERBOSE=1 保持逐条。
+# Run one substep in either of two modes:
+#   Quiet (default): capture output in a temporary log; print only "<tag>: done" on success, or
+#                    "<tag>: FAILED -- full log follows" and the full log to stderr on failure.
+#   --full: print the command, then pass through its output without adding a status line.
+# Usage: run_step "<tag>" <command...>
+# Since 2026-10-13, successful steps in the same phase are collected and printed by flush_steps
+# as one line in quiet mode:
+#   Lists + Bans + Check   -> `Prepare: done`
+#   Pages + Docs + Workers -> `Release: done`
+# Skips and failures still print separately, so only successful steps are combined. A quiet run
+# therefore does not show which gates ran; infer that from the absence of skip/fail lines.
+# `--full` and LIMOOO_DEPLOY_VERBOSE=1 keep per-step output.
 DEFERRED_STEPS=()
 DEFERRED_LABEL="Steps"
 flush_steps() {
@@ -287,13 +290,13 @@ fi
 
 echo "Deploy: start"
 
-# ⓪-1 工具自愈（2026-10-11）
-# 这个仓库把构建 venv 与 wrangler 放在 /tmp（iCloud 同步区里跑不动，
-# 见 AGENTS.md）。但 **macOS 会定期清理 /tmp** —— 清理之后 `deploy` 会以
-# "build venv not found" / "wrangler not found" 失败，而那两个 FATAL 看起来像
-# 配置问题，实际只是工具被删了（真实踩过：2026-10-11 一次 deploy 两处都挂）。
-# 所以缺什么就补什么：幂等（存在即跳过，几十毫秒），只在真要构建/部署时才做。
-# 跳过：LIMOOO_SKIP_TOOL_BOOTSTRAP=1。
+# Stage 0-1: restore missing tools (added 2026-10-11).
+# This repository keeps the build venv and Wrangler under /tmp because tools do not work reliably
+# in the iCloud-synced directory (see AGENTS.md). macOS periodically clears /tmp, after which
+# deploy would report "build venv not found" or "wrangler not found". Those errors look like
+# configuration problems but only mean the tools were removed; both happened in one deploy on
+# 2026-10-11. Restore only missing tools, skip those already present, and do this only when a
+# build or deploy is needed. Skip with LIMOOO_SKIP_TOOL_BOOTSTRAP=1.
 ensure_tooling() {
     [ "${LIMOOO_SKIP_TOOL_BOOTSTRAP:-0}" = 1 ] && return 0
 
@@ -322,30 +325,34 @@ if [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORK
     ensure_tooling
 fi
 
-# --full 下回显要跑的命令；安静模式下不打扰（git 本来就无声）
+# Print the command in --full mode; keep quiet by default (Git is already silent).
 show_cmd() {
     [ "$VERBOSE" = 1 ] && echo "$*"
     return 0
 }
 
-# ⓪a 先入暂存区，再跑检查（检查必须针对将要提交的那棵树）
-# 顺序很重要：原先是「先检查、后 git add -A」，检查与提交之间只要有任何工具
-# 改过文件，提交内容就不等于检查过的内容。现在先 stage，再取一次**工作区快照**
-# （见 ⓪c），检查完重算比对。git add 正常无输出，不需要 run_step 包一层。
+# Stage 0a: stage first, then run checks against the exact tree to be committed.
+# Previously checks ran before `git add -A`, so any tool changing a file between the check and
+# commit could make the committed tree differ from the checked tree. Now stage first, capture a
+# working-tree snapshot (see Stage 0c), and compare it again after checks. `git add` is normally
+# silent, so it does not need to be wrapped in run_step.
 #
-# 快照怎么取（踩过两次坑，别换回更"简单"的写法）：
-#   * git write-tree —— 不行：它只算**索引**，检查期间被改的文件通常没重新
-#     stage，索引不变、树哈希也不变，等于检测不到。
-#   * git stash create —— 不行：它的哈希包含**索引**状态，而 ⓪a 的 git add 会让
-#     「未暂存」变成「已暂存」，同一份内容算出两个哈希，正常路径直接误报。
-#   现在的做法：把索引换成一次性临时文件，GIT_INDEX_FILE 指过去后
-#   read-tree HEAD + add -A + write-tree。这样只反映「工作区内容」，与真实索引
-#   状态无关（干净的还是脏的都一样），而且不会碰用户的索引与工作区。
+# Snapshot implementation (two alternatives have failed before; do not replace this with a
+# "simpler" approach):
+#   * `git write-tree` only hashes the index. Files changed during checks are usually not staged
+#     again, so the index and tree hash stay unchanged and the change goes undetected.
+#   * `git stash create` includes index state in its hash. Stage 0a changes unstaged content to
+#     staged content, producing different hashes for identical working-tree content and a false
+#     positive on the normal path.
+# The current approach uses a temporary index via GIT_INDEX_FILE, then runs read-tree HEAD,
+# add -A, and write-tree. It represents only working-tree content, independent of the real index,
+# and does not touch the user's index or working tree.
 worktree_snapshot() {
     local tmp
     tmp="$(mktemp -t limooo-deploy-index-XXXXXX)"
     rm -f "$tmp"
-    # 以 HEAD 为基线，再把当前工作区（含未跟踪、不含被忽略）全部读进临时索引
+    # Use HEAD as the baseline, then add all current working-tree files (including untracked but
+    # excluding ignored files) to the temporary index.
     GIT_INDEX_FILE="$tmp" git read-tree HEAD 2>/dev/null || { rm -f "$tmp"; echo "unavailable"; return 0; }
     GIT_INDEX_FILE="$tmp" git add -A -- . >/dev/null 2>&1 || true
     GIT_INDEX_FILE="$tmp" git write-tree 2>/dev/null || echo "unavailable"
@@ -353,28 +360,30 @@ worktree_snapshot() {
 }
 
 STAGED_TREE_BEFORE=""
-# 注意：stage + 快照**不在这里**做，而在白名单/封禁名单刷新之后、CI 之前
-# （见下面的「⓪a-2 stage 与快照」）。名单同步会合法地改动工作区，放在它们之前取快照，
-# ⓪c 的比对就必然报「检查期间工作区又被改动」，部署需要跑两遍才过
-# （2026-10-12 实测踩到）。
+# Note: staging and snapshotting happen after whitelist/blocklist updates and before CI (see
+# Stage 0a-2 below). List sync legitimately modifies the working tree, so snapshotting beforehand
+# would make Stage 0c report a change during checks and force the deploy to run twice. This happened
+# on 2026-10-12.
 
-# ⓪b 本地 CI 复刻（必须先于 commit / push / Pages / docs）
-# 历史教训：CI 是「先 build 再 typecheck / 测试」，而本地只跑过 vitest/pytest，
-# 于是「本地全绿、push 完 30 秒收到失败通知」。这里把 CI 原样跑一遍。
+# Stage 0b: run the local CI replica before commit, push, Pages, or docs.
+# Previously, CI built before typecheck/tests, while local runs checked only vitest/pytest. This
+# led to a green local run followed by a CI failure notification 30 seconds after pushing. Run the
+# same checks here.
 #
-# 检查对象必须与「要发出去的那棵树」一致（W3-3）：
-#   --commit         → 已暂存内容（工作区未被忽略的改动已在 ⓪a 全部 stage）
-#   --push（不提交） → 将要推送的 HEAD
-#   --pages / --docs → 直接构建的工作树（pages_deploy.sh / docs_deploy.sh 都从工作树构建）
+# The checked tree must be the same one that will be released (W3-3):
+#   --commit         -> staged content (all non-ignored changes were staged in Stage 0a)
+#   --push without commit -> HEAD that will be pushed
+#   --pages / --docs -> working tree built directly by pages_deploy.sh / docs_deploy.sh
 NEED_CHECKS=0
 if [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; then
     NEED_CHECKS=1
 fi
 
-# 脏树闸门（W3-3）：Pages / docs 直接构建工作树，工作树与任何 commit 不一致时
-# 部署的就是「没被 CI 检查过、也没进 GitHub」的内容。不提交时先挡（省一次 CI），
-# 提交时在 commit 之后再挡（那时 ⓪a 的 git add 已经被提交清掉）。
-# 判定用与 ⓪a 相同的 pathspec，gitignore 的文件不算脏。
+# Dirty-tree gate (W3-3): Pages and docs build the working tree directly. If it differs from every
+# commit, deployment would publish content that CI did not check and GitHub does not have. Block
+# before checks when not committing; when committing, check after the commit because Stage 0a's
+# staged changes have been committed by then. Use the same pathspec as Stage 0a; ignored files do
+# not count as dirty.
 dirty_tree_gate() {
     local dirty_paths
     if [ "$IN_GIT_TREE" = 0 ]; then
@@ -399,39 +408,40 @@ if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
 fi
 
-# 白名单生成（在任何闸门之前）
-# 本地从 own-ips.txt 生成 whitelist.txt，不访问外部名单源。
-# 准备阶段（Lists / Bans / Check）的成功行合并成一个词：`Prepare: done`。
+# Generate the whitelist before any gates.
+# Generate whitelist.txt locally from own-ips.txt without accessing external list sources.
+# Successful preparation steps (Lists / Bans / Check) are combined into `Prepare: done`.
 DEFERRED_LABEL="Prepare"
 if [ "$NEED_CHECKS" = 1 ]; then
     run_step "Lists" python3 ops/sync_whitelist.py
 fi
 
-# 封禁名单双向对账（同样在闸门之前）
-# 权威是 D1 的 blocked_ips：D1 有而文件没有的**拉回文件**，文件有而 D1 没有的
-# **推上去**（`src/auto_block.py reconcile`）。放在脏树闸门与 CI 之前，理由同白名单：
-# 它会产生改动。
+# Reconcile the blocklist in both directions, also before any gates.
+# D1's blocked_ips table is authoritative: pull entries present in D1 but missing from the file,
+# and push entries present in the file but missing from D1 (`src/auto_block.py reconcile`). Run
+# this before the dirty-tree gate and CI for the same reason as whitelist generation: it can modify
+# files.
 #
-# **默认失败不阻断**（源/网络/凭据问题不该让代码发不出去）；要强制用
-# LIMOOO_STRICT_BLOCKLIST=1。整步跳过用 LIMOOO_SKIP_BLOCKLIST_RECONCILE=1。
-# 注意：这一步需要能读 D1，凭据从 secrets/webauthn.env 读（与其它脚本同一份）。
+# Failures do not block by default because source, network, or credential issues should not prevent
+# a code release. Set LIMOOO_STRICT_BLOCKLIST=1 to make failures fatal, or
+# LIMOOO_SKIP_BLOCKLIST_RECONCILE=1 to skip the step. This needs D1 access and reads credentials
+# from secrets/webauthn.env, like the other scripts.
 if [ "$NEED_CHECKS" = 1 ]; then
     if [ "${LIMOOO_SKIP_BLOCKLIST_RECONCILE:-0}" = 1 ]; then
         echo "Bans: skipped D1 reconcile (LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
     elif [ "${LIMOOO_STRICT_BLOCKLIST:-0}" = 1 ]; then
         run_step "Bans" bash ops/reconcile_blocklist.sh
     else
-        # 非 strict：失败只警告。用 subshell 吃掉退出码，让部署继续。
+        # In non-strict mode, warn on failure and use a subshell to let deployment continue.
         if ! run_step "Bans" bash ops/reconcile_blocklist.sh; then
             echo "Warning: blocklist reconcile failed; D1 stays authoritative" >&2
         fi
     fi
 fi
 
-# ⓪a-2 stage 与快照（必须在名单同步之后、CI 之前）
-# 上面两步（Lists / Bans）会合法地改写工作区里的名单文件，所以「要提交的
-# 那棵树」到这里才定稿：先 git add -A 把内容并入索引，再取一次工作区快照
-# （供 ⓪c 比对）。
+# Stage 0a-2: stage and snapshot after list sync and before CI.
+# The Lists and Bans steps above can legitimately update list files, so the tree to commit is only
+# final here. Run git add -A, then take a working-tree snapshot for comparison in Stage 0c.
 STAGED_TREE_BEFORE=""
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     show_cmd git add -A -- . ':!limooo.cn.png'
@@ -451,13 +461,14 @@ if [ "$NEED_CHECKS" = 1 ]; then
     fi
 fi
 
-# 准备阶段到此结束：把攒下的成功行打成 `Prepare: done`（Check 也是这一阶段的一步）。
+# End of preparation: combine successful steps into `Prepare: done` (Check is part of this phase).
 flush_steps
 
-# ⓪c 检查期间工作区是否又被改动
-# 检查前后各取一次工作区快照，不一致说明检查期间有别的工具动了文件：此时提交的
-# 内容不等于检查过的内容，直接退出让用户重跑（宁可多跑一次，也不提交未检查的树）。
-# 快照取不到（如 read-tree 失败）时两边都会是 "unavailable"，不在这里挡路。
+# Stage 0c: detect working-tree changes made during checks.
+# Take snapshots before and after checks. If they differ, another tool changed a file during
+# validation, so the content to commit differs from the checked content. Exit and ask for a rerun
+# instead of committing an unchecked tree. If snapshotting is unavailable (for example, read-tree
+# failed), both values will be "unavailable" and this gate will not block.
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     worktree_snapshot_after="$(worktree_snapshot)"
     if [ "$worktree_snapshot_after" != "$STAGED_TREE_BEFORE" ]; then
@@ -468,7 +479,7 @@ if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     fi
 fi
 
-# ① git commit
+# Stage 1: git commit.
 if [ "$DO_COMMIT" = 1 ]; then
     if [ "$IN_GIT_TREE" = 0 ]; then
         echo "Warning: not a git work tree, skipped commit" >&2
@@ -476,9 +487,9 @@ if [ "$DO_COMMIT" = 1 ]; then
         if git diff --cached --quiet; then
             echo "Git: nothing to commit"
         else
-            # 文件名与状态要先取：短 SHA 只有提交后才知道，所以先 commit，再打印这一块
+            # Capture filenames and statuses first; the short SHA is available only after commit.
             staged_status="$(git diff --cached --name-status)"
-            # 提交信息：有 -m/--message 就 "deploy: <msg>"，否则沿用带时间戳的自动信息
+            # Use "deploy: <msg>" when -m/--message is supplied; otherwise generate a timestamped message.
             if [ -n "$COMMIT_MESSAGE" ]; then
                 commit_subject="deploy: $COMMIT_MESSAGE"
             else
@@ -486,29 +497,29 @@ if [ "$DO_COMMIT" = 1 ]; then
             fi
             show_cmd git commit -m "$commit_subject"
             git commit -m "$commit_subject" >/dev/null
-            # 版本号 = 本次新提交的短 SHA
+            # The revision label is the short SHA of the new commit.
             committed_sha="$(git rev-parse --short HEAD)"
-            # 状态字母取自 git --name-status（A 新增 / D 删除 / M 修改 / R 重命名...）。
-            # 提交里的文件必须完整列出，不按数量截断。
+            # Status letters come from git --name-status (A added / D deleted / M modified / R renamed).
+            # List every committed file without truncating the output.
             STAGED_LINES=()
             while IFS="$(printf '\t')" read -r st path_old path_new; do
                 [ -z "$st" ] && continue
-                # git 对重命名/复制给出 "R100\told\tnew"，展示新路径
+                # Git reports renames/copies as "R100\told\tnew"; display the new path.
                 [ -n "$path_new" ] && path_old="$path_new"
                 STAGED_LINES+=("${st:0:1} ${path_old}")
             done <<< "$staged_status"
-            # `committed <sha>` 单独一行，提交中的每个文件逐行缩进列出。
+            # Print `committed <sha>` on its own line and list every committed file indented below.
             echo "Git: committed $committed_sha"
             for staged_line in "${STAGED_LINES[@]}"; do
                 echo "   ${staged_line}"
             done
         fi
-        # 刚提交的这棵树就是 ⓪ 里检查过的内容，pre-push hook 不必再跑一遍。
+        # The new commit is the tree checked in Stage 0, so the pre-push hook does not need to run again.
         export LIMOOO_CI_CHECKED_SHA="$(git rev-parse HEAD)"
     fi
 fi
 
-# ② git push
+# Stage 2: git push.
 PUSH_FAILED=0
 if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -525,7 +536,8 @@ if [ "$DO_PUSH" = 1 ]; then
             if git push origin main >/dev/null 2>&1; then
                 echo "Git: pushed to GitHub"
             elif [ "${LIMOOO_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
-                # 应急放行：线上会领先 GitHub。收尾必须明确提示，不能静默继续。
+                # Emergency override: production will get ahead of GitHub. The final output must
+                # state this clearly instead of continuing silently.
                 PUSH_FAILED=1
             else
                 echo "FATAL: git push failed; aborting before Pages deploy" >&2
@@ -533,57 +545,57 @@ if [ "$DO_PUSH" = 1 ]; then
                 exit 1
             fi
         else
-            # 分叉必须人工处理：自动 rebase/merge 会把别人的提交卷进这次部署
+            # Resolve diverged histories manually; automatic rebase/merge could include someone else's commit.
             echo "FATAL: local and GitHub histories diverged, resolve manually (rebase/merge) first" >&2
             exit 1
         fi
     fi
 fi
 
-# ②b 脏树闸门（提交之后再验一次）
-# --commit 时 ⓪a 的 git add 会把未提交改动全部提交掉，所以这里要在 commit 之后
-# 才能判断「提交完还剩没剩脏东西」；--pages / --docs 单独跑时已在 ⓪b 之前挡过。
+# Stage 2b: check for a dirty working tree after commit.
+# With --commit, Stage 0a's git add commits all pending changes, so check afterward for anything
+# still dirty. Standalone --pages / --docs runs were already checked before Stage 0b.
 if [ "$DO_COMMIT" = 1 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
 fi
 
-# ③ Pages：只在失败时吐出日志，成功时只留一行状态
-# 发布阶段（Pages / Docs / Workers）的成功行同样合并成一个词：`Release: done`。
+# Stage 3: Pages. Print full logs only on failure; print one status line on success.
+# Successful release steps (Pages / Docs / Workers) are combined into `Release: done`.
 DEFERRED_LABEL="Release"
 if [ "$DO_PAGES" = 1 ]; then
-    # pages_deploy.sh 自己会在结束前校验 /_health = 200，失败即非 0 退出
+    # pages_deploy.sh checks /_health = 200 before finishing and exits nonzero on failure.
     run_step "Pages" bash ops/pages_deploy.sh
 fi
 
-# ③b docs.limooo.cn（独立 Pages 项目 limooo-docs）
+# Stage 3b: docs.limooo.cn (separate Pages project limooo-docs).
 if [ "$DO_DOCS" = 1 ]; then
-    # docs_deploy.sh 自己会对各语言路径做冒烟，失败即非 0 退出
+    # docs_deploy.sh smoke-checks each language path and exits nonzero on failure.
     run_step "Docs" bash ops/docs_deploy.sh
 fi
 
-# ④ 独立 Worker（可选，与 Pages 互不影响）
+# Stage 4: deploy an individual Worker (optional; independent of Pages).
 if [ -n "$WORKER" ]; then
     run_step "Worker: $WORKER" bash ops/workers_deploy.sh "--worker=$WORKER"
 fi
 
 if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
-    # 清单里的每一个 Worker。workers_deploy.sh 无参数即「部署列表里的每一个」。
-    # label 就是 `Workers`（2026-10-11 用户定）：与相邻的 `Pages` / `Docs` 同一形态，
-    # 三者最终合并成一行 `Pages+Docs+Workers: done`。
+    # Deploy every Worker in the list; workers_deploy.sh without arguments deploys all listed Workers.
+    # The label `Workers` was chosen on 2026-10-11 to match `Pages` and `Docs`; all three are
+    # combined into one `Pages+Docs+Workers: done` line.
     run_step "Workers" bash ops/workers_deploy.sh
 fi
 
-# 发布阶段到此结束：`Release: done`（只发 Pages 时也是这一个词）。
+# End of release phase: print `Release: done` (also used when only Pages is deployed).
 flush_steps
 
-# 用户 2026-10-13：「CI: tests success, CodeQL success」这行去掉（原话是「去掉」）。
-# 整个 ⑤「推完看 CI」观察步骤随之删除 —— 它本来就只是事后通知（用户对它的评价是
-# 「和 GitHub 给我发邮件提醒没区别」）。真正的防线在本地：ops/ci_check.sh 现在与 CI
-# 同严（自己装齐 ruff/mypy/pytest-cov、pytest 在无 git 身份的环境里跑），推之前就能红。
-# 仍然想要 GitHub 那一侧的结论时：gh run list --commit <sha>。
+# The user asked to remove the "CI: tests success, CodeQL success" line on 2026-10-13.
+# The Stage 5 post-push CI observation step was removed with it because it only repeated a
+# notification GitHub already sends by email. The actual gate runs locally in ops/ci_check.sh,
+# matching CI by installing ruff/mypy/pytest-cov and running pytest without a Git identity.
+# To see GitHub's result, run: gh run list --commit <sha>.
 
-# 应急放行的提示必须是**最后一行**：这是唯一能让「线上领先 GitHub」这件事
-# 出现在部署日志末尾的方式，翻日志时不会被后面的步骤冲掉。
+# The emergency override warning must be the final line. This keeps the fact that production is
+# ahead of GitHub visible at the end of the log, rather than letting later steps obscure it.
 if [ "$PUSH_FAILED" = 1 ]; then
     echo "Warning: deployed without pushing to GitHub"
 fi

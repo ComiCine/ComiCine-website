@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Apple Account 密码 Fernet 加解密测试（测试专用 key）。"""
+"""Fernet encryption and decryption tests for Apple Account passwords (test-only key)."""
 
 from pathlib import Path
 
@@ -24,9 +24,9 @@ from cryptography.fernet import Fernet
 
 TEST_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 TOKEN_FIXTURE = Path(__file__).parent / "fixtures" / "fernet_token.txt"
-# W5-3：由 `functions/_lib/fernet.ts` 的 `fernetEncrypt` 用同一把 key 生成
-# （明文 `8.8.8.8`，生成命令见 tasks/22 执行记录）。生产真正依赖的方向是
-# TS 加密（`tracking.ts` 写 `ip_enc`）→ Python 解密（`ops/check_ip_rays.py`）。
+# W5-3: Generated with the same key by `fernetEncrypt` in `functions/_lib/fernet.ts`
+# (plaintext `8.8.8.8`; see the tasks/22 execution notes for the command). Production depends on this direction:
+# TypeScript encrypts (`tracking.ts` writes `ip_enc`) and Python decrypts (`ops/check_ip_rays.py`).
 TS_TOKEN_FIXTURE = Path(__file__).parent / "fixtures" / "fernet_token_ts.txt"
 
 
@@ -39,8 +39,8 @@ def test_fixed_ticket_round_trip():
 
 def test_wrong_key_rejected():
     token = Fernet(TEST_KEY.encode()).encrypt(b"secret").decode()
-    # 这个 key 解出来是 33 字节，Fernet 在构造时就拒绝；收窄到真实异常类型，
-    # 不用裸 Exception 把「任何错误都算对」的假绿放进来。
+    # This key decodes to 33 bytes, which Fernet rejects during construction. Match the actual exception type
+    # instead of catching Exception and allowing any error to pass.
     with pytest.raises(ValueError, match="32 url-safe base64-encoded bytes"):
         Fernet(b"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWZ9").decrypt(token.encode())
 
@@ -51,14 +51,16 @@ def test_fixture_is_python_decryptable():
 
 
 def test_ts_generated_fixture_is_python_decryptable():
-    """W5-3：TS 侧 `fernetEncrypt` 的产物必须能被 Python `Fernet` 解开。
+    """W5-3: Python `Fernet` must be able to decrypt output from the TypeScript `fernetEncrypt`.
 
-    锁的是**跨语言边界**而不是 `cryptography` 自测：`functions/_lib/tracking.ts`
-    把访客 IP 加密进 `visitor_rollups.ip_enc`，`ops/check_ip_rays.py` 用 Python 解回来。
-    该边界依赖 TS 侧保留 base64 `=` 填充——`Fernet.decrypt()` 内部走
-    `base64.urlsafe_b64decode`，缺填充抛 `InvalidToken`（实测），表现为「所有 IP 都无记录」。
-    vitest 侧（`functions/_lib/fernet.test.ts`）断言当前实现仍带填充，这条断言
-    「带填充的真实 TS token」Python 解得开；两半合起来才锁住整条链路。
+    This protects the cross-language boundary, not `cryptography` itself:
+    `functions/_lib/tracking.ts` encrypts visitor IPs into `visitor_rollups.ip_enc`,
+    and `ops/check_ip_rays.py` decrypts them with Python. The TypeScript side must
+    preserve base64 `=` padding because `Fernet.decrypt()` uses
+    `base64.urlsafe_b64decode`; missing padding raises `InvalidToken` and appears as
+    missing records for every IP. The Vitest test in `functions/_lib/fernet.test.ts`
+    asserts that the implementation keeps padding. Together, the two tests verify
+    that Python can decrypt a real padded token from TypeScript.
     """
     token = TS_TOKEN_FIXTURE.read_text(encoding="utf-8").strip()
     assert len(token) % 4 == 0

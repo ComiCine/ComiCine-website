@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** PUT /api/apple-account/reorder（需 admin + CSRF；D1 batch 事务，失败不部分生效） */
+/** PUT /api/apple-account/reorder (requires admin access and CSRF; uses a D1 batch transaction with no partial updates). */
 
 import { executeBatch, queryAll } from "../../_lib/d1";
 import { requireAdminSession } from "../../_lib/session";
@@ -47,9 +47,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   if (!order.every((id) => ids.has(id))) {
     return Response.json({ error: "包含不存在的账号" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
-  // 必须要求提交的集合与库里的集合**完全一致**：只校验「提交的 id 都存在」时，
-  // 未提交的行会保留旧 sort_order，与提交行产生重复值，排序语义变模糊
-  // （谁在前取决于 D1 的行顺序）。
+  // Require the submitted set to **exactly match** the database set. If validation only checks that
+  // submitted IDs exist, omitted rows retain their old sort_order and may collide with submitted rows,
+  // making the result ambiguous (the order would depend on D1's row order).
   if (order.length !== ids.size) {
     return Response.json({ error: "无效请求" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
@@ -68,7 +68,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     });
     return Response.json({ error: "排序失败" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
-  // 只记「谁改了顺序」；顺序本身能从账号列表复现，不必进审计行。
+  // Record who changed the order; the order itself can be reconstructed from the account list and need not be stored in the audit row.
   await logEvent(context.env, "audit_event", context.request, {
     outcome: "accounts_reordered",
     status: 200,

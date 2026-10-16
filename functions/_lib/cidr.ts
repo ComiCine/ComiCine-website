@@ -18,13 +18,13 @@
  */
 
 /**
- * Limooo IP/CIDR 唯一规范化与匹配实现（Pages Functions 侧）。
+ * Canonical IP/CIDR normalization and matching implementation for Pages Functions.
  *
- * 与 `src/cidr.py` 保持同一语义：
- * - normalizeIp(): 单个 IP 的 canonical 形式
- * - parseCidr(): 任意合法 CIDR/裸 IP -> { network, prefix, cidr }
- * - networkAddress(): IP + 前缀 -> 网络地址
- * - contains(): 判断 IP 是否在 CIDR 中
+ * Keep behavior aligned with `src/cidr.py`:
+ * - normalizeIp(): canonical form of a single IP
+ * - parseCidr(): any valid CIDR or bare IP -> { network, prefix, cidr }
+ * - networkAddress(): IP and prefix -> network address
+ * - contains(): check whether an IP is in a CIDR
  */
 
 type IpVersion = 4 | 6;
@@ -61,12 +61,14 @@ function ipv4BytesToIp(bytes: number[]): string {
 }
 
 /**
- * IPv4-mapped IPv6（`::ffff:a.b.c.d`）的 dotted-quad 形式。
+ * Dotted-quad form of IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`).
  *
- * 判定条件与 CPython `ipaddress.IPv6Address.ipv4_mapped` 完全一致：
- * 前 80 位为 0 且第 6 组为 `ffff`。注意 `::ffff:0:1.2.3.4` 的字节是
- * `…:0000:ffff:0000:0102:0304`，第 6 组不是 `ffff`，**不算** mapped，
- * CPython 也把它渲染成 `::ffff:0:102:304`。只有真的 mapped 才折叠成点分。
+ * Use the same detection rule as CPython
+ * `ipaddress.IPv6Address.ipv4_mapped`: the first 80 bits must be zero and the
+ * sixth group must be `ffff`. For `::ffff:0:1.2.3.4`, the bytes are
+ * `…:0000:ffff:0000:0102:0304`, so the sixth group is not `ffff` and the
+ * address is **not** mapped. CPython also renders it as `::ffff:0:102:304`.
+ * Convert only actual mapped addresses to dotted-quad notation.
  */
 function ipv4MappedString(bytes: number[]): string | null {
   for (let i = 0; i < 10; i++) {
@@ -77,11 +79,11 @@ function ipv4MappedString(bytes: number[]): string | null {
 }
 
 function ipv6BytesToIp(bytes: number[]): string {
-  // 必须先折叠 v4-mapped：Python 侧 `src/cidr.py` 用
-  // `ipaddress.ip_address(...).compressed`，对 mapped 地址输出 `::ffff:1.2.3.4`。
-  // 以前这里输出 `::ffff:102:304`，于是 Python 写进 `blocked_ips` 的
-  // (network, prefix) 与 Worker 侧生成的候选串**永不相等**，封禁静默失效
-  // （fail-open），白名单侧同理。两端规范化结果必须逐字符相同。
+// Normalize IPv4-mapped addresses first. Python `src/cidr.py` uses
+// `ipaddress.ip_address(...).compressed` and emits `::ffff:1.2.3.4` for mapped
+// addresses. This code previously emitted `::ffff:102:304`, so values Python
+// wrote to `blocked_ips` never matched Worker candidates. Blocking silently
+// failed open, as did the allowlist. Both sides must produce identical strings.
   const mapped = ipv4MappedString(bytes);
   if (mapped) return mapped;
 
@@ -153,7 +155,7 @@ function parseIpv6Bytes(raw: string): number[] | null {
     if (!/^[0-9a-f]{1,4}$/i.test(group)) return null;
   }
 
-  // IPv4 尾段在 IPv6 中占 2 个 16-bit 组，转换为字节时仍是 4 字节。
+// The IPv4 tail occupies two 16-bit groups in IPv6 and remains four bytes when converted.
   const tailGroups = ipv4Tail ? 2 : 0;
   const totalGroups = hexGroups.length + tailGroups;
   if (compressed) {
@@ -214,7 +216,7 @@ export function parseCidr(value: string): ParsedCidr | null {
   const raw = (value.split("#")[0] ?? "").trim();
   if (!raw) return null;
 
-  // 兼容 blocklist.txt 的历史格式：1.2.3 -> 1.2.3.0/24
+// Support the legacy blocklist.txt format: 1.2.3 -> 1.2.3.0/24
   if (!raw.includes(":") && /^\d{1,3}(?:\.\d{1,3}){2}$/.test(raw)) {
     return parseCidr(`${raw}.0/24`);
   }

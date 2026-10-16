@@ -48,8 +48,8 @@ def test_open_private_tightens_a_loose_existing_file(tmp_path: Path) -> None:
     os.chmod(target, 0o644)
     with export_d1.open_private(str(target)) as handle:
         handle.write("new")
-    # os.open 的 mode 只在创建时生效；export_apple_account 的 chmod 兜底负责收紧。
-    assert stat.S_IMODE(target.stat().st_mode) == 0o644  # 尚未 chmod 时保持原样
+    # os.open mode applies only at creation; export_apple_account uses chmod as a fallback to tighten permissions.
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644  # Preserve the file until chmod runs.
     os.chmod(target, 0o600)
 
 

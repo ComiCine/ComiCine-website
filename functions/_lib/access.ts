@@ -18,19 +18,24 @@
  */
 
 /**
- * Cloudflare Access JWT 验签（tasks/17 §11.6 / §11.10）。
+ * Cloudflare Access JWT validation (tasks/17 §11.6 / §11.10).
  *
- * Access 前置在 Pages 之前，通过 `Cf-Access-Jwt-Assertion` 头（浏览器另有
- * `CF_Authorization` cookie）把已认证身份交给 Worker；**Worker 必须自行验签**
- * （官方文档 Validate JWTs），否则伪造请求头即可冒充管理员。
+ * Access runs before Pages and passes the authenticated identity to the Worker
+ * in the `Cf-Access-Jwt-Assertion` header (browsers also use the
+ * `CF_Authorization` cookie). **The Worker must verify the signature itself**
+ * (see the official Validate JWTs guide), or forged headers could impersonate
+ * an administrator.
  *
- * 设计取舍：
- * - 本模块只负责「Access 身份 -> 本系统身份」。会话 cookie、D1 `auth_sessions`
- *   撤销表与 requireAuth 的 fail-closed 语义全部沿用 tasks/09，不做改动。
- * - 角色由 **AUD** 决定：每个 Application 有唯一 AUD，除非删除重建否则永不变，
- *   是最可靠的授权依据（不需要自定义 claims）。
- * - team domain 与 AUD 走 Pages 环境变量，不写进 `config-contract.json`：
- *   Access 是纯边缘能力，构建产物里不应出现这些常量。
+ * Design decisions:
+ * - This module maps Access identities to application identities. Session
+ *   cookies, the D1 `auth_sessions` revocation table, and requireAuth's
+ *   fail-closed behavior remain as defined in tasks/09.
+ * - **AUD determines the role**: each Application has a unique AUD that does
+ *   not change unless the Application is deleted and recreated. This is the
+ *   most reliable authorization basis and requires no custom claims.
+ * - Store the team domain and AUD in Pages environment variables, not in
+ *   `config-contract.json`. Access is an edge-only capability, so these
+ *   constants should not appear in build output.
  */
 
 import type { Env } from "./env";
@@ -78,7 +83,7 @@ function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-/** team domain，如 https://limooo.cloudflareaccess.com（缺失则返回空串）。 */
+/** Return the team domain, such as https://limooo.cloudflareaccess.com, or an empty string if missing. */
 export function accessTeamDomain(env: Env): string {
   const raw = (env.ACCESS_TEAM_DOMAIN ?? "").trim();
   if (!raw) return "";
@@ -103,7 +108,7 @@ function parseAudList(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-/** 配置错误只返回字段名，绝不返回密钥值。 */
+/** Report only the field name for configuration errors; never expose secret values. */
 export function accessConfigError(env: Env): string | null {
   if (!accessTeamDomain(env)) return "missing_ACCESS_TEAM_DOMAIN";
   const auds = [...parseAudList(env.ACCESS_ADMIN_AUDS), ...parseAudList(env.ACCESS_VIEWER_AUDS)];
@@ -123,7 +128,7 @@ function b64urlDecode(input: string): Uint8Array {
   return out;
 }
 
-/** WebCrypto 只接受 ArrayBuffer 支撑的视图；TS 的 Uint8Array 默认是 ArrayBufferLike。 */
+/** WebCrypto accepts only ArrayBuffer-backed views; TypeScript Uint8Array defaults to ArrayBufferLike. */
 function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(bytes.length);
   out.set(bytes);
@@ -134,7 +139,7 @@ function decodeJson<T>(input: string): T {
   return JSON.parse(new TextDecoder().decode(b64urlDecode(input))) as T;
 }
 
-/** AUD -> 角色；未命中任何配置时返回 null（调用方 fail closed）。 */
+/** Map an AUD to a role; return null when no configuration matches so callers fail closed. */
 export function roleForAud(env: Env, aud: string | string[] | undefined): "admin" | "viewer" | null {
   const auds = Array.isArray(aud) ? aud : aud ? [aud] : [];
   if (!auds.length) return null;
@@ -160,12 +165,14 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 }
 
 /**
- * 拉取并缓存签名密钥。
+ * Fetch and cache signing keys.
  *
- * `force` 用于 kid 未命中时**绕过 TTL 重拉一次**：Cloudflare 每 6 周轮换签名
- * 密钥，缓存 1 h 内新 kid 完全不在手里。不重拉的话轮换后新 token 全部判无效
- * （`/login` 401、受保护子域无限 302），最长持续一小时。重拉失败时仍回退到
- * 旧缓存，不能因为一次网络抖动就让所有人登录失败。
+ * `force` **bypasses the TTL for one refetch when a kid is missing**. Cloudflare
+ * rotates signing keys every six weeks, so a new kid may be absent from our
+ * one-hour cache. Without a refetch, tokens signed with the new key are
+ * rejected until expiry (`/login` returns 401 and protected subdomains loop
+ * through 302s). If refetching fails, use the previous cache so a transient
+ * network failure does not prevent everyone from signing in.
  */
 async function fetchJwks(env: Env, force = false): Promise<JwkLike[] | { error: string }> {
   const url = accessJwksUrl(env);
@@ -191,8 +198,9 @@ async function fetchJwks(env: Env, force = false): Promise<JwkLike[] | { error: 
     jwksCache = { url, keys, fetchedAt: Date.now() };
     return keys;
   } catch {
-    // 拉取失败时回退到上一次的缓存：Cloudflare 每 6 周轮换签名密钥，
-    // 轮换窗口内不能因为一次网络抖动就让所有人登录失败。
+// Fall back to the previous cache when fetching fails. Cloudflare rotates
+// signing keys every six weeks, and one transient network failure during
+// rotation must not block everyone from signing in.
     if (jwksCache && jwksCache.url === url) return jwksCache.keys;
     return { error: "jwks_fetch_exception" };
   }
@@ -220,9 +228,10 @@ async function verifySignature(
 }
 
 /**
- * 校验 Access JWT。任何一步失败都返回 null（fail closed），不抛异常。
+ * Validate an Access JWT. Return null on any failure (fail closed); do not throw.
  *
- * 顺序刻意如此：**先验签再读 claims**，绝不用未验证的 payload 做任何判断。
+ * The order is deliberate: **verify the signature before reading claims**.
+ * Never make decisions from an unverified payload.
  */
 export async function verifyAccessJwt(
   env: Env,
@@ -241,7 +250,7 @@ export async function verifyAccessJwt(
   } catch {
     return null;
   }
-  // 只接受 RS256；显式拒绝 alg:none 与任何降级算法。
+// Accept only RS256; explicitly reject alg:none and all downgraded algorithms.
   if (header.alg !== "RS256") return null;
 
   const pickKey = (keys: JwkLike[]): JwkLike | undefined =>
@@ -251,8 +260,8 @@ export async function verifyAccessJwt(
   if (!Array.isArray(jwks)) return null;
   let key = pickKey(jwks);
   if (!key && header.kid) {
-    // kid 未命中：可能是 Cloudflare 刚轮换密钥，而我们的缓存还没过期。
-    // 绕过 TTL 重拉一次再判定，避免轮换后的最长 1 小时登录中断。
+// A missing kid may mean Cloudflare rotated keys before our cache expired.
+// Refetch once while bypassing the TTL to avoid an hour-long login outage.
     jwks = await fetchJwks(env, true);
     if (!Array.isArray(jwks)) return null;
     key = pickKey(jwks);
@@ -303,7 +312,7 @@ export async function verifyAccessJwt(
   };
 }
 
-/** 供 login.ts 读取 Access 注入的身份头。 */
+/** Read the identity header injected by Access for login.ts. */
 export function accessAssertion(request: Request): string | null {
   return request.headers.get("Cf-Access-Jwt-Assertion");
 }

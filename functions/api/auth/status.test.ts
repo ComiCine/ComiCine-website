@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** /api/auth/status 的 CSRF 签发测试。 */
+/** Tests CSRF token issuance by /api/auth/status. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./status";

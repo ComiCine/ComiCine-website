@@ -18,13 +18,13 @@
  */
 
 /**
- * Worker 侧 SMTP 发信（tasks/17 阶段 3，用户选择：走邮箱服务商 SMTP）
+ * Send SMTP mail from a Worker (tasks/17, stage 3; the user chose the email provider's SMTP server).
  *
- * Workers 没有 nodemailer，用 `cloudflare:sockets` 自己实现最小 SMTP：
- * 隐式 TLS（465）→ EHLO → AUTH LOGIN → MAIL FROM → RCPT TO → DATA → QUIT。
+ * Workers do not include nodemailer, so this implements a minimal SMTP client with
+ * `cloudflare:sockets`: implicit TLS (465) → EHLO → AUTH LOGIN → MAIL FROM → RCPT TO → DATA → QUIT.
  *
- * 遵守 AGENTS.md：只通过邮箱服务商的 SMTP 发件，不用本机 MTA、不直连 25 端口。
- * 任何一步失败都返回 {sent:false, reason}，绝不抛出。
+ * Follow AGENTS.md: send only through the email provider's SMTP server; do not use the local MTA
+ * or connect directly to port 25. Every failure returns `{sent:false, reason}` and never throws.
  */
 
 import { connect } from "cloudflare:sockets";
@@ -54,7 +54,7 @@ function b64(value: string): string {
   return btoa(binary);
 }
 
-/** SMTP 头字段值不能含 CR/LF（防注入）。 */
+/** SMTP header values must not contain CR/LF, to prevent injection. */
 function headerSafe(value: string): string {
   return value.replace(/[\r\n]+/g, " ").trim();
 }
@@ -96,7 +96,7 @@ function buildMime(cfg: SmtpConfig, msg: SmtpMessage): string {
   );
 }
 
-/** base64 正文按 76 列折行（RFC 2045）。 */
+/** Wrap base64 message bodies at 76 columns (RFC 2045). */
 function wrap76(value: string): string {
   const lines: string[] = [];
   for (let i = 0; i < value.length; i += 76) lines.push(value.slice(i, i + 76));
@@ -114,7 +114,7 @@ class SmtpSession {
     this.writer = socket.writable.getWriter();
   }
 
-  /** 读一条 SMTP 响应（处理 250- 多行续行）。 */
+  /** Read one SMTP response, including `250-` multiline continuations. */
   async readReply(): Promise<string> {
     const deadline = Date.now() + TIMEOUT_MS;
     for (;;) {
@@ -122,7 +122,7 @@ class SmtpSession {
       if (nl >= 0) {
         const line = this.buffer.slice(0, nl);
         this.buffer = this.buffer.slice(nl + CRLF.length);
-        // 多行响应：第 4 个字符是 '-' 表示还有后续
+        // In a multiline response, a hyphen in the fourth character means more lines follow.
         if (line.length > 3 && line[3] === "-") continue;
         return line;
       }
@@ -150,7 +150,7 @@ class SmtpSession {
     try {
       await this.writer.close();
     } catch {
-      // 忽略关闭异常
+      // Ignore errors while closing.
     }
   }
 }
@@ -186,7 +186,7 @@ export async function sendViaSmtp(
     await session.cmd("DATA", "354");
 
     const mime = buildMime(cfg, msg);
-    // 正文中的孤立 "." 需要转义（CRLF.CRLF 才是结束符）
+    // Escape a lone period in the body; CRLF.CRLF marks the end of the message.
     const body = mime.replace(/\r\n\./g, `${CRLF}..`);
     await session.send(body.endsWith(CRLF) ? body + "." : body + CRLF + ".");
     const accepted = await session.readReply();

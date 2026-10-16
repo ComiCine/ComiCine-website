@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** /api/blocklist 管理 API 测试（tasks/10）。 */
+/** Tests for the /api/blocklist admin API (tasks/10). */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestDelete, onRequestGet, onRequestPost } from "./blocklist";
@@ -32,7 +32,7 @@ vi.mock("../_lib/d1", () => ({
 }));
 vi.mock("../_lib/logging", () => ({ logEvent: vi.fn() }));
 vi.mock("../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -104,8 +104,8 @@ describe("blocklist API", () => {
     expect(resp.status).toBe(401);
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（生产语义：requireAuth 抛
-  // AuthSessionUnavailableError → requireAdminSession 返回 503）。
+  // W5-15: fail closed when the revocation table is unavailable. In production, requireAuth throws
+  // AuthSessionUnavailableError and requireAdminSession returns 503.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestGet(context(new Request("https://limooo.cn/api/blocklist")) as never);
@@ -157,8 +157,9 @@ describe("blocklist API", () => {
   });
 
   it("caps the stored reason so one request cannot write hundreds of KB", async () => {
-    // 其余字符串字段都有 cap，reason 以前没有：可写入几百 KB/行，撑爆分页响应
-    // 与 500 MB 库容量；审计行与变更在同一批次里，语句过大时连审计一起丢。
+    // Other string fields have limits, but reason did not. It could store hundreds of KB per row,
+    // overwhelming paginated responses and the 500 MB database. Because the audit and change share
+    // one batch, an oversized statement could also discard the audit event.
     const long = "x".repeat(5000);
     const resp = await onRequestPost(
       context(

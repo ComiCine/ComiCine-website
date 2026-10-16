@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
-      // Workers 内置模块，Node 侧没有实现；用桩顶上才能加载 status-worker 的测试。
+      // Node does not implement this built-in Workers module, so tests need a mock.
       "cloudflare:sockets": fileURLToPath(
         new URL("./ops/status-worker/src/__mocks__/cloudflare-sockets.ts", import.meta.url),
       ),

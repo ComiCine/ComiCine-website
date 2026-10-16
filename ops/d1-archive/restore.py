@@ -50,23 +50,23 @@ import os
 import sys
 from typing import Any
 
-# 每批 INSERT 的行数：一条 SQL 里塞太多行会顶到 D1 的单语句上限。
+# Number of rows per INSERT batch; too many rows in one SQL statement can exceed D1's per-statement limit.
 BATCH_ROWS = 100
-# manifest.json 之外的表对象：它是 sqlite_master 的原样副本，不是表数据。
+# Non-table objects from sqlite_master, stored as-is in addition to table data in manifest.json.
 NON_TABLE_OBJECTS = {"schema.jsonl.gz"}
 
 
 def sql_literal(value: Any) -> str:
-    """把一个 JSON 值渲染成**精确**的 SQL 字面量。
+    """Render a JSON value as an exact SQL literal.
 
-    精确是这里的全部意义（快照的类型保真只有配上精确的还原才成立）：
-      - None            -> NULL（不是 'NULL'、也不是空串）
-      - bool            -> 1/0（SQLite 没有布尔类型）
-      - int             -> 原样十进制（epoch 秒不许变成浮点）
-      - float           -> repr()，保证读到什么写回什么
-      - str             -> 单引号包裹 + 单引号翻倍；含 NUL 的串改用 CAST(x'..' AS TEXT)，
-                           因为 SQL 文本字面量存不下 \\x00
-      - bytes           -> x'..'（真实快照里没有，留作兜底）
+    Exactness is the point: snapshot types are preserved only if restoration is exact.
+      - None  -> NULL (not the string 'NULL' or an empty string)
+      - bool  -> 1/0 (SQLite has no boolean type)
+      - int   -> unchanged decimal form (epoch seconds must not become floats)
+      - float -> repr(), so the read value is written back as-is
+      - str   -> single-quoted with embedded quotes doubled; strings containing NUL use
+                 CAST(x'..' AS TEXT), because SQL text literals cannot contain \\x00
+      - bytes -> x'..' (not present in real snapshots, kept as a fallback)
     """
     if value is None:
         return "NULL"
@@ -86,13 +86,12 @@ def sql_literal(value: Any) -> str:
 
 
 def open_jsonl(path: str):
-    """按内容而不是按扩展名决定要不要解压。
+    """Decide whether to decompress by content, not by filename extension.
 
-    快照对象声明的是 application/gzip，所以正常情况下下载下来的就是 gzip 字节。
-    但任何把 content-encoding 当成传输层细节的客户端（R2 REST API 与
-    `wrangler r2 object get` 都会）会把内容**静默解压**成明文，名字却仍是
-    .jsonl.gz。与其在还原这一步摔一跤，不如认 magic bytes：1f 8b 就是 gzip，
-    否则按 UTF-8 文本读。
+    Snapshot objects declare application/gzip, so downloads normally contain gzip bytes. However,
+    clients that treat content-encoding as a transport detail (including the R2 REST API and
+    `wrangler r2 object get`) may silently decompress the content while leaving its .jsonl.gz name
+    unchanged. Detect the magic bytes instead: 1f 8b means gzip; otherwise read UTF-8 text.
     """
     with open(path, "rb") as probe:
         magic = probe.read(2)
@@ -116,7 +115,7 @@ def read_jsonl_gz(path: str) -> list[dict[str, Any]]:
 
 
 def insert_statements(table: str, rows: list[dict[str, Any]], replace: bool) -> list[str]:
-    """把行渲染成多值 INSERT；列名取自行对象，顺序必须逐行一致。"""
+    """Render rows as multi-value INSERT statements; row keys define the columns and must stay in the same order."""
     if not rows:
         return [f"-- {table}: no rows in this snapshot"]
     columns = list(rows[0].keys())
@@ -138,7 +137,7 @@ def insert_statements(table: str, rows: list[dict[str, Any]], replace: bool) -> 
 
 
 def table_names(directory: str) -> list[str]:
-    """表清单：优先用 manifest.json（它带着快照当时的口径），否则扫目录。"""
+    """Return the table list from manifest.json when available, otherwise scan the directory."""
     manifest_path = os.path.join(directory, "manifest.json")
     names: list[str] = []
     if os.path.exists(manifest_path):
@@ -173,7 +172,7 @@ def render(directory: str, data_only: bool, replace: bool) -> tuple[str, list[st
     for table in table_names(directory):
         path = os.path.join(directory, f"{table}.jsonl.gz")
         if not os.path.exists(path):
-            # 部分失败的快照：那一张表当时没写出去。说清楚，不要静默跳过。
+            # A partially failed snapshot did not export this table; report it instead of silently skipping it.
             notes.append(f"missing object: {table}.jsonl.gz (that table was not captured)")
             continue
         rows = read_jsonl_gz(path)

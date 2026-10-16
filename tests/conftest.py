@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""共享测试配置：把 src/ 加入模块路径。"""
+"""Shared test configuration that adds src/ to the module search path."""
 
 from __future__ import annotations
 

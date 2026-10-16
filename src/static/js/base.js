@@ -1,5 +1,5 @@
-/* 跨端契约事实全部由 build.py 注入 <body data-*>（模板 _lang_attrs.html），
-   前端只读、不写死：加语言 / 改 cookie 名或 TTL 只改 config-contract.json。 */
+/* build.py injects shared contract values into <body data-*> through _lang_attrs.html.
+   The frontend only reads them: add a language or change cookie names/TTLs in config-contract.json. */
 var BODY = document.body;
 function bodyAttr(name, fallback) {
     var value = BODY && BODY.getAttribute(name);
@@ -20,33 +20,33 @@ function sharedCookieDomain() {
 document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
 /*
-       图片预加载（仅预加载二维码等小资源；带 loading="lazy" 的作品图
-       不在此列，避免提前请求废掉懒加载）
+       Preload only small resources such as QR codes. Portfolio images with loading="lazy"
+       are excluded so preloading does not bypass lazy loading.
        */
     function preloadPageImages() {
-        if (!window.matchMedia('(hover: hover)').matches) return; // 移动端不预载二维码
+        if (!window.matchMedia('(hover: hover)').matches) return; // Do not preload QR codes on mobile.
         var urls = new Set();
         document.querySelectorAll('[data-qr]').forEach(function(el) { urls.add(el.dataset.qr); });
         urls.forEach(function(url) {
             var img = new Image();
             img.referrerPolicy = 'origin';
-            img.onerror = function() {}; // 404 时静默忽略，不报控制台错误
+            img.onerror = function() {}; // Ignore 404s without logging a console error.
             img.src = url;
         });
     }
 
     /*
-       主题切换系统（VitePress appearance 行为）
-       - 首次访问跟随系统，点击后固定为浅/深并缓存到 localStorage
-       - 之后不再跟随系统，除非清除 localStorage
+       Theme switching follows VitePress appearance behavior:
+       - Follow the system on first visit; after a click, save the selected theme in localStorage.
+       - Keep that selection until localStorage is cleared.
        */
 
-    /* 读取操作系统偏好 */
+    /* Read the operating system preference. */
     function getSystemTheme() {
         return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
 
-    /* 将主题应用到 DOM：切换 light-mode class、更新 meta 标签、同步滑块 aria-checked */
+    /* Apply the theme to the DOM: toggle light-mode, update meta tags, and sync aria-checked. */
     function applyTheme(theme) {
         document.documentElement.classList.toggle('light-mode', theme === 'light');
         var themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -56,7 +56,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (sw) sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
     }
 
-    /* 当前生效主题：localStorage 有缓存则用缓存，否则跟随系统（VitePress appearance 行为） */
+    /* Use the localStorage theme when present; otherwise follow the system, as in VitePress. */
     function effectiveTheme() {
         var saved = localStorage.getItem('theme');
         if (saved === 'light' || saved === 'dark') return saved;
@@ -64,7 +64,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         return match ? match[1] : getSystemTheme();
     }
 
-    /* 同步写入跨子域共享 cookie，保证主站/auth/redirect 的深浅模式一致 */
+    /* Write a shared cross-subdomain cookie so the main, auth, and redirect pages use one theme. */
     function saveTheme(theme) {
         localStorage.setItem('theme', theme);
         var secure = location.protocol === 'https:' ? '; Secure' : '';
@@ -72,14 +72,15 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             + '; SameSite=Lax' + secure + sharedCookieDomain();
     }
 
-    /* 快速切换检测：1 秒内超过 3 次时强制跳 auth.limooo.cn 验证页（验证页自身不参与触发） */
+    /* Detect rapid toggles: more than three in one second sends the user to the gate page.
+       The gate page itself does not count toward this limit. */
     var THEME_TOGGLE_WINDOW_MS = 1000;
     var THEME_TOGGLE_MAX_COUNT = 3;
     var themeToggleTimes = [];
     var themeChallengeStarted = false;
 
     function themeChallengeUrl() {
-        /* 同域名挑战：在请求来源主机上完成，而不是跳去 auth.<root_domain>。 */
+        /* Complete the challenge on the request's host instead of auth.<root_domain>. */
         var base = 'https://' + location.hostname + '/gate';
         var url = new URL(base, location.origin);
         url.searchParams.set('host', location.hostname);
@@ -104,7 +105,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         location.replace(challengeUrl);
     }
 
-    /* 点击深浅切换按钮：在浅/深之间切换并缓存，之后不再跟随系统 */
+    /* Toggle between light and dark, save the choice, and stop following the system preference. */
     function toggleTheme() {
         var now = Date.now();
         var next = effectiveTheme() === 'light' ? 'dark' : 'light';
@@ -117,11 +118,11 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     }
 
     /*
-       前端翻译工具
-       - I18N:当前语言完整字典(由后端注入,首屏优先)
-       - I18N_CACHE:全语言字典缓存,其余语言在页面加载完成后后台预取
-       - t():按 key 取文本,支持 {param} 占位符替换
-       - applyLang():纯前端切换,重写带 data-i18n 标记的元素,不刷新页面
+       Frontend translation utilities:
+       - I18N: full dictionary for the current language, injected by the backend for the initial render.
+       - I18N_CACHE: dictionaries for every language; preload the others after page load.
+       - t(): look up text by key and replace {param} placeholders.
+       - applyLang(): switch language in the browser by updating data-i18n elements without reloading.
        */
     var I18N = JSON.parse(document.body.getAttribute('data-i18n-dict') || '{}');
     var CURRENT_LANG = bodyAttr('data-lang', DEFAULT_LANG);
@@ -139,7 +140,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     }
     window.limoooTranslate = t;
 
-    /* 取回某语言字典,已缓存则直接回调 */
+    /* Fetch a language dictionary, or call back immediately if it is cached. */
     function fetchI18n(lang, cb) {
         if (I18N_CACHE[lang] !== undefined) { cb(I18N_CACHE[lang]); return; }
         if (window.__PREVIEW_I18N__) {
@@ -153,7 +154,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             .catch(function() { I18N_CACHE[lang] = null; cb(null); });
     }
 
-    /* 解析 data-i18n 文本规范:"key" 或 "key;param=val" */
+    /* Parse data-i18n text syntax: "key" or "key;param=value". */
     function parseI18nText(spec) {
         var semi = spec.indexOf(';');
         var key = semi === -1 ? spec : spec.slice(0, semi);
@@ -167,7 +168,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         return { key: key, params: params };
     }
 
-    /* 解析 data-i18n-attr 规范:"attr1,attr2:key;param=val|attr3:key2" */
+    /* Parse data-i18n-attr syntax: "attr1,attr2:key;param=value|attr3:key2". */
     function parseI18nAttr(spec) {
         var out = [];
         String(spec).split('|').forEach(function(seg) {
@@ -189,7 +190,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         return out;
     }
 
-    /* 按当前 I18N 重写所有带标记的元素 */
+    /* Update all marked elements using the current I18N dictionary. */
     function renderI18n() {
         document.querySelectorAll('[data-i18n]').forEach(function(el) {
             var spec = parseI18nText(el.getAttribute('data-i18n'));
@@ -205,19 +206,19 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
     }
 
-    /* 写入语言 cookie（名字 / TTL / 共享域都来自构建注入的 data-*） */
+    /* Write the language cookie using its name, TTL, and domain from injected data attributes. */
     function saveLangCookie(code) {
         var secure = location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = LANG_COOKIE + '=' + code + '; path=/; max-age=' + LANG_COOKIE_MAX_AGE
             + '; SameSite=Lax' + secure + sharedCookieDomain();
     }
 
-    /* 纯前端应用某语言:更新字典/文档 lang/标记文本/菜单选中态 */
+    /* Apply a language in the browser: update the dictionary, document lang, marked text, and menu state. */
     function applyLang(lang) {
-        if (I18N_CACHE[lang] == null) {  /* 未缓存或预取失败:先取回再应用 */
+        if (I18N_CACHE[lang] == null) {  /* Fetch it first if it is missing or preload failed. */
             fetchI18n(lang, function(d) {
                 if (d) { applyLang(lang); return; }
-                /* 字典接口失败时保底:写 cookie 后整页刷新,服务端按新语言渲染 */
+                /* If fetching the dictionary fails, save the cookie and reload for server rendering. */
                 saveLangCookie(lang);
                 location.reload();
             });
@@ -236,7 +237,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         saveLangCookie(lang);
     }
 
-    /* 页面加载完成后,低优先级后台预取其余语言 */
+    /* Preload the other language dictionaries at low priority after page load. */
     function prefetchI18n() {
         SUPPORTED_LANGS.forEach(function(lang) {
             if (lang === CURRENT_LANG || I18N_CACHE[lang] != null) return;
@@ -245,16 +246,15 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     }
 
     /*
-       跨页预取:当前页加载完成后后台预取另外两个主页(HTML + 图片)
-       - HTML 用 <link rel=prefetch> 原生缓存(带 cookie 保持语言一致,
-         不支持/不缓存时优雅降级)
-       - 图片用 new Image() 预热 HTTP 缓存；主页走 images.limooo.cn
-         的静态边缘缓存，联系页二维码继续走 image.limooo.cn Worker
-       - 移动端不预取二维码(contact 页二维码仅桌面悬停展示)
-       - 图片清单与 index.html / contact.html 的 src 保持同步
+       After the current page loads, prefetch the other two home pages (HTML and images).
+       - Use <link rel=prefetch> for HTML; its cache retains the language cookie and degrades gracefully.
+       - Use new Image() to warm the HTTP cache. Home images use images.limooo.cn's static edge cache;
+         contact-page QR codes continue to use the image.limooo.cn Worker.
+       - Do not prefetch QR codes on mobile; the contact page only shows them on desktop hover.
+       - Keep this image list aligned with the src values in index.html and contact.html.
        */
-    /* 主页作品图清单由模板按 src/static/portfolio 的实际图片生成
-       （body[data-portfolio-thumbs]）；属性缺失时退回默认清单。 */
+    /* The template builds the home portfolio image list from src/static/portfolio and writes it to
+       body[data-portfolio-thumbs]. Use the fallback list if that attribute is missing. */
     var HOME_IMAGES = (document.body && document.body.getAttribute('data-portfolio-thumbs') || '')
         .split(/\s+/).filter(function (rel) { return rel; });
     if (!HOME_IMAGES.length) {
@@ -275,18 +275,18 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
                         '/qr-codes/wechat.webp' ], qr: true, assetBase: false }
     };
 
-    /* 当前所在主页键;生产按子域判断,本地开发按路径 */
+    /* Identify the current home page by subdomain in production and by path in local development. */
     function currentPageKey() {
         var h = location.hostname;
         if (h === 'limooo.cn' || h === 'www.limooo.cn') return '/';
         if (h === 'services.limooo.cn') return '/services';
         if (h === 'contact.limooo.cn') return '/contact';
-        if (h.endsWith('.limooo.cn')) return null;   /* admin/apple-account 等管理页不预取 */
-        return location.pathname;                    /* 本地开发:'/'|'/services'|'/contact' */
+        if (h.endsWith('.limooo.cn')) return null;   /* Do not prefetch admin or Apple Account pages. */
+        return location.pathname;                    /* Local paths: '/', '/services', or '/contact'. */
     }
 
-    /* 主页图片直接用 images.limooo.cn/static（静态边缘缓存）；
-       二维码仍由 image.limooo.cn Worker 按 Referer 选择水印。 */
+    /* Home images load from images.limooo.cn/static via the static edge cache.
+       QR codes still use the image.limooo.cn Worker, which selects a watermark by Referer. */
     function pageOrigin(key) {
         var manifest = PAGE_MANIFEST[key];
         var attr = manifest && manifest.assetBase
@@ -300,7 +300,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             : location.origin;
     }
 
-    /* 兄弟页 HTML 地址:生产为子域根(nginx 根即页面),本地为同源 + 路径 */
+    /* Sibling page URLs use a subdomain root in production and same-origin paths locally. */
     function siblingHref(key) {
         var p = PAGE_MANIFEST[key];
         return location.hostname.endsWith('limooo.cn') ? 'https://' + p.host : location.origin + p.path;
@@ -313,8 +313,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         Object.keys(PAGE_MANIFEST).forEach(function(key) {
             var origin = pageOrigin(key);
             if (key === cur) {
-                /* 当前页已在浏览器里；空闲时低优先级预热作品图，
-                   用户滚到 #portfolio 时图片尽量已经缓存 */
+                /* The current page is already open. Warm portfolio images at low priority while idle
+                   so they are likely cached when the user scrolls to #portfolio. */
                 if (desktop) {
                     PAGE_MANIFEST[key].images.forEach(function(rel) {
                         var img = new Image();
@@ -330,17 +330,17 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             l.rel = 'prefetch'; l.href = siblingHref(key);
             document.head.appendChild(l);
             PAGE_MANIFEST[key].images.forEach(function(rel) {
-                if (PAGE_MANIFEST[key].qr && !desktop) return;   /* 移动端跳过二维码 */
+                if (PAGE_MANIFEST[key].qr && !desktop) return;   /* Skip QR codes on mobile. */
                 var img = new Image();
                 img.referrerPolicy = 'origin';
                 img.fetchPriority = 'low';
-                img.onerror = function() {};             /* 404 静默,不报控制台错误 */
+                img.onerror = function() {};             /* Ignore 404s without logging a console error. */
                 img.src = rel.indexOf('http') === 0 ? rel : origin + rel;
             });
         });
     }
 
-    /* 语言菜单开关 */
+    /* Toggle the language menu. */
     function toggleLangMenu(e) {
         if (e) e.stopPropagation();
         var m = document.getElementById('langMenu');
@@ -355,13 +355,13 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
     function setLang(code) {
         closeLangMenu();
-        /* 正常路径：纯前端无刷新切换（fetch 目标字典后替换 data-i18n 节点）。
-           仅当字典接口异常时才由 applyLang 的保底分支刷新一次。 */
+        /* Normally switch without a reload: fetch the target dictionary and update data-i18n nodes.
+           applyLang reloads only as a fallback when the dictionary endpoint fails. */
         if (code !== CURRENT_LANG) applyLang(code);
         else saveLangCookie(code);
     }
 
-    /* 桌面端：语言菜单悬停自动展开/收起（VitePress VPFlyout 行为），触摸端保持点击切换 */
+    /* On desktop, hover opens and closes the language menu like VitePress VPFlyout; touch uses clicks. */
     (function bindLangHover() {
         var fly = document.querySelector('.lang-flyout');
         if (!fly) return;
@@ -374,19 +374,19 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
     })();
 
-    /* 导航菜单切换 */
+    /* Toggle the navigation menu. */
     function toggleMobileMenu(e) {
         if (e) e.stopPropagation();
         document.getElementById('navLinksDropdown').classList.toggle('open');
         closeLangMenu();
     }
 
-    /* 关闭导航菜单 */
+    /* Close the navigation menu. */
     function closeNavMenu() {
         document.getElementById('navLinksDropdown').classList.remove('open');
     }
 
-    /* 导航跳转 + 高亮 */
+    /* Navigate and update the active link. */
     function navigateTo(url) {
         closeNavMenu();
         location.href = url;
@@ -396,20 +396,20 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         window.open(url, "_blank", "noopener");
     }
 
-    /* DOM 加载完毕后初始化 */
+    /* Initialize after the DOM has loaded. */
     window.addEventListener('load', function() {
         preloadPageImages();
 
-        /* 恢复主题：有缓存用缓存，无缓存跟随系统（VitePress appearance 行为） */
+        /* Restore the saved theme, or follow the system when there is no saved choice. */
         applyTheme(effectiveTheme());
 
 
-        /* 系统主题变化时：仅在无缓存（跟随系统）状态下自动跟随 */
+        /* Follow system theme changes only when there is no saved choice. */
         window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
             if (!localStorage.getItem('theme')) applyTheme(getSystemTheme());
         });
 
-        /* 点击 .theme-toggle 外部时收起所有菜单 */
+        /* Close all menus when clicking outside .theme-toggle. */
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.theme-toggle')) {
                 closeNavMenu();
@@ -418,8 +418,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
 
 
-        /* 界面加载完成后立即预取全部语言:切换语言时字典已在缓存,不再等网络;
-           另外两个主页的 prefetch 保持低优先级,不抢首屏之后的带宽 */
+        /* Prefetch all language dictionaries after load so switching languages does not wait on the network.
+           Keep page prefetches at low priority so they do not compete for bandwidth after the initial view. */
         prefetchI18n();
         if ('requestIdleCallback' in window) {
             requestIdleCallback(prefetchPages, { timeout: 3000 });

@@ -18,8 +18,8 @@
  */
 
 /**
- * vitest 用的 `cloudflare:sockets` 桩：Workers 运行时才有该内置模块，
- * 本地跑 `ops/status-worker` 的测试时用它顶上，避免加载失败。
+ * `cloudflare:sockets` stub for Vitest. This built-in module exists only in the Workers runtime;
+ * use this stub when running `ops/status-worker` tests locally to avoid import failures.
  */
 
 export interface SocketStub {

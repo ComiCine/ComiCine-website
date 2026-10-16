@@ -1,8 +1,8 @@
-{# Limooo - 人机验证门禁页（/gate，任意受管主机同域可用）
-   旧的 /__gate 由中间件 308 重定向到 /gate，模板只引用规范路径。
-   由 build.py 按 4 种语言预渲染为 public/<lang>/auth.html。
-   Turnstile sitekey、完整 i18n 和错误信息由运行时 /gate/config 与
-   {{error}} 占位符注入；CSS/JS 全部外置，不再在 HTML 内维护样式。 #}
+{# Limooo gate page at /gate, available on any managed host.
+   The middleware redirects the old /__gate path to /gate with status 308; templates use only
+   the canonical path. build.py pre-renders public/<lang>/auth.html in all four languages.
+   Runtime /gate/config and the {{error}} placeholder provide the Turnstile sitekey, full i18n,
+   and error details. CSS and JavaScript are external rather than maintained in this HTML. #}
 <!doctype html>
 <html lang="{{ g.lang }}">
 <head>
@@ -19,7 +19,7 @@
 <link rel="preload" as="script" href="/static/js/auth.js?v=9">
 <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 <link rel="stylesheet" href="/static/css/auth.css?v=19">
-<!-- 站点基础样式：页脚 .global-footer 等结构样式复用主站 base.css -->
+<!-- Site base styles; structural styles such as .global-footer reuse the main base.css. -->
 <link rel="stylesheet" href="/static/css/base.css?v=19">
 </head>
 <body data-lang="{{ lang }}" {% include "_lang_attrs.html" %} data-gate-error="{{ error_html }}">
@@ -30,7 +30,7 @@
       <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <div id="langMenu" class="theme-menu">
-      {# 语言浮层条目由契约 supported_langs 生成；文案键 lang_<主语言> #}
+      {# Language menu entries come from contract.supported_langs; copy keys use lang_<language>. #}
       {% for option in lang_options %}
       <div class="theme-option{% if lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}"><span class="lang-flag">{{ option.flag }}</span><span>{{ _(option.label_key) }}</span></div>
       {% endfor %}

@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 语言 cookie 的全站共享行为（Domain=.limooo.cn，主域与所有子域一致）。 */
+/** Shared language-cookie behavior across the root domain and all subdomains (Domain=.limooo.cn). */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -145,7 +145,7 @@ describe("langCookieHeader domain scope", () => {
   });
 });
 
-/** tasks/22 增量 ②：URL 每请求只解析一次，语言检测结果沿调用链复用。 */
+/** tasks/22 increment 2: parse the URL once per request and reuse language detection along the call chain. */
 describe("request URL parsing and language reuse", () => {
   it("parses the request URL once per Request object", () => {
     const request = new Request("https://limooo.cn/services?challenge=1");
@@ -159,7 +159,7 @@ describe("request URL parsing and language reuse", () => {
     const explicit = withLangCookie(request, new Response("body"), "ko-kr");
     expect(explicit.headers.get("Set-Cookie")).toContain(`${LANG_COOKIE}=ko-kr`);
 
-    // 不传 lang 时保持旧行为：自己检测（这里由 Accept-Language 决定）。
+// Preserve the old behavior when lang is omitted: detect it from Accept-Language here.
     const detected = withLangCookie(
       new Request("https://limooo.cn/", { headers: { "Accept-Language": "ja-JP" } }),
       new Response("body"),

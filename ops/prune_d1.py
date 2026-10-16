@@ -18,25 +18,26 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Limooo D1 保留期与每日聚合脚本（tasks/11）。
+"""Manage Limooo D1 retention and daily aggregation (tasks/11).
 
-默认只做 dry-run，不删除任何数据；只有显式传入 --apply 才执行聚合与清理。
-运行方式（示例，均为生产动作，执行前需在 docs/parallel-actions.md 登记）：
+This script is read-only by default. Pass --apply explicitly to aggregate or delete data.
+Examples below perform production actions and must be recorded in docs/parallel-actions.md first:
 
-    python3 ops/prune_d1.py --mode all          # 只读：统计与计划
-    python3 ops/prune_d1.py --mode aggregate --apply   # 聚合 visitors_daily
-    python3 ops/prune_d1.py --mode prune --apply       # 按保留期清理旧数据
+    python3 ops/prune_d1.py --mode all                 # read-only: report counts and plan
+    python3 ops/prune_d1.py --mode aggregate --apply   # aggregate visitors_daily
+    python3 ops/prune_d1.py --mode prune --apply       # delete old data by retention policy
 
-保留期的 **owner 是 `ops/status-worker/src/retention.ts`**（每天 03:47 由 Worker
-cron 调度的那一份，readme_facts.py 也只解析它）。本文件在导入时逐条与它比对，
-不一致直接报错——2026-10-11 之前这里另写了一份 4 张表的策略，与 owner 的 7 张表
-漂移（tasks/22 W7-8），从那时起不再允许两份并存：
+The authoritative retention policy is owned by `ops/status-worker/src/retention.ts`, scheduled
+daily at 03:47 by the Worker cron; readme_facts.py also reads only that file. This module compares
+its values with the owner on import and fails on any difference. Before 2026-10-11, this file had
+a separate four-table policy that drifted from the owner's seven tables (tasks/22 W7-8). The two
+copies are no longer allowed to coexist:
 
-    ray_log_v2  7 天
-    visitors_v2 / visitor_rollups / heartbeats 30 天
-    auth_sessions 60 天
-    events / probe_uptime_daily 90 天
-    visitors_daily 永久（按天聚合，只聚合完整的 UTC 天）
+    ray_log_v2  7 days
+    visitors_v2 / visitor_rollups / heartbeats 30 days
+    auth_sessions 60 days
+    events / probe_uptime_daily 90 days
+    visitors_daily permanent (daily aggregation over complete UTC days only)
 """
 
 from __future__ import annotations
@@ -59,12 +60,12 @@ from config import ENV_FILE  # noqa: E402
 
 DAY_SECONDS = 86400
 RETENTION_TS = ROOT / "ops" / "status-worker" / "src" / "retention.ts"
-# 聚合窗口：只碰**完整的 UTC 天**（不含当天，当天还没走完）。
+# Aggregation window: include only **complete UTC days**; the current day is still in progress.
 AGGREGATE_COMPLETE_DAYS = 7
 
-# 下表必须与 owner 的 retention.ts 逐条一致，导入时由 verify_retention_matches_owner()
-# 强制校验；字面量保留是为了让生效窗口一眼可见，并让 tests/test_d1_schema.py 能从
-# 源码里读出表名（数值本身以 owner 为准，漂移即失败）。
+# The table below must match the owner's retention.ts entry by entry. verify_retention_matches_owner() enforces this at import time.
+# Keep the values literal so the retention windows are easy to inspect and tests/test_d1_schema.py can read table names from
+# the source. The owner remains authoritative for the values; any drift fails validation.
 BUCKETS: dict[str, int] = {
     "ray_log_v2": 7 * DAY_SECONDS,
     "visitors_v2": 30 * DAY_SECONDS,
@@ -82,9 +83,9 @@ RETENTION_TIMESTAMP_COLUMNS: dict[str, str] = {
 
 
 def parse_retention_source(path: Path | str = RETENTION_TS) -> tuple[dict[str, int], dict[str, str]]:
-    """从 owner 的 TS 源码现读 (表 → 保留秒数, 表 → 时间戳列)。
+    """Read (table -> retention seconds, table -> timestamp column) from the owner's TS source.
 
-    语法解析失败直接抛错：宁可让脚本停下来，也不退回本文件里的副本。
+    Raise an error if parsing fails instead of falling back to a duplicate policy in this file.
     """
     source = Path(path)
     text = source.read_text(encoding="utf-8")
@@ -105,7 +106,7 @@ def parse_retention_source(path: Path | str = RETENTION_TS) -> tuple[dict[str, i
 
 
 def verify_retention_matches_owner(path: Path | str = RETENTION_TS) -> None:
-    """owner 一旦变化就立刻报错，杜绝「两份保留策略各说各话」。"""
+    """Fail immediately if the owner changes, preventing two conflicting retention policies."""
     buckets, columns = parse_retention_source(path)
     if BUCKETS != buckets:
         raise RuntimeError(
@@ -136,26 +137,26 @@ def _count_rows(cfg: dict[str, str], table: str, cutoff: int) -> int:
 
 
 def _day_start_expr() -> str:
-    """当前 UTC 零点（把 unixepoch() 向下取整到 86400 的整数倍）。"""
+    """Return the current UTC midnight by flooring unixepoch() to a multiple of 86400."""
     return f"(unixepoch() / {DAY_SECONDS}) * {DAY_SECONDS}"
 
 
 def _aggregate_window(days: int = AGGREGATE_COMPLETE_DAYS) -> tuple[str, str]:
-    """(窗口下界, 窗口上界)：只覆盖**完整的 UTC 天**，不含当天。"""
+    """Return (window start, window end), covering complete UTC days only and excluding today."""
     return f"{_day_start_expr()} - {int(days) * DAY_SECONDS}", _day_start_expr()
 
 
 def _aggregate_sql(days: int = AGGREGATE_COMPLETE_DAYS) -> str:
-    """把旧明细与小时汇总合并进 visitors_daily（可重复执行）。
+    """Combine legacy detail and hourly rollups into visitors_daily (safe to rerun).
 
-    两个要点（tasks/22 W7-5）：
+    Two requirements (tasks/22 W7-5):
 
-    1. 只聚合**完整的 UTC 天**：`[day_start - days*86400, day_start)`。此前用的是
-       滚动 24h 窗口，会把「昨天那一行」用只覆盖部分小时的数据重算。
-    2. 写入用 `ON CONFLICT ... DO UPDATE SET x = MAX(x, excluded.x)`，与
-       `ops/migrations/013_backfill_probe_uptime.sql` 同一写法。SQLite 的
-       `INSERT OR REPLACE` 会先删掉冲突行再插入，于是较早的小时数被永久覆盖；
-       MAX 让重复执行只会单调推进，绝不会把已经算进去的计数改小。
+    1. Aggregate complete UTC days only: `[day_start - days*86400, day_start)`. A rolling 24-hour
+       window previously recalculated yesterday's row from only a partial day's data.
+    2. Use `ON CONFLICT ... DO UPDATE SET x = MAX(x, excluded.x)`, matching
+       ops/migrations/013_backfill_probe_uptime.sql. SQLite's `INSERT OR REPLACE` deletes a
+       conflicting row before inserting, permanently overwriting earlier hourly totals. MAX makes
+       reruns monotonic and never reduces a previously recorded count.
     """
     start, end = _aggregate_window(days)
     return (
@@ -221,10 +222,10 @@ def _write_retention_state(
 
 
 def aggregate_daily(cfg: dict[str, str], days: int = AGGREGATE_COMPLETE_DAYS) -> dict[str, Any]:
-    """把最近若干个**完整 UTC 天**重新聚合进 visitors_daily（幂等、只增不减）。
+    """Reaggregate recent complete UTC days into visitors_daily (idempotent and monotonic).
 
-    保留策略的 owner 是 Worker 的 `retention.ts`（cron 每天调度）；本脚本是
-    运维侧的手动入口，两者读同一份窗口定义（见模块 docstring）。
+    The Worker `retention.ts` owns the daily cron policy. This is the manual operations entry point;
+    both use the same window definition (see the module docstring).
     """
     d1_query(cfg, _aggregate_sql(days))
     _write_retention_state(cfg, "visitors_daily", success=True)
@@ -232,7 +233,7 @@ def aggregate_daily(cfg: dict[str, str], days: int = AGGREGATE_COMPLETE_DAYS) ->
 
 
 def prune_buckets(cfg: dict[str, str]) -> dict[str, Any]:
-    """按保留期清理 v2 表、探针明细、会话与 events，并记录 retention_state。"""
+    """Prune v2 tables, probe details, sessions, and events by retention policy; record retention_state."""
     result: dict[str, int] = {}
     now = "unixepoch()"
     for table, seconds in BUCKETS.items():
@@ -251,7 +252,7 @@ def prune_buckets(cfg: dict[str, str]) -> dict[str, Any]:
 
 
 def dry_run(cfg: dict[str, str], mode: str, days: int = AGGREGATE_COMPLETE_DAYS) -> dict[str, Any]:
-    """只读统计：不建表、不写状态、不删除。"""
+    """Read-only counts: create no tables, write no state, and delete no data."""
     plan: dict[str, Any] = {"mode": mode, "buckets": {}}
     if mode in ("all", "prune"):
         for table, seconds in BUCKETS.items():

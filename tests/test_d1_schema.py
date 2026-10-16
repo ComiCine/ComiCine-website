@@ -157,7 +157,7 @@ def _string_literals(text: str) -> str:
                     continue
                 if text[j] == ch:
                     break
-                # 未转义换行终止普通字符串（Python 的 f-string 例外，这里按内容继续）
+                # An unescaped newline ends a regular string; Python f-strings are the exception, so continue scanning their contents.
                 if text[j] == "\n" and ch != "`" and not text.startswith("f\"", i - 1):
                     break
                 buf.append(text[j])

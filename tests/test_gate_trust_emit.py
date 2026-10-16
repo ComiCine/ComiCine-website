@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""tasks/22 W4-4：门禁信任配置的「生成物只带运行时要用的部分」。
+"""Regression tests for tasks/22 W4-4: generated gate-trust data contains only runtime fields.
 
-`functions/_data/gateTrust.ts` 曾经同时带 ASN 列表（运行时零消费，
-真正消费方是 WAF 的 js_challenge 规则）与 2 个全放行 IP。这里钉住：
-  - 生成物只含 verified_bot / ip_cidrs；
-  - docs/lists/whitelist.txt 的 ASN 段仍然照旧解析与计数（WAF 的来源，不许删）；
-  - ops/readme_facts.py 的 ASN 计数改为从 whitelist.txt 现读。
+`functions/_data/gateTrust.ts` previously included an ASN list (unused at runtime;
+the actual consumer is the WAF js_challenge rule) and two fully trusted IPs. These
+tests require:
+  - Generated data contains only verified_bot and ip_cidrs.
+  - ASN data from docs/lists/whitelist.txt continues to be parsed and counted for WAF.
+  - ops/readme_facts.py reads ASN counts from whitelist.txt.
 """
 
 from __future__ import annotations
@@ -36,19 +37,19 @@ from ops import check_gate_trust
 
 @pytest.fixture
 def fake_repo(tmp_path, monkeypatch):
-    """把 check_gate_trust 的输入/输出都指到 tmp_path。"""
+    """Redirect check_gate_trust inputs and outputs to tmp_path."""
     whitelist = tmp_path / "whitelist.txt"
     whitelist.write_text(
         "# 注释行\n"
         "ASN/64500\n"
         "ASN/64501\n"
-        "ASN/64500\n"  # 重复项只算一次
+        "ASN/64500\n"  # Count duplicate entries only once.
         "IP-CIDR/97.64.18.11/32\n"
         "IP-CIDR/2001:db8::/64\n",
         encoding="utf-8",
     )
-    # 2026-10-12 起爬虫名单不再是自造的 crawlers.txt，而是标准格式的 robots.txt：
-    # 显式 User-agent（`*` 除外）就是门禁放行名单。
+    # Since 2026-10-12, the crawler list uses standard robots.txt instead of the custom crawlers.txt:
+    # explicit User-agent entries, excluding `*`, form the gate allowlist.
     robots = tmp_path / "robots.txt"
     robots.write_text(
         "# 注释行\n"
@@ -80,13 +81,13 @@ def test_emit_omits_asn_lists(fake_repo, monkeypatch, capsys):
     assert "ASNS" not in emitted
     assert '"ip_cidrs": [["97.64.18.11", 32], ["2001:db8::", 64]]' in emitted
     assert 'export const GATE_TRUST_IPS: Set<string> = new Set(["97.64.18.11", "2001:db8::"]);' in emitted
-    # 爬虫名单进 isolate：只取显式 User-agent（`*` 不在里面）、一律小写
+    # Crawler entries sent to the isolate include only explicit User-agent values (excluding `*`), all lowercased.
     assert (
         'export const GATE_TRUST_CRAWLER_UAS: readonly string[] = '
         '["gptbot", "claudebot", "screaming frog seo spider"];'
     ) in emitted
     assert '"*"' not in emitted
-    # ASN 仍在 stdout 摘要里（审计用），只是不进 isolate
+    # Keep ASN counts in the stdout summary for auditing, but omit them from the isolate.
     summary = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert summary["asns"] == 2
     assert summary["ip_cidrs"] == 2
@@ -105,22 +106,22 @@ def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
 
 
 def test_robots_agents_keep_file_order_and_case(fake_repo):
-    """名单保留 robots.txt 里的顺序与大小写（`*` 除外；生成物里才是小写副本）。"""
+    """Preserve the order and case from robots.txt, except for `*`; generated copies are lowercase."""
     agents = check_gate_trust.load_crawler_agents(check_gate_trust.ROBOTS_PATH)
 
     assert agents == ["GPTBot", "ClaudeBot", "Screaming Frog SEO Spider"]
 
 
 def test_robots_agents_reject_bad_input(tmp_path):
-    """格式错直接抛错：门禁名单写坏比构建失败严重。"""
+    """Reject malformed crawler allowlist input; a broken gate-trust list must fail the build."""
     cases = {
-        # 只有 `*` 组：那是「所有人」，当放行名单等于关掉门禁
+        # A `*` group means everyone; using it as an allowlist would disable the gate.
         "star-only": "User-agent: *\nAllow: /\n",
-        # 完全没有 User-agent 行
+        # No User-agent lines at all.
         "no-agents": "Allow: /\nDisallow: /api/\n",
-        # 重复（大小写不敏感）
+        # Duplicate entries are case-insensitive.
         "duplicate": "User-agent: GPTBot\nUser-agent: gptbot\n",
-        # 片段过短 / 非法字符
+        # Fragment is too short or contains invalid characters.
         "too-short": "User-agent: ai\n",
         "bad-chars": 'User-agent: GPT"Bot\n',
     }
@@ -132,7 +133,7 @@ def test_robots_agents_reject_bad_input(tmp_path):
 
 
 def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
-    """README 的 ASN 计数改读 docs/lists/whitelist.txt，不再对生成物做正则。"""
+    """Read README ASN counts from docs/lists/whitelist.txt instead of using a regex on generated output."""
     (tmp_path / "docs" / "lists").mkdir(parents=True)
     (tmp_path / "docs" / "lists" / "whitelist.txt").write_text(
         "# 注释\nASN/1\nASN/2\nASN/2\nIP-CIDR/10.0.0.1/32\n",
@@ -148,7 +149,7 @@ def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
 
     facts = readme_facts.gate_trust_facts()
 
-    # ASN 去重后计数（1、2 两条），CIDR 与爬虫 UA 来自生成物
+    # Count unique ASNs (entries 1 and 2); CIDRs and crawler UAs come from generated output.
     assert facts == {"verified_bot": True, "asns": 2, "ip_cidrs": 1, "crawler_uas": 2}
 
 
@@ -168,21 +169,22 @@ def test_readme_facts_asn_count_is_zero_when_whitelist_has_none(monkeypatch, tmp
         "verified_bot": False,
         "asns": 0,
         "ip_cidrs": 1,
-        # 生成物里没有爬虫 UA 行时按 0 计（不是解析失败）
+        # Count zero when generated output contains no crawler UA entries; this is not a parse failure.
         "crawler_uas": 0,
     }
 
 
 def test_repo_whitelist_and_generated_file_agree():
-    """真实仓库：生成物与两份名单（白名单、robots.txt 里的爬虫）的数量一致。
+    """In the real repository, generated output matches the whitelist and crawler counts from robots.txt.
 
-    ASN 的**具体条数刻意不写死**（2026-10-11 改）：那份名单由
-    ASN 条数由 `own-ips.txt` 的手工条目决定；这里守的是「生成物与名单一致」这条关系。
+    Do not hard-code the exact ASN count (changed 2026-10-11). It is determined by
+    manual entries in own-ips.txt; this test protects consistency between the source
+    list and generated output.
     """
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
     agents = check_gate_trust.load_crawler_agents(check_gate_trust.ROBOTS_PATH)
-    # ASN 段**可以合法为空**（2026-10-11 起默认不按 ASN 放行），所以这里不要求非空；
-    # 要守的是「加载器与名单一致」——两边的计数必须相等。
+    # The ASN section **may be empty** (ASN allowlisting was disabled by default on 2026-10-11), so do not require entries.
+    # Enforce that the loader matches the source list by requiring the counts to be equal.
     assert len(networks) == 2, "两个固定 IP 仍应在名单里（own-ips.txt）"
     assert len(agents) > 20, "robots.txt 里的显式爬虫不该被清空"
 

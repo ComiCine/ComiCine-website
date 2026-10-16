@@ -22,24 +22,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <!-- 子页面可覆盖的 meta（配色方案各页面不同） -->
+    <!-- Meta tags that child pages can override because each page may use a different color scheme. -->
     {% block head_meta %}
     <meta name="color-scheme" content="dark light">
     {% endblock %}
 
     <title>{% block title %}{{ _('page_title_home') }}{% endblock %}</title>
 
-    <!-- 预加载主题脚本：在渲染之前检测 localStorage，防止浅色模式下的白色闪烁 -->
+    <!-- Load the theme script before rendering to avoid a white flash in light mode. -->
     {% block theme_preload %}
     <script src="/static/js/theme-preload.js?v=2"></script>
     {% endblock %}
 
-    <!-- 提前下载全站交互脚本，避免页面内容已出现后才开始取脚本。 -->
+    <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
     <link rel="preload" href="/static/js/base.js?v=12" as="script">
 
-    <!-- 图标 -->
-    <!-- ?v= 必须带：/static/*.svg 在 _headers 里是 immutable 一年，换图标后不带版本号会一直吃老缓存 -->
+    <!-- Icons. -->
+    <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
     <link rel="icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/Limooo.svg?v=3">
     <link rel="preconnect" href="{{ image_asset_base }}">
@@ -47,30 +47,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     <link rel="preconnect" href="{{ image_watermark_base }}">
     <link rel="dns-prefetch" href="{{ image_watermark_base }}">
 
-<!-- Tailwind CSS（本地预编译，替代 Play CDN 运行时编译：消除 ~400KB 渲染阻塞脚本 + 依赖第三方 CDN） -->
+<!-- Locally precompiled Tailwind CSS replaces Play CDN runtime compilation, removing a ~400KB render-blocking script and third-party CDN dependency. -->
     <link rel="stylesheet" href="/static/tailwind.css?v=4">
 
-<!-- Inter/Baloo 2 自托管字体（与 auth/redirect 页面共用；许可见 static/fonts/LICENSE.txt 与 OFL.txt） -->
-    <!-- Baloo 2 品牌字体预加载：先下载字体再解析样式，配合 swap 减少回退字体闪现。
-         ?v= 必须与 fonts-round75.css 里 @font-face 的 url() 一致：/static/*.woff2 是
-         immutable 一年，不带版本号换字体会命中旧缓存（preload 与 CSS 两端都要带）。 -->
+<!-- Self-hosted Inter and Baloo 2 fonts shared with auth/redirect; see static/fonts/LICENSE.txt and OFL.txt. -->
+    <!-- Preload the Baloo 2 brand font before parsing styles to reduce fallback-font flashes with swap.
+         Keep ?v= aligned with the @font-face URL in fonts-round75.css. /static/*.woff2 is immutable
+         for a year, so changing a font without a new version hits the old cache. Both URLs need it. -->
     <link rel="preload" href="/static/fonts/baloo2/baloo2-latin-wght-normal.woff2?v=2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 
-<!-- 设计令牌（颜色/圆角/缓动，全站单一事实源；独立页面 auth/redirect 也引用它） -->
+<!-- Design tokens for colors, radii, and easing; the single source of truth shared by auth/redirect pages. -->
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
-<!-- 站点基础样式（由模板内联样式轻量化后抽出的统一 CSS） -->
+<!-- Site base styles extracted and optimized from the former inline template styles. -->
     <link rel="stylesheet" href="/static/css/base.css?v=20">
 
     {% block head_links %}{% endblock %}
 </head>
 <body class="antialiased {% block body_class %}{% endblock %}" data-lang="{{ g.lang }}" {% include "_lang_attrs.html" %} data-gate-url="{{ gate_url }}" data-image-asset-base="{{ image_asset_base }}" data-image-watermark-base="{{ image_watermark_base }}" data-portfolio-thumbs="{% for item in portfolio_items %}/static/portfolio/thumbs/{{ item.stem }}-640.avif{% if not loop.last %} {% endif %}{% endfor %}" data-i18n-dict='{{ translations | tojson }}'>
 
-    <!-- 闪光灯组件（由各页面按需启用，默认隐藏） -->
+    <!-- Flash component, enabled by individual pages as needed and hidden by default. -->
     {% block flash %}{% endblock %}
 
-    <!-- 导航栏 -->
+    <!-- Navigation. -->
     {% set is_prod = request.host.endswith('limooo.cn') %}
     {% set home_url = 'https://limooo.cn' if is_prod else '/' %}
     {% set services_url = 'https://services.limooo.cn' if is_prod else '/services' %}
@@ -104,14 +104,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <span class="nav-divider hidden md:block"></span>
             {% endblock %}
 
-            <!-- 语言切换（文A + 下箭头，桌面端悬停展开） -->
+            <!-- Language switch with text-and-A icon and down arrow; hover to open on desktop. -->
             <div class="theme-toggle lang-flyout">
                 <button class="lang-btn" data-action="toggleLangMenu" data-needs-event aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-haspopup="true">
                     <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
                     <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
                 <div id="langMenu" class="theme-menu">
-                    {# 语言浮层条目由契约 supported_langs 生成，加语言只改契约 #}
+                    {# Language menu entries come from contract.supported_langs; add languages in the contract only. #}
                     {% for option in lang_options %}
                     <div class="theme-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}"><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></div>
                     {% endfor %}
@@ -120,7 +120,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <span class="nav-divider nav-divider-mobile"></span>
 
             {% block theme_toggle %}
-            <!-- 深浅切换（太阳-月亮胶囊滑块） -->
+            <!-- Theme switch with a sun-and-moon pill slider. -->
             <button class="appearance-switch" type="button" role="switch" aria-checked="false" data-action="toggleTheme" aria-label="{{ _('theme_aria') }}" data-i18n-attr="aria-label:theme_aria">
                 <span class="appearance-check">
                     <span class="appearance-icon">
@@ -161,10 +161,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </nav>
     {% endblock %}
 
-    <!-- 主体内容（各页面各自填充） -->
+    <!-- Main content is filled by each page. -->
     {% block content %}{% endblock %}
 
-    <!-- 底部版权（页脚“源码在此”可点击直达源码仓库） -->
+    <!-- Footer copyright; the source link opens the code repository. -->
     {% block footer %}
     {% block footer_markup %}
     {% include "_footer.html" %}

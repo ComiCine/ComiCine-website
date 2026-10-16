@@ -18,41 +18,44 @@
  */
 
 /**
- * 访客行 IP 的加密/解密（Fernet，独立密钥 `VISITOR_IP_KEY`）。
+ * Encrypt and decrypt visitor-row IPs with Fernet and the dedicated `VISITOR_IP_KEY`.
  *
- * 为什么不是哈希：`ip_hash` 单向，无法还原，运维上「这个访客是谁」就永远答不出来。
- * 这里改成加密存储 —— 列表接口仍然只发 `ip_hash`，只有 admin 点击某一行时，
- * `/api/visitors/<hash>/ip` 才在 Worker 内解密这一条并返回。
+ * Hashing is one-way, so `ip_hash` cannot answer operational questions about
+ * a visitor. Store an encrypted value instead. List endpoints still return
+ * only `ip_hash`; decrypt one row in the Worker at `/api/visitors/<hash>/ip`
+ * only when an admin selects it.
  *
- * 密钥不复用 `OBSERVABILITY_HMAC_KEY` / `APPLE_ACCOUNT_ENCRYPTION_KEY`：
- * 前者是哈希密钥、后者保护 Apple Account 口令，用途分离（同 GATE_HMAC_KEY
- * 与 OBSERVABILITY_HMAC_KEY 的拆分约定）。
+ * Do not reuse `OBSERVABILITY_HMAC_KEY` or `APPLE_ACCOUNT_ENCRYPTION_KEY`:
+ * the former is for hashing, and the latter protects Apple Account passwords.
+ * Keep keys separated by purpose, as with GATE_HMAC_KEY and
+ * OBSERVABILITY_HMAC_KEY.
  *
- * 失败语义：写侧 fail-open（密钥缺失或加密失败只记空串，绝不阻塞访客埋点）；
- * 读侧 fail-closed（拿不到明文就返回 null，由调用方回 404/503）。
+ * Failure behavior: writes fail open (missing keys or encryption errors store
+ * an empty string and never block visitor tracking); reads fail closed
+ * (return null when plaintext cannot be recovered, so callers return 404/503).
  */
 
 import { fernetDecrypt, fernetEncrypt } from "./fernet";
 import type { Env } from "./env";
 
-/** 密钥（未配置时为空串）。 */
+/** Secret value, or an empty string when unset. */
 export function visitorIpKey(env: Env): string {
   return (env.VISITOR_IP_KEY ?? "").trim();
 }
 
-/** 加密访客 IP；未配置密钥或 IP 为空时返回空串。 */
+/** Encrypt a visitor IP; return an empty string when the key is unset or the IP is empty. */
 export async function encryptVisitorIp(ip: string, env: Env): Promise<string> {
   const key = visitorIpKey(env);
   if (!ip || !key) return "";
   try {
     return await fernetEncrypt(ip, key);
   } catch {
-    // 埋点不能因为加密失败而报错或丢掉整行统计。
+// Encryption failure must not break tracking or discard the entire row.
     return "";
   }
 }
 
-/** 解密访客 IP；密钥缺失、密文为空或校验失败时返回 null。 */
+/** Decrypt a visitor IP; return null if the key is missing, ciphertext is empty, or validation fails. */
 export async function decryptVisitorIp(token: string, env: Env): Promise<string | null> {
   const key = visitorIpKey(env);
   if (!token || !key) return null;

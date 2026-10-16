@@ -18,10 +18,11 @@
  */
 
 /**
- * Limooo Pages 中间件编排层。
+ * Limooo Pages middleware orchestration.
  *
- * 本文件只负责请求编排、统一安全头和埋点时机；路由/门禁/跳转/封禁逻辑分别
- * 位于 _lib/routing.ts、_lib/gate.ts、_lib/redirect.ts、_lib/tracking.ts。
+ * This file coordinates requests, applies shared security headers, and controls
+ * when tracking runs. Routing, gate, redirect, and blocklist logic live in
+ * _lib/routing.ts, _lib/gate.ts, _lib/redirect.ts, and _lib/tracking.ts.
  */
 
 import { logEvent } from "./_lib/logging";
@@ -75,10 +76,10 @@ import {
 type PagesFunction = (context: RequestContext) => Promise<Response>;
 
 /**
- * 把 `/files/<名>` 映射到构建产物 `/static/files/<名>`，公开直出。
+ * Map `/files/<name>` to the generated `/static/files/<name>` asset and serve it publicly.
  *
- * 只接受单层、无点号跳转的文件名，避免 `/files/../secrets` 之类的越权读取；
- * 目录本身不列目录，不存在就 404。
+ * Accept only a single-level filename with no dot traversal to prevent reads
+ * such as `/files/../secrets`. Do not list directories; return 404 when missing.
  */
 async function servePublicFile(
   context: RequestContext,
@@ -134,7 +135,7 @@ function isHtmlNavigation(request: Request): boolean {
     });
 }
 
-/** 非业务日志必须在响应返回后写入，不能阻塞页面/跳转。 */
+/** Non-business logs must be written after the response so they do not block pages or redirects. */
 function defer(context: RequestContext, promise: Promise<unknown>): void {
   if (typeof context.waitUntil === "function") {
     context.waitUntil(promise);
@@ -144,17 +145,18 @@ function defer(context: RequestContext, promise: Promise<unknown>): void {
 }
 
 /**
- * 公开预渲染页面的缓存头——**按实测事实写，不写期望**。
+ * Cache headers for public prerendered pages; **follow measured behavior, not expectations**.
  *
- * 2026-10-11 线上实测：同一 URL 连续三次请求，`cf-cache-status` 恒为 `DYNAMIC`、
- * `age` 恒为 0——Pages Functions 的响应**不参与 Cloudflare 边缘缓存**，写不写
- * `s-maxage`、`Vary` 怎么写都一样。所以这里不声明 `s-maxage`，`Vary` 里也不放
- * `Cookie`：那只是给每个访客开一个缓存桶（正是它让"边缘按 cookie 分桶"这句注释
- * 与事实相反），对边缘零收益。
+ * Live checks on 2026-10-11 sent three requests to the same URL; `cf-cache-status`
+ * stayed `DYNAMIC` and `age` stayed 0. Pages Functions responses **are not
+ * cached at the Cloudflare edge**, regardless of `s-maxage` or `Vary`. Do not
+ * set `s-maxage` or vary on `Cookie`; that would create per-visitor cache keys
+ * without any edge benefit.
  *
- * 保留 `max-age=300` 是因为**浏览器私有缓存**确实会用它，而 HTML 依赖
- * `Accept-Language`，所以保留 `Vary: Accept-Language` 让浏览器按语言分桶。
- * 真正的请求级复用来自下面的进程内 Cache API（键含 host + lang + 资产路径）。
+ * Keep `max-age=300` because **private browser caches** use it. HTML depends on
+ * `Accept-Language`, so retain `Vary: Accept-Language` to separate browser
+ * entries by language. Request-level reuse comes from the process-local Cache
+ * API below, keyed by host, language, and asset path.
  */
 const PAGE_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
 const PAGE_CACHE_VARY = "Accept-Language";
@@ -215,12 +217,13 @@ type CacheLike = {
 };
 
 /**
- * 进程内 Cache API 的缓存键：**host + 语言 + 资产路径**。
+ * Process-local Cache API key: **host + language + asset path**.
  *
- * host 必须进键：`www.<root_domain>` 与主域的路由表逐条相同（见契约 page_routes），
- * 只要哪天把 pageAsset 的调用扩展到 www，或者两个主机映射到同一份资产，
- * 不带 host 的键就会让它们互相串页。当前 www 在到达缓存前已 301，
- * 属预防性修复——用测试把这条语义锁死。
+ * Include the host in the key: `www.<root_domain>` currently shares each route
+ * with the root domain (see contract page_routes). If pageAsset is later used
+ * for www or two hosts map to the same asset, omitting host could serve one
+ * host's page on the other. www currently redirects before the cache; this
+ * preventive rule is locked down by tests.
  */
 export function pageCacheKey(host: string, assetPath: string, lang: string): URL {
   const url = new URL(assetPath, BASE_URL);
@@ -231,9 +234,11 @@ export function pageCacheKey(host: string, assetPath: string, lang: string): URL
 }
 
 /**
- * Access 保护的管理页不能进入浏览器缓存：Access 会话过期或退出后，Safari 若
- * 仍显示旧 HTML，里面的 API fetch 会被边缘重定向到 cloudflareaccess.com，
- * 页面拿不到登录表单，只会显示「加载失败」。内部 Cache API 仍可复用静态 HTML。
+ * Do not put Access-protected admin pages in the browser cache. After an
+ * Access session expires or the user signs out, Safari could display old HTML
+ * whose API fetches are redirected to cloudflareaccess.com, leaving the page
+ * with only a load failure instead of a login form. The internal Cache API may
+ * still reuse static HTML.
  */
 function applyBrowserPageCachePolicy(response: Response, hostname: string): Response {
   if (!PRIVATE_PAGE_HOSTS.has(hostname)) return response;
@@ -248,10 +253,11 @@ function applyBrowserPageCachePolicy(response: Response, hostname: string): Resp
 }
 
 /**
- * 按 host + 语言缓存预渲染页面，避免每次请求都重复读取 ASSETS。
+ * Cache prerendered pages by host and language to avoid reading ASSETS on every request.
  *
- * `host` 可选：调用方已经知道请求主机（中间件在编排层解析过一次）时直接传进来，
- * 免得为了拼缓存键再解析一遍 URL；不传则回落到 requestUrl(context.request)。
+ * `host` is optional. Callers that already know the request host can pass it
+ * in to avoid parsing the URL again for the cache key; otherwise use
+ * requestUrl(context.request).
  */
 async function cachedPageAsset(
   context: RequestContext,
@@ -279,21 +285,22 @@ async function cachedPageAsset(
   const headers = new Headers(asset.headers);
   headers.set("Cache-Control", PAGE_CACHE_CONTROL);
   headers.set("Vary", PAGE_CACHE_VARY);
-  // 直接把 ASSETS 的 body 流透传出去，不再 `await asset.arrayBuffer()` 先整块读进内存：
-  // 下面 `cache.put(response.clone())` 本来就会为两条分支做一次 tee，先缓冲等于把同一份
-  // 内容多物化一遍，而且会一直读到尾才返回。状态码 / statusText / 全部响应头（含 ASSETS
-  // 给的 Content-Type、ETag、Content-Length）逐项照搬，所以线上字节与响应头不变——
-  // 最终出口 `withSecurityHeaders()` 反正也是 `new Response(resp.body, …)`，body 在两种
-  // 写法下都是流，Content-Length 走的一直是这里从 asset 复制的那个值。
-  // `asset.body` 只在 204/205 这类「无 body 状态码」上为 null；那种资产不存在，
-  // 而旧写法对 204 会直接抛 TypeError（Response 不允许带 body 的 204），新写法不再抛。
+// Pass through the ASSETS body stream instead of awaiting asset.arrayBuffer()
+// and buffering the entire response. `cache.put(response.clone())` already
+// tees the stream; pre-buffering would duplicate materialization and delay the
+// response until the stream ends. Copy the status, statusText, and all headers
+// (including Content-Type, ETag, and Content-Length) unchanged. The final
+// withSecurityHeaders() also constructs a Response from the body stream, and
+// Content-Length continues to come from the asset. asset.body is null only for
+// bodyless statuses such as 204/205, which are not real assets; the old code
+// threw TypeError for 204, while this implementation does not.
   const response = new Response(asset.body, {
     status: asset.status,
     statusText: asset.statusText,
     headers,
   });
 
-  // 首次访问还没有语言 cookie 时会补 Set-Cookie，因此只缓存后续请求。
+// The first visit sets a language cookie, so cache only subsequent requests.
   if (cache && getCookie(LANG_COOKIE, request.headers.get("Cookie"))) {
     const put = cache.put(new Request(cacheUrl), response.clone());
     context.waitUntil?.(put);
@@ -303,10 +310,11 @@ async function cachedPageAsset(
 }
 
 /**
- * 统一注入安全响应头；API 只加 nosniff，避免破坏 JSON 接口。
+ * Apply shared security headers; add only nosniff to API responses to avoid breaking JSON endpoints.
  *
- * `url` 可选：`onRequest` 已经解析过请求 URL 时传进来，省掉一次重复解析；
- * 旧调用点只传前两个参数也能工作（行为与逐次 `new URL(request.url)` 相同）。
+ * `url` is optional. Pass it when onRequest has already parsed the URL to
+ * avoid duplicate work. Existing callers that pass only the first two
+ * arguments continue to work with the same behavior as `new URL(request.url)`.
  */
 export function withSecurityHeaders(request: Request, resp: Response, url?: URL): Response {
   const headers = new Headers(resp.headers);
@@ -324,12 +332,13 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
 }
 
 /**
- * 受保护子域未登录 → 落到本域的 /login 建立会话（tasks/17 §11.10）。
+ * Send unauthenticated users on protected subdomains to the local /login to establish a session (tasks/17 §11.10).
  *
- * Access 已经在本域之前完成了身份认证（请求头带 `Cf-Access-Jwt-Assertion`），
- * 这里只是把 Access 身份换成我们的签名会话 cookie。回到**本域**的 /login
- * 而不是跨域跳 identity：会话 cookie 是 `.limooo.cn` 域级 cookie，
- * 同域往返少一跳，也不会在 Safari 上丢 cookie。
+ * Access has already authenticated the user before this subdomain and added
+ * `Cf-Access-Jwt-Assertion`. This step converts that identity into our signed
+ * session cookie. Return to `/login` on the **same host** rather than sending
+ * the user to a separate identity host: the session cookie is scoped to
+ * `.limooo.cn`, so a same-host round trip saves a hop and avoids Safari cookie issues.
  */
 async function adminAuthRedirect(
   env: RequestContext["env"],
@@ -356,7 +365,7 @@ async function adminAuthRedirect(
   }
 }
 
-/** 取回验证完成后应显示的原路径，移除仅供触发强制验证的参数。 */
+/** Get the original path to show after verification and remove the parameter used only to force a challenge. */
 function gateNextPath(pathname: string, search: string): string {
   const nextUrl = new URL(pathname + search, BASE_URL);
   nextUrl.searchParams.delete("challenge");
@@ -364,11 +373,11 @@ function gateNextPath(pathname: string, search: string): string {
 }
 
 /**
- * 会话临近到期时，在正常页面响应上顺带续签 __gate cookie。
+ * Renew the __gate cookie on a normal page response when the session is near expiry.
  *
- * 续期由 resolveGateTrust 的 shouldRenew 决定（走完 3/4 TTL 才续一次），
- * 因此这里不会把 cookie 变成每次请求都刷新的无限滑动窗口；不续期时
- * 原样返回响应，不做任何额外分配。
+ * resolveGateTrust.shouldRenew controls renewal and waits until three quarters
+ * of the TTL has elapsed, so this does not create an unbounded sliding window.
+ * When renewal is unnecessary, return the response unchanged without extra allocations.
  */
 async function renewGateCookie(
   context: RequestContext,
@@ -388,17 +397,17 @@ async function renewGateCookie(
   });
 }
 
-/** 中间件核心编排，导出供本地测试 mock 依赖。 */
+/** Core middleware orchestration, exported so local tests can mock dependencies. */
 export async function handleOnRequest(context: RequestContext): Promise<Response> {
   const { request, env, next } = context;
-  // 解析一次、全链路复用（requestUrl 记忆化 + 下面显式往下传的 lang/host/url）。
+// Parse once and reuse through the request path: requestUrl is memoized and lang/host/url are passed explicitly below.
   const url = requestUrl(request);
   const configError = runtimeConfigError(env);
   if (configError) return configErrorResponse(configError);
   const { hostname, pathname } = url;
   const forceChallenge = url.searchParams.get("challenge") === "1";
 
-  // 运维健康端点：不记录访客、不经过人机门禁，供 Uptime Kuma 以探针 UA 访问。
+// Operations health endpoint: no visitor tracking or human-verification gate; Uptime Kuma calls it with a probe UA.
   if (pathname === "/_health") {
     return new Response("ok\n", {
       status: 200,
@@ -417,52 +426,57 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  // 应用层封禁的豁免名单：这些路径即使来自被封 IP 也必须可达，否则管理员
-  // 从被封 IP 就再也登不进来/退不出去，只能等 Cloudflare IP List 的下一次同步。
-  // 只匹配精确路径或它的子路径（routing.ts 的 isExemptPath）：宽前缀
-  // `startsWith("/account")` 会把未来的 `/account-anything` 一起放行，
-  // 等于给攻击者留一个免封禁前缀。
+// Application-level blocklist exemptions. These paths must remain reachable
+// from blocked IPs so administrators can still sign in or out instead of
+// waiting for the next Cloudflare IP List sync. Match exact paths or their
+// subpaths with routing.ts isExemptPath; a broad prefix such as
+// `startsWith("/account")` would also exempt future `/account-anything` paths.
   const exempt = isExemptPath(pathname);
   const whitelisted = isGateTrustedIp(request.headers.get("CF-Connecting-IP") ?? "");
-  // 信任判定的**廉价前段**：白名单 IP 或 Cloudflare verifiedBot。这里先算一次，
-  // 让封禁检查能跳过已信任来源（两者都是纯函数/读请求头，不查库）。
+// Cheap first stage of trust evaluation: allowlisted IP or Cloudflare
+// verifiedBot. Compute it once so blocklist checks can skip trusted sources;
+// both checks are pure or read request headers and do not query a database.
   //
-  // 爬虫 UA 名单（docs/lists/robots.txt）**刻意不在这里**：UA 是自报的，
-  // 让它跳过 blocked_ips 检查等于「被封的抓取者换个 UA 就解封」。它只在下面的
-  // 门禁判定里生效（resolveGateTrust 的 declaredCrawler），封禁照查。
+// Deliberately do not include the crawler UA list (docs/lists/robots.txt)
+// here: user agents are self-reported, and skipping blocked_ips would let a
+// blocked crawler evade blocking by changing its UA. The list applies only to
+// the gate decision below via resolveGateTrust.declaredCrawler.
   const sourceTrusted = whitelisted || isTrustedCrawler(request);
 
-  // 公开静态资源与 API 必须先放行：跳转子域也共享 /static 资源，
-  // 不能把 redirect.limooo.cn/static/css/... 也渲染成 Redirecting HTML。
-  // （必须在封禁检查之前：静态资源与 /files/ 本来就不该为它查库。）
+// Route public static assets and APIs first. The redirect subdomain shares
+// /static assets; do not render redirect.limooo.cn/static/css/... as a redirect
+// page. Do this before blocklist checks because static assets and /files/ do
+// not require a database lookup.
   if (isPublicAssetPath(pathname) || isApiPath(pathname)) {
-    // 干净文件 URL `/files/<名>` → 构建产物 `/static/files/<名>`，
-    // 公开、不经过人机门禁（images.limooo.cn 下也走这条）。
+// Clean file URL `/files/<name>` maps to `/static/files/<name>` in the build
+// output. It is public and bypasses the gate, including on images.limooo.cn.
     if (pathname.startsWith(PUBLIC_FILES_PREFIX)) {
       const response = await servePublicFile(context, pathname);
       return redirectMissingDocument(request, response);
     }
-    // `/api/*` 仍然要过封禁检查（W9-1）：只有静态资源、/files/，
-    // 以及豁免路径/已信任来源的 API 直接返回。豁免路径不查库（也查不出结果）。
+// `/api/*` must still pass the blocklist check (W9-1). Only static assets,
+// /files/, and APIs from exempt paths or trusted sources return directly.
+// Exempt paths skip the database lookup because it cannot change the result.
     if (!isApiPath(pathname)) return next();
   }
 
   /**
-   * 应用层封禁检查（放行 exempt 名单，以及已信任来源）。
+   * Application-level blocklist check; exempt paths and trusted sources pass.
    *
-   * 位置很关键，三条都不能退：
-   * 1. 必须在 `/api/*` 的 `next()` **之前**。此前的写法把 `isApiPath` 的早返回
-   *    放在检查之前，于是（除静态资源外的）全部 API 路径都绕过了封禁
-   *    （`/api/visitors`、`/api/blocklist`、`/api/ray/<id>` …），exempt 里的
-   *    三条 `/api/...` 也因此成了永远走不到的死条件；被封 IP 只能等每天 03:30
-   *    的 D1→Cloudflare IP List 同步才真正被封，同步一失败就永不封。
-   * 2. 已信任来源（白名单 IP、verifiedBot）直接跳过、不查库：一次检查最坏是
-   *    33 个 IPv4 前缀探测（IPv6 129 个），让所有正常访客都照查是本审计里
-   *    单项最大的固定读取开销（tasks/22 W2-2）。
-   * 3. 判据用 `sourceTrusted`（不含 cookieValid）：持 __gate 的普通访客仍受封禁约束。
+   * Placement is critical; preserve all three rules:
+   * 1. Run **before** `next()` for `/api/*`. Previously, the `isApiPath`
+   *    early return came first, letting every API except static assets bypass
+   *    blocking. This also made the exempt API paths unreachable, leaving
+   *    blocked IPs to wait for the daily 03:30 D1-to-Cloudflare IP List sync.
+   * 2. Skip database reads for trusted sources (allowlisted IPs and
+   *    verifiedBot). A check can require 33 IPv4 prefix probes or 129 for
+   *    IPv6; doing that for every normal visitor was the largest fixed read
+   *    cost in this audit (tasks/22 W2-2).
+   * 3. Use `sourceTrusted`, not cookieValid; ordinary visitors with __gate
+   *    cookies remain subject to blocking.
    *
-   * 豁免名单保留：被封 IP 也必须能访问 /login、/gate 等入口，否则只能等
-   * Cloudflare IP List 的下一次同步才可能脱困。
+   * Keep the exempt list so blocked IPs can still reach /login and /gate
+   * instead of waiting for the next Cloudflare IP List sync.
    */
   const bannedIp = request.headers.get("CF-Connecting-IP") ?? "";
   if (
@@ -478,26 +492,27 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  // `/api/*` 走完封禁检查后一律交回各自的 API 路由（旧行为）：豁免与已信任来源
-  // 在上面就跳过了检查，非豁免来源只有「没命中封禁」才会落到这里。少了这一行，
-  // 豁免的 API（/api/auth、/api/apple-account、/api/ray）会被后面的门禁判定接管，
-  // 管理员从被封 IP 又登不进来了。
+// After blocklist checks, pass `/api/*` to its route as before. Exempt and
+// trusted sources skip the check above; other sources arrive here only if not
+// blocked. Without this return, exempt APIs such as /api/auth,
+// /api/apple-account, and /api/ray would be caught by the gate below, keeping
+// administrators on blocked IPs from signing in.
   if (isApiPath(pathname)) return next();
 
-  // 跳转子域：纯中转页，豁免人机验证。
+// Redirect subdomain: forwarding only; bypass human verification.
   if (isRedirectHost(hostname)) return renderRedirectPage(context);
 
-  // 门禁接口与公开静态/API 路径不能被门禁拦截。
+// Gate endpoints and public static/API paths must bypass the gate.
   if (pathname === "/__gate/verify" || pathname === "/gate/verify") return handleVerify(context);
   if (pathname === "/__gate/config" || pathname === "/gate/config") return handleGateConfig(context);
   if (pathname === "/__gate/diag" || pathname === "/gate/diag") return handleGateDiag(context);
 
-  // 门禁页：/gate 是唯一对外入口，旧 /__gate 一律 308 到它。
-  // 任意主机（对应域名）都能渲染/回跳，做到同域名完成 challenge。
+// Gate page: /gate is the only public endpoint; redirect legacy /__gate paths to it with 308.
+// Render and return on any corresponding host so the challenge completes on the same domain.
   if (pathname === "/__gate") return handleLegacyGateRedirect(context);
   if (pathname === "/gate") return handleGateEntry(context);
 
-  // 图片子域强制挑战直接在当前 URL 输出门禁页，地址栏不切到 /__gate。
+// On the image subdomain, render a forced challenge at the current URL; do not change the address to /__gate.
   if (forceChallenge && hostname === IMAGES_HOSTNAME) {
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
@@ -557,7 +572,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  // images.<root_domain> 仅公开静态资源；/icons、/portfolio/thumbs 等路径映射到 /static。
+// images.<root_domain> serves public static assets only; map /icons and /portfolio/thumbs to /static.
   if (hostname === IMAGES_HOSTNAME) {
     if (env.ASSETS) {
       const staticPath = pathname === "/static" || pathname.startsWith("/static/")
@@ -577,7 +592,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     return redirectMissingDocument(request, new Response("Not Found", { status: 404 }));
   }
 
-  // www 保持原 nginx 行为：先 301 到主站（保留路径）。
+// Preserve the former nginx behavior for www: redirect to the root domain with 301 and keep the path.
   if (hostname === WWW_HOSTNAME) {
     return withLangCookie(request, new Response(null, {
       status: 301,
@@ -589,8 +604,9 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   }
 
   const trust = await resolveGateTrust(context);
-  // 三种放行来源：IP 白名单/verifiedBot（trusted）、爬虫 UA 名单（declaredCrawler，
-  // 只免人机验证，见 _lib/bots.ts）、以及有效的 __gate cookie。
+// Three sources can pass the gate: allowlisted IP or verifiedBot (trusted), a
+// crawler user agent (declaredCrawler; bypasses verification only, see
+// _lib/bots.ts), and a valid __gate cookie.
   const gated = !(trust.trusted || trust.declaredCrawler || trust.cookieValid);
 
   if (!gated) {
@@ -605,8 +621,9 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         }),
       );
     } else if (trust.declaredCrawler) {
-      // 爬虫放行**记一条**：UA 是自报的，这条日志是「谁在按名单进门」的唯一线索
-      // （爬虫量级是每天几十到几百，不构成 D1 写入压力）。
+// **Log crawler allowlist matches**: user agents are self-reported, so this is
+// the only record of which agents use the list. Their volume is tens to
+// hundreds per day and does not materially affect D1 writes.
       defer(
         context,
         logEvent(env, "gate_bypass", request, {
@@ -625,7 +642,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
       if (authRedirect) return withLangCookie(request, authRedirect, lang);
       const resp = await cachedPageAsset(context, asset, lang, hostname);
       if (resp?.ok) {
-        // 会话临近到期时在响应里顺带续签，访客不会在浏览中途被弹回门禁页。
+// Renew the session on the response near expiry so visitors are not sent back to the gate mid-session.
         return withLangCookie(
           request,
           await renewGateCookie(context, resp, trust.shouldRenew),
@@ -633,8 +650,8 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         );
       }
     }
-    // 门禁主机没有别的内容页：已验证访客也在原地渲染门禁页（200），
-    // 既不落到 404，也不把人送去主站。
+// The gate host has no other content pages. Render the gate page in place with
+// status 200 even for verified visitors; do not return 404 or send them to the main site.
     if (hostname === GATE_HOSTNAME) {
       return renderGatePage(context, {
         host: hostname,
@@ -651,8 +668,9 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     );
   }
 
-  // 带了 __gate 却仍不放行：把校验结论落进 events，用于定位「验证成功又被拦」。
-  // 只在这种异常态记录，正常首访（无 cookie）不写，避免无谓的 D1 写入。
+// If a request has __gate but still fails, write the validation result to
+// events to diagnose blocks after verification. Log only this unusual state;
+// do not write for normal first visits without a cookie.
   if (trust.cookiePresent) {
     defer(
       context,
@@ -665,19 +683,19 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     );
   }
 
-  // 未验证：直接在被访问的 URL 输出门禁页，地址栏始终保持原页面地址。
+// For unverified requests, render the gate page at the requested URL and keep the address bar unchanged.
   return renderGatePage(context, { host: hostname, next: pathname + url.search });
 }
 
 export const onRequest: PagesFunction = async (context) => {
   const { request, env } = context;
-  // handleOnRequest 内部解析的就是同一个 URL 对象（requestUrl 按 Request 记忆化），
-  // 这里取回来的同时显式喂给安全头与埋点，全程只解析一次。
+// Reuse the URL object parsed inside handleOnRequest; requestUrl memoizes by
+// Request. Pass it to security headers and tracking so the request is parsed once.
   const url = requestUrl(request);
   const startedAt = Date.now();
   const resp = withSecurityHeaders(request, await handleOnRequest(context), url);
 
-  // 门禁拒绝与已封来源不落访问/Ray 日志，避免扫描流量反过来耗尽 D1 配额。
+// Do not track gate rejections or blocked sources; scanning traffic must not consume the D1 quota.
   const trackResponse = resp.status !== 403;
   if (trackResponse && shouldTrackVisit(request, url)) {
     if (typeof context.waitUntil === "function") {

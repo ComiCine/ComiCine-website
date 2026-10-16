@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/check_ip_rays.py 的纯函数测试（IP 归一化 / hash 识别 / 渲染）。"""
+"""Pure-function tests for ops/check_ip_rays.py (IP normalization, hash lookup, and rendering)."""
 
 import ast
 import re
@@ -29,14 +29,14 @@ HAN = re.compile(r"[\u4e00-\u9fff]")
 
 
 def test_terminal_output_is_english():
-    """命令行输出必须全英文（AGENTS.md「命令行脚本的输出一律全英文」）。
+    """Command-line output must be entirely English, as required by AGENTS.md.
 
-    只允许注释与 docstring 用中文；任何 print/help/报错文本出现中文即失败。
-    用 AST 取出真正的字符串字面量，避免把注释和 docstring 误判成输出文本。
+    Any Chinese in print, help, or error text fails this check. Use the AST to inspect
+    actual string literals, so comments and docstrings are not mistaken for output.
     """
     tree = ast.parse(Path(cir.__file__).read_text(encoding="utf-8"))
 
-    # docstring（模块/函数/类）不面向终端，豁免。
+    # Module, function, and class docstrings are not terminal output and are excluded.
     docstrings = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -56,7 +56,7 @@ def test_terminal_output_is_english():
 
 
 def test_default_limit_is_five():
-    """默认返回 5 条（用户 2026-09-27 指定）。"""
+    """The default result limit is five (specified on 2026-09-27)."""
     assert cir.DEFAULT_LIMIT == 5
 
 
@@ -67,7 +67,7 @@ def test_default_limit_is_five():
         (" 176.122.161.108 ", "176.122.161.108"),
         ("[240e:404::1]", "240e:404::1"),
         ("240e:404:9210:1d78:7c62:faff:fef9:34b5", "240e:404:9210:1d78:7c62:faff:fef9:34b5"),
-        # 日志里常见 host:port 形式
+        # Common host:port format found in logs.
         ("1.2.3.4:52344", "1.2.3.4"),
     ],
 )
@@ -84,9 +84,9 @@ def test_normalize_ip_rejects_invalid(raw):
 def test_looks_like_hash():
     assert cir.looks_like_hash("d51153cb767fc758")
     assert cir.looks_like_hash("D51153CB767FC758")
-    assert not cir.looks_like_hash("d51153cb767fc75")  # 15 位
-    assert not cir.looks_like_hash("d51153cb767fc758a")  # 17 位
-    assert not cir.looks_like_hash("z1153cb767fc758")  # 非 hex
+    assert not cir.looks_like_hash("d51153cb767fc75")  # 15 characters.
+    assert not cir.looks_like_hash("d51153cb767fc758a")  # 17 characters.
+    assert not cir.looks_like_hash("z1153cb767fc758")  # Not hexadecimal.
 
 
 def test_render_v2_renders_fields():
@@ -105,12 +105,12 @@ def test_render_v2_renders_fields():
     assert "a4162d53fc471732-SJC" in line
     assert "visitor.limooo.cn/" in line
     assert "386ms" in line
-    # 无装饰符号（AGENTS.md：终端输出只要纯净英文）。
+    # No decorative symbols (AGENTS.md: terminal output must be plain English).
     assert "==" not in line and "--" not in line
 
 
 def test_render_v2_columns_align():
-    """定宽对齐：状态列右对齐、ray 列左对齐，长度不同的行也落在同一列。"""
+    """Fixed-width alignment keeps the right-aligned status and left-aligned ray columns consistent across rows."""
     base = {"ts": 1790466693, "method": "GET", "country": "US", "path": "/"}
     short = cir.render_v2({**base, "ray": "a4162d53fc471732-SJC", "status": 200, "duration_ms": 5})
     long = cir.render_v2({**base, "ray": "a4158dde3e649f60-AMS", "status": 301, "duration_ms": 1234})
@@ -122,27 +122,27 @@ def test_render_legacy_marks_source_and_fills_gap():
     line = cir.render_legacy({"ray": "a40468eaedd2a158", "ts": 1790280389, "host": "x", "ip": "1.2.3.4"})
     assert "a40468eaedd2a158" in line
     assert line.endswith("[legacy]")
-    # 旧表没有 duration，用 - 占位，不留空洞。
+    # The legacy table has no duration; use `-` as a placeholder rather than leaving a gap.
     assert " - " in line
 
 
 def test_no_decorative_banner_in_source():
-    """源码里不应再出现 == xxx == 这种装饰性横幅（AGENTS.md 约定）。"""
+    """Source code must not contain decorative == title == banners (AGENTS.md)."""
     source = Path(cir.__file__).read_text(encoding="utf-8")
     assert "print(f\"== " not in source
     assert 'print("==' not in source
 
 
 def test_resolve_hashes_requires_key(monkeypatch):
-    """密钥缺失时必须给出警告，而不是静默返回「无记录」。"""
+    """Warn when the key is missing instead of silently reporting no records."""
     hashes, warn = cir.resolve_hashes({"token": "t"}, {}, "1.2.3.4")
     assert hashes == []
     assert "VISITOR_IP_KEY" in warn
 
 
 def test_resolve_hashes_roundtrip(monkeypatch):
-    """加密行能被解回 IP，并映射到同一行的 ip_hash。"""
-    if cir.Fernet is None:  # pragma: no cover - 取决于解释器
+    """Decrypt each row to its IP and map it to the ip_hash from that same row."""
+    if cir.Fernet is None:  # pragma: no cover - Depends on the Python interpreter.
         pytest.skip("cryptography not installed")
 
     from cryptography.fernet import Fernet

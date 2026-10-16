@@ -1,4 +1,4 @@
-# Limooo - 统一配置与公共工具
+# Limooo - shared configuration and utilities
 #
 # Copyright (C) 2026 Limooo <https://limooo.cn/>
 #
@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""项目级统一配置与公共工具。
+"""Project-wide configuration and shared utilities.
 
-集中维护路径、语言、域名、数据库连接等常量，供 Flask 后端与 Pages 构建脚本复用。
-Pages 侧对应配置见 ``functions/_lib/config.ts``。
+Centralize paths, languages, domains, database connections, and other constants shared
+by the Flask backend and Pages build scripts. The Pages-side counterpart is
+``functions/_lib/config.ts``.
 """
 
 from __future__ import annotations
@@ -27,8 +28,8 @@ import json
 import os
 import sqlite3
 
-# 路径常量
-# 仓库根目录（本文件位于 src/ 下，向上取一层）
+# Path constants
+# Repository root (this file is in src/, one level below the root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 SOURCE_DIR = os.path.join(BASE_DIR, "src")
@@ -38,13 +39,14 @@ LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 PUBLIC_DIR = os.environ.get("LIMOOO_PUBLIC_DIR") or os.path.join(BASE_DIR, "public")
 PREVIEW_DIR = os.environ.get("LIMOOO_PREVIEW_DIR") or os.path.join(BASE_DIR, "preview")
 
-# 跨端共享配置的唯一事实源：config.py 与 build.py 生成 functions/_lib/config.ts
-# 都从这里读取。修改域名 / 语言 / cookie / TTL / 公开主机时只改本文件。
+# Single source of truth for shared configuration: config.py and the generated
+# functions/_lib/config.ts both read from here. Change domains, languages,
+# cookies, TTLs, and public hosts in this file only.
 CONTRACT_PATH = os.path.join(BASE_DIR, "config-contract.json")
 
 
 def _load_contract() -> dict:
-    """读取并返回跨端契约文档；解析失败时直接抛错，避免静默使用旧常量。"""
+    """Read and return the cross-platform contract, raising on parse errors to prevent stale constants."""
     try:
         with open(CONTRACT_PATH, encoding="utf-8") as f:
             data = json.load(f)
@@ -80,7 +82,7 @@ def _contract_str_list(key: str) -> list[str]:
 
 
 def _contract_page_routes() -> dict[str, dict[str, str]]:
-    """读取 host → path → 预渲染页面文件 的路由映射并做基本校验。"""
+    """Read and validate the host-to-path-to-prerendered-page route mapping."""
     value = CONTRACT.get("page_routes")
     if not isinstance(value, dict):
         raise RuntimeError("配置契约缺少 page_routes 字段（应为 JSON 对象）")
@@ -102,26 +104,29 @@ def _contract_page_routes() -> dict[str, dict[str, str]]:
     return routes
 
 
-# 全新部署时 data/ 可能尚不存在，import 即确保目录就绪
-# 构建模式（LIMOOO_BUILD=1）只做纯渲染，不创建运行数据库所在目录；真正的
-# Python 服务启动时仍会创建，避免 build.py 在干净机器上产生 data/ 副作用。
+# On a fresh deployment, data/ may not exist yet; importing this module ensures
+# the directory is ready. Build mode (LIMOOO_BUILD=1) only renders output and
+# does not create the runtime database directory. The Python service creates it
+# at startup, so build.py has no data/ side effects on a clean machine.
 BUILD_MODE = os.environ.get("LIMOOO_BUILD") == "1"
 if not BUILD_MODE:
     os.makedirs(DATA_DIR, exist_ok=True)
 
-# 运行时数据库：与可丢的 geo_cache.db(IP 缓存)分开,避免部署清理误伤业务数据
+# Runtime database, kept separate from the disposable geo_cache.db (IP cache)
+# so deployment cleanup cannot remove application data.
 DATABASE = os.path.join(DATA_DIR, "geo_cache.db")
 APPLE_ACCOUNT_DB = os.path.join(DATA_DIR, "apple_account.db")
 AUTH_DB = os.path.join(DATA_DIR, "auth.db")
-# 封禁名单的导入种子（权威是 D1 的 blocked_ips；见 docs/lists/README.md）。
-# 2026-10-11 从 data/ 移到 docs/lists/：与白名单放在一起便于手工维护。
+# Import seed for the blocklist (D1 blocked_ips is authoritative; see
+# docs/lists/README.md). Moved from data/ to docs/lists/ on 2026-10-11 so it is
+# easier to maintain alongside the allowlist.
 LISTS_DIR = os.path.join(BASE_DIR, "docs", "lists")
 BLOCKLIST_FILE = os.path.join(LISTS_DIR, "blocklist.txt")
 
 SECRET_DIR = os.path.join(BASE_DIR, "secrets")
 ENV_FILE = os.path.join(SECRET_DIR, "webauthn.env")
 
-# Cloudflare 封禁同步（auto_block.py / sync-worker 共用约定）
+# Cloudflare blocklist synchronization (shared by auto_block.py and sync-worker)
 CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 CF_LIST_NAME = "limooo_blocklist"
 CF_BATCH_SIZE = 200
@@ -129,7 +134,7 @@ D1_DATABASE_ID = os.environ.get(
     "D1_DATABASE_ID", "e2f29d54-29c0-46af-938d-e13995a11d7f"
 )
 
-# 域名与子域
+# Domains and subdomains
 ROOT_DOMAIN = _contract_str("root_domain")
 BASE_URL = f"https://{ROOT_DOMAIN}"
 WWW_HOST = f"www.{ROOT_DOMAIN}"
@@ -157,15 +162,15 @@ GATE_TRUST = CONTRACT.get("gate_trust", {})
 OBSERVABILITY_HMAC_ENV = _contract_str("observability_hmac_env")
 SESSION_COOKIE_DOMAIN = f".{ROOT_DOMAIN}"
 
-# 开源仓库
-# AGPL-3.0 顶栏/页脚“源码在此”链接指向的仓库地址。
+# Open-source repository
+# Repository linked by the AGPL-3.0 "Source code" links in the header and footer.
 SOURCE_REPO_URL = "https://github.com/Limooooo-Studio/Limooo-Website"
 
-# 多语言
-# 语言代码统一小写（与 Cloudflare Turnstile 的 language 参数格式一致）
+# Languages
+# Language codes are lowercase to match Cloudflare Turnstile's language parameter.
 SUPPORTED_LANGS = tuple(_contract_str_list("supported_langs"))
-DEFAULT_LANG = _contract_str("default_lang")  # 无法判定时使用该语言
-KEY_FALLBACK_LANG = _contract_str("key_fallback_lang")  # 缺失翻译键时回退语言
+DEFAULT_LANG = _contract_str("default_lang")  # Used when the language cannot be determined
+KEY_FALLBACK_LANG = _contract_str("key_fallback_lang")  # Used when a translation key is missing
 if DEFAULT_LANG not in SUPPORTED_LANGS or KEY_FALLBACK_LANG not in SUPPORTED_LANGS:
     raise RuntimeError("配置契约中的 default_lang / key_fallback_lang 必须属于 supported_langs")
 LANG_COOKIE = _contract_str("lang_cookie")
@@ -173,7 +178,7 @@ LANG_COOKIE_MAX_AGE = _contract_int("lang_cookie_max_age")
 THEME_COOKIE = _contract_str("theme_cookie")
 THEME_COOKIE_MAX_AGE = _contract_int("theme_cookie_max_age")
 
-# 人机验证门禁与登录（与 Pages 侧 functions/_lib/config.ts 保持一致）
+# Human-verification gate and login (aligned with Pages functions/_lib/config.ts)
 GATE_COOKIE = _contract_str("gate_cookie")
 SESSION_COOKIE = _contract_str("session_cookie")
 PENDING_COOKIE = _contract_str("pending_cookie")
@@ -181,7 +186,8 @@ CSRF_COOKIE = _contract_str("csrf_cookie")
 GATE_COOKIE_TTL = _contract_int("gate_ttl_seconds")
 SESSION_TTL = _contract_int("session_ttl_seconds")
 PENDING_TTL = _contract_int("pending_ttl_seconds")
-# 明文密码 reveal 要求的「近期认证」最大年龄（秒）；超时须重新登录。
+# Maximum age in seconds for recent authentication required to reveal a plaintext
+# password; users must log in again after this interval.
 REVEAL_MAX_AUTH_AGE = _contract_int("reveal_max_auth_age_seconds")
 WHITELIST_FILE = _contract_str("whitelist_file")
 
@@ -190,7 +196,7 @@ APPLE_ACCOUNT_DOMAIN = f"@{APPLE_ACCOUNT_HOST}"
 APPLE_ACCOUNT_KEY_ETC = "/etc/limooo/apple_account_encryption.key"
 APPLE_ACCOUNT_KEY_FILE = os.path.join(SECRET_DIR, "apple_account_encryption.key")
 
-# 统一跳转页预热图片（与 Page 端 manifest 及 Pages 中间件保持一致）
+# Redirect-page preload images (aligned with the Pages manifest and middleware)
 REDIRECT_PRELOAD_IMAGES = [
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0203-800.webp",
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0146-800.webp",
@@ -200,9 +206,9 @@ REDIRECT_PRELOAD_IMAGES = [
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0179-800.webp",
 ]
 
-# 数据库连接工厂
+# Database connection factory
 def get_geo_db() -> sqlite3.Connection:
-    """创建带 WAL 模式和超时的 SQLite 连接，支持并发访问"""
+    """Create a SQLite connection with WAL mode and a timeout for concurrent access."""
     conn = sqlite3.connect(DATABASE, timeout=10)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
@@ -210,7 +216,7 @@ def get_geo_db() -> sqlite3.Connection:
 
 
 def get_apple_account_db() -> sqlite3.Connection:
-    """创建 Apple Account 业务库连接(独立于 geo_cache.db)"""
+    """Create the Apple Account database connection, separate from geo_cache.db."""
     conn = sqlite3.connect(APPLE_ACCOUNT_DB, timeout=10)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
@@ -218,9 +224,9 @@ def get_apple_account_db() -> sqlite3.Connection:
     return conn
 
 
-# IP 工具
+# IP utilities
 def is_private_ip(ip: str) -> bool:
-    """判断 IP 是否为私有/回环地址，这类地址不需要 GeoIP 查询"""
+    """Check whether an IP is private or loopback; these addresses need no GeoIP lookup."""
     if ip in ("127.0.0.1", "localhost", "::1", "-"):
         return True
     if ip.startswith(("192.168.", "10.")):
@@ -230,9 +236,9 @@ def is_private_ip(ip: str) -> bool:
     return False
 
 
-# 地理位置缓存数据库操作
+# Geolocation cache database operations
 def ensure_geo_cache(conn: sqlite3.Connection) -> None:
-    """创建 geo_cache 表（如果不存在），并执行必要的 schema 迁移"""
+    """Create the geo_cache table if needed and apply required schema migrations."""
     conn.execute("""
         CREATE TABLE IF NOT EXISTS geo_cache (
             ip         TEXT PRIMARY KEY,
@@ -245,7 +251,7 @@ def ensure_geo_cache(conn: sqlite3.Connection) -> None:
             cached_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # 兼容旧版本：检查是否缺少 asn 列，如有需要则新增
+    # Backward compatibility: add the asn column if it is missing.
     cols = {r[1] for r in conn.execute("PRAGMA table_info(geo_cache)").fetchall()}
     if "asn" not in cols:
         conn.execute("ALTER TABLE geo_cache ADD COLUMN asn TEXT")
@@ -253,14 +259,15 @@ def ensure_geo_cache(conn: sqlite3.Connection) -> None:
 
 
 def get_cached_geo(conn: sqlite3.Connection, ip: str) -> dict | None:
-    """从缓存数据库中读取指定 IP 的地理位置信息"""
+    """Read the cached geolocation for an IP address."""
     row = conn.execute(
         "SELECT country, city, latitude, longitude, isp, asn FROM geo_cache WHERE ip = ?",
         (ip,),
     ).fetchone()
     if not row:
         return None
-    # 用索引访问:调用方不一定设置了 row_factory=Row(sqlite3.Row 同样支持索引)
+    # Use index access because callers may not set row_factory=Row
+    # (sqlite3.Row supports indexing as well).
     return {
         "country": row[0],
         "city": row[1],
@@ -272,11 +279,12 @@ def get_cached_geo(conn: sqlite3.Connection, ip: str) -> dict | None:
 
 
 def load_translations() -> dict[str, dict[str, str]]:
-    """读取全部语言 JSON，并校验成「字符串 -> 字符串」字典。
+    """Read every locale JSON file and validate it as a string-to-string mapping.
 
-    这是唯一的 locale 读取入口：构建期缺少翻译文件必须直接失败，不能静默降级
-    成空字典（否则页面会整片丢文案）。原先 build.py 的四处循环与
-    render_app.py 各写了一份，其中 build.py 有两条路径连类型都不校验。
+    This is the only locale-loading entry point. A missing translation file during
+    the build must fail instead of silently falling back to an empty mapping, which
+    would remove page copy. Previously, build.py had four separate loops and
+    render_app.py had another; two build.py paths did not validate value types.
     """
     translations: dict[str, dict[str, str]] = {}
     for lang in SUPPORTED_LANGS:

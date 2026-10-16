@@ -18,14 +18,15 @@
  */
 
 /**
- * GET /login 测试（tasks/22 W5-7）：Access 身份落地与「失败绝不下发 cookie」。
+ * Tests for GET /login (tasks/22 W5-7): Access identity handoff and the guarantee that failures never issue cookies.
  *
- * 这个端点没有测试是很危险的：它是唯一签发会话 cookie 的地方，而
- * `createAuthSession` 失败时**必须** 503 —— 一旦退回「cookie 照发、D1 写失败
- * 就算了」，拿到的就是一张 `requireAuth` 永远查不到、也永远撤不掉的通行证。
+ * This endpoint is risky without tests: it is the only place that issues session cookies, and a
+ * `createAuthSession` failure **must** return 503. If the code issues a cookie despite a failed D1 write,
+ * it becomes a credential that `requireAuth` can never find or revoke.
  *
- * `verifyAccessJwt` 被桩掉（真实验签需要 RS256 私钥与 JWKS 端点）；其余
- * 分支（配置缺失、无断言头、D1 不可用、next 回退）走真实实现。
+ * `verifyAccessJwt` is stubbed because real verification requires an RS256 key and JWKS endpoint.
+ * Other branches (missing configuration, missing assertion header, unavailable D1, and next fallback)
+ * use the real implementation.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +48,7 @@ const CONFIG = {
   ACCESS_ADMIN_AUDS: "admin-aud",
 };
 
-/** 只实现 login.ts 用到的那几个方法的最小 D1 stub。 */
+/** Minimal D1 stub implementing only the methods used by login.ts. */
 function fakeDb(mode: "ok" | "throw") {
   const statements: Array<{ sql: string; values: unknown[] }> = [];
   const db = {
@@ -100,7 +101,7 @@ describe("GET /login", () => {
       expect(resp.headers.get("Set-Cookie")).toBeNull();
       expect(resp.headers.get("Cache-Control")).toBe("no-store");
     }
-    // 配置不全时连验签都不该尝试。
+    // Do not attempt JWT verification when configuration is incomplete.
     expect(vi.mocked(verifyAccessJwt)).not.toHaveBeenCalled();
   });
 
@@ -138,7 +139,7 @@ describe("GET /login", () => {
     expect(cookies[0]).toContain("HttpOnly");
     expect(cookies[0]).toContain("Secure");
 
-    // 会话必须先落 D1 撤销表，否则 sign 出来的 cookie 无法撤销。
+    // The session must be written to the D1 revocation table before signing a cookie, or the cookie cannot be revoked.
     const insert = statements.find((s) => s.sql.includes("INSERT INTO auth_sessions"));
     expect(insert).toBeDefined();
     expect(insert!.values).toHaveLength(5);
@@ -158,7 +159,7 @@ describe("GET /login", () => {
     );
 
     expect(resp.status).toBe(503);
-    // 关键：D1 写失败绝不能下发一张「查不到也撤不掉」的会话 cookie。
+    // Critical: a failed D1 write must never issue a session cookie that cannot be found or revoked.
     expect(resp.headers.get("Set-Cookie")).toBeNull();
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
   });

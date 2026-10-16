@@ -18,24 +18,24 @@
  */
 
 /**
- * 每日 UTC 00:00 将前一天的分析数据写入私有 R2。
+ * At 00:00 UTC each day, write the previous day's analytics data to private R2.
  *
- * 这里只归档可重建的分析明细，不删除 D1，也不搬运 Apple ID、会话或封禁表。
- * 对象键按日期固定，重复执行会幂等覆盖同一天的归档对象。
+ * This archives only reconstructable analytics details. It does not delete D1 or copy Apple IDs, sessions, or blocklist tables.
+ * Object keys are fixed by date, so reruns idempotently overwrite that day's archive.
  *
- * 失败可见性（2026-10-11 补，与 ops/sync-worker 同一套）：此前 scheduled() 只写
- * `ctx.waitUntil(archivePreviousDay(env))`，协程 rejection 被 waitUntil 静默吞掉，
- * 归档连续失败也只在 cron 面板上显示「已运行」；fetch 又恒 404，没有任何健康入口。
- * 现在：
- *   1. 每次运行在 D1 worker_runs 落一行（job='d1_archive'），失败带 error；
- *   2. scheduled() 显式 await + try/catch，失败打结构化单行 JSON 到 Workers 日志；
- *   3. GET /?health=1 只报健康状态（不触发归档），返回 { ok, job, lastRun }。
- * 归档逻辑本身（TABLES、R2 键、gzip 内容、day 的算法）一行未改。
+ * Failure visibility (added 2026-10-11, matching ops/sync-worker): previously scheduled() only called
+ * `ctx.waitUntil(archivePreviousDay(env))`. waitUntil silently swallowed the promise rejection,
+ * so repeated archive failures appeared as successful cron runs, while fetch always returned 404 and offered no health endpoint.
+ * Now:
+ *   1. Each run writes a row to D1 worker_runs (job='d1_archive'), including the error on failure.
+ *   2. scheduled() explicitly awaits the work in try/catch and writes a structured single-line JSON record to Workers logs on failure.
+ *   3. GET /?health=1 reports health without running the archive and returns { ok, job, lastRun }.
+ * The archive logic itself (TABLES, R2 keys, gzip content, and day calculation) is unchanged.
  *
- * 第二个 stage（2026-10-11 补，灾备快照）：同一个 cron 里再跑一次配置与 schema
- * 快照（R2 `backup/YYYY_MM_DD/`，job='config_backup'，实现在 ./config-backup.ts）。
- * 两个 stage 是**并列**的：归档先跑，快照后跑，各自 try/catch，互不牵连 ——
- * 快照失败绝不能让归档失败，反之亦然。
+ * The second stage (disaster-recovery snapshot, added 2026-10-11) captures configuration and schema
+ * in the same cron (R2 `backup/YYYY_MM_DD/`, job='config_backup', implemented in ./config-backup.ts).
+ * The stages are independent: the archive runs first, then the snapshot, each in its own try/catch.
+ * A snapshot failure must not fail the archive, and vice versa.
  */
 
 import {
@@ -57,7 +57,7 @@ import { logRun } from "./log";
 interface Env {
   DB: D1Database;
   ARCHIVE: R2Bucket;
-  /** 与 limooo-blocklist-sync 共用的健康端点共享密钥；未配置时 HTTP 一律 fail-closed。 */
+  /** Shared health-endpoint secret used with limooo-blocklist-sync; HTTP fails closed when unset. */
   SYNC_TOKEN?: string;
 }
 
@@ -99,7 +99,7 @@ const TABLES: TableSpec[] = [
   },
 ];
 
-/** 运行记录里的任务名：与 ops/migrations/018_worker_runs.sql 的 job 列取值一致。 */
+/** Job name in run records; must match the job column values in ops/migrations/018_worker_runs.sql. */
 export const JOB = "d1_archive";
 
 function utcDateParts(epochSeconds: number): { day: string; start: number; end: number } {
@@ -115,9 +115,9 @@ function previousUtcDay(now = new Date()): { day: string; start: number; end: nu
 }
 
 async function archiveTable(env: Env, table: TableSpec, day: { day: string; start: number; end: number }): Promise<number> {
-  // visitor_rollups 用 bucket_hour，其余分析表使用 ts；两者都是 UTC epoch 秒。
+  // visitor_rollups uses bucket_hour; the other analytics tables use ts. Both are UTC epoch seconds.
   const rows = await env.DB.prepare(table.sql).bind(day.start, day.end).all();
-  // gzipJsonl 与配置快照共用（见 ./jsonl.ts）：两条路径的字节格式必须一模一样。
+  // Shared with the configuration snapshot (see ./jsonl.ts): both paths must use the exact same byte format.
   const payload = await gzipJsonl(rows.results ?? []);
   await env.ARCHIVE.put(`analytics/${day.day}/${table.name}.jsonl.gz`, payload, {
     httpMetadata: { contentType: "application/x-ndjson", contentEncoding: "gzip" },
@@ -134,10 +134,10 @@ export async function archivePreviousDay(env: Env, now = new Date()): Promise<Re
 }
 
 /**
- * scheduled / fetch 共用的入口：归档前一天，并把这次运行写成 worker_runs 的一行。
+ * Entry point shared by scheduled and fetch: archive the previous day and write this run to worker_runs.
  *
- * 归档本身抛错时先记 outcome='failed'（带 error）再继续往外抛 —— 「抛了」与
- * 「记了」不能分家。运行记录写入失败只 console.error，绝不影响归档本身。
+ * If the archive throws, first record outcome='failed' with the error, then rethrow it; failure and recording must stay coupled.
+ * If writing the run record fails, only console.error; never let it affect the archive itself.
  */
 export async function runArchive(
   env: Env,
@@ -151,9 +151,9 @@ export async function runArchive(
     await updateRun(env.DB, runId, {
       finishedAt: runStartedAt(),
       outcome: "ok",
-      // added/removed 是同步语义的列，归档不用；total 记进日志，明细在成功那行的 counts。
+      // added/removed are synchronization-specific columns and are unused here; log total, with details in the success row's counts.
       added: Object.values(counts).reduce((sum, n) => sum + n, 0),
-      // 归档没有演练模式：写了就是写了。
+      // Archiving has no dry-run mode: writes are real.
       dryRun: false,
     });
     logRun(JOB, { outcome: "ok", counts, duration_ms: runStartedAt() - startedAt });
@@ -170,12 +170,12 @@ export async function runArchive(
 }
 
 /**
- * 健康端点的鉴权：比对 Authorization: Bearer <SYNC_TOKEN>。
+ * Health endpoint authentication: compare Authorization: Bearer <SYNC_TOKEN>.
  *
- * 该 Worker 只在 *.workers.dev 上，workers.dev 不属于本账户，无法用 zone 级
- * mTLS/Client Certificate 保护，所以沿用 limooo-blocklist-sync 的共享密钥。密钥
- * 未配置时 fail-closed（拒绝所有 HTTP 调用）——「忘了设 secret 就等于开放」是
- * 这里唯一不能接受的失败方向。cron 走内部调用，不经过这里。
+ * This Worker is only on *.workers.dev. Because workers.dev is not in this account, zone-level
+ * mTLS/Client Certificate protection is unavailable, so it reuses limooo-blocklist-sync's shared secret.
+ * If the secret is unset, fail closed and reject all HTTP calls. An unset secret must never mean open access.
+ * Cron uses an internal call and does not pass through this check.
  */
 export function authorized(request: Request, env: Env): boolean {
   const expected = (env.SYNC_TOKEN ?? "").trim();
@@ -185,7 +185,7 @@ export function authorized(request: Request, env: Env): boolean {
   if (!header.startsWith(prefix)) return false;
   const provided = header.slice(prefix.length).trim();
   if (!provided || provided.length !== expected.length) return false;
-  // 长度相等时逐字符比较，避免提前返回泄露前缀信息。
+  // Compare each character after confirming equal lengths to avoid an early return that leaks prefix information.
   let diff = 0;
   for (let i = 0; i < expected.length; i++) {
     diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
@@ -194,11 +194,11 @@ export function authorized(request: Request, env: Env): boolean {
 }
 
 /**
- * 只报健康状态（不触发归档）：每个 job 最近一次运行记录 + 表不可用时的原因。
+ * Report health only, without running an archive: the latest run for each job and any reason the table is unavailable.
  *
- * 两个 job 都报：快照是同一个 cron 的第二个 stage，如果只报归档，那么
- * 「归档好着呢」会掩盖「快照已经连着失败一周」—— 而这正是这个端点存在的理由。
- * 每次多读 1 行（走 idx_worker_runs_job_started），且只由 HTTP 触发，不进热路径。
+ * Report both jobs: the snapshot is the second stage of the same cron. Reporting only the archive
+ * could hide a snapshot that has been failing for a week, which is exactly why this endpoint exists.
+ * This reads one extra row per request via idx_worker_runs_job_started and is triggered only by HTTP, not a hot path.
  */
 export async function health(env: Env): Promise<{
   ok: boolean;
@@ -217,7 +217,7 @@ export async function health(env: Env): Promise<{
       backup: { job: CONFIG_JOB, lastRun: backupRun },
     };
   } catch (error) {
-    // 读不到运行记录不等于归档失败，如实区分：ok 仍为真，附上读失败原因。
+    // A failed run-record read does not mean the archive failed. Keep ok true and include the read error reason.
     return { ok: true, job: JOB, lastRun: null, backup: { job: CONFIG_JOB, lastRun: null }, error: String(error) };
   }
 }
@@ -228,10 +228,10 @@ export default {
     env: Env,
     ctx: { waitUntil(promise: Promise<unknown>): void },
   ): Promise<void> {
-    // 必须显式 await 进一个 try/catch：`ctx.waitUntil(archivePreviousDay(env))`
-    // 会把 rejection 吞掉，归档连续失败也只在 cron 面板上显示成功。
+    // Explicitly await inside try/catch: `ctx.waitUntil(archivePreviousDay(env))`
+    // swallows rejections, making repeated archive failures appear successful in the cron panel.
     const work = (async () => {
-      // stage 1：分析明细归档（analytics/YYYY_MM_DD/，按数据所属的 UTC 日）。
+      // Stage 1: archive analytics details (analytics/YYYY_MM_DD/, keyed by the UTC day the data belongs to).
       try {
         const { counts } = await runArchive(env);
         logRun(JOB, {
@@ -241,9 +241,9 @@ export default {
       } catch (error) {
         logRun(JOB, { outcome: "failed", stage: "scheduled", error: String(error) });
       }
-      // stage 2：配置与 schema 快照（backup/YYYY_MM_DD/，按快照产生的 UTC 日）。
-      // 独立的 try/catch：stage 1 失败不影响 stage 2，stage 2 失败也绝不能让
-      // 已经写进 R2 的归档变成一次「失败运行」—— 两个 job 的运行记录各自成行。
+      // Stage 2: snapshot configuration and schema (backup/YYYY_MM_DD/, keyed by the UTC day the snapshot was created).
+      // Keep a separate try/catch: a stage 1 failure does not affect stage 2, and a stage 2 failure must not
+      // turn an archive already written to R2 into a failed run. Each job gets its own run record.
       try {
         await runConfigBackup(env);
       } catch (error) {
@@ -251,16 +251,16 @@ export default {
       }
     })();
     /**
-     * 同时递给 waitUntil 与本地 await：前者保证 isolate 在响应后仍把活干完，后者
-     * 保证这次的 promise 被显式观察过 —— 这正是修掉「rejection 被静默吞掉」的关键。
+     * Pass this to both waitUntil and local await: the former keeps the isolate working after the response,
+     * while the latter explicitly observes the promise, preventing silently swallowed rejections.
      */
     ctx.waitUntil(work);
     await work;
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
-    // 归档只允许由 Cloudflare Cron 触发，避免公开 URL 被反复调用造成 D1 读取；
-    // HTTP 面只保留只读健康端点，且必须先过鉴权。
+    // Only Cloudflare Cron may trigger archiving, preventing repeated public URL calls from consuming D1 reads.
+    // The HTTP surface exposes only the read-only health endpoint, which requires authentication.
     if (request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405 });
     }
@@ -271,7 +271,7 @@ export default {
     if (url.searchParams.get("health") === "1") {
       return Response.json(await health(env));
     }
-    // 除健康端点外不暴露任何其它形态，返回 404 而不是触发归档。
+    // Expose no other HTTP behavior; return 404 instead of triggering an archive.
     return new Response("Not Found", { status: 404 });
   },
 };

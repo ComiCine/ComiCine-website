@@ -22,17 +22,17 @@ import worker, { archivePreviousDay, runArchive } from "./index";
 
 const scheduled = worker.scheduled;
 
-/** 记下每一次 SQL 与绑定值，好断言「运行记录确实写了、写的是哪个 job」。 */
+/** Record every SQL statement and its bound values so tests can verify that run records are written for the expected job. */
 interface SqlCall {
   sql: string;
   values: unknown[];
 }
 
 /**
- * 归档用的 D1 桩：分析表返回 1 行，worker_runs 的 INSERT/UPDATE/SELECT 走内存。
+ * D1 stub for archiving: analytics tables return one row, and worker_runs INSERT/UPDATE/SELECT operations use in-memory data.
  *
- * `failSql` 命中的语句直接抛错，用来模拟「某张归档表读不了」这类真实失败；
- * 构造函数里 guard() 是**同步抛出**的，所以 async 调用点会变成 rejection。
+ * Statements matching `failSql` throw directly to simulate real failures such as an unreadable archive table.
+ * guard() throws synchronously in the constructor, so async call sites receive a rejection.
  */
 function d1Stub(options: { failSql?: RegExp } = {}) {
   const calls: SqlCall[] = [];
@@ -135,12 +135,12 @@ describe("d1 archive", () => {
     const update = f.stub.calls.find((c) => /UPDATE worker_runs/.test(c.sql));
     expect(update!.values[1]).toBe("ok");
     expect(update!.values[2]).toBe(4);
-    // 归档没有演练模式，dry_run 必须是 0。
+    // Archiving has no dry-run mode; dry_run must be 0.
     expect(update!.values[5]).toBe(0);
   });
 
   it("records a failed run and keeps the error text when archiving throws", async () => {
-    // ray_log_v2 读不了：失败点落在归档中途，跟线上最像。
+    // Simulate ray_log_v2 being unreadable; this fails mid-archive, closely matching production behavior.
     const f = env(d1Stub({ failSql: /FROM ray_log_v2/ }));
     const { errors } = captureConsole();
 
@@ -152,7 +152,7 @@ describe("d1 archive", () => {
     expect(update).toBeDefined();
     expect(update!.values[1]).toBe("failed");
     expect(String(update!.values[4])).toMatch(/simulated/);
-    // 失败必须同时落进 Workers 日志，且是单行可检索 JSON。
+    // The failure must also appear in Workers logs as searchable single-line JSON.
     const failedLine = errors.find((l) => l.includes('"outcome":"failed"'));
     expect(failedLine).toBeDefined();
     const parsed = JSON.parse(failedLine!);
@@ -183,7 +183,7 @@ describe("d1 archive", () => {
     const put = vi.fn().mockResolvedValue({ key: "ok" });
     const brokenEnv = { DB: brokenDb, ARCHIVE: { put }, SYNC_TOKEN: "s3cret-token" };
 
-    // 记账失败绝不能把归档本身带崩，R2 依旧写满四个对象。
+    // A bookkeeping failure must not break the archive; all four objects should still be written to R2.
     const { counts, runId } = await runArchive(brokenEnv as never, new Date("2026-09-09T00:00:00Z"));
     expect(runId).toBeNull();
     expect(counts).toEqual({ visitor_rollups: 1, visitors_v2: 1, ray_log_v2: 1, events: 1 });
@@ -203,8 +203,8 @@ describe("d1 archive", () => {
     ).toBe(true);
     expect(errors.some((l) => l.includes('"outcome":"failed"'))).toBe(true);
     expect(waited).toHaveLength(1);
-    // scheduled 自己的收口行必须带 stage="scheduled" —— 否则把 catch 退回成
-    // 「静默吞掉」时，runArchive 那行日志照样还在，用例就抓不到这个退化。
+    // scheduled's final log row must include stage="scheduled". Otherwise, reverting the catch to
+    // silently swallowing errors would leave the runArchive log intact and this test would miss the regression.
     const scheduledLine = errors
       .map((l) => JSON.parse(l))
       .find((line) => line.stage === "scheduled");
@@ -246,7 +246,7 @@ describe("d1 archive health endpoint", () => {
     expect(body.ok).toBe(true);
     expect(body.job).toBe("d1_archive");
     expect(body.lastRun).toMatchObject({ job: "d1_archive", outcome: "ok" });
-    // 健康端点只报告，绝不触发归档（不写 R2）。
+    // The health endpoint only reports status and must never trigger an archive or write to R2.
     expect(f.put).not.toHaveBeenCalled();
   });
 });

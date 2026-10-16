@@ -21,19 +21,21 @@
 Blocklist sync script: reconcile the local blocklist snapshot with D1
 `blocked_ips` (the single source of truth).
 
-历史上这里还负责扫描 VPS 上的 Nginx access.log 来自动生成封禁网段；Nginx 随
-`2026-09-17` 退租一并消失，扫描部分（`LOG_PATTERN` / `SCAN_PATTERNS` /
-`_is_scan_path` / `collect_logs` / `analyze` / `run_scan`）已删除。现在的日志
-来源只有 Cloudflare 边缘（`ray_log_v2` 等），封禁判定在 Pages / Worker 侧。
+This script previously scanned Nginx access logs on the VPS to generate blocked
+networks. Nginx was removed with the VPS on `2026-09-17`, and the scanning code
+(`LOG_PATTERN`, `SCAN_PATTERNS`, `_is_scan_path`, `collect_logs`, `analyze`, and
+`run_scan`) was deleted. Logs now come only from the Cloudflare edge (such as
+`ray_log_v2`), and blocking decisions are made by Pages or Workers.
 
-权威链路：D1 `blocked_ips` -> 每日 sync-worker -> Cloudflare IP List。
-`blocklist.txt` 是本地导入种子/可审计快照；CF List 只有在显式维护命令
-`auto_block.py cf` 才直接同步，默认运行路径不会写 Cloudflare。
+Authoritative flow: D1 `blocked_ips` -> daily sync-worker -> Cloudflare IP List.
+`blocklist.txt` is a local import seed and auditable snapshot. The CF List is
+updated directly only by the explicit maintenance command `auto_block.py cf`;
+the default execution path does not write to Cloudflare.
 
 Usage:
     python3 auto_block.py d1 [--dry-run]  # sync blocklist.txt to D1 (full diff)
     python3 auto_block.py cf              # maintenance: sync blocklist.txt to CF only
-    python3 auto_block.py sync [--dry-run]  # alias of `d1` (不再直写 CF)
+    python3 auto_block.py sync [--dry-run]  # alias of `d1` (does not write to CF)
 """
 
 import json
@@ -46,9 +48,9 @@ import urllib.request
 
 from cidr import normalize_cidr, parse_cidr
 
-# 仓库根目录（本文件位于 src/ 下，向上取一层）。
-# 带 as 的常量各自独立成一条 import——ruff isort 就是这么切别名导入的
-# （按配置里的原名排序），合并回一条会被 I001 判红。
+# Repository root; this file is in src/, so move up one level.
+# Keep each aliased constant in a separate import, as ruff isort expects them
+# sorted by their original names; combining them triggers I001.
 from config import (
     BLOCKLIST_FILE as BLOCKLIST_TXT,
 )
@@ -69,8 +71,9 @@ from config import (
 # Match x.x.x.0/24
 CIDR24_RE = re.compile(r'^(\d+\.\d+\.\d+)\.0/24$')
 
-# 受管段的起始标记（2026-10-11）：`reconcile` 从 D1 拉回的行写在这一行之后，
-# 每次整体重写；这一行之前是**手写区**，永远原样保留。
+# Start marker for the managed section (2026-10-11). `reconcile` writes rows pulled from D1
+# after this line and rewrites the section each time; everything before it is the manual area
+# and is always preserved unchanged.
 MANAGED_MARKER = "# 以下是 D1 blocked_ips 的活跃行"
 
 
@@ -101,9 +104,9 @@ def read_blocklist_txt(path: str) -> tuple[list[str], set[str]]:
     return static_lines, existing_prefixes
 
 
-# Cloudflare IP List 同步（原 sync_blocklist_cf.py）
-# 读 webauthn.env 里的 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID，
-# 不存在则跳过。使用纯标准库(urllib)。
+# Sync the Cloudflare IP List (formerly sync_blocklist_cf.py).
+# Read CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from webauthn.env;
+# skip if they are missing. Uses only the standard library (urllib).
 def load_env(path: str) -> dict:
     env = {}
     try:
@@ -120,7 +123,7 @@ def load_env(path: str) -> dict:
 
 
 def read_blocklist(path: str) -> list[str]:
-    """读取 blocklist.txt 并返回规范化后的 CIDR 列表（无效行/注释忽略）。"""
+    """Read blocklist.txt and return normalized CIDRs, ignoring invalid lines and comments."""
     entries = []
     try:
         with open(path) as f:
@@ -134,15 +137,16 @@ def read_blocklist(path: str) -> list[str]:
 
 
 def _ensure_ca_bundle() -> None:
-    """确保 HTTPS 有 CA 证书可用（2026-10-11）。
+    """Ensure a CA certificate is available for HTTPS (2026-10-11).
 
-    本仓库的构建 venv（`.venv-build`，python.org 的 3.14）**不带 CA 证书**：
-    `ssl.get_default_verify_paths()` 的 `cafile` 是 None，它期望的
-    `/Library/Frameworks/Python.framework/Versions/3.14/etc/openssl/cert.pem`
-    不存在 —— 于是所有 HTTPS 调用报 `CERTIFICATE_VERIFY_FAILED`，这个脚本因此
-    读不到 D1。macOS 自带的 `/etc/ssl/cert.pem` 是完整的系统根证书库，指过去即可。
+    The repository's build venv (python.org Python 3.14 in `.venv-build`) has no CA
+    certificate. `ssl.get_default_verify_paths()` returns `None` for `cafile`, and its
+    expected `/Library/Frameworks/Python.framework/Versions/3.14/etc/openssl/cert.pem`
+    does not exist. All HTTPS calls then fail with `CERTIFICATE_VERIFY_FAILED`, so this
+    script cannot read D1. macOS provides the complete system root store at
+    `/etc/ssl/cert.pem`; pointing to it resolves the issue.
 
-    尊重调用方已经设好的 `SSL_CERT_FILE`（CI 或系统 python3 会自己配）。
+    Preserve an `SSL_CERT_FILE` already configured by the caller (CI or system Python).
     """
     system_ca = "/etc/ssl/cert.pem"
     if not os.environ.get("SSL_CERT_FILE") and os.path.exists(system_ca):
@@ -150,24 +154,26 @@ def _ensure_ca_bundle() -> None:
 
 
 def _read_body(resp) -> bytes:
-    """读满响应体；**读不完整就抛**，让上层重试。
+    """Read the complete response body; raise on incomplete reads so callers can retry.
 
-    2026-10-11 的两轮教训：
-      1. 最早直接 `json.load(r)`：偶发 `IncompleteRead` 直接失败；
-      2. 后来改成"把 partial 留下、不抛"：那是**治症** —— 半截 JSON 交给解析器会
-         报 `Expecting property name …` / `Unterminated string`，错误更难查，
-         而且**重试逻辑完全没机会介入**（异常被吞了）。
-    正确做法：异常照抛，交给 `_call` 的重试；响应过大的**根因**由窄查询 + 分页解决
-    （见 `_d1_query_paged`，D1 的 8191 字节上限）。
+    Two lessons from 2026-10-11:
+      1. The original `json.load(r)` failed immediately on occasional `IncompleteRead` errors.
+      2. Keeping partial data without raising only treated the symptom: parsing truncated
+         JSON produced harder-to-diagnose `Expecting property name` or `Unterminated string`
+         errors, and swallowing the exception prevented retries entirely.
+    Raise the exception and let `_call` retry. Resolve the root cause of oversized
+    responses with narrower queries and pagination (see `_d1_query_paged` and D1's
+    8191-byte limit).
     """
     return resp.read()
 
 
 def _call(token: str, method: str, url: str, body=None, attempts: int = 3) -> dict:
-    """调 Cloudflare API；对**读取被截断**这一类瞬时故障重试。
+    """Call the Cloudflare API and retry transient truncated-read failures.
 
-    只重试 `IncompleteRead` / `http.client` 级别的读错误，重试 HTTP 状态错误没有意义
-    （那些是确定性的：401/403/400 重试多少次都一样）。
+    Retry only `IncompleteRead` and `http.client` read errors. Retrying HTTP status
+    errors is pointless because they are deterministic: 401, 403, and 400 remain the
+    same regardless of the number of retries.
     """
     _ensure_ca_bundle()
     data = json.dumps(body).encode() if body is not None else None
@@ -180,10 +186,10 @@ def _call(token: str, method: str, url: str, body=None, attempts: int = 3) -> di
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.loads(_read_body(r))
         except urllib.error.HTTPError:
-            # 状态错误是确定性的，重试没意义。
+            # Status errors are deterministic, so retrying is pointless.
             raise
         except Exception as exc:  # noqa: BLE001
-            # 传输层抖动（IncompleteRead / 半截 JSON / 超时）→ 退避重来。
+            # Retry transient transport failures (IncompleteRead, truncated JSON, or timeout) with backoff.
             last = exc
             if attempt < attempts:
                 time.sleep(min(0.3 * attempt, 2.0))
@@ -213,14 +219,14 @@ def _add_items(token: str, account_id: str, list_id: str, ips: list[str]):
 
 def _remove_items(token: str, account_id: str, list_id: str, item_ids: list[str]):
     for i in range(0, len(item_ids), BATCH):
-        # Cloudflare DELETE 只接受 {"items": [{"id": ...}]}，裸数组会返回 400 filters.api.invalid_json
+        # Cloudflare DELETE accepts only {"items": [{"id": ...}]}; a bare array returns 400 filters.api.invalid_json.
         chunk = [{"id": x} for x in item_ids[i:i + BATCH]]
         resp = _call(token, "DELETE", f"{API}/accounts/{account_id}/rules/lists/{list_id}/items", {"items": chunk})
         _wait_operation(token, account_id, resp.get("result", {}).get("operation_id"))
 
 
 def sync_cloudflare() -> int:
-    """把 blocklist.txt 增量同步到 Cloudflare IP List，返回退出码"""
+    """Incrementally sync blocklist.txt to the Cloudflare IP List and return an exit code."""
     env = load_env(ENV_FILE)
     token = env.get("CLOUDFLARE_API_TOKEN", "")
     account_id = env.get("CLOUDFLARE_ACCOUNT_ID", "")
@@ -249,8 +255,8 @@ def sync_cloudflare() -> int:
         # Current items in CF (canonical cidr -> item id for deletion), follow cursor pagination
         cur = {}
         base = f"{API}/accounts/{account_id}/rules/lists/{lst['id']}/items"
-        # url 在循环里会被赋成 None 来结束翻页（见下面那行 `if after else None`），
-        # 所以类型是 str | None；循环条件 `while url` 已经把 None 挡在外面。
+        # The loop sets url to None when pagination ends (see `if after else None` below),
+        # so its type is str | None. The `while url` condition already excludes None.
         url: str | None = base
         while url:
             resp = _call(token, "GET", url)
@@ -288,7 +294,7 @@ def sync_cloudflare() -> int:
 
 
 def _normalize_cidr(line: str) -> str | None:
-    """兼容旧测试名：统一委托给 src/cidr.py。"""
+    """Preserve the legacy test name while delegating to src/cidr.py."""
     return normalize_cidr(line)
 
 
@@ -297,7 +303,7 @@ def _sql_str(value: str) -> str:
 
 
 def _d1_query(token: str, account_id: str, db_id: str, sql: str) -> list[dict]:
-    """执行 D1 HTTP query 并提取首个结果集的 results。"""
+    """Run a D1 HTTP query and extract results from the first result set."""
     resp = _call(
         token,
         "POST",
@@ -323,20 +329,21 @@ def _d1_query_paged(
     columns: tuple[str, ...],
     page_size: int = 40,
 ) -> list[dict]:
-    """分页执行 D1 查询，把每页结果拼起来。
+    """Run a paginated D1 query and combine the results from each page.
 
-    `sql_template` 里要有 `{limit}` 与 `{offset}` 占位符。
+    `sql_template` must contain `{limit}` and `{offset}` placeholders.
 
-    为什么必须分页：D1 的 HTTP query 响应**超过 8191 字节会被截断**（实测：83 行
-    ×5 列 ≈ 8.9 KB 就炸，报 `Unterminated string` 或 `IncompleteRead`）。每页 40 行
-    时响应只有几 KB，安全；行数再怎么长也不会再撞上限。
+    Pagination is required because D1 HTTP query responses are truncated above 8191
+    bytes. In practice, 83 rows x 5 columns (about 8.9 KB) failed with `Unterminated
+    string` or `IncompleteRead`. At 40 rows per page, responses are only a few KB, so
+    the limit is not reached regardless of the total number of rows.
     """
     out: list[dict] = []
     offset = 0
     while True:
         sql = sql_template.format(limit=page_size, offset=offset)
         rows = _d1_query(token, account_id, db_id, sql)
-        # 只保留需要的列，避免把大字段（reason 等）带进内存。
+        # Keep only the requested columns to avoid loading large fields such as reason into memory.
         for row in rows:
             out.append({c: row.get(c) for c in columns})
         if len(rows) < page_size:
@@ -406,9 +413,10 @@ def _delete_blocklist(token: str, account_id: str, db_id: str, cidrs: list[str])
 
 
 def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
-    """把 D1 的活跃行渲染成一个受管段（每次 reconcile 整体重写）。
+    """Render active D1 rows as a managed section, rewritten on every reconcile.
 
-    `rows` 是 cidr -> source；`pulled` 是本次**新增**的（只影响段头的说明）。
+    `rows` maps CIDR to source; `pulled` contains entries newly pulled this run and only
+    affects the section heading.
     """
     lines = [
         "",
@@ -423,7 +431,7 @@ def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
 
 
 def _write_pulled_section(path: str, rows: dict[str, str], pulled: list[str]) -> None:
-    """把手写区原样保留、受管段整体重写。"""
+    """Preserve the manually maintained section and rewrite the managed section."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
     head = text.split(MANAGED_MARKER)[0].rstrip("\n")
@@ -432,19 +440,21 @@ def _write_pulled_section(path: str, rows: dict[str, str], pulled: list[str]) ->
 
 
 def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
-    """把 blocklist.txt 作为导入快照，与 D1 blocked_ips 做全量 diff。
+    """Treat blocklist.txt as an import snapshot and compute a full diff against D1 blocked_ips.
 
-    - 新增/更新：INSERT ... ON CONFLICT（保留 created_at）
-    - 删除：只删 source=auto_block/blocklist.txt 的活跃行，避免覆盖 admin 来源
-    - 已由 API 解封的行（active=0）保留为审计墓碑，不会被重新加入
-    - ``--dry-run`` 只输出 + / - 集合
-    - ``pull=True``（CLI 的 ``reconcile``）时**双向**：D1 有而文件没有的活跃行
-      会被写回文件（受管段，手写区不动），文件有而 D1 没有的照旧推上去。
-      这条路是给「管理员在后台封了 IP，本地快照要跟上」用的。
+    - Inserts or updates use INSERT ... ON CONFLICT and preserve created_at.
+    - Deletions affect only active rows with source=auto_block/blocklist.txt, not admin rows.
+    - Rows unblocked through the API (active=0) remain as audit tombstones and are not re-added.
+    - ``--dry-run`` only prints the additions and removals.
+    - With ``pull=True`` (the CLI's ``reconcile`` command), synchronization is bidirectional:
+      active rows in D1 but absent from the file are written back to the managed section,
+      preserving the manual section. Rows in the file but absent from D1 are still pushed.
+      This keeps the local snapshot current when an administrator blocks an IP in the UI.
 
-    注意：拉回文件**只增不减** —— 绝不因为「D1 少了某条」就从文件里删掉它，
-    因为调用方无法区分「管理员有意解封」与「还没同步」两种情况。删除仍由
-    D1 侧的软删除（active=0）记录，文件是快照而不是删除指令。
+    Pulling into the file only adds entries; it never removes one just because it is
+    absent from D1. The caller cannot distinguish an intentional admin unblock from an
+    unsynchronized change. Deletions remain recorded as soft deletes (active=0) in D1;
+    the file is a snapshot, not a deletion command.
     """
     env = load_env(ENV_FILE)
     token = env.get("CLOUDFLARE_API_TOKEN", "")
@@ -455,26 +465,26 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         return 0
 
     cidrs = read_blocklist(BLOCKLIST_TXT)
-    # 文件为空时**不再直接返回**（2026-10-11 改）：pull 模式下「本地空、D1 有行」
-    # 恰恰是最需要把权威行拉回来的场景。只有既不推也不拉时才跳过。
+    # Do not return immediately for an empty file (changed 2026-10-11): in pull mode, an empty
+    # local list with rows in D1 is exactly when authoritative rows need to be restored.
+    # Skip only when neither pushing nor pulling.
     if not cidrs and not pull:
         print("[d1] blocklist empty, skipping", file=sys.stderr)
         return 0
 
-    # 两个窄查询，而不是一条宽查询（2026-10-11 实测教训）：
-    # D1 的 HTTP query 响应超过 **8191 字节**会被截断，表现为
-    # `Unterminated string` / `IncompleteRead`。原来一次取
-    # `cidr, network, prefix, source, active` 共 83 行 ≈ 8.9 KB，**正好越界**
-    # —— 于是 `deploy.sh` 的 Bans 步骤稳定失败。
-    # 现在拆开：① 只要 cidr（含墓碑，用于 known）② 只要活跃行的 cidr+source。
-    # 两者都远小于上限，且**分页**，行数增长也不会再越界。
+    # Use two narrow queries instead of one wide query (lesson from 2026-10-11):
+    # D1 truncates HTTP query responses over 8191 bytes, causing `Unterminated string` or
+    # `IncompleteRead`. The old query returned 83 rows with five columns (about 8.9 KB),
+    # crossing the limit and reliably failing the Bans step in deploy.sh.
+    # Split it into (1) all CIDRs, including tombstones for `known`, and (2) CIDR plus source
+    # for active rows. Both are smaller and paginated, so they remain below the limit as data grows.
     try:
         all_cidrs = _d1_query_paged(
             token, account_id, db_id,
             "SELECT cidr FROM blocked_ips ORDER BY cidr LIMIT {limit} OFFSET {offset}",
             columns=("cidr",),
         )
-        # 活跃行的 source 用于写回文件时标注来源（行数少，通常 1 条）。
+        # The active row's source labels entries written back to the file; there are usually few rows.
         active_list = _d1_query_paged(
             token, account_id, db_id,
             "SELECT cidr, source FROM blocked_ips WHERE active = 1 "
@@ -489,8 +499,8 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         return 1
 
     desired = set(cidrs)
-    # `known` 必须**包含墓碑**（active=0）：库里已有的记录——包括被解封的那些——
-    # 不该被本地文件重新加回来，那会把管理员的有意解封覆盖掉。
+    # `known` must include tombstones (active=0). Existing records, including unblocked ones,
+    # must not be re-added from the local file because that would undo an admin's intentional unblock.
     known = {str(row.get("cidr", "")) for row in all_cidrs if row.get("cidr")}
     active_rows = {
         str(row["cidr"]): {"cidr": row["cidr"], "source": row.get("source") or ""}
@@ -503,7 +513,7 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         for cidr, row in active_rows.items()
         if cidr not in desired and row.get("source") in (None, "", "auto_block", "blocklist.txt")
     )
-    # 要从 D1 拉回文件的行：D1 活跃、而文件里没有。**只增不减**（见 docstring）。
+    # Rows to restore from D1: active in D1 but absent from the file. Additions only; see the docstring.
     pulled = sorted(cidr for cidr in active_rows if cidr not in desired) if pull else []
 
     if dry_run:
@@ -527,8 +537,8 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         return 1
 
     if pull:
-        # 写回文件放在 D1 写入**成功之后**：D1 写失败时本地保持原样，
-        # 不出现「文件说已封、D1 里没有」的假象。
+        # Write the file only after D1 writes succeed. If D1 fails, keep the local file unchanged
+        # so it cannot claim an IP is blocked when D1 has no record.
         sources = {cidr: str(row.get("source") or "") for cidr, row in active_rows.items()}
         _write_pulled_section(BLOCKLIST_TXT, sources, pulled)
         print(
@@ -556,12 +566,12 @@ def main():
     if cmd in ("d1", "sync"):
         sys.exit(sync_d1(dry_run=dry_run))
     elif cmd == "reconcile":
-        # 双向：D1 有而文件没有的**拉回文件**，文件有而 D1 没有的**推上去**。
+        # Two-way sync: restore rows present in D1 but missing from the file, and push file-only rows to D1.
         sys.exit(sync_d1(dry_run=dry_run, pull=True))
     elif cmd == "cf":
         sys.exit(sync_cloudflare())
     else:
-        # 默认分支原先跑 Nginx 日志扫描；数据源随 VPS 退租消失，现在只提示用法。
+        # The default branch used to scan Nginx logs; that source disappeared with the VPS, so now show usage.
         usage()
         sys.exit(2)
 

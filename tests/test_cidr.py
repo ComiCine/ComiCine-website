@@ -15,15 +15,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""src/cidr.py 统一 IP/CIDR 规范化测试（tasks/10）。"""
+"""Tests for shared IP/CIDR normalization in src/cidr.py (tasks/10)."""
 
 import json
 from pathlib import Path
 
 import cidr
 
-# 与 functions/_lib/cidr.test.ts 共用的同一份向量：两边都必须复现 CPython
-# ipaddress 的 canonical 形式，否则 blocked_ips 的字符串等值比较两端不一致。
+# These vectors are shared with functions/_lib/cidr.test.ts; both sides must reproduce CPython
+# ipaddress canonicalization or string comparisons against blocked_ips will differ between them.
 PARITY = json.loads((Path(__file__).parent / "fixtures" / "cidr_parity.json").read_text())
 
 
@@ -55,10 +55,10 @@ def test_network_and_contains():
 
 
 def test_ipv4_mapped_ipv6_uses_dotted_quad():
-    """W9-2：mapped 地址必须与 Worker 侧产出逐字符相同，否则封禁永不命中。"""
+    """W9-2: Mapped addresses must match Worker output exactly or blocklist lookups will never match."""
     assert cidr.normalize_ip("::ffff:1.2.3.4") == "::ffff:1.2.3.4"
     assert cidr.normalize_ip("::FFFF:1.2.3.4") == "::ffff:1.2.3.4"
-    # ::ffff:0:1.2.3.4 不是 IPv4-mapped（第 6 组是 0000），CPython 用 hex 组。
+    # ::ffff:0:1.2.3.4 is not IPv4-mapped (the sixth group is 0000); CPython uses hexadecimal groups.
     assert cidr.normalize_ip("::ffff:0:1.2.3.4") == "::ffff:0:102:304"
     assert cidr.normalize_cidr("::ffff:1.2.3.4") == "::ffff:1.2.3.4/128"
     assert cidr.network_address("::ffff:1.2.3.4", 96) == "::ffff:0.0.0.0"

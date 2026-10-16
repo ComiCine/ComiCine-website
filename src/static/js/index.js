@@ -1,7 +1,7 @@
 /*
-   作品图加载（不影响首屏）：
-   缩略图只在切换到作品区时才启动，避免作品图在首屏阶段抢占带宽；
-   进入作品区后按 srcset 选择合适尺寸。
+   Load portfolio images without affecting the initial view:
+   Start loading thumbnails only when switching to the portfolio, so they do not compete for bandwidth.
+   Once the portfolio is open, srcset selects the appropriate size.
    */
 function loadWorkImages() {
     document.querySelectorAll('.work-img[data-src]').forEach(function (img) {
@@ -9,22 +9,22 @@ function loadWorkImages() {
         img.src = img.dataset.src;
     });
     document.querySelectorAll('.work-img:not([data-src])').forEach(function (img) {
-        img.loading = 'eager'; /* 进入作品区后确保浏览器立即开始取图 */
+        img.loading = 'eager'; /* Start loading immediately after entering the portfolio. */
     });
 }
 
 /*
-   首页滚动切换动画
-   - 滚轮 / 触摸下滑 → 切换到作品展示页（portfolio）
-   - 滚轮 / 触摸上滑 → 返回首屏（home）
+   Home page scroll transitions:
+   - Scroll or swipe down to open the portfolio.
+   - Scroll or swipe up to return to the home page.
    */
 
-/* 动画时序常量 */
+/* Animation timing constants. */
 var ANIM_DELAY = { initialReveal: 200, homeExit: 250, portfolioReveal: 300, staggerStep: 150, reverseExit: 250 };
-var STAGGER_BUDGET = 1500; /* 作品图卡片级联淡入的总时长上限（ms） */
+var STAGGER_BUDGET = 1500; /* Maximum total duration of the staggered portfolio card fade-in, in ms. */
 
-/* 作品图数量由 src/static/portfolio 目录决定（可多可少）：
-   图片多时按预算压缩级联间隔，避免最后一张要等好几秒才出现。 */
+/* The number of portfolio images comes from src/static/portfolio and can vary.
+   Reduce the stagger interval as needed so the last image does not take several seconds to appear. */
 function staggerStep() {
     var n = workBoxes.length;
     return n > 1 ? Math.min(ANIM_DELAY.staggerStep, STAGGER_BUDGET / (n - 1)) : ANIM_DELAY.staggerStep;
@@ -47,27 +47,27 @@ function setPortfolioPath(replace) {
     }
 }
 
-/* nav-logo 永久隐藏，由 hero-title 取代 */
+/* Keep nav-logo hidden; hero-title takes its place. */
 if (navLogo) navLogo.classList.add('is-hidden');
 
 heroTitle.addEventListener('click', function() { if (!isOnHome) reverseToHome(); });
 
 var isOnHome = true;
 var isTransitioning = false;
-var animSeq = 0; // 动画序列号：新动画启动时自增，旧动画的 pending 定时器据此失效
+var animSeq = 0; // Increment for each animation so pending timers from older animations can be ignored.
 var touchStartY = 0;
 
 /*
- * 下滑: 「」渐出(233ms) → fly 到 nav 位置(200ms) → 淡出 → nav-logo 显示
- * 上滑: nav-logo 隐藏 → fly 回中心 + 括号恢复
+ * Scroll down: brackets fade out (233ms), fly to the navigation (200ms), fade, then show nav-logo.
+ * Scroll up: hide nav-logo, fly back to center, and restore the brackets.
  */
 
 function morphHeroToNav() {
     if (!heroTitle) return;
     var seq = animSeq;
-    // 「」渐出
+    // Fade out the brackets.
     heroTitle.classList.add('hero-closed');
-    // 233ms 后飞向左上角
+    // Fly to the upper-left after 233ms.
     setTimeout(function() {
         if (seq !== animSeq) return;
         var navRect = navLogo.getBoundingClientRect();
@@ -98,7 +98,7 @@ function morphHeroBack() {
     var seq = animSeq;
     navLogo.onclick = null;
     navLogo.classList.add('is-hidden');
-    // 恢复全部 heroTitle 内联样式，避免残留 flying 期间的 transition/display
+    // Restore all inline styles so transition or display values from the flight do not remain.
     heroTitle.style.display = '';
     heroTitle.style.opacity = '';
     heroTitle.style.transition = '';
@@ -109,19 +109,19 @@ function morphHeroBack() {
     setTimeout(function() {
         if (seq !== animSeq) return;
         heroTitle.classList.remove('flying');
-        // isTransitioning / isOnHome 由 reverseToHome 的回调统一按序重置
+        // reverseToHome resets isTransitioning and isOnHome in the required order.
     }, 267);
 }
 
 function showPortfolio() {
-    // hero-title 已飞到 nav 位置，直接留在那作为 logo
+    // hero-title has reached the navigation and stays there as the logo.
     var seq = animSeq;
-    portfolioScreen.scrollTop = 0; // 从顶部展示，避免惯性滚动残留
+    portfolioScreen.scrollTop = 0; // Start at the top so no previous scroll momentum remains.
     homeScreen.style.display = 'none';
     portfolioScreen.style.visibility = 'visible';
     portfolioScreen.style.opacity = '1';
     loadWorkImages();
-    // 下滑切换到作品区时使用独立路径。
+    // Use a dedicated path when scrolling down to the portfolio.
     setPortfolioPath(false);
 
     setTimeout(function() {
@@ -155,14 +155,14 @@ function triggerCapture() {
     }, 533);
 }
 
-/* 直达例图（/portfolio）：不播滚动切换动画，直接展示作品区，
-   仅保留 work-box 原有的级联淡入 */
+/* Direct visits to /portfolio skip the scroll transition and show the portfolio immediately.
+   Keep the existing staggered fade-in for work-box cards. */
 function showPortfolioDirect() {
     if (isTransitioning) return;
     isTransitioning = true;
     animSeq++;
     var seq = animSeq;
-    // 隐藏首屏与 hero 标题（不飞行，直接不显示）
+    // Hide the home screen and hero title without the flight animation.
     portfolioScreen.scrollTop = 0;
     homeScreen.style.display = 'none';
     if (heroTitle) heroTitle.style.display = 'none';
@@ -209,7 +209,7 @@ function reverseToHome() {
     var seq = animSeq;
     portfolioScreen.classList.add('portfolio-exit');
     morphHeroBack();
-    // 与 morphHeroBack 移除 flying 的 400ms 对齐，避免中间窗口期状态不一致
+    // Align with morphHeroBack removing flying after 400ms to avoid an inconsistent intermediate state.
     setTimeout(function() {
         if (seq !== animSeq) return;
         portfolioScreen.style.visibility = 'hidden';
@@ -221,20 +221,20 @@ function reverseToHome() {
         resetHomeItems();
         isOnHome = true;
         isTransitioning = false;
-        // 返回主页时规范回根路径。
+        // Normalize the URL to the root when returning home.
         if (location.pathname === '/portfolio' || location.hash) history.replaceState(null, '', '/' + location.search);
     }, Math.max(ANIM_DELAY.reverseExit, 400));
 }
 
-/* 鼠标滚轮监听 */
+/* Listen for mouse wheel input. */
 window.addEventListener('wheel', function(event) {
-    // 切换动画进行中：吞掉所有滚轮事件，阻断触控板惯性继续把作品页往下滚
+    // Consume wheel events during transitions so trackpad momentum cannot keep scrolling the portfolio.
     if (isTransitioning) { event.preventDefault(); return; }
     if (event.deltaY > WHEEL_THRESHOLD && isOnHome) { event.preventDefault(); triggerCapture(); return; }
     if (event.deltaY < -WHEEL_THRESHOLD && !isOnHome && portfolioScreen.scrollTop <= 0) { event.preventDefault(); reverseToHome(); }
 }, { passive: false });
 
-/* 触摸滑动监听 */
+/* Listen for touch swipes. */
 document.addEventListener('touchstart', function(event) {
     touchStartY = event.touches[0].clientY;
 }, { passive: true });
@@ -246,7 +246,7 @@ document.addEventListener('touchend', function(event) {
     if (!isOnHome && swipeDistance < -SWIPE_THRESHOLD && portfolioScreen.scrollTop <= 0) { reverseToHome(); }
 }, { passive: true });
 
-/* 浏览器前进 / 后退时，让页面与地址栏路径保持同步 */
+/* Keep the page in sync with the URL when navigating backward or forward. */
 window.addEventListener('popstate', function() {
     if (location.pathname === '/portfolio' || location.hash === '#portfolio') {
         if (isOnHome && !isTransitioning) showPortfolioDirect();
@@ -256,7 +256,7 @@ window.addEventListener('popstate', function() {
 });
 
 
-/* 标题飞入 → 箭头级联淡入 */
+/* Fly in the title, then fade in the arrows in sequence. */
 setTimeout(function() {
     heroTitle.classList.add('visible');
 }, 200);
@@ -266,7 +266,7 @@ setTimeout(function() {
     });
 }, 500);
 
-/* 直接访问作品集路径时展示作品区（旧 hash 链接继续兼容） */
+/* Show the portfolio on direct visits to its path; continue supporting legacy hash links. */
 if (location.pathname === '/portfolio' || location.hash === '#portfolio') {
     if (location.hash === '#portfolio') history.replaceState(null, '', '/portfolio' + location.search);
     setTimeout(function() { showPortfolioDirect(); }, 100);

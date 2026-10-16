@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/check_blocklist_sync.py 的纯函数与端到端测试（全部离线，不碰 D1/CF）。
+"""Offline unit and end-to-end tests for ops/check_blocklist_sync.py (no D1 or Cloudflare access).
 
-这些用例守的是三件事：
-    1. 归一化必须与 ops/sync-worker 的 normalizeListItem 一致（否则脚本会把
-       「/32 与裸 IP」误报成漂移，运维就会去追一个不存在的故障）；
-    2. 差异判定与退出码（0 一致 / 1 漂移 / 2 查不动）不能混；
-    3. 终端输出全英文、无装饰符号（AGENTS.md 约定）。
+These tests protect three behaviors:
+    1. Normalization matches normalizeListItem in ops/sync-worker; otherwise the
+       script reports /32 and bare-IP spellings as drift and prompts needless work.
+    2. Drift classification and exit codes (0 consistent / 1 drift / 2 unavailable)
+       remain distinct.
+    3. Terminal output stays English and contains no decorative symbols (AGENTS.md).
 """
 
 import ast
@@ -37,7 +38,7 @@ HAN = re.compile(r"[\u4e00-\u9fff]")
 
 
 def test_terminal_output_is_english():
-    """只允许注释与 docstring 用中文；任何面向终端的字符串出现中文即失败。"""
+    """Terminal-facing strings must remain English; this check inspects their source literals."""
     tree = ast.parse(Path(cbs.__file__).read_text(encoding="utf-8"))
 
     docstrings = set()
@@ -73,14 +74,14 @@ def test_no_decorative_banner_in_source():
         ("2001:db8::/64", "2001:db8::/64"),
         ("1.2.3.4", "1.2.3.4"),
         ("  1.2.3.4/32  ", "1.2.3.4"),
-        # IPv4 不该被 /128 规则吃掉，反之亦然
+        # An IPv4 address must not match a /128 rule, or vice versa.
         ("1.2.3.4/128", "1.2.3.4/128"),
         ("2001:db8::1/32", "2001:db8::1/32"),
         ("", ""),
     ],
 )
 def test_normalize_matches_worker(raw, expected):
-    """与 ops/sync-worker/src/index.ts 的 normalizeListItem 同一张表。"""
+    """Use the same normalization cases as normalizeListItem in ops/sync-worker/src/index.ts."""
     assert cbs.normalize_list_item(raw) == expected
 
 
@@ -92,7 +93,7 @@ def test_identical_sets_have_no_diff():
 
 
 def test_slash32_and_bare_ip_are_not_drift():
-    """D1 存 /32、CF 存裸 IP —— 这是同一个条目，不能报成漂移。"""
+    """D1's /32 and Cloudflare's bare-IP forms represent the same entry and are not drift."""
     to_add, to_remove = cbs.compute_diff(["1.2.3.4/32"], {"1.2.3.4": "i1"})
     assert (to_add, to_remove) == ([], [])
 
@@ -107,7 +108,7 @@ def test_drift_is_reported_on_both_sides():
 
 
 def test_to_add_keeps_the_d1_spelling():
-    """to_add 报 D1 侧原始写法（Worker 推上去的就是它），不是归一化后的值。"""
+    """to_add preserves the original D1 spelling because that is what the Worker uploads."""
     to_add, _ = cbs.compute_diff(["1.2.3.4/32"], {})
     assert to_add == ["1.2.3.4/32"]
 
@@ -118,13 +119,13 @@ def test_compute_diff_is_order_independent():
     assert a == b == (["a/24", "b/24"], [])
 
 
-# 端到端（stub 掉 D1 与 Cloudflare，main() 之外的代码全真跑）
+# End-to-end: stub D1 and Cloudflare while running all other code for real.
 
 CFG = {"token": "t", "account_id": "acct", "database_id": "db"}
 
 
 def _stub(monkeypatch, *, d1_rows, list_items, runs=None, d1_fails=False):
-    """把 d1_query_retry / cf_get_json 换成内存实现。"""
+    """Replace d1_query_retry and cf_get_json with in-memory implementations."""
     calls: dict[str, list] = {"d1": [], "cf": [], "writes": []}
     rows = list(d1_rows)
 
@@ -283,18 +284,18 @@ def test_record_writes_one_worker_runs_row(monkeypatch, capsys):
     assert "INSERT INTO worker_runs" in sql
     assert f"'{cbs.CHECK_JOB}'" in sql
     assert "'ok'" in sql
-    assert sql.rstrip().endswith("0)")  # dry_run=0：检查不是演练
+    assert sql.rstrip().endswith("0)")  # dry_run=0: this is a real check, not a dry run.
     assert f"recorded this check as {cbs.CHECK_JOB} outcome=ok" in out
 
 
 def test_script_never_writes_to_the_ip_list(monkeypatch):
-    """只读探测：整轮下来不许出现任何非 GET 的 Cloudflare 调用。"""
+    """Read-only probe: no Cloudflare call during the run may use a method other than GET."""
     calls, _ = _run(
         monkeypatch,
         [],
         d1_rows=["1.2.3.0/24"],
         list_items=["1.2.3.0/24"],
     )
-    # cf_get_json 只做 GET（签名里没有 method 参数），且只命中 lists / items 两个只读端点。
+    # cf_get_json performs only GET requests (its signature has no method parameter) and uses only the read-only lists and items endpoints.
     assert calls["cf"], "expected at least one Cloudflare read"
     assert all("/rules/lists" in url for url in calls["cf"])

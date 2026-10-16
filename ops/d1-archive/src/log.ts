@@ -18,14 +18,15 @@
  */
 
 /**
- * 结构化单行 JSON 运行日志（与 ops/sync-worker/src/index.ts 的 logRun 同形）。
+ * Structured single-line JSON run logging, matching logRun in ops/sync-worker/src/index.ts.
  *
- * 为什么抽成模块：d1-archive 现在有**两个** job（d1_archive / config_backup），
- * 各自都要「成功 console.log、失败 console.error」这条约定；复制两份必然漂移，
- * 而漂移的表现是「失败不再进 error 流」，也就是失败可见性悄悄失效。
+ * Keep this in a module because d1-archive now has two jobs (d1_archive / config_backup), each
+ * following the same rule: log successes with console.log and failures with console.error.
+ * Duplicating the rule would allow drift, potentially moving failures out of the error stream and
+ * silently breaking failure visibility.
  *
- * outcome==='failed' 走 console.error，因此 `wrangler tail` 与 Workers 日志面板
- * 可以按 `"outcome":"failed"` 检索。
+ * outcome==='failed' uses console.error, so `wrangler tail` and the Workers Logs panel can search
+ * for `"outcome":"failed"`.
  */
 import { runStartedAt } from "../../sync-worker/src/runlog";
 

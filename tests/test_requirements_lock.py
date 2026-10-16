@@ -57,8 +57,8 @@ def test_no_dev_only_tool_leaks_into_the_lock() -> None:
 
     assert not (set(lock) & guard.DEV_ONLY), "a dev-only gate tool leaked into the lock"
     # The extra entries must all be known transitive dependencies, not stray typos.
-    # 实测（2026-10-11）：lock 比 requirements.txt 多出这 16 个传递依赖。
-    # 它们各自由 cairosvg / cryptography / flask / pillow / requests 拉进来。
+    # Verified on 2026-10-11: the lockfile has these 16 transitive dependencies beyond requirements.txt.
+    # They are brought in by cairosvg, cryptography, flask, pillow, or requests.
     expected_extra = {
         "blinker", "cairocffi", "certifi", "cffi", "charset-normalizer", "click",
         "cssselect2", "defusedxml", "idna", "itsdangerous", "jinja2", "markupsafe",
@@ -75,7 +75,7 @@ def test_a_version_mismatch_is_reported() -> None:
 
     assert len(problems) == 1
     assert "2.9.1" in problems[0] and "2.8.2" in problems[0]
-    # 报错必须点明"lock 才是 build.sh 装的那个"，否则读者不知道哪个才算数。
+    # The error must say that build.sh installs from the lockfile, so readers know which file is authoritative.
     assert "build.sh" in problems[0]
 
 

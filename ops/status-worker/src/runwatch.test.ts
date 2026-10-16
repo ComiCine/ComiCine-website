@@ -18,15 +18,17 @@
  */
 
 /**
- * 每日检查 · 步骤 1：`worker_runs` 最近一次运行是否成功（runwatch.ts + index.ts）。
+ * Daily check, step 1: whether the latest `worker_runs` entry succeeded (runwatch.ts + index.ts).
  *
- * 迁移 018 让两个 cron Worker 把失败写进表里，但**没有读者**——这批用例钉住
- * 「有读者了、而且读者不会把每日任务带倒」：
- *   - failed / 卡死的 running 必须告警，且文案指得出是哪个 job；
- *   - ok / skipped / 刚开始跑的 running 不告警（否则每天一条噪音）；
- *   - 表不存在或查询抛错：只记日志，**不抛**，每日任务里的保留清理照跑；
- *   - 这张表每天**只读一次**（spy 计数），查询形状是「每 job 一次索引 seek」，
- *     不是 GROUP BY 全索引扫（成本证据见 runwatch.ts 文件头）。
+ * Migration 018 made two cron Workers write failures to this table, but there were
+ * **no readers**. These tests ensure there is now a reader that does not bring down the
+ * daily task:
+ *   - Failed or stuck `running` jobs must alert and identify the job.
+ *   - `ok`, `skipped`, and newly started `running` jobs must not alert (to avoid daily noise).
+ *   - If the table is missing or a query throws, log only and **do not throw**; daily
+ *     retention cleanup must continue.
+ *   - Read this table **once per day** (spy-counted), using one indexed seek per job
+ *     rather than scanning the entire index with GROUP BY (cost evidence is in runwatch.ts).
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -42,14 +44,14 @@ import worker, {
 } from "./index";
 import { STALE_RUNNING_S, WATCHED_JOBS, errorSummary, formatUtc, runIssues } from "./runwatch";
 
-const NOW = 1_800_000_000; // 固定时钟：2027-01-15 08:00:00 UTC
+const NOW = 1_800_000_000; // Fixed clock: 2027-01-15 08:00:00 UTC
 
 interface Call {
   sql: string;
   values: unknown[];
 }
 
-/** 与 LatestRun 同形；用 type（而非 interface）以便赋给 Record<string, unknown>。 */
+/** Same shape as LatestRun; use a type rather than an interface for assignment to Record<string, unknown>. */
 type LatestRunRow = {
   job: string;
   outcome: string;
@@ -58,10 +60,10 @@ type LatestRunRow = {
 };
 
 /**
- * 记录每一次 prepare（含 bind 值）的 D1 桩。
+ * D1 stub that records every prepare call, including bound values.
  *
- * `failOn` 用来模拟「迁移 018 没应用」：SQLite 在 prepare 那一步就会报
- * `no such table`（真实 D1 一样），于是 readLatestRuns 的 try/catch 生效。
+ * `failOn` simulates migration 018 not being applied: SQLite reports `no such table`
+ * during prepare (as real D1 does), exercising readLatestRuns' try/catch.
  */
 function fakeDb(
   options: { latest?: LatestRunRow[]; failOn?: (sql: string) => boolean } = {},
@@ -94,7 +96,7 @@ function fakeDb(
   return { db: db as unknown as D1Database, calls, workerRunsQueries };
 }
 
-/** 告警通道：Email binding + 收件人，捕获发出的信（不碰网络）。 */
+/** Alert channel with an Email binding and recipient; captures sent messages without network access. */
 function alertEnv(db: D1Database, extra: Partial<Env> = {}) {
   const sent: Array<Record<string, unknown>> = [];
   const env = {
@@ -136,13 +138,14 @@ describe("worker_runs → alert (daily check step 1)", () => {
     expect(step).toEqual({ ok: true, issues: 1, alerted: true });
     expect(sent).toHaveLength(1);
     expect(String(sent[0].subject)).toBe("Cron job failure · Limooo");
-    // job 名在**正文**里（subject 只报「出了什么事」，2026-10-11 用户定）。
+    // The job name appears in the **body** (the subject only reports what happened, per
+    // the user's 2026-10-11 decision).
     expect(String(sent[0].text)).toContain("blocklist_sync");
     expect(String(sent[0].text)).toContain("outcome=failed");
     expect(String(sent[0].text)).toContain("CF API 500");
-    // 「哪个 job、什么时候、什么 outcome、error 摘要」四件事都要在正文里。
+    // The body must include the job, timestamp, outcome, and error summary.
     expect(String(sent[0].text)).toContain(formatUtc(NOW - 600));
-    // 同一次每日检查只读一次这张表。
+    // Read this table only once during the daily check.
     expect(workerRunsQueries()).toBe(1);
   });
 
@@ -226,7 +229,8 @@ describe("worker_runs → alert (daily check step 1)", () => {
 
     const step = await checkWorkerRuns({ DB: db } as Env, NOW);
 
-    // 没有通道 ≠ 没有发现问题：issues 仍要如实报出来（便于日志/接口排查）。
+    // No alert channel does not mean no issues were found; report issues for log/API
+    // troubleshooting.
     expect(step).toEqual({ ok: true, issues: 1, alerted: false });
     expect(logs.mock.calls.flat().join(" ")).toContain("worker_runs_alert_skipped");
   });
@@ -240,15 +244,16 @@ describe("runwatch SQL shape (cost discipline)", () => {
     const queries = calls.filter((c) => /worker_runs/i.test(c.sql));
     expect(queries).toHaveLength(1);
     const sql = queries[0].sql;
-    // 每 job 一个 `WHERE job = ? ORDER BY started_at DESC LIMIT 1`（走
-    // idx_worker_runs_job_started），拼成一条语句、一次往返。
+    // Use one `WHERE job = ? ORDER BY started_at DESC LIMIT 1` per job (via
+    // idx_worker_runs_job_started), combined into one statement and one round trip.
     expect(sql.match(/ORDER BY started_at DESC LIMIT 1/g)).toHaveLength(WATCHED_JOBS.length);
     expect(sql).not.toMatch(/GROUP BY/i);
     expect(sql).not.toMatch(/COUNT\s*\(/i);
     expect(sql).not.toMatch(/JOIN/i);
-    // 只列需要的列，不用 SELECT *（以后加列也不会无意中把大字段读出来）。
+    // Select only required columns, not SELECT *, so future columns cannot accidentally
+    // cause large fields to be read.
     expect(sql).toContain("SELECT job, outcome, started_at, error");
-    // 只读这张表本身，不带出别的表。
+    // Read only this table; do not include other tables.
     expect(sql.match(/FROM worker_runs/g)).toHaveLength(WATCHED_JOBS.length);
   });
 
@@ -265,9 +270,9 @@ describe("runwatch pure helpers", () => {
     expect(runIssues([run("a", "ok", 0)], NOW)).toHaveLength(0);
     expect(runIssues([run("a", "skipped", 0)], NOW)).toHaveLength(0);
     expect(runIssues([run("a", "failed", NOW)], NOW)).toHaveLength(1);
-    // 未知 outcome 也要报：新的取值不该悄悄变成「没人看」。
+    // Alert on unknown outcomes too; new values must not silently go unnoticed.
     expect(runIssues([run("a", "cancelled", NOW)], NOW)).toHaveLength(1);
-    // running 的阈值边界：正好 2 小时算异常，差一秒不算。
+    // Boundary for `running`: exactly two hours is stale; one second less is not.
     expect(runIssues([run("a", "running", NOW - STALE_RUNNING_S)], NOW)).toHaveLength(1);
     expect(runIssues([run("a", "running", NOW - STALE_RUNNING_S + 1)], NOW)).toHaveLength(0);
   });
@@ -281,10 +286,11 @@ describe("runwatch pure helpers", () => {
   });
 
   it("formats timestamps as UTC and keeps '-' for junk", () => {
-    // 2026-10-11 用户指定：`YYYY-MM-DD HH:MM`（UTC，省略秒 —— 告警粒度是分钟，
-    // `ALERT_COOLDOWN_S` 也是分钟级）。前导零保留，字典序等于时间序。
+    // User-specified on 2026-10-11: `YYYY-MM-DD HH:MM` in UTC, without seconds (alerts
+    // and `ALERT_COOLDOWN_S` have minute-level granularity). Preserve leading zeroes so
+    // lexicographic order matches chronological order.
     expect(formatUtc(1_700_000_000)).toBe("2023-11-14 22:13");
-    // 前导零必须保留，否则排序会错（9 月应排在 10 月前）。
+    // Preserve leading zeroes or sorting will be wrong (September must precede October).
     expect(formatUtc(Date.UTC(2026, 8, 9, 3, 4) / 1000)).toBe("2026-09-09 03:04");
     expect(formatUtc(0)).toBe("-");
     expect(formatUtc(Number.NaN)).toBe("-");
@@ -293,11 +299,13 @@ describe("runwatch pure helpers", () => {
 
 describe("alert copy for the daily checks", () => {
   it("ships exactly one language, English, complete for every kind", () => {
-    // 2026-10-11 用户要求告警只发英文：`ALERT_I18N` 只保留 `en-us`，中/日/韩三份已删。
-    // 这条锁住三件事：① 不允许再偷偷加回别的语言（只增维护面）；
-    // ② `en-us` 对每个 kind 都完整 —— 少一个键就会渲染出空白行；
-    // ③ **不许再把 `title_*` 加回来**：正文那行标题与 subject 是同一件事，
-    //    三类告警已统一成「subject 报事件 + intro 说详情」两行结构（用户要求）。
+    // On 2026-10-11 the user required English-only alerts: `ALERT_I18N` retains only
+    // `en-us`; Chinese, Japanese, and Korean entries were removed.
+    // This locks down three things: (1) do not add other languages back and expand
+    // maintenance; (2) `en-us` must be complete for every kind or a missing key renders
+    // as a blank line; (3) **do not restore `title_*`** because the body title duplicates
+    // the subject. All three alert types use the user-requested two-line structure:
+    // subject reports the event, and intro gives details.
     expect(Object.keys(ALERT_I18N)).toEqual(["en-us"]);
     const table = ALERT_I18N["en-us"];
     for (const kind of ALERT_KINDS) {
@@ -325,15 +333,17 @@ describe("alert copy for the daily checks", () => {
   });
 
   it("stays English no matter what ALERT_LANG is set to", () => {
-    // 这条是「告警纯英文」的**行为**断言（上一条只钉了表结构）。用户要求两类读者
-    // （飞书群 + 邮件）都读英文，所以 `env.ALERT_LANG` 不能再影响输出 —— 改回去就红。
+    // This is a **behavioral** assertion for English-only alerts (the previous test checks
+    // only the data shape). The user requires both reader groups (Feishu and email) to
+    // receive English, so `env.ALERT_LANG` must not affect output; reverting that behavior
+    // makes this test fail.
     for (const configured of ["zh-cn", "ja-jp", "ko-kr", "en-us", "", "de-de"]) {
       const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
       const probe = buildCheckAlertEmail(configured, "runs", [{ name: "j", detail: "d" }], NOW);
       expect(probe.subject, configured).toBe(mail.subject);
       expect(probe.text, configured).toBe(mail.text);
     }
-    // 出口必须真的是英文文案，而不是"恰好相等"。
+    // The output must actually be English copy, not merely "happen to match."
     const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
     expect(mail.subject).toBe("Cron job failure · Limooo");
     expect(mail.text).toContain("did not succeed");
@@ -344,7 +354,7 @@ describe("alert copy for the daily checks", () => {
     const mail = buildCheckAlertEmail("de-de", "blocklist", [{ name: "L", detail: "d" }], NOW);
 
     expect(mail.subject).toContain(ALERT_I18N[ALERT_LANG_FORCED].subject_blocklist);
-    // 兜底失败最典型的形态就是空白字段，直接断言它没发生。
+    // A fallback failure most commonly produces blank fields; assert that this does not happen.
     expect(mail.subject.trim()).not.toBe("");
     expect(mail.html).toContain("L");
   });
@@ -373,7 +383,7 @@ describe("daily cron wiring", () => {
     const sqls = calls.map((c) => c.sql);
     expect(sqls.some((s) => /DELETE FROM heartbeats/i.test(s))).toBe(true);
     expect(sqls.some((s) => /FROM worker_runs/i.test(s))).toBe(true);
-    // 保留清理先跑：即便这条 cleanup 顺序换了，也应当是 DELETE 出现在前面。
+    // Retention cleanup runs first; if its order changes, DELETE should still appear first.
     expect(sqls.findIndex((s) => /DELETE FROM/i.test(s))).toBeLessThan(
       sqls.findIndex((s) => /FROM worker_runs/i.test(s)),
     );
@@ -424,7 +434,7 @@ describe("daily cron wiring", () => {
     expect(ok.status).toBe(200);
     const body = (await ok.json()) as { runs: { ok: boolean }; blocklist: { ok: boolean } };
     expect(body.runs).toEqual({ ok: true, issues: 0, alerted: false });
-    // 没配 Cloudflare 凭据 → 这一步 fail-open（只记日志，不报警）。
+    // Without Cloudflare credentials, this step fails open (log only, no alert).
     expect(body.blocklist.ok).toBe(false);
   });
 

@@ -1,4 +1,4 @@
-# Limooo - 统一 IP/CIDR 规范化与匹配工具
+# Limooo - shared IP/CIDR normalization and matching utilities
 #
 # Copyright (C) 2026 Limooo <https://limooo.cn/>
 #
@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""VPS 侧 IP/CIDR 唯一规范化实现。
+"""Canonical IP/CIDR normalization implementation for the former VPS side.
 
-Pages Functions 侧对应 ``functions/_lib/cidr.ts``；两端函数名与语义保持一致。
-所有入库 CIDR 都必须经过这里，输出统一为 ``<network>/<prefix>`` 形式：
+The Pages Functions counterpart is ``functions/_lib/cidr.ts``; function names and
+semantics are kept consistent between the two implementations. All CIDRs written
+to the database must pass through this module and use the ``<network>/<prefix>`` form:
 
-* IPv4: ``1.2.3.4/32``、``1.2.3.0/24``
-* IPv6: ``2001:db8::1/128``、``2001:db8::/64``
+* IPv4: ``1.2.3.4/32``, ``1.2.3.0/24``
+* IPv6: ``2001:db8::1/128``, ``2001:db8::/64``
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ import re
 
 
 def normalize_ip(value: str) -> str | None:
-    """把单个 IP 转成 canonical 字符串；非法地址返回 ``None``。"""
+    """Convert one IP address to its canonical string, or return ``None`` if invalid."""
     try:
         return ipaddress.ip_address(value.strip()).compressed
     except ValueError:
@@ -39,12 +40,12 @@ def normalize_ip(value: str) -> str | None:
 
 
 def parse_cidr(value: str) -> tuple[str, int] | None:
-    """解析 CIDR/裸 IP，返回 ``(network_address, prefixlen)``。
+    """Parse a CIDR or bare IP and return ``(network_address, prefixlen)``.
 
-    * ``1.2.3`` 视为 ``1.2.3.0/24``（auto_block 历史格式）
-    * ``1.2.3.4`` 视为 ``1.2.3.4/32``
-    * ``2001:db8::1`` 视为 ``2001:db8::1/128``
-    * 行尾 ``#`` 注释会被忽略
+    * ``1.2.3`` is treated as ``1.2.3.0/24`` (legacy auto_block format).
+    * ``1.2.3.4`` is treated as ``1.2.3.4/32``.
+    * ``2001:db8::1`` is treated as ``2001:db8::1/128``.
+    * A trailing ``#`` comment is ignored.
     """
     raw = re.sub(r"#.*$", "", value).strip()
     if not raw:
@@ -59,7 +60,7 @@ def parse_cidr(value: str) -> tuple[str, int] | None:
 
 
 def normalize_cidr(value: str) -> str | None:
-    """把任意合法 CIDR/裸 IP 规范化为 ``<network>/<prefix>``。"""
+    """Normalize a valid CIDR or bare IP to ``<network>/<prefix>``."""
     parsed = parse_cidr(value)
     if parsed is None:
         return None
@@ -67,7 +68,7 @@ def normalize_cidr(value: str) -> str | None:
 
 
 def network_address(ip: str, prefix: int) -> str | None:
-    """返回给定 IP 所在指定前缀的网络地址（canonical）。"""
+    """Return the canonical network address for an IP and prefix length."""
     try:
         address = ipaddress.ip_address(ip.strip())
     except ValueError:
@@ -80,7 +81,7 @@ def network_address(ip: str, prefix: int) -> str | None:
 
 
 def cidr_contains(cidr: str, ip: str) -> bool:
-    """判断单个 IP 是否落在 CIDR 内；两端非法时返回 False。"""
+    """Check whether an IP belongs to a CIDR; return False if either input is invalid."""
     try:
         network = ipaddress.ip_network(cidr, strict=False)
         address = ipaddress.ip_address(ip)

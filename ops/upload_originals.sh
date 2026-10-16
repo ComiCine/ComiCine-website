@@ -47,7 +47,8 @@ PREFIX="portfolio"
 DRY_RUN=0
 
 usage() {
-    # 打印文件头注释块（第 3 行起，到第一个非注释行为止），不再写死行号。
+    # Print the leading comment block, starting at line 3 and ending at the first non-comment
+    # line. Do not hard-code the ending line number.
     awk 'NR>=3 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"
 }
 

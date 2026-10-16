@@ -18,37 +18,38 @@
  */
 
 /**
- * D1 保留任务（从 VPS 的 ops/prune_d1.py 迁移，tasks/17 阶段 6）
+ * D1 retention job, migrated from the VPS `ops/prune_d1.py` (tasks/17, stage 6).
  *
- * VPS 退役后原 cron 不复存在，若不迁移，D1 会无限增长直至撞上单库上限。
+ * The VPS cron no longer exists after retirement. Without this migration, D1 would grow
+ * indefinitely until it reached the per-database limit.
  *
- * **本文件是保留策略的 owner**（tasks/22 W7-8）：它是被 cron 调度的那一份，
- * `ops/readme_facts.py` 与 `ops/prune_d1.py` 都从这里读窗口；prune_d1.py 在导入时
- * 与本文件逐条比对，不一致直接报错，所以两份策略不可能再各自漂移。
+ * **This file owns the retention policy** (tasks/22 W7-8) and is the version scheduled by cron.
+ * `ops/readme_facts.py` and `ops/prune_d1.py` both read their windows from here; at import,
+ * `prune_d1.py` compares each value with this file and fails on any mismatch, preventing drift.
  *
- * 注意：prune_d1.py 还有「把访客明细聚合进 visitors_daily」的部分（手动入口），
- * 本文件只做**每日清理**（防爆库的关键路径）。
+ * Note: `prune_d1.py` also aggregates visitor details into `visitors_daily` as a manual task.
+ * This file handles **daily pruning** only, the critical path for preventing unbounded growth.
  */
 
 export const DAY_SECONDS = 86_400;
 
-/** 表 → 保留秒数（owner；ops/prune_d1.py 从本文件读同一份值）。 */
+/** Table to retention window in seconds; this is the source used by `ops/prune_d1.py` too. */
 export const BUCKETS: Record<string, number> = {
   ray_log_v2: 7 * DAY_SECONDS,
   visitors_v2: 30 * DAY_SECONDS,
   visitor_rollups: 30 * DAY_SECONDS,
   events: 90 * DAY_SECONDS,
-  // 每分钟 3 条心跳 → 不清理就会无限增长，并拖慢状态页/排障查询。
+  // Three heartbeats per minute would grow without bound and slow status and troubleshooting queries.
   heartbeats: 30 * DAY_SECONDS,
-  // 按天在线率汇总只保留 90 天（状态页最多看 7 天）。
+  // Keep daily uptime summaries for 90 days; the status page shows at most 7 days.
   probe_uptime_daily: 90 * DAY_SECONDS,
-  // 每次登录写一行（`functions/login.ts` 的 createAuthSession），此前没有任何
-  // 清理路径，只增不减。窗口取 60 天：必须**长于** session_ttl_seconds（30 天，
-  // 见 config-contract.json），否则会在会话仍有签名有效期时把行删掉（登录态被踢）。
+  // Each login creates one row (`createAuthSession` in `functions/login.ts`), and there was no
+  // cleanup path. Keep rows for 60 days, **longer than** `session_ttl_seconds` (30 days in
+  // `config-contract.json`), or a still-valid signed session could be deleted and logged out.
   auth_sessions: 60 * DAY_SECONDS,
 };
 
-/** 非默认时间戳列。 */
+/** Timestamp columns that differ from the default. */
 export const TIMESTAMP_COLUMNS: Record<string, string> = {
   visitor_rollups: "last_ts",
   probe_uptime_daily: "day",
@@ -62,7 +63,7 @@ export interface PruneResult {
   error?: string;
 }
 
-/** 逐表清理过期行；任何一张表失败都不影响其它表。 */
+/** Prune expired rows table by table; a failure in one table does not affect the others. */
 export async function runRetention(
   env: { DB: D1Database },
   now = Math.floor(Date.now() / 1000),

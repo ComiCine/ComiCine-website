@@ -18,12 +18,12 @@
  */
 
 /**
- * GET /logout → 撤销 D1 会话、清 cookie，再跳 Access 登出端点（tasks/17 §11.6）。
+ * GET /logout → revoke the D1 session, clear cookies, and redirect to the Access logout endpoint (tasks/17 §11.6).
  *
- * 两步缺一不可：
- * - 撤销 D1 `auth_sessions`：本系统侧的会话立即失效（requireAuth fail-closed）；
- * - 跳 Access 登出：清 Cloudflare 侧的 `CF_Authorization`，否则下一个请求会
- *   被 Access 用残留会话自动重新认证，「退出」看起来没生效。
+ * Both steps are required:
+ * - Revoke the D1 `auth_sessions` row so the application session immediately becomes invalid (requireAuth fails closed).
+ * - Redirect through Access logout to clear Cloudflare's `CF_Authorization`; otherwise Access may automatically
+ *   authenticate the next request with the remaining session, making logout appear ineffective.
  */
 
 import { accessLogoutUrl, accessTeamDomain } from "./_lib/access";
@@ -45,10 +45,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const configError = runtimeConfigError(env);
   if (configError) return configErrorResponse(configError);
 
-  // `next` 会直接进 Location，必须与 /login 用同一个收口：只允许站内相对路径
-  // 或白名单主机的 https 地址。否则 ACCESS_TEAM_DOMAIN 为空时（生产确实出现过，
-  // 见 tasks/17 §11.10）下面 `target = next` 的分支就是开放重定向；带 CR/LF 的
-  // 非法值还会让 workerd 构造响应头时抛异常 → 500（tasks/22 W9-3）。
+  // `next` goes directly into Location, so apply the same validation as /login: allow only site-relative
+  // paths or HTTPS URLs on allowlisted hosts. Otherwise, when ACCESS_TEAM_DOMAIN is empty (which occurred
+  // in production; see tasks/17 §11.10), the `target = next` branch becomes an open redirect. CR/LF in an
+  // invalid value can also make workerd throw while constructing response headers, returning 500 (tasks/22 W9-3).
   const next = safeNextUrl(url.searchParams.get("next"));
   const session = await readSession(env, request.headers.get("Cookie"));
   if (session?.sid) {
@@ -69,7 +69,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     message: session ? `sid=${session.sid.slice(0, 8)}` : "no_session",
   });
 
-  // Access 未配置时退化为只跳 next，本地会话已经撤销，不影响安全性。
+  // If Access is not configured, fall back to redirecting only to next; the local session has already been revoked.
   const target = accessTeamDomain(env) ? accessLogoutUrl(env, next) : next;
   const resp = new Response(null, { status: 302, headers: { Location: target } });
   resp.headers.append("Set-Cookie", clearSessionCookie());

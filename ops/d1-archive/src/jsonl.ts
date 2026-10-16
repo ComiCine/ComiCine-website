@@ -18,14 +18,15 @@
  */
 
 /**
- * 行数据的 JSONL + gzip 序列化：分析归档（analytics/）与配置快照（backup/）共用。
+ * Serialize row data as JSONL + gzip for both analytics archives (analytics/) and configuration snapshots (backup/).
  *
- * 为什么单独一个模块：两条写入路径的**字节级格式必须一致**（每行一个 JSON 对象、
- * 行尾 \n、gzip），否则还原脚本要按前缀分两套解析。实现只此一份。
+ * Keep this in one module so both write paths use exactly the same byte format: one JSON object
+ * per line, a trailing \n, and gzip. Otherwise the restore script would need separate parsers for
+ * each prefix.
  *
- * 类型保真（灾备快照的硬要求）：JSON 天然区分 `0` / `1` / `"0"` / `""` / `null`，
- * 所以 active=0/1、epoch 整数、NULL 与空串都能原样回来；**不要**在这里做任何
- * 字符串化或默认值填充，那正是丢类型的开始。
+ * Type fidelity is a disaster-recovery requirement. JSON distinguishes `0` / `1` / `"0"` / `""` /
+ * `null`, preserving active=0/1, epoch integers, NULL, and empty strings. Do not stringify values
+ * or fill in defaults here; that would lose type information.
  */
 export async function gzipJsonl(rows: unknown[]): Promise<ArrayBuffer> {
   const encoder = new TextEncoder();

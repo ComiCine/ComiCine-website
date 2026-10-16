@@ -17,11 +17,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 统一结构化事件日志（Pages Functions 侧）。
+/** Shared structured event logging for Pages Functions.
  *
- * 每个事件输出一行完整 JSON（字段与 Flask 侧 src/app.py 的 log_event 保持一致），
- * 并尝试写入 D1 events 表供行级查询与健康检查聚合。
- * 日志写入失败不影响业务请求。
+ * Emit one complete JSON object per event, using the same fields as Flask's
+ * log_event in src/app.py, and try to write it to D1 events for row-level
+ * queries and health-check aggregation. Logging failures do not affect requests.
  */
 
 import { execute, executeBatch } from "./d1";
@@ -31,11 +31,13 @@ import { hmacSha256Hex } from "./crypto";
 
 let eventSchemaReady = false;
 /**
- * 上次尝试建表的时间戳（毫秒）。
+ * Time of the last table-creation attempt, in milliseconds.
  *
- * 只记「成功」是不够的：D1 配额耗尽/绑定失效期间每一句 DDL 都必然失败，旧写法
- * 于是让**每个**请求都先打一批失败往返，把一次故障放大成 N 次（tasks/22 W9-19）。
- * 现在记住「已尝试」，每个 isolate 每分钟最多重试一次。
+ * Recording only successful attempts is insufficient. During quota exhaustion
+ * or a broken binding, every DDL statement fails, and the old code sent a
+ * failing batch for **every** request, amplifying one outage into N failures
+ * (tasks/22 W9-19). Now remember attempts and retry at most once per minute
+ * per isolate.
  */
 let eventSchemaAttemptAt = 0;
 const SCHEMA_RETRY_COOLDOWN_MS = 60_000;
@@ -146,12 +148,12 @@ export function sanitizeLogMessage(message: string): string {
   return out.slice(0, MAX_LOG_MESSAGE_LENGTH);
 }
 
-/** 限制 path/message 等文本字段的长度，避免超大错误信息拖垮 D1。 */
+/** Limit path and message lengths so oversized errors do not burden D1. */
 function truncate(value: string, maxLength = 2048): string {
   return value.slice(0, maxLength);
 }
 
-/** 输出一行 JSON 并尝试持久化到 D1 events 表。 */
+/** Emit one JSON line and try to persist it to D1 events. */
 export async function logEvent(
   env: Env,
   event: string,
@@ -204,7 +206,7 @@ export async function logEvent(
     );
     if (!ok) throw new Error("D1 execute returned success=false");
   } catch (error) {
-    // 事件表不可用时不能递归写错误事件，只输出到 Pages 日志。
+// If the events table is unavailable, do not recursively log an error event; use the Pages log only.
     console.error(
       JSON.stringify({
         event: "event_store_error",

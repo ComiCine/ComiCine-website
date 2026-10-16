@@ -1,7 +1,8 @@
--- 012 · 补齐 probes.label_key
+-- 012: Add the missing probes.label_key column.
 --
--- 该列此前只在生产库上手工 ALTER 过，仓库里没有对应迁移：新环境按
--- ops/migrations/ 建库后，状态页会直接报 `no such column: p.label_key`。
--- 生产库已有该列，此迁移只对新建库生效（迁移记录见 .d1-migrations/applied）。
+-- This column had previously been added manually to production without a repository migration.
+-- A fresh database created from ops/migrations/ would make the status page fail with
+-- `no such column: p.label_key`. Production already has the column, so this migration affects
+-- only new databases (see .d1-migrations/applied for migration records).
 
 ALTER TABLE probes ADD COLUMN label_key TEXT;

@@ -1,17 +1,17 @@
--- 探针与心跳：取代 Uptime Kuma（docs/17 阶段 2）
+-- Probes and heartbeats: replace Uptime Kuma (docs/17, phase 2).
 --
--- 数据模型对应原 Kuma 的 monitor / heartbeat，但收敛为最小集合：
---   probes         探针定义（替代 Kuma monitor 表）
---   heartbeats     每次探测结果（替代 Kuma heartbeat 表）
---   probe_state    当前状态与连续失败计数（供 10 秒复查与告警判定）
+-- The data model corresponds to Kuma's monitor / heartbeat tables, reduced to the minimum set:
+--   probes         probe definitions (replaces Kuma's monitor table)
+--   heartbeats     individual probe results (replaces Kuma's heartbeat table)
+--   probe_state    current status and consecutive failure count (used for 10-second retries and alerts)
 --
--- 保留策略：heartbeats 按需由 prune_d1 聚合/清理（见 ops/prune_d1.py）。
+-- Retention: prune_d1 aggregates or deletes heartbeats as needed (see ops/prune_d1.py).
 
 CREATE TABLE IF NOT EXISTS probes (
     id           INTEGER PRIMARY KEY,
     name         TEXT    NOT NULL,
     type         TEXT    NOT NULL DEFAULT 'http',   -- http | d1
-    target       TEXT,                              -- http 探针的目标 URL
+    target       TEXT,                              -- target URL for an HTTP probe
     group_key    TEXT    NOT NULL DEFAULT 'internal', -- public | internal
     interval_s   INTEGER NOT NULL DEFAULT 60,
     active       INTEGER NOT NULL DEFAULT 1,
@@ -38,13 +38,14 @@ CREATE TABLE IF NOT EXISTS probe_state (
     checked_at       INTEGER
 );
 
--- 种子数据：对应 docs/17 §1.3 实测的 Kuma 监控项（去掉重复条目）
+-- Seed data based on the Kuma monitors observed in docs/17 §1.3, with duplicates removed.
 --
--- 注意：id=2 原先探的是 `admin.limooo.cn/_health`（authentik + Kuma 时代）。
--- VPS 退租后该域名已无 DNS 记录，探针每分钟固定拿到 http_530，状态页永远显示
--- 一项 down——这是过时配置，不是真实故障。改为探同区域的静态资源主机：
--- 不能探 Worker 自己的域名（对自身 zone 的 subrequest 会被 Cloudflare 拦掉）。
--- 已有库请用 015 迁移同步（INSERT OR IGNORE 不会更新已存在的行）。
+-- Note: probe id=2 previously targeted `admin.limooo.cn/_health` from the authentik + Kuma era.
+-- The domain no longer has DNS records after the VPS was retired, so the probe returned http_530
+-- every minute and the status page always showed one service down. This was stale configuration,
+-- not a real outage. It now probes a static-asset host in the same region. Do not probe the Worker's
+-- own domain; Cloudflare blocks subrequests to the same zone. Apply migration 015 to existing
+-- databases because INSERT OR IGNORE does not update existing rows.
 INSERT OR IGNORE INTO probes (id, name, type, target, group_key, interval_s) VALUES
     (1, 'Website',      'http', 'https://limooo.cn/_health',         'public',   60),
     (2, 'Edge Assets',  'http', 'https://images.limooo.cn/_health',  'internal', 60),

@@ -18,10 +18,12 @@
  */
 
 /**
- * Fernet v1 加解密（与 Flask 端 cryptography.fernet 兼容，用于 Apple Account 密码字段）
+ * Fernet v1 encryption and decryption compatible with Flask cryptography.fernet, used for Apple Account passwords.
  *
- * token 结构：0x80 || timestamp(8B BE) || IV(16B) || ciphertext || HMAC-SHA256(32B)
- * 32 字节 base64url 密钥：前 16 字节为签名密钥，后 16 字节为 AES-128-CBC 加密密钥
+ * Token format: 0x80 || timestamp (8-byte big-endian) || IV (16 bytes) ||
+ * ciphertext || HMAC-SHA256 (32 bytes).
+ * The 32-byte base64url key uses its first 16 bytes for signing and its final
+ * 16 bytes for AES-128-CBC encryption.
  */
 
 const enc = new TextEncoder();
@@ -39,7 +41,7 @@ function base64UrlDecode(input: string): Uint8Array {
 function base64UrlEncode(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
-  // 保留 '=' 填充：与 Python cryptography.fernet 完全互通
+// Retain '=' padding for compatibility with Python cryptography.fernet.
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_");
 }
 

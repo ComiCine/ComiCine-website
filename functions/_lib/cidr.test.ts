@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** IPv4/IPv6 规范化与匹配测试（tasks/10）。 */
+/** IPv4/IPv6 normalization and matching tests (tasks/10). */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -31,11 +31,13 @@ import {
 } from "./cidr";
 
 /**
- * 两端（TS `functions/_lib/cidr.ts` / Python `src/cidr.py`）共用的一致性向量。
+ * Shared consistency vectors for the TypeScript `functions/_lib/cidr.ts` and
+ * Python `src/cidr.py` implementations.
  *
- * `expected_*` 是 CPython `ipaddress` 的输出：封禁表 `blocked_ips(network, prefix)`
- * 是**字符串等值**比较，只要两端规范化结果不同，Python 写进去的封禁行就永远
- * 匹配不上 Worker 生成的候选，封禁静默失效（fail-open）。
+ * `expected_*` values come from CPython `ipaddress`. The blocklist compares
+ * `blocked_ips(network, prefix)` using **string equality**, so any
+ * normalization mismatch means Python-written rows will never match the
+ * Worker candidate and blocking silently fails open.
  */
 const PARITY = JSON.parse(
   readFileSync(
@@ -92,14 +94,16 @@ describe("cidr", () => {
   });
 
   it("renders IPv4-mapped IPv6 in CPython's dotted-quad form", () => {
-    // 回归：以前输出 ::ffff:102:304，与 Python 侧的 ::ffff:1.2.3.4 不同，
-    // blocked_ips 的字符串等值比较永远不命中 —— 封禁静默变 no-op。
+// Regression: the old output `::ffff:102:304` differed from Python's
+// `::ffff:1.2.3.4`, so string equality against blocked_ips never matched and
+// blocking became a silent no-op.
     expect(normalizeIp("::ffff:1.2.3.4")).toBe("::ffff:1.2.3.4");
     expect(normalizeIp("::FFFF:1.2.3.4")).toBe("::ffff:1.2.3.4");
-    // 只有前 80 位为 0 且第 6 组为 ffff 的地址才算 IPv4-mapped：
-    // ::ffff:0:1.2.3.4 的字节是 ...:0000:ffff:0000:0102:0304，CPython 用 hex 组。
+// An address is IPv4-mapped only when its first 80 bits are zero and its sixth
+// group is ffff. ::ffff:0:1.2.3.4 has bytes ...:0000:ffff:0000:0102:0304;
+// CPython renders it using hexadecimal groups.
     expect(normalizeIp("::ffff:0:1.2.3.4")).toBe("::ffff:0:102:304");
-    // NAT64 前缀不是 IPv4-mapped，保持 hex。
+// NAT64 prefixes are not IPv4-mapped; preserve hexadecimal notation.
     expect(normalizeIp("64:ff9b::1.2.3.4")).toBe("64:ff9b::102:304");
   });
 
@@ -118,8 +122,9 @@ describe("cidr", () => {
   });
 
   it("keeps a Python-written ::ffff ban row matchable", () => {
-    // 端到端语义：Python 侧用 normalize_cidr("::ffff:1.2.3.4") 写入 blocked_ips 的
-    // network 是 "::ffff:1.2.3.4"；Worker 必须为同一个访客 IP 推出同样的候选串。
+// End-to-end behavior: Python writes "::ffff:1.2.3.4" as the network value
+// from normalize_cidr("::ffff:1.2.3.4") in blocked_ips. The Worker must derive
+// the same candidate for the same visitor IP.
     expect(parseCidr("::ffff:1.2.3.4")).toEqual({
       network: "::ffff:1.2.3.4",
       prefix: 128,

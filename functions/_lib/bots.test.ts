@@ -18,17 +18,18 @@
  */
 
 /**
- * 爬虫 UA 名单（2026-10-12）：只免人机验证，且**不得**误伤真实浏览器。
+ * Crawler user-agent allowlist (2026-10-12): bypass human verification only
+ * and **never** match real browsers.
  *
- * 名单是「谁可以绕过 Turnstile」的判定依据，两类错误都要钉住：
- *   * 真实浏览器 UA 命中 → 用户再也看不到挑战页（本文件最要紧的一组用例）；
- *   * 名单里的爬虫命中不了 → 白名单白写。
+ * The list determines who may bypass Turnstile; guard against both errors:
+ *   * A real browser user agent matches, so users never see the challenge.
+ *   * A listed crawler fails to match, making the allowlist ineffective.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CRAWLER_UA_MAX_LENGTH, declaredCrawlerToken, isDeclaredCrawler } from "./bots";
 
-/** 线上真实浏览器 UA（Safari / Chrome / Firefox / Edge / iOS / Android WebView）。 */
+/** Real browser user agents used online: Safari, Chrome, Firefox, Edge, iOS, and Android WebView. */
 const BROWSER_UAS = [
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -40,7 +41,7 @@ const BROWSER_UAS = [
   "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
 ];
 
-/** 通用 HTTP 客户端：名单刻意不收（无法与服务端脚本区分），留它们在门禁后面。 */
+/** Generic HTTP clients are excluded because they cannot be distinguished from server scripts; keep them behind the gate. */
 const GENERIC_CLIENT_UAS = [
   "curl/8.22.0",
   "python-requests/2.32.3",
@@ -106,7 +107,7 @@ describe("declared crawler User-Agent matching", () => {
   it("ignores anything beyond the matching prefix, so a long UA cannot smuggle a token", () => {
     const padding = "x".repeat(CRAWLER_UA_MAX_LENGTH);
     expect(isDeclaredCrawler(withUserAgent(`${padding} GPTBot/1.4`))).toBe(false);
-    // 边界内仍然命中
+// A match within the configured boundary still succeeds.
     const inside = "x".repeat(CRAWLER_UA_MAX_LENGTH - "GPTBot/1.4".length);
     expect(isDeclaredCrawler(withUserAgent(`${inside}GPTBot/1.4`))).toBe(true);
   });

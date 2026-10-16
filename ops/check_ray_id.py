@@ -18,25 +18,26 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""按 Cloudflare Ray ID 反查请求记录（边缘 + D1 双源），供管理员终端排障。
+"""Look up request records by Cloudflare Ray ID using edge analytics and D1 sources.
 
-数据源：
-    1. Cloudflare GraphQL Analytics API —— 边缘侧记录，能给出**真实客户端 IP**。
-       注意：逐请求数据集 httpRequestsAdaptive（唯一含 rayName 的数据集）需要
-       Logpush/Enterprise 级别的字段授权；当前 zone 无权访问 `rayname`，脚本在
-       **权限错误**时会自动降级到聚合数据集 httpRequestsAdaptiveGroups
-       （免费版可用），按「时间窗 + host + path + 状态码 + 客户端 IP」交叉定位同一
-       请求；其它失败（网络/超时）不降级，聚合数据集里没有 Ray ID，给不出这个
-       请求的记录，只会如实报错让你重试。
-    2. D1 ray_log_v2 / ray_log / events —— 站点自己按 CF-Ray 记录的明细。
-       只在 Pages 侧产生，且受保留策略清理，故仅作补充。
+Data sources:
+    1. Cloudflare GraphQL Analytics API provides edge records, including the real client IP.
+       The per-request httpRequestsAdaptive dataset (the only one with rayName) requires
+       Logpush/Enterprise-level field access. This zone cannot query `rayname`, so on permission
+       errors the script falls back to httpRequestsAdaptiveGroups (available on the free plan) and
+       correlates the same request by time window, host, path, status, and client IP. It does not
+       fall back for other failures such as network errors or timeouts: the aggregated dataset has
+       no Ray ID and cannot provide this record, so the error is reported for retry.
+    2. D1 ray_log_v2 / ray_log / events contain site-side details recorded from CF-Ray. These are
+       produced only on the Pages side and are removed by retention policies, so they supplement
+       the edge data.
 
-用法：
+Usage:
     python3 ops/check_ray_id.py a334352fe9806564-AMS
     RAYID=a334352fe9806564-AMS python3 ops/check_ray_id.py
-    python3 ops/check_ray_id.py <rayid> --minutes 60   # 扩大边缘检索时间窗
+    python3 ops/check_ray_id.py <rayid> --minutes 60   # widen the edge search window
 
-退出码：0 有命中；1 无命中或查询失败；2 Ray ID 非法。
+Exit codes: 0 if found; 1 if not found or query failed; 2 for an invalid Ray ID.
 """
 
 from __future__ import annotations
@@ -63,7 +64,7 @@ DEFAULT_WINDOW_MINUTES = 30
 
 
 def normalize_ray(raw: str) -> tuple[str, str]:
-    """返回 (16 位小写 hex, colo 后缀大写或空)。"""
+    """Return (16 lowercase hex characters, uppercase colo suffix or empty string)."""
     value = (raw or "").strip()
     if not value:
         raise ValueError("invalid Ray ID")
@@ -77,7 +78,7 @@ def normalize_ray(raw: str) -> tuple[str, str]:
 
 
 def cf_request(cfg: dict[str, str], url: str, body: object | None = None) -> dict:
-    """带退避重试的 Cloudflare API 调用（本机到 CF 偶发连接重置）。"""
+    """Call the Cloudflare API with backoff retries (local connections to CF can reset occasionally)."""
     headers = {"Authorization": f"Bearer {cfg['token']}"}
     data = None
     if body is not None:
@@ -89,7 +90,7 @@ def cf_request(cfg: dict[str, str], url: str, body: object | None = None) -> dic
             req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8"))
-        except Exception as exc:  # noqa: BLE001 - 网络抖动统一重试
+        except Exception as exc:  # noqa: BLE001 - Retry transient network failures uniformly.
             last = exc
             time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(f"Cloudflare API request failed: {last}")
@@ -112,13 +113,13 @@ def zone_id(cfg: dict[str, str]) -> str | None:
 
 
 def d1_lookup(cfg: dict[str, str], ray: str) -> tuple[list[str], str | None]:
-    """D1 三表反查；返回 (格式化行, 错误信息)。"""
-    # 前缀匹配是**有意**的：落库的 ray 值带 colo 后缀（`a48923a17e543777-LAX`），
-    # 而 `normalize_ray()` 只交出 16 位十六进制（因此下面拼接的值只含 [0-9a-f]，无注入面）。
-    # 用范围比较代替 `LIKE '<id>%'`：`ray` 在三张表里都是主键/有索引，实测
-    # `SCAN …`（全扫索引）→ `SEARCH … (col>? AND col<?)`。一次反查原本要扫
-    # ray_log 29332 + ray_log_v2 2351 + events 26884 ≈ 5.9 万条索引项。
-    # 上限用 `ray + U+10FFFF`：比任何可能的后缀都大，`-LAX`/`-SIN`/无后缀都能命中。
+    """Search three D1 tables and return (formatted rows, error message)."""
+    # Prefix matching is **intentional**: stored ray values include a colo suffix (for example, `a48923a17e543777-LAX`),
+    # while `normalize_ray()` returns only 16 hexadecimal characters, so the value assembled below contains only [0-9a-f].
+    # Use a range comparison instead of `LIKE '<id>%'`: `ray` is a primary key or indexed in all three tables. Query plans changed
+    # from `SCAN` (a full index scan) to `SEARCH (col>? AND col<?)`. A lookup previously scanned about
+    # 59,000 index entries across ray_log (29,332), ray_log_v2 (2,351), and events (26,884).
+    # Use `ray + U+10FFFF` as the upper bound; it exceeds any possible suffix and matches `-LAX`, `-SIN`, or no suffix.
     upper = f"{ray}{chr(0x10FFFF)}"
     queries = (
         (
@@ -142,8 +143,8 @@ def d1_lookup(cfg: dict[str, str], ray: str) -> tuple[list[str], str | None]:
     for source, sql in queries:
         rows = d1_query_retry(cfg, sql)
         if rows is None:
-            # 网络/API 抖动与“确实没有记录”必须区分开，否则会把查不到
-            # 误报成不存在。
+            # Distinguish network/API failures from a confirmed missing record, or a failed lookup could be
+            # incorrectly reported as no record.
             errors.append(source)
             continue
         for row in rows:
@@ -179,12 +180,13 @@ def edge_lookup(
     colo: str,
     minutes: int,
 ) -> tuple[list[str], str | None]:
-    """边缘侧反查。
+    """Look up a request at the edge.
 
-    逐请求数据集含 rayName 但当前 zone 无权访问；**只有**这种权限错误才退回
-    聚合数据集（用时间窗交叉定位候选）。别的失败（网络、超时、GraphQL 报错）
-    不能假装降级：聚合数据集里没有 Ray ID，给不出这个请求的记录，所以如实报错
-    并让调用方重试。返回 (格式化行, 说明)。
+    The per-request dataset includes rayName but this zone cannot access it. Fall back to the
+    aggregate dataset only for this permission error, correlating candidates by time window.
+    Do not treat network, timeout, or GraphQL errors as eligible for fallback: the aggregate
+    dataset has no Ray ID and cannot return this request's record. Report the error so the caller
+    can retry. Return (formatted rows, explanation).
     """
     since = (dt.datetime.now(dt.UTC) - dt.timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
     exact = f'''{{
@@ -204,15 +206,15 @@ def edge_lookup(
     except RuntimeError as exc:
         detail = str(exc).lower()
         if "rayname" not in detail and "access to the field" not in detail:
-            # 旧文案在这里说「已回退到聚合数据集」，但代码其实直接返回了 ——
-            # 提示语与行为不符（tasks/22 W7-12）。现在如实说明没有回退。
+            # The old message claimed a fallback to aggregated data, but the code returned directly.
+            # The message and behavior did not match (tasks/22 W7-12); state accurately that no fallback occurred.
             return [], (
                 f"edge per-request query failed ({exc}); this is not a permission error, "
                 "so no aggregated fallback was attempted (the aggregated dataset has no Ray ID "
                 "and cannot answer this lookup). Retry, or check the Ray ID again later."
             )
 
-    # 聚合降级：没有 Ray ID，只能按时间窗 + colo 给出候选。
+    # Aggregated fallback: without a Ray ID, provide candidates by time window and colo only.
     agg = f'''{{
       viewer {{ zones(filter: {{zoneTag: "{zone}"}}) {{
         httpRequestsAdaptiveGroups(
@@ -230,8 +232,8 @@ def edge_lookup(
     }}'''
     data = gql(cfg, agg)
     groups = (data.get("viewer", {}).get("zones") or [{}])[0].get("httpRequestsAdaptiveGroups") or []
-    # 注意：Ray ID 后缀 colo 只对**该请求**成立，而候选来自别的请求，
-    # 因此不能按 colo 过滤（否则几乎必然空结果），colo 仅作展示参考。
+    # The Ray ID's colo suffix applies only to **that request**, while candidates come from other requests.
+    # Do not filter by colo or the result will almost always be empty; show colo as a reference only.
     rows = [
         render_edge_row(item.get("dimensions") or {}, aggregated=True, count=item.get("count"))
         for item in groups
@@ -282,13 +284,13 @@ def main() -> int:
     cfg = d1_client.cloudflare_config(d1_client.load_env(ROOT / "secrets" / "webauthn.env"))
     found = False
 
-    # stderr 未缓冲会与 stdout 交错；每次切到 stderr 前先 flush。
+    # Unbuffered stderr can interleave with stdout; flush stdout before writing to stderr.
     def warn(message: str) -> None:
         sys.stdout.flush()
         print(message, file=sys.stderr)
         sys.stderr.flush()
 
-    # 1) 边缘
+    # 1) Edge
     print("Cloudflare edge", flush=True)
     degraded = False
     try:
@@ -301,8 +303,8 @@ def main() -> int:
                 degraded = True
                 edge_rows = rows
                 print(f"  {note}")
-                # 候选不是该 Ray ID 的记录，不计入 found；默认不刷屏，
-                # 只有 D1 也没命中时才展开（或用 --edge-candidates 强制）。
+                # Candidates are not records for this Ray ID and do not count as found. Keep them hidden by default;
+                # show them when D1 also has no match or when --edge-candidates is specified.
                 if args.edge_candidates:
                     for line in rows:
                         print("  " + line)
@@ -312,11 +314,11 @@ def main() -> int:
                 for line in rows:
                     print("  " + line)
                 found = found or bool(rows)
-    except Exception as exc:  # noqa: BLE001 - 运维脚本统一收口
+    except Exception as exc:  # noqa: BLE001 - Use the common error handling for operations scripts.
         warn(f"  edge query failed: {exc}")
         degraded, edge_rows = False, []
 
-    # 2) D1（补充）
+    # 2) D1 (additional source)
     print("D1 site logs", flush=True)
     d1_error = False
     try:
@@ -331,7 +333,7 @@ def main() -> int:
         d1_error = True
         warn(f"  D1 query failed: {exc}")
 
-    # 两个精确源都没命中、但存在降级候选时，展开候选供人工比对。
+    # If neither exact source matches but fallback candidates exist, show them for manual comparison.
     if degraded and not found and edge_rows:
         print("edge candidates (degraded, not an exact match)", flush=True)
         for line in edge_rows:
@@ -339,7 +341,7 @@ def main() -> int:
 
     if not found:
         if d1_error:
-            # 查询失败 != 记录不存在，明确区分，避免误判为“没记录”。
+            # A query failure does not mean the record is missing; distinguish them to avoid reporting a false miss.
             warn(f"\nquery incomplete: {ray} (D1 query failed; please retry)")
             return 1
         hint = " (no permission for an exact edge match; candidates listed for comparison)" if degraded else ""

@@ -17,15 +17,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""从 docs/lists/whitelist.txt、docs/lists/robots.txt 与 config-contract.json 生成门禁信任配置（tasks/14）。
+"""Generate gate trust configuration from whitelist.txt, robots.txt, and config-contract.json (tasks/14).
 
-输出：
-  - 校验白名单格式（ASN 与 IP-CIDR 两段都校验）；
-  - `--emit` 时生成 functions/_data/gateTrust.ts：只含运行时真正消费的
-    verified_bot / ua_allowlist_enabled / ip_cidrs（ASN 是 WAF 的输入，不进
-    isolate，见 W4-4），外加从 robots.txt 解析出来的爬虫 UA 名单；
-  - ASN 与爬虫 UA 计数仍出现在 stdout 的 --json 摘要里，供审计与 readme 核对；
-  - 不读取任何密钥。
+Output:
+  - Validate both ASN and IP-CIDR whitelist entries.
+  - With `--emit`, generate functions/_data/gateTrust.ts containing only runtime values actually
+    consumed: verified_bot, ua_allowlist_enabled, ip_cidrs, and crawler UAs parsed from robots.txt.
+    ASNs are input to the WAF and are not sent to the isolate (see W4-4).
+  - Include ASN and crawler-UA counts in the stdout --json summary for audits and README checks.
+  - Read no secrets.
 """
 
 from __future__ import annotations
@@ -39,13 +39,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_PATH = ROOT / "config-contract.json"
-# 白名单放在 docs/lists/（与封禁名单同目录，便于手工维护）；
-# 生成物 whitelist.txt 由 ops/sync_whitelist.py 从 own-ips.txt 刷新。
-# 见 docs/lists/README.md。
+# The allowlist lives in docs/lists/ alongside the blocklist for easier manual maintenance.
+# ops/sync_whitelist.py refreshes the generated whitelist.txt from own-ips.txt.
+# See docs/lists/README.md.
 WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
-# robots.txt 是**唯一**的爬虫名单来源（2026-10-12 起）：它同时是线上
-# https://limooo.cn/robots.txt 的爬虫规则（构建器另追加 Sitemap 行），这里再解析出
-# 每条显式 User-agent 作为门禁放行名单。语义见 docs/lists/README.md。
+# robots.txt has been the **only** crawler-list source since 2026-10-12. It also supplies the live
+# https://limooo.cn/robots.txt rules (the builder adds the Sitemap line), and this module extracts
+# each explicit User-agent as a gate allowlist entry. See docs/lists/README.md for the semantics.
 ROBOTS_PATH = ROOT / "docs" / "lists" / "robots.txt"
 OUTPUT_PATH = ROOT / "functions" / "_data" / "gateTrust.ts"
 
@@ -54,24 +54,24 @@ IP_CIDR_RE = re.compile(
     r"^IP-CIDR/([0-9A-Fa-f:.]+)/(\d{1,3})$",
     re.I,
 )
-# IP-CIDR 会同时绕过门禁与应用封禁，限制到常见的单出口网段范围。
+# IP-CIDR entries bypass both the gate and application-level blocking, so limit them to common single-egress network ranges.
 ASN_MIN = 1
 ASN_MAX = 4_294_967_295
 MIN_CIDR_PREFIX = {4: 24, 6: 64}
 
-# robots.txt 的 User-agent 行：`User-agent: GPTBot`（大小写不敏感，冒号后可留空格）。
+# A robots.txt User-agent line looks like `User-agent: GPTBot`; matching is case-insensitive and whitespace after the colon is allowed.
 ROBOTS_USER_AGENT_RE = re.compile(r"^\s*user-agent\s*:\s*(.+?)\s*$", re.I)
 
-# UA 片段允许的字符：产品名 + 版本号 + 厂商 URL 片段（如 "Slack-ImgProxy"）。
-# 收紧字符集是为了不让 `"` / `\` / 换行之类的东西进生成物（那会写坏 TS 字面量）。
+# Allowed UA fragment characters: product names, version numbers, and vendor URL fragments (for example, "Slack-ImgProxy").
+# Restrict the character set so quotes, backslashes, and newlines cannot break generated TypeScript literals.
 CRAWLER_TOKEN_RE = re.compile(r"^[A-Za-z0-9 ._/+\-()@:]+$")
-# 太短的片段会变成过宽的匹配（`bo`、`ai` 之类几乎命中一切），直接拒绝。
+# Reject fragments that are too short because they match too broadly (`bo` or `ai` would match almost everything).
 MIN_CRAWLER_TOKEN_LENGTH = 3
 
-# 生成物顶部的 AGPL 头（tasks/22 W8-7）。措辞与 src/config.py 等手写文件里的
-# 头逐字一致，只把注释符号换成 TS 的块注释；src/build.py 生成
-# functions/_lib/config.ts 与 functions/_data/*.ts 时有一份同文副本，
-# 改这里请一并改那边。
+# AGPL header for generated files (tasks/22 W8-7). Its wording matches the headers in handwritten files such as src/config.py,
+# with only the comment syntax changed to a TypeScript block comment. src/build.py has a copy used for
+# functions/_lib/config.ts and functions/_data/*.ts;
+# update both locations.
 LICENSE_HEADER_TS = """\
 /**
  * Limooo - serverless personal website and admin system
@@ -139,15 +139,15 @@ def load_whitelist(path: Path) -> tuple[list[int], list[tuple[str, int]]]:
 
 
 def load_crawler_agents(path: Path) -> list[str]:
-    """从 robots.txt 解析门禁放行名单：每一条**显式** `User-agent:`（`*` 除外）。
+    """Parse explicit `User-agent:` entries from robots.txt, excluding `*`.
 
-    返回**保留原大小写、保留文件顺序**的列表（生成时统一转小写）：匹配是
-    「先命中先返回」，分组与排序对排查有意义，所以这里不排序。
+    Preserve original case and file order in the returned list (the generator lowercases values).
+    Matching uses first match wins, so group order matters and must not be sorted.
 
-    刻意只认 `User-agent:` 行：robots.txt 的 `*` 组是「所有人」，不能当放行名单
-    （那等于关掉门禁），所以跳过；`Allow` / `Disallow` / 注释都不参与。
-    格式错（字符非法、片段过短、重复、一条显式条目都没有）直接抛错 ——
-    门禁名单写错比构建失败严重。
+    Read only `User-agent:` lines. The `*` group means everyone and cannot be an allowlist entry,
+    because that would disable the gate. Ignore `Allow`, `Disallow`, and comments. Raise an error for
+    invalid characters, short fragments, duplicates, or no explicit entries; a broken gate allowlist
+    is more serious than a failed build.
     """
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -157,8 +157,8 @@ def load_crawler_agents(path: Path) -> list[str]:
     agents: list[str] = []
     seen: set[str] = set()
     for raw in lines:
-        # 行尾注释一并剥掉：robots.txt 里 `#` 之后是注释。本仓库自己的文件不写
-        # 行尾注释，但接手的人很容易加，剥掉比踩坑便宜。
+        # Strip trailing comments too: everything after `#` in robots.txt is a comment. Repository files do not currently use
+        # trailing comments, but stripping them avoids surprises if someone adds one.
         line = re.sub(r"#.*$", "", raw).strip()
         if not line:
             continue
@@ -191,10 +191,10 @@ def main() -> int:
 
     contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     gate_trust = contract.get("gate_trust", {})
-    # ASN 仍要解析、仍要校验格式：WAF Access Rules 从 docs/lists/whitelist.txt
-    # 的 ASN 段生成。但运行时（functions/_middleware.ts）只读 verified_bot /
-    # ip_cidrs，所以下面的 runtime payload 不带 ASN
-    # 打进 isolate 只是死数据，真实消费方是 WAF（W4-4）。
+    # Continue parsing and validating ASNs because WAF Access Rules are generated from the ASN entries in
+    # docs/lists/whitelist.txt. Runtime code in functions/_middleware.ts reads only verified_bot and
+    # ip_cidrs, so the runtime payload omits ASNs.
+    # Sending them to the isolate would be dead data; WAF is the actual consumer (W4-4).
     asns, networks = load_whitelist(WHITELIST_PATH)
     crawlers = load_crawler_agents(ROBOTS_PATH)
 
@@ -213,8 +213,9 @@ def main() -> int:
             f"export const GATE_TRUST = {json.dumps(payload, ensure_ascii=False)} as const;\n"
             f"export const GATE_TRUST_IPS: Set<string> = new Set({json.dumps([ip for ip, _ in networks])});\n"
             f"export const GATE_TRUST_NETWORKS: [string, number][] = {json.dumps(networks)};\n"
-            "\n// 爬虫/AI 放行名单：docs/lists/robots.txt 里每条显式 User-agent（`*` 除外），\n"
-            "// 已转小写、按子串匹配；语义与代价见 functions/_lib/bots.ts。\n"
+            "\n// Crawler and AI allowlist from explicit User-agent entries in\n"
+            "// docs/lists/robots.txt, excluding `*`. Values are lowercased and\n"
+            "// matched as substrings; see functions/_lib/bots.ts for behavior and cost.\n"
             "export const GATE_TRUST_CRAWLER_UAS: readonly string[] = "
             f"{json.dumps([token.lower() for token in crawlers])};\n"
         )

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# 本地全量测试入口：Python pytest + TypeScript vitest。
+# Local full test entry point: Python pytest + TypeScript vitest.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

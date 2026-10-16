@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/prune_d1.py 的纯函数测试（不连接 Cloudflare，不访问密钥）。"""
+"""Pure-function tests for ops/prune_d1.py (no Cloudflare or credential access)."""
 
 from __future__ import annotations
 
@@ -38,8 +38,8 @@ def test_aggregate_sql_targets_v2_and_daily() -> None:
 
 
 def test_aggregate_upserts_instead_of_replacing() -> None:
-    """W7-5：`INSERT OR REPLACE` 会先删掉冲突行，只覆盖部分小时的滚动窗口
-    于是把「昨天那一行」的较早小时数永久改小；必须是单调推进的 upsert。"""
+    """W7-5: `INSERT OR REPLACE` deletes the conflicting row first. Replacing a rolling-window row
+    with data for only some hours permanently lowers yesterday's total; use a monotonic upsert."""
     sql = prune_d1._aggregate_sql()
     assert "INSERT OR REPLACE" not in sql
     assert "ON CONFLICT (day, country, page_slug, status) DO UPDATE SET" in sql

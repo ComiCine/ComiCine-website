@@ -17,24 +17,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 敏感 API 的同步双提交 CSRF 保护。
+/** Synchronous double-submit CSRF protection for sensitive APIs.
  *
- * 真正拦下跨站写请求的是两条，缺一不可：
- * 1. **Origin 校验**：只接受 `PROD_ORIGINS` 里的本村子域（`visitor.` /
- *    `account.`），且**生产环境默认不放行 localhost**；跨站表单/脚本拿不到
- *    合法 Origin 头。
- * 2. **双提交 + 自定义头**：cookie（非 HttpOnly，前端要读）与
- *    `X-CSRF-Token` 头必须完全一致。跨站请求既读不到 cookie，也无法在
- *    普通表单提交时附带自定义头。
+ * Cross-site writes are blocked by two checks, both required:
+ * 1. **Origin validation**: accept only first-party subdomains in
+ *    `PROD_ORIGINS` (`visitor.` / `account.`); **localhost is denied by default
+ *    in production**. Cross-site forms and scripts cannot supply a valid
+ *    Origin header.
+ * 2. **Double-submit plus a custom header**: the cookie (not HttpOnly because
+ *    the frontend reads it) must exactly match the `X-CSRF-Token` header.
+ *    Cross-site requests cannot read the cookie or add a custom header to a
+ *    normal form submission.
  *
- * 在此基础上 token 还要**绑定会话**：签名覆盖 `csrf:<sid>:<payload>`，
- * 于是 A 会话签出的 token 在 B 会话里验不过（同站其它子域即使能种 cookie 也
- * 不能拿旧 token 顶用）。`sid` 由调用方从已校验的会话传入
- * （`/api/auth/status` 签发、各写接口校验）；未登录场景当前没有签发点，
- * 因此不设空 `sid` 特例。
+ * Also **bind the token to a session** by signing `csrf:<sid>:<payload>`.
+ * A token issued in session A then fails in session B, even if another
+ * same-site subdomain can set a cookie. Callers pass the `sid` from a verified
+ * session (`/api/auth/status` issues tokens and write endpoints validate
+ * them). Unauthenticated requests have no issuer, so there is no empty-`sid`
+ * exception.
  *
- * localhost 放行只用于本地 `wrangler pages dev`：设 `ALLOW_LOCAL_ORIGINS=1`
- * （写进本地 `.dev.vars`）才生效，生产不设即默认关闭。
+ * Allow localhost only for local `wrangler pages dev`: set
+ * `ALLOW_LOCAL_ORIGINS=1` in local `.dev.vars`. It is disabled by default in
+ * production.
  */
 
 import {
@@ -55,7 +59,7 @@ const PROD_ORIGINS = new Set([
 ]);
 const LOCAL_ORIGIN_RE = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 
-/** 显式开关：只有值为 `1` 时才放行 localhost Origin（本地开发用）。 */
+/** Explicit local-development switch; allow localhost Origin only when set to `1`. */
 function localOriginsAllowed(env: Env): boolean {
   return (env.ALLOW_LOCAL_ORIGINS ?? "").trim() === "1";
 }
@@ -64,7 +68,7 @@ function csrfSecret(env: Env): string {
   return env.SESSION_HMAC_KEY || env.GATE_HMAC_KEY || "";
 }
 
-/** 签名载荷：token 与会话绑定，换一个 `sid` 即失效。 */
+/** Signed payload binds the token to a session; changing `sid` invalidates it. */
 function csrfPayload(sid: string, payload: string): string {
   return `csrf:${sid}:${payload}`;
 }
@@ -86,8 +90,9 @@ function isAllowedOrigin(env: Env, origin: string): boolean {
 }
 
 /**
- * 签发一次绑定 `sid` 的 CSRF token；cookie 不能设为 HttpOnly，前端需要读取后
- * 放到请求头。`sid` 必填——调用方必须已经通过会话校验。
+ * Issue a CSRF token bound to `sid`. The cookie cannot be HttpOnly because
+ * the frontend must read it and add it to the request header. `sid` is
+ * required; callers must validate the session first.
  */
 export async function createCsrfToken(env: Env, sid: string): Promise<{ token: string }> {
   const secret = csrfSecret(env);
@@ -102,8 +107,9 @@ export function csrfCookieHeader(token: string, secure = true): string {
 }
 
 /**
- * 校验写请求：Origin 可信 + cookie/header 双提交一致 + 服务端签名有效且绑定
- * 到当前 `sid`。`sid` 取自调用方已经校验过的会话。
+ * Validate a write request: trusted Origin, matching cookie and header, valid
+ * server signature, and binding to the current `sid` from the caller's
+ * already-validated session.
  */
 export async function verifyCsrf(env: Env, request: Request, sid: string): Promise<boolean> {
   const origin = request.headers.get("Origin") ?? "";
