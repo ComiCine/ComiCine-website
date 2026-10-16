@@ -18,19 +18,19 @@
  */
 
 /**
- * Worker 侧运行时类型（status-worker / d1-archive / sync-worker）。
+ * Worker-side runtime types for status-worker, d1-archive, and sync-worker.
  *
- * 为什么不用 @cloudflare/workers-types：与 functions/types.d.ts、
- * functions/_lib/d1.ts 同源——本项目一直用**手写的最小类型**代替那个类型包，
- * 免得每个 package.json / tsconfig 都挂一份会随 Cloudflare 发版的类型依赖。
- * 本文件只声明 `ops/**` 三个 Worker 真正用到的部分（D1、Durable Object、
- * cron、cloudflare:sockets）；改 Worker 用到新 API 时在这里补，不要用 any 兜。
+ * Why not @cloudflare/workers-types: like functions/types.d.ts and functions/_lib/d1.ts, this
+ * project uses a small handwritten type set instead of depending on a package that changes with
+ * Cloudflare releases. This file declares only the APIs used by the three Workers in ops/**
+ * (D1, Durable Objects, cron, and cloudflare:sockets). Add new APIs here when needed; do not use
+ * any as a fallback.
  *
- * 之前 status-worker 不在 tsconfig.json 的 include 里，所以这些类型缺失
- * 一直没被发现（tasks/22 W6-4）。
+ * Previously, status-worker was not included in tsconfig.json, so missing types went unnoticed
+ * (tasks/22 W6-4).
  */
 
-/** Cloudflare D1（与 functions/_lib/d1.ts 的同名结构保持兼容）。 */
+/** Cloudflare D1, structurally compatible with the matching types in functions/_lib/d1.ts. */
 declare interface D1Meta {
   changes?: number;
   duration?: number;
@@ -54,7 +54,7 @@ declare interface D1PreparedStatement {
 
 declare interface D1Database {
   prepare(sql: string): D1PreparedStatement;
-  /** D1 的 batch 一定存在；Worker 侧直接 `await env.DB.batch([...])`。 */
+  /** D1 batch is always available; Workers call `await env.DB.batch([...])` directly. */
   batch(statements: D1PreparedStatement[]): Promise<D1Result[]>;
   exec?(sql: string): Promise<unknown>;
 }
@@ -89,19 +89,19 @@ declare interface DurableObjectNamespace {
   get(id: DurableObjectId): DurableObjectStub;
 }
 
-/** Durable Object 类要实现的接口；只有 fetch 是必需的。 */
+/** Interface implemented by Durable Object classes; only fetch is required. */
 declare interface DurableObject {
   fetch(request: Request): Promise<Response>;
 }
 
-/** Cron Trigger 的 scheduled() 入参。 */
+/** Input passed to the Cron Trigger scheduled() handler. */
 declare interface ScheduledController {
   readonly cron: string;
   readonly scheduledTime: number;
   readonly type?: string;
 }
 
-/** cloudflare:sockets —— 只声明本项目用到的部分（隐式 TLS SMTP）。 */
+/** cloudflare:sockets; declare only the APIs used here for implicit-TLS SMTP. */
 declare module "cloudflare:sockets" {
   interface SocketOptions {
     secureTransport?: "off" | "on" | "starttls";

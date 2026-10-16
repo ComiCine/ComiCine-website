@@ -18,27 +18,28 @@
  */
 
 /**
- * `worker_runs` 运行记录的共享库（表结构见 ops/migrations/018_worker_runs.sql）。
+ * Shared library for `worker_runs` records (schema in ops/migrations/018_worker_runs.sql).
  *
- * 为什么有这个文件：limooo-blocklist-sync 与 limooo-d1-archive 都用
- * `ctx.waitUntil(asyncWork(env))`，协程 rejection 被静默吞掉，失败了没有任何
- * 痕迹。两个 Worker 的运行记录形状必须一致，否则运维脚本要写两套解析，所以
- * 逻辑只此一份，d1-archive 直接相对导入本文件（wrangler 会把被引用的模块一起
- * 打包；这正是「一个模块只能有一个源」的取舍：宁可跨目录引用，也不复制一份
- * 必然会漂移的实现）。
+ * This module exists because limooo-blocklist-sync and limooo-d1-archive both use
+ * `ctx.waitUntil(asyncWork(env))`, which silently swallows promise rejections and leaves no trace
+ * on failure. Both Workers must write the same record shape, or operations scripts would need two
+ * parsers. Keep the implementation here once and let d1-archive import it directly; Wrangler
+ * bundles imported modules. Sharing across directories is preferable to maintaining a duplicate
+ * that would inevitably drift.
  *
- * 成本纪律（AGENTS.md「D1 读取预算」）：
- *   - 写：每个 job 每次运行 1 次 INSERT + 1 次 UPDATE，cron 频率下是 1 行/天；
- *   - 读：只有 Worker 的 `?health=1` 端点与 ops/check_blocklist_sync.py 会读，
- *         各 job 的**热路径**（同步、归档）一次都不读；
- *   - 索引 (job, started_at DESC) 与 health 的 `WHERE job = ? ORDER BY
- *         started_at DESC LIMIT 1` 完全对应，只读 1 行。
+ * D1 read-budget rules (see AGENTS.md):
+ *   - Writes: one INSERT + one UPDATE per job run, or one row per day at cron frequency.
+ *   - Reads: only the Worker's `?health=1` endpoint and ops/check_blocklist_sync.py read this table;
+ *     job hot paths (sync and archive) never do.
+ *   - The (job, started_at DESC) index matches the health query's `WHERE job = ? ORDER BY
+ *     started_at DESC LIMIT 1`, so it reads one row.
  *
- * 失败语义：本文件所有函数**都不抛错**（除了 lastRun，它的失败由调用方兜）。
- * 写不进去只 console.error，绝不让「记账失败」变成「同步/归档失败」。
+ * Failure semantics: no function in this file throws, except lastRun, whose errors are handled by
+ * the caller. Write failures only use console.error; a record-keeping failure must not become a
+ * sync/archive failure.
  */
 
-/** 与 ops/migrations/018_worker_runs.sql 的列一一对应。 */
+/** Matches the columns in ops/migrations/018_worker_runs.sql one for one. */
 export interface RunRow {
   id: number;
   job: string;
@@ -48,7 +49,7 @@ export interface RunRow {
   added: number | null;
   removed: number | null;
   error: string | null;
-  /** 1 = 只算了差异、没对 Cloudflare 发写请求（`?dry-run=1`）。 */
+  /** 1 = differences were calculated without sending Cloudflare write requests (`?dry-run=1`). */
   dry_run: number;
 }
 
@@ -62,13 +63,13 @@ export interface RunUpdate {
 }
 
 /**
- * 只要求 Worker 真正用到的那点 D1 形状，便于测试桩。
+ * Declare only the D1 shape used by the Worker, to simplify test stubs.
  *
- * 关键：必须与 ops/workers.d.ts 的 D1PreparedStatement **结构兼容**，否则
- * `D1Database` 不能赋给 `RunDatabase`（tsc 会报 prepare() 返回值不兼容）。
- * 因此 `all()` 的返回把 results/success 标成可选 —— 这样既接受真实的
- * `D1Result<T>`（字段齐全），也接受测试里只给一部分字段的桩对象。`run()` 用
- * `Promise<unknown>` 而不是 `Promise<D1Result>`，调用方本来就不看它的返回值。
+ * It must remain structurally compatible with D1PreparedStatement in ops/workers.d.ts, or
+ * D1Database cannot be assigned to RunDatabase (tsc reports an incompatible prepare() return).
+ * Mark results/success optional on all() so the type accepts both real D1Result<T> values and
+ * test stubs with only some fields. run() returns Promise<unknown> rather than Promise<D1Result>
+ * because callers do not inspect its result.
  */
 interface RunStatement {
   bind(...values: unknown[]): RunStatement;
@@ -76,17 +77,17 @@ interface RunStatement {
   run(): Promise<unknown>;
 }
 
-/** 只要求 Worker 真正用到的那点 D1 形状，便于测试桩。 */
+/** Declare only the D1 shape the Worker uses, to simplify test stubs. */
 export interface RunDatabase {
   prepare(sql: string): RunStatement;
 }
 
-/** 运行记录里的时间戳：UTC epoch 秒（与 D1 其余表一致）。 */
+/** Run-record timestamps use UTC epoch seconds, matching the other D1 tables. */
 export function runStartedAt(now = Date.now()): number {
   return Math.floor(now / 1000);
 }
 
-/** 写失败时的结构化日志；带 job 与 stage，便于在 Workers 日志里检索。 */
+/** Structured log for write failures, including job and stage for searching Workers Logs. */
 function logRunStoreError(job: string, stage: string, error: unknown): void {
   console.error(
     JSON.stringify({
@@ -100,9 +101,9 @@ function logRunStoreError(job: string, stage: string, error: unknown): void {
 }
 
 /**
- * 记下「开始跑」：outcome='running'、finished_at 为 NULL。
+ * Record the start of a run: outcome='running', finished_at=NULL.
  *
- * 返回行 id 供结束时回填；写不进去返回 null（调用方照样继续跑同步）。
+ * Return the row ID for the final update; return null on write failure so the caller can continue syncing.
  */
 export async function insertRun(
   db: RunDatabase,
@@ -126,7 +127,7 @@ export async function insertRun(
   }
 }
 
-/** 回填结束状态。runId 为 null（insert 失败）时直接跳过。 */
+/** Update the final status; skip if runId is null because the insert failed. */
 export async function updateRun(
   db: RunDatabase,
   runId: number | null,
@@ -158,12 +159,12 @@ export async function updateRun(
 }
 
 /**
- * 读最近一条运行记录（每个 job 一行）。
+ * Read the latest run record (one row per job).
  *
- * 与其它函数不同，这里**会把异常抛出去**：健康端点的返回值里「lastRun 为
- * null」有两种含义 —— 表还没建（迁移 018 没跑）与查询失败；让调用方拿到异常
- * 才能如实说明，而不是把两者混成「没有记录」。查询走
- * idx_worker_runs_job_started，只读 1 行。
+ * Unlike the other functions, this one throws errors. In a health response, lastRun=null can mean
+ * either that the table is missing (migration 018 was not applied) or that the query failed. The
+ * caller needs the exception to report these accurately instead of treating both as "no record".
+ * The query uses idx_worker_runs_job_started and reads one row.
  */
 export async function lastRun(db: RunDatabase, job: string): Promise<RunRow | null> {
   const result = await db

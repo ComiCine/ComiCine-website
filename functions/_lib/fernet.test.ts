@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Fernet 双向互通测试：Python 固化的 token 与 WebCrypto 实现互相解密。 */
+/** Fernet interoperability tests: the Python fixture and WebCrypto implementation decrypt each other's tokens. */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -37,14 +37,16 @@ describe("fernet", () => {
   });
 
   /**
-   * W5-3：`fernetEncrypt` 的 base64url **必须保留 `=` 填充**。
+    * W5-3: `fernetEncrypt` base64url output **must retain `=` padding**.
    *
-   * 生产真正依赖的方向是「TS 加密 → Python 解密」：`tracking.ts` 写 `ip_enc`，
-   * `ops/check_ip_rays.py` 用 `cryptography.fernet.Fernet.decrypt()` 解（内部是
-   * `base64.urlsafe_b64decode`，缺填充直接抛 `InvalidToken`）。
-   * 谁把这里的 `base64UrlEncode` 「简化」成共用的 `crypto.ts` 的 `toB64Url`
-   * （会去掉填充），整条链路就会对所有 IP 报「无记录」，而当时没有任何用例会红。
-   * 长度 100（73 字节）是确定值：AES-CBC 密文恒为 16 的倍数，所以这个输入必然带 `==`。
+    * Production relies on TypeScript encryption and Python decryption:
+    * `tracking.ts` writes `ip_enc`, and `ops/check_ip_rays.py` decrypts it with
+    * `cryptography.fernet.Fernet.decrypt()` (which calls
+    * `base64.urlsafe_b64decode` and raises `InvalidToken` when padding is
+    * missing). Replacing `base64UrlEncode` with `crypto.ts`'s `toB64Url`, which
+    * removes padding, would make every IP lookup report no record. The input
+    * length of 100 (73 bytes) deterministically requires `==` padding because
+    * AES-CBC ciphertext is always a multiple of 16 bytes.
    */
   it("keeps the base64 padding that Python's Fernet decoder requires", async () => {
     const token = await fernetEncrypt("8.8.8.8", TEST_KEY);

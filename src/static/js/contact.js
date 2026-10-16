@@ -1,8 +1,8 @@
 /*
-   联系页：二维码悬停浮层 + 一键复制
+   Contact page: QR hover overlay and one-click copy.
    */
 
-/* 问卷方块位置：英语置底，其他语言置顶 */
+/* Place the questionnaire card last in English and first in other languages. */
 function positionSurvey() {
     var block = document.getElementById('surveyBlock');
     if (!block) return;
@@ -15,10 +15,10 @@ function positionSurvey() {
 }
 document.addEventListener('languagechange', positionSurvey);
 
-/* 复制提示持续时间 */
+/* Copy feedback duration. */
 var COPY_HINT_DURATION = 2000;
 
-/* 更新气泡提示文本 */
+/* Update the tooltip text. */
 function showTip(tipEl, message, visible) {
     tipEl.innerText = message;
     if (visible) {
@@ -30,7 +30,7 @@ function showTip(tipEl, message, visible) {
     }
 }
 
-/* 复制文本到剪贴板，并显示"已复制"反馈 */
+/* Copy text to the clipboard and show confirmation. */
 function handleCopy(el, text) {
     navigator.clipboard.writeText(text).then(function() {
         var tip = el.querySelector('.bubble-tip');
@@ -42,10 +42,10 @@ function handleCopy(el, text) {
     });
 }
 
-/* 二维码相关：桌面端悬停显示对应社交账号的二维码 */
+/* On desktop, show the matching social account's QR code on hover. */
 var qrDisplay, qrImage;
 
-/* DOM 加载完毕后初始化二维码浮层 */
+/* Initialize the QR overlay after the DOM has loaded. */
 window.addEventListener('load', function() {
     qrDisplay = document.getElementById('qrDisplay');
     qrImage = document.getElementById('qrImage');
@@ -65,7 +65,7 @@ window.addEventListener('load', function() {
 });
 
 
-/* 语言切换后浮层若正显示，同步换成本语言的二维码 */
+/* If the overlay is open during a language change, switch to the QR code for the new language. */
 document.addEventListener('languagechange', function() {
     if (!qrImage || !qrDisplay || !qrDisplay.classList.contains('show')) return;
     var hovered = document.querySelector('.qr-trigger:hover');
@@ -73,10 +73,10 @@ document.addEventListener('languagechange', function() {
 });
 
 
-/* 问卷位置：英语置底，其他语言置顶（切换语言时由 languagechange 事件同步） */
+/* Put the questionnaire last in English and first in other languages; languagechange keeps it in sync. */
 positionSurvey();
 
-/* 联系信息淡入 — 级联错开 */
+/* Stagger the fade-in of contact information. */
 setTimeout(function() {
     var items = document.querySelectorAll('.reveal-item');
     items.forEach(function(el, i) {

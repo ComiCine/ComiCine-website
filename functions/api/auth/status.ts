@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** GET /api/auth/status（已登录时签发 CSRF 双提交 token） */
+/** GET /api/auth/status (issues a CSRF double-submit token for authenticated users). */
 
 import { createCsrfToken, csrfCookieHeader } from "../../_lib/csrf";
 import { authUnavailableResponse, requireAuth } from "../../_lib/session";

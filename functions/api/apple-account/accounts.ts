@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** GET /api/apple-account/accounts（列表，脱敏） / POST（新增，需 admin + CSRF） */
+/** GET /api/apple-account/accounts (redacted list) / POST (create; requires admin access and CSRF). */
 
 import { queryAll, execute } from "../../_lib/d1";
 import { fernetEncrypt } from "../../_lib/fernet";
@@ -101,8 +101,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       sortOrder,
     );
   } catch (err) {
-    // 只有真正的 UNIQUE 冲突才是 409。写额度耗尽/绑定失效/网络抖动以前也被报成
-    // 「该邮箱已存在」，真实故障既不记录也不可见（tasks/22 W9-6）。
+    // Return 409 only for an actual UNIQUE conflict. Exhausted write quotas, broken bindings, and network
+    // failures were previously reported as "this email already exists," hiding real failures (tasks/22 W9-6).
     const conflict = isUniqueConflict(err);
     await logEvent(context.env, "audit_event", context.request, {
       outcome: conflict ? "account_create_conflict" : "account_create_failed",

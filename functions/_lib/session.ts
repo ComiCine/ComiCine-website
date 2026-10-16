@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 自研 HMAC 签名会话 cookie + D1 auth_sessions 撤销表（Pages 无内置 session） */
+/** Custom HMAC-signed session cookie and D1 auth_sessions revocation table (Pages has no built-in session). */
 
 import { execute, queryAll } from "./d1";
 import type { Env } from "./env";
@@ -70,9 +70,10 @@ export class AuthSessionUnavailableError extends Error {
 }
 
 /**
- * 严格版 base64url 解码：比共用实现多一道字符集与长度校验。
+ * Strict base64url decoder with additional alphabet and length validation.
  *
- * session token 由请求方提供，先挡掉畸形输入再解码，避免把异常当控制流。
+ * Session tokens are request-controlled; reject malformed input before
+ * decoding so exceptions cannot become control flow.
  */
 function fromB64UrlStrict(input: string): Uint8Array {
   if (!input || !/^[A-Za-z0-9_-]+$/.test(input) || input.length % 4 === 1) {
@@ -170,9 +171,9 @@ export async function readSession(
 }
 
 /**
- * 校验签名 cookie 后必须再查 D1 auth_sessions。表不存在或查不到时按
- * AuthSessionUnavailableError 抛出，由调用方返回 503，不能 fallback 到
- * 仅凭签名 cookie 放行。
+ * After validating the signed cookie, also check D1 auth_sessions. Throw
+ * AuthSessionUnavailableError when the table is missing or unavailable so the
+ * caller returns 503. Never fall back to trusting only the signed cookie.
  */
 export async function requireAuth(env: Env, request: Request): Promise<SessionData | null> {
   const session = await readSession(env, request.headers.get("Cookie"));
@@ -241,7 +242,7 @@ export function clearPendingCookie(): string {
   return clearCookieHeader(PENDING_COOKIE);
 }
 
-/** 门禁/会话运行必需的密钥；只返回字段名，不回显值。 */
+/** Required gate/session secrets; return field names only and never expose values. */
 export function runtimeConfigError(env: Env): string | null {
   const missing: string[] = [];
   if (!env.TURNSTILE_SECRET?.trim()) missing.push("TURNSTILE_SECRET");
@@ -276,18 +277,20 @@ export function authUnavailableResponse(): Response {
   );
 }
 
-/** 只读账户 / 非管理员的默认拒绝文案。 */
+/** Default denial message for read-only accounts and non-admins. */
 export const ADMIN_REQUIRED_MESSAGE = "只读账户，无写入权限";
 
 /**
- * 管理接口统一鉴权：读会话 → 401 / 403 的收口。
+ * Shared authorization for admin endpoints, including session lookup and 401/403 responses.
  *
- * 这段 try/catch + 401 + 403 原先在 7 个 admin handler 里各抄了一份
- * （accounts、accounts/[id]、reveal、reorder、visitors、visitors/[hash]/ip、ray/[id]），
- * 收敛到这里，避免某处漏掉 no-store 或改了状态码而不自知。
+ * This try/catch and 401/403 handling was duplicated in seven admin handlers
+ * (accounts, accounts/[id], reveal, reorder, visitors, visitors/[hash]/ip,
+ * and ray/[id]). Keep it here to prevent missing no-store headers or
+ * unnoticed status-code drift.
  *
- * 返回 Response 表示拒绝（调用方直接 return），返回对象表示放行。
- * `forbiddenMessage` 给需要不同文案的调用方（如 blocklist 用「需要管理员权限」）。
+ * Return a Response for a denial (the caller returns it directly), or an
+ * object to allow the request. `forbiddenMessage` supports callers that need
+ * custom copy, such as the blocklist endpoint.
  */
 export async function requireAdminSession(
   env: Env,
@@ -312,27 +315,32 @@ export async function requireAdminSession(
   return { session };
 }
 
-/** 会话「近期认证」的默认窗口（秒），来自 `config-contract.json`。 */
+/** Default recent-authentication window in seconds, from `config-contract.json`. */
 export const REVEAL_MAX_AUTH_AGE = REVEAL_MAX_AUTH_AGE_SECONDS;
 
-/** 近期认证超时：前端据此跳 `/login?next=<当前页>` 重新走一次 Access 认证。 */
+/** Recent authentication expired; the frontend uses this to repeat Access authentication at /login?next=<current page>. */
 export const REAUTH_REQUIRED_MESSAGE = "需要重新验证";
 
 /**
- * 步进式鉴权（step-up）：在 `requireAdminSession` 之上要求**近期认证**。
+ * Step-up authorization: require **recent authentication** in addition to `requireAdminSession`.
  *
- * 只有 Cloudflare Access 能签发 `authAt`（`functions/login.ts`），而会话 cookie
- * 本身有 30 天 TTL。明文密码查看属于最敏感的读操作，不能接受「30 天前登录过
- * 一次」就随时解密：本函数要求 `now - session.authAt <= maxAgeSeconds`
- * （默认 600 秒，见 `reveal_max_auth_age_seconds`），超时返回 401 +
- * `{ error: "需要重新验证", reauth: true }`，由前端跳 `/login` 重新认证。
+ * Only Cloudflare Access can issue `authAt` (`functions/login.ts`), while the
+ * session cookie lasts 30 days. Revealing a plaintext password is highly
+ * sensitive; a login from 30 days ago is not enough. Require
+ * `now - session.authAt <= maxAgeSeconds` (600 seconds by default; see
+ * `reveal_max_auth_age_seconds`). On expiry, return 401 with
+ * `{ error: "reauthentication required", reauth: true }` so the frontend
+ * sends the user to `/login` for fresh authentication.
  *
- * 判定顺序与 `requireAdminSession` 一致（鉴权 → 非 admin 403 → 近期认证 401），
- * 因此未登录仍是 401「未登录」、只读账户仍是 403；调用方拿到 Response 直接返回。
+ * Preserve `requireAdminSession` ordering: authenticate, return 403 for
+ * non-admins, then return 401 when recent authentication is required. Thus
+ * unauthenticated users still get 401 and read-only accounts still get 403;
+ * callers return a Response directly.
  *
- * 注意：重新认证是否**真的**要求用户再输一次凭据，取决于 Access 应用自身的
- * Session Duration；若 Access 会话仍然有效，`/login` 会静默签发新的 `authAt`。
- * 当前 `account.limooo.cn`（Limooo-Apple）的 Session Duration 已在 tasks/21 记录。
+ * Whether reauthentication **actually** asks the user to enter credentials
+ * again depends on the Access application's Session Duration. If the Access
+ * session is still valid, `/login` silently issues a new `authAt`. The current
+ * Session Duration for `account.limooo.cn` (Limooo-Apple) is recorded in tasks/21.
  */
 export async function requireRecentAdminSession(
   env: Env,
@@ -343,9 +351,10 @@ export async function requireRecentAdminSession(
   if (auth instanceof Response) return auth;
   const now = Math.floor(Date.now() / 1000);
   const age = now - auth.session.authAt;
-  // 只判上界会让**未来**的 authAt 永远通过（age 为负）。今天不可利用——authAt 由
-  // 签名 cookie 携带、只有 Access 能签发——但这是守护「明文密码查看」的唯一一道门，
-  // 方向必须封闭（门禁 cookie 已有同样的 future 守卫）。
+// Checking only the upper bound would let a **future** authAt pass forever
+// because age is negative. The signed cookie currently prevents forgery, but
+// this is the only gate protecting plaintext password access, so reject future
+// values just as the gate cookie validator does.
   if (!Number.isFinite(age) || age < 0 || age > maxAgeSeconds) {
     return Response.json(
       { error: REAUTH_REQUIRED_MESSAGE, reauth: true },

@@ -18,12 +18,12 @@
  */
 
 /**
- * GET /api/i18n/<lang> 语言字典接口（tasks/22 W9-5）。
+ * Tests for GET /api/i18n/<lang> locale dictionary endpoint (tasks/22 W9-5).
  *
- * 回归：`translations[lang]` 会沿原型链取到 `constructor` / `toString` /
- * `valueOf` / `__proto__` 这些成员，判定为「支持的语言」后 `JSON.stringify`
- * 一个函数得到 `undefined`，于是返回 `200` 空体（`__proto__` 是对象，
- * 直接吐 Object.prototype），还被 `max-age=86400` 缓存。
+ * Regression case: `translations[lang]` can resolve inherited members such as `constructor`, `toString`,
+ * `valueOf`, and `__proto__`. Treating one as a supported language and passing a function to
+ * `JSON.stringify` returns `undefined`, producing an empty 200 response (`__proto__` returns the
+ * Object.prototype object itself) that would also be cached for `max-age=86400`.
  */
 
 import { describe, expect, it } from "vitest";
@@ -50,7 +50,7 @@ describe("api/i18n/[lang]", () => {
   });
 
   it("never resolves Object.prototype members as languages", async () => {
-    // 这些都是 Object.prototype 上的成员，不是语言码。
+    // These are members of Object.prototype, not language codes.
     for (const lang of [
       "constructor",
       "toString",
@@ -67,7 +67,7 @@ describe("api/i18n/[lang]", () => {
   });
 
   it("only serves languages the contract actually declares", () => {
-    // 反向断言：数据里有多少语言，接口就认多少；不多不少。
+    // Conversely, the endpoint must support exactly the languages present in the data.
     for (const lang of Object.keys(translations)) {
       expect(get(lang).status, `/${lang}`).toBe(200);
     }

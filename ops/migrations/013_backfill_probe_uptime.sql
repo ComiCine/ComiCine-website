@@ -1,8 +1,8 @@
--- 013 · 用历史 heartbeats 回填 probe_uptime_daily
+-- 013: Backfill probe_uptime_daily from historical heartbeats.
 --
--- 011 新建的按天汇总表默认是空的，不回填的话状态页在接下来 7 天里在线率全是
--- 「—」，看起来像数据丢失。MAX() 让本迁移可重复执行：实时累加已经超过回填
--- 值的天不会被改小。
+-- The daily aggregate table created by 011 is empty by default. Without this backfill, uptime on
+-- the status page would show "—" for the next seven days, looking like data loss. MAX() makes this
+-- migration safe to rerun: days whose live totals already exceed the backfill are not reduced.
 
 INSERT INTO probe_uptime_daily (probe_id, day, total, up)
 SELECT probe_id,

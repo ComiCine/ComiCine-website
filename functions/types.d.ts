@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 全局 Pages Functions 类型（避免依赖 @cloudflare/workers-types 包） */
+/** Global Pages Functions types, avoiding a dependency on @cloudflare/workers-types. */
 
 declare interface PagesContext<Env = unknown> {
   request: Request;

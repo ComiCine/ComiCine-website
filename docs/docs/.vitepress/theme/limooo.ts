@@ -1,22 +1,24 @@
 /**
- * 与主站共享 cookie 的桥接层（docs.limooo.cn ↔ limooo.cn）。
+ * Cookie bridge shared with the main site (docs.limooo.cn and limooo.cn).
  *
- * 主站 cookie（见 site/src/static/js/base.js 与 functions/_lib/routing.ts）：
+ * Main-site cookies (see site/src/static/js/base.js and functions/_lib/routing.ts):
  *   user_lang_preference = zh-cn | en-us | ja-jp | ko-kr   Domain=.limooo.cn
  *   limooo_theme         = light | dark                     Domain=.limooo.cn
  *
- * 语言 URL 约定：语言码是页面路径的**最后一段**，内容页一律显式带上（含默认
- * 语言 zh-cn），无后缀路径由 _redirects 302 到 /.../zh-cn：
- *   /video-platform/zh-cn      zh-cn（/video-platform 302 到这里）
+ * Language URL convention: the language code is the final path segment. Every
+ * content page includes it explicitly, including the default zh-cn. Paths without
+ * a language suffix are redirected by _redirects to /.../zh-cn:
+ *   /video-platform/zh-cn      zh-cn (/video-platform redirects here)
  *   /video-platform/en-us      en-us
- *   /README/zh-cn              README 页
- *   /en-us                     首页的 en-us 版本（首页没有 /zh-cn，`/` 就是 zh-cn）
+ *   /README/zh-cn              README page
+ *   /en-us                     English home page (/ is the zh-cn home page)
  *
- * 这里做三件事：
- *   1. 读主站主题 cookie → 首次访问时喂给 VitePress appearance；
- *   2. 监控 VitePress 的深色切换 → 回写 limooo_theme；
- *   3. 路由变化时把当前语言回写 user_lang_preference；进入无后缀页面时，
- *      若 cookie 指定了别的语言且目标页面存在，则每会话跳转一次。
+ * This bridge has three responsibilities:
+ *   1. Read the main site's theme cookie and initialize VitePress appearance on first visit.
+ *   2. Watch VitePress theme changes and write the selected theme to limooo_theme.
+ *   3. Write the current language to user_lang_preference after route changes. On a page
+ *      without a language suffix, redirect once per session when the cookie selects a
+ *      different language and the target page exists.
  */
 
 export const LANG_COOKIE = 'user_lang_preference'
@@ -30,7 +32,7 @@ const ROOT_DOMAIN = 'limooo.cn'
 const COOKIE_MAX_AGE = 31536000
 const REDIRECT_FLAG = 'limooo-docs-lang-redirect'
 
-/** 在 <head> 里、VitePress 自己的 check-dark-mode 之前执行的同步脚本。 */
+/** Synchronous script run in <head> before VitePress's own check-dark-mode script. */
 export const THEME_BOOTSTRAP_SCRIPT = `;(() => {
   try {
     if (localStorage.getItem('${APPEARANCE_KEY}')) return
@@ -64,7 +66,7 @@ function pathSegments(path: string): string[] {
   return path.split('?')[0].split('/').filter(Boolean)
 }
 
-/** 从 URL 路径推导语言码（最后一段是语言码则用它，否则是默认语言）。 */
+/** Derive the language from the URL path, using the final segment or the default. */
 export function langFromPath(path: string): string {
   const segments = pathSegments(path)
   const last = segments[segments.length - 1]
@@ -73,19 +75,19 @@ export function langFromPath(path: string): string {
     : DEFAULT_LANG
 }
 
-/** 路径是否显式带语言后缀。 */
+/** Check whether the path has an explicit language suffix. */
 export function hasLangSuffix(path: string): boolean {
   const segments = pathSegments(path)
   const last = segments[segments.length - 1]
   return !!last && (LANGS as readonly string[]).includes(last)
 }
 
-/** 把同一个页面换成另一种语言的路径。 */
+/** Return the path for the same page in another language. */
 export function pathForLang(path: string, lang: string): string {
   const segments = pathSegments(path)
   if (hasLangSuffix(path)) segments.pop()
   const base = segments.length ? '/' + segments.join('/') : '/'
-  // 首页是唯一例外：`/` 就是 zh-cn；内容页的默认语言也要带 /zh-cn 后缀
+  // The home page is the only exception: / is zh-cn; content pages still use /zh-cn.
   if (base === '/') return lang === DEFAULT_LANG ? '/' : `/${lang}`
   return `${base}/${lang}`
 }
@@ -120,9 +122,10 @@ interface RouterLike {
 }
 
 /**
- * 只在「当前页面没写语言后缀」且「cookie 指定了非默认语言」时跳一次。
- * 先 HEAD 探一下目标页是否存在，避免把没有译文的页面跳到 404。
- * 返回 true 表示正在跳转（此时不要回写 cookie，让目标页去写）。
+ * Redirect once only when the current page has no language suffix and the cookie
+ * selects a non-default language. Send a HEAD request first to avoid redirecting
+ * to a 404 when the translation does not exist. Return true while redirecting so
+ * the current page does not overwrite the cookie before the target page loads.
  */
 async function maybeRedirectToPreferred(
   router: RouterLike,
@@ -145,7 +148,7 @@ async function maybeRedirectToPreferred(
       return true
     }
   } catch {
-    /* 探不到就当没有译文，保持当前页面 */
+    /* Treat an unreachable target as a missing translation and keep the current page. */
   }
   return false
 }
@@ -155,8 +158,8 @@ export function installCookieBridge(router: RouterLike): void {
 
   watchAppearance()
 
-  // 先读偏好再回写：否则 syncLangCookie 会立刻把 cookie 改成当前页语言，
-  // 偏好信息就丢了，跳转也就不会发生。
+  // Read the preference before writing the current page language. Otherwise,
+  // syncLangCookie overwrites it immediately and the redirect cannot happen.
   const preferred = readCookie(LANG_COOKIE)
   void maybeRedirectToPreferred(router, preferred).then((redirecting) => {
     if (!redirecting) syncLangCookie(location.pathname)

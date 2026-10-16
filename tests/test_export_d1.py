@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/export_d1.py 的 blocklist 导出测试（tasks/10）。"""
+"""Tests for blocklist export in ops/export_d1.py (tasks/10)."""
 
 import ops.export_d1 as export_d1
 

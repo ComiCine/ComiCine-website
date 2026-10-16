@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""config 工具函数与 geo_cache 建表测试。"""
+"""Tests for config utilities and geo_cache table creation."""
 
 import sqlite3
 

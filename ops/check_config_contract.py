@@ -17,10 +17,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""部署前校验 config-contract.json、src/config.py 与生成的 functions/_lib/config.ts。
+"""Validate config-contract.json, src/config.py, and generated functions/_lib/config.ts before deploy.
 
-纯标准库实现，不引入新依赖。只要任意一侧与契约不一致，就以非 0 退出，
-避免“边缘认识新域名、Flask 不认识”的配置漂移上线。
+This uses only the standard library. Exit nonzero if any representation differs from the contract,
+preventing configuration drift such as the edge recognizing a new domain while the application does not.
 """
 
 from __future__ import annotations
@@ -94,8 +94,8 @@ def load_python_config() -> dict:
 
 def load_ts_contract() -> dict | None:
     if not CONFIG_TS_PATH.exists():
-        # 生成物采用“生成不提交”策略：build.py 之前只校验 Python 侧，
-        # 构建完成后 pages_deploy.sh 会再次校验 TS 侧。
+        # Generated files are not committed: validate the Python side before build.py,
+        # then pages_deploy.sh validates the TypeScript side after the build.
         print(f"[config-contract] WARNING: {CONFIG_TS_PATH} not generated yet; skipping TS-side check")
         return None
     try:
@@ -141,7 +141,7 @@ def python_values(module) -> dict:
 
 
 def check_constants_consumed() -> None:
-    """契约中的 TTL 必须被实际消费，避免生成常量后仍用 3600 / 7*86400。"""
+    """Require contract TTLs to be consumed instead of hard-coding values such as 3600 or 7*86400."""
     required = {
         "GATE_TTL_SECONDS": "gate.ts",
         "SESSION_TTL_SECONDS": "session.ts",
@@ -158,7 +158,7 @@ def check_constants_consumed() -> None:
 
 
 def check_managed_hosts(contract: dict) -> None:
-    """managed_hosts 必须包含 auth/redirect/images/image 等托管子域。"""
+    """Require managed_hosts to include hosted subdomains such as auth, redirect, images, and image."""
     root = contract.get("root_domain", "")
     expected = [
         f"auth.{root}",
@@ -188,7 +188,7 @@ def main() -> int:
     ts_contract = None if skip_ts else load_ts_contract()
     ts_ok = True
     if ts_contract is not None:
-        # 生成文件里的 CONTRACT 会包含 schema_version；比较时跳过即可。
+        # The generated CONTRACT includes schema_version, so skip it during comparison.
         actual_ts = {key: value for key, value in ts_contract.items() if key != "schema_version"}
         expect_ts = {key: value for key, value in contract.items() if key != "schema_version"}
         ts_ok = compare("functions/_lib/config.ts", expect_ts, actual_ts)

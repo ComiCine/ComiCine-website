@@ -1,5 +1,5 @@
-/* 主题预置脚本：必须在 body 渲染前执行，避免浅色模式白屏闪烁。
-   外置文件替代原模板内联 <script>，让 CSP 无需 unsafe-inline。 */
+/* Run this theme setup before the body renders to avoid a white flash in light mode.
+   This external file replaces the inline template script, so CSP does not need unsafe-inline. */
 (function () {
   var theme = localStorage.getItem("theme");
   if (!theme) {

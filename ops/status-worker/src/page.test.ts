@@ -31,7 +31,7 @@ import {
 } from "./page";
 import { LANGS } from "./i18n";
 
-/** 一好一坏：覆盖 up（不显示原因）与 down（显示翻译后的原因）两条渲染分支。 */
+/** One healthy and one failing probe cover both render branches: no reason for up, translated reason for down. */
 function payload(over: Partial<PagePayload> = {}): PagePayload {
   return {
     updated_at: 1_700_000_000,
@@ -83,7 +83,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   });
 
   it("keeps the nav link order of base.html (home → services → contact)", () => {
-    // base.html 是页头的正本；期望顺序从 <nav> 里三个模板变量的先后取，再对 navHtml() 的副本
+    // base.html is the canonical header; derive the expected order from its three nav template variables, then compare it with navHtml().
     const base = readFileSync(new URL("../../../src/templates/base.html", import.meta.url), "utf8");
     const nav = base.slice(base.indexOf("<nav"), base.indexOf("</nav>"));
     const literal = ["https://limooo.cn", "https://services.limooo.cn", "https://contact.limooo.cn"];
@@ -93,9 +93,9 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
     }));
     expect(slots.every((slot) => slot.at >= 0), "base.html <nav> 里三个链接都在").toBe(true);
     const expected = [...slots].sort((a, b) => a.at - b.at).map((slot) => slot.url);
-    expect(expected).toEqual(literal); // 正本本身就是 home → services → contact
+    expect(expected).toEqual(literal); // The canonical order is home → services → contact.
 
-    // navHtml() 的 .global-nav 段里三个 href 的出现顺序
+    // Check the order of the three hrefs in navHtml()'s .global-nav section.
     const html = navHtml("zh-cn");
     const globalNav = html.slice(
       html.indexOf('class="global-nav"'),
@@ -145,7 +145,7 @@ describe("status content", () => {
     const zh = statusPageHtml(payload(), "zh-cn");
     expect(zh).toContain("服务不可用（HTTP 503）");
     expect(zh).toContain("原因：");
-    // up 的那张卡不出原因行（http_200 只有一条）
+    // The up card has no reason line; it contains only http_200.
     expect(zh.match(/class="reason"/g)?.length).toBe(1);
 
     const en = statusPageHtml(payload(), "en-us");
@@ -155,7 +155,7 @@ describe("status content", () => {
 
   it("translates the probe label via label_key and falls back to the DB name", () => {
     expect(statusPageHtml(payload(), "ja-jp")).toContain("Limooo ウェブサイト");
-    expect(statusPageHtml(payload(), "ko-kr")).toContain("D1 Health"); // 没有 label_key → 用库里的名字
+    expect(statusPageHtml(payload(), "ko-kr")).toContain("D1 Health"); // Without label_key, use the database name.
   });
 
   it("renders an empty state instead of an empty grid when no probe is active", () => {
@@ -185,7 +185,7 @@ describe("status content", () => {
     );
     expect(nasty).not.toContain("<img src=x");
     expect(nasty).toContain("&lt;img src=x");
-    expect(nasty).toContain("—"); // uptime 为 null 时是占位符，不是 0%
+    expect(nasty).toContain("—"); // A null uptime uses a placeholder, not 0%.
   });
 });
 
@@ -222,12 +222,13 @@ describe("assets", () => {
   });
 
   it("keeps the stylesheet structurally valid: balanced braces, @font-face closed first", () => {
-    // 少一个 `}`（品牌字体那次漏了 `format('woff2')` 的收尾）会让解析器把后面整张表吞进
-    // 未闭合的声明块，页面只剩 UA 默认样式；vitest 不渲染 CSS，只能靠结构断言兜住。
+    // A missing `}` (the brand font once omitted the closing `format('woff2')`) makes the parser
+    // absorb the remaining stylesheet into an open declaration block, leaving only UA defaults.
+    // Vitest does not render CSS, so structural assertions are the available safeguard.
     expect((STATUS_CSS.match(/\{/g) ?? []).length).toBe((STATUS_CSS.match(/\}/g) ?? []).length);
-    // 品牌字体那次漏掉的正是这个收尾 `;}`（只写到 format('woff2') 就断了，@font-face 不闭合）
+    // The brand font once missed this closing `;}` and ended after format('woff2'), leaving @font-face unclosed.
     expect(STATUS_CSS).toContain("format('woff2');}");
-    // @font-face 必须已在第一个 `}` 处闭合：`:root{` 只能出现在它之后
+    // @font-face must close at the first `}`; `:root{` can appear only afterward.
     expect(STATUS_CSS.indexOf(":root{")).toBeGreaterThan(STATUS_CSS.indexOf("}"));
     for (const needle of [".light-mode", ".global-footer", ".site-nav", "--accent:#05A5A6"]) {
       expect(STATUS_CSS, needle).toContain(needle);
@@ -249,7 +250,7 @@ describe("assets", () => {
     expect(STATUS_JS).toContain("location.reload()");
     expect(STATUS_JS).toContain("searchParams.set('lang'");
     expect(STATUS_JS).toContain("location.replace");
-    // 自动刷新节奏必须与首屏渲染出来的倒计时用同一个常量
+    // The automatic refresh interval must use the same constant as the initial countdown.
     expect(STATUS_JS).toContain("var REFRESH=300");
     const html = statusPageHtml(payload(), "zh-cn");
     expect(html).toContain('id="refresh-count">300<');

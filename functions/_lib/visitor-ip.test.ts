@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 访客 IP 加解密：独立密钥、写侧 fail-open、读侧 fail-closed。 */
+/** Visitor IP encryption and decryption: dedicated key, fail-open writes, and fail-closed reads. */
 
 import { describe, expect, it } from "vitest";
 import { decryptVisitorIp, encryptVisitorIp, visitorIpKey } from "./visitor-ip";

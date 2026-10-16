@@ -49,7 +49,8 @@ DRY_RUN=0
 SELECTED=""
 
 usage() {
-    # 打印文件头注释块（第 3 行起，到第一个非注释行为止），不再写死行号。
+    # Print the leading comment block, starting at line 3 and ending at the first non-comment
+    # line. Do not hard-code the ending line number.
     awk 'NR>=3 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"
 }
 
@@ -87,7 +88,7 @@ COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 DIRTY="$(git -C "$ROOT" status --porcelain | wc -l | tr -d ' ')"
 printf '%-24s %s %s\n' "commit" "$COMMIT" "dirty_files=$DIRTY"
 
-# wrangler 自己会往输出里塞 emoji；这里只把 emoji 过滤掉，其余输出原样保留。
+# Wrangler adds emoji to its output; remove only emoji and preserve all other output.
 strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }

@@ -18,16 +18,14 @@
  */
 
 /**
- * functions/_lib/d1.ts 的写封装语义（tasks/22 W9-7）。
+ * Write-wrapper behavior in functions/_lib/d1.ts (tasks/22 W9-7).
  *
- * 回归：`execute()` 只看 `res.success === true`，忽略 `meta.changes`。
- * D1 的 `run()` 对「0 行受影响」的 UPDATE/DELETE 依然返回 `success: true`，
- * 于是
- *   - `PUT /api/apple-account/accounts/<不存在的 id>` 带新密码时返回 200 ok，
- *     密码被静默丢弃；
- *   - `revokeAuthSession` 对不存在的 sid 回答「已撤销」。
- * 现在：`meta.changes` 明确为 0 时算失败；拿不到 `meta` 时（旧驱动/桩）
- * 保持兼容，按成功处理。
+ * Regression: `execute()` used to inspect only `res.success === true` and
+ * ignore `meta.changes`. D1 `run()` reports `success: true` when an UPDATE or
+ * DELETE affects zero rows, causing password updates for missing accounts to
+ * return 200 without changing anything and revocation of missing sessions to
+ * report success. Now an explicit `meta.changes` value of zero is a failure;
+ * drivers and stubs without `meta` remain compatible and count as success.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -89,7 +87,7 @@ describe("execute", () => {
   });
 
   it("keeps working when the driver reports no meta at all", async () => {
-    // 兼容：mock/旧驱动不给 meta 时不能把成功的写判成失败。
+// Compatibility: a successful write without meta from a mock or old driver must not be treated as a failure.
     const { db } = dbWithRun(() => ({ success: true }));
     expect(await execute(db, "INSERT INTO t (x) VALUES (1)")).toBe(true);
   });

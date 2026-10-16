@@ -17,17 +17,18 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""校验 docs.limooo.cn 的构建产物：每个 md 都产出了对应 HTML。
+"""Validate docs.limooo.cn build output: every Markdown file must produce an HTML file.
 
-源文件放在语言目录里（en-us/video-platform.md），URL 由 .vitepress/rewrites.json
-改成「语言码在最后一段」（/video-platform/en-us）。这个脚本和 VitePress 配置读取
-同一份 rewrites.json，保证「加一个 md 就会有一个页面」这条约定不会被漏掉。
+Sources are stored in language directories (en-us/video-platform.md), while
+.vitepress/rewrites.json changes URLs to put the language code last (/video-platform/en-us).
+This script and the VitePress configuration read the same rewrites.json, ensuring that every
+added Markdown file produces a page.
 
-<docs-dir> 传的是 **VitePress 内容根**，也就是 site/docs/docs/
-（site/docs/ 是按子域分的容器：docs/ 归 docs.limooo.cn，services/ 归
-services.limooo.cn），.vitepress/ 与它同级。
+<docs-dir> is the VitePress content root, site/docs/docs/. site/docs/ is organized by subdomain:
+docs/ belongs to docs.limooo.cn and services/ belongs to services.limooo.cn. The .vitepress/
+directory is a sibling of the content root.
 
-用法：
+Usage:
     python3 ops/docs_check_output.py <docs-dir> <dist-dir>
 """
 

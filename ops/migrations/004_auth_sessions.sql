@@ -1,7 +1,8 @@
--- Limooo Pages OIDC 会话撤销表（docs/09）
--- 并行代理已占用 004_* 迁移前缀，本文件使用约定名称以接入 migrate_d1.sh。
--- 由 wrangler d1 execute limooo --file=./migrations/004_auth_sessions.sql 执行；
--- 表不存在时 requireAuth 必须返回 503，不能仅凭签名 cookie 放行。
+-- Limooo Pages OIDC session revocation table (docs/09).
+-- A parallel agent already used the 004_* migration prefix; this file follows the established
+-- naming convention so it can be picked up by migrate_d1.sh.
+-- Apply with: wrangler d1 execute limooo --file=./migrations/004_auth_sessions.sql
+-- If this table is missing, requireAuth must return 503 rather than trusting a signed cookie alone.
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
     sid         TEXT PRIMARY KEY,
