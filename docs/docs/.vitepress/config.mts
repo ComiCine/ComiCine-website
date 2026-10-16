@@ -325,10 +325,10 @@ export default defineConfig({
     return [
       ['link', { rel: 'canonical', href: canonicalUrl }],
       ['meta', { property: 'og:type', content: pageType }],
-      ['meta', { property: 'og:title', content: title }],
-      ['meta', { property: 'og:description', content: description }],
+      ['meta', { property: 'og:title', itemprop: 'name', content: title }],
+      ['meta', { property: 'og:description', itemprop: 'description', content: description }],
       ['meta', { property: 'og:url', content: canonicalUrl }],
-      ['meta', { property: 'og:image', content: SOCIAL_IMAGE }],
+      ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE }],
       ['meta', { property: 'og:image:type', content: 'image/png' }],
       ['meta', { property: 'og:image:width', content: '1280' }],
       ['meta', { property: 'og:image:height', content: '640' }],
