@@ -355,16 +355,13 @@ describe("legacy HTML redirects", () => {
     expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
   });
 
-  it("routes unknown html targets to the custom not-found page", async () => {
+  it("returns HTTP 404 for unknown html targets without redirecting", async () => {
     const aliases = [
-      ["https://limooo.cn/not-a-page.html", "https://limooo.cn/404"],
-      [
-        "https://services.limooo.cn/fail.html?from=legacy",
-        "https://limooo.cn/404?from=legacy",
-      ],
-    ] as const;
+      "https://limooo.cn/not-a-page.html",
+      "https://services.limooo.cn/fail.html?from=legacy",
+    ];
 
-    for (const [url, location] of aliases) {
+    for (const url of aliases) {
       const resp = await handleOnRequest(
         context(
           new Request(url, {
@@ -373,8 +370,9 @@ describe("legacy HTML redirects", () => {
         ),
       );
 
-      expect(resp.status).toBe(302);
-      expect(resp.headers.get("Location")).toBe(location);
+      expect(resp.status).toBe(404);
+      expect(resp.headers.get("Location")).toBeNull();
+      await expect(resp.text()).resolves.toBe("Not Found");
     }
   });
 

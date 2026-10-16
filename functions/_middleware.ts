@@ -190,18 +190,23 @@ const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
   ["status", `https://status.${ROOT_DOMAIN}/`],
 ]);
 
-function legacyHtmlRedirectTarget(
+type LegacyHtmlResolution =
+  | { kind: "redirect"; target: string }
+  | { kind: "not_found" };
+
+function resolveLegacyHtmlAlias(
   hostname: string,
   pathname: string,
-): string | null {
+): LegacyHtmlResolution | null {
   const hostRoot = LEGACY_HTML_HOST_ROOTS.get(hostname);
   if (!hostRoot) return null;
   const match = pathname.match(/^\/([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.html$/i);
   if (!match) return null;
 
   const subdomain = match[1].toLowerCase();
-  if (subdomain === "index") return hostRoot;
-  return LEGACY_HTML_PATH_TARGETS.get(subdomain) ?? `${BASE_URL}/404`;
+  if (subdomain === "index") return { kind: "redirect", target: hostRoot };
+  const target = LEGACY_HTML_PATH_TARGETS.get(subdomain);
+  return target ? { kind: "redirect", target } : { kind: "not_found" };
 }
 
 type CacheLike = {
@@ -535,12 +540,18 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  const legacyHtmlTarget = legacyHtmlRedirectTarget(hostname, pathname);
-  if (legacyHtmlTarget) {
+  const legacyHtmlAlias = resolveLegacyHtmlAlias(hostname, pathname);
+  if (legacyHtmlAlias?.kind === "not_found") {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+  if (legacyHtmlAlias?.kind === "redirect") {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${legacyHtmlTarget}${url.search}`,
+        Location: `${legacyHtmlAlias.target}${url.search}`,
         "Cache-Control": "no-store",
       },
     });
