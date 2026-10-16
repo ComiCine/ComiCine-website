@@ -313,7 +313,7 @@ Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/
 | Entry | Effect |
 | --- | --- |
 | `ASN/<number>` | Optional entry for a zone-level Cloudflare ASN Access Rule. Run `bash ops/waf_whitelist.sh --apply` manually to change zone rules; ASN entries do not bypass the Pages Functions gate. |
-| `IP-CIDR/<ip>/<mask>` | Fully allowed source at the Pages edge (for example, `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
+| `IP-CIDR/<ip>/<mask>` | Fully allowed source at the Pages edge (for example, `IP-CIDR/97.64.18.11/32`); IPv4 prefixes must be `/24`–`/32` and IPv6 `/64`–`/128`; skips both the blocklist and the challenge gate. |
 
 The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full deploy generates the local whitelist but does not change zone-level ASN Access Rules. After editing `own-ips.txt`, deployment runs `ops/sync_whitelist.py`; the build then runs `ops/check_gate_trust.py --emit` to generate the edge copy.
 

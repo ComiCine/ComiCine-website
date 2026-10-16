@@ -20,7 +20,8 @@
 """Limooo → Cloudflare Pages 静态化构建脚本
 
 把 Jinja 模板按 4 种语言预渲染成 public/ 下的静态 HTML，并生成：
-  - public/<lang>/index.html / services.html / contact.html（中间件按语言吐到干净 URL）
+  - public/<lang>/index.html / services.html / contact.html / not-found.html
+    （中间件按语言吐到干净 URL）
   - public/static/ 静态资源镜像
   - functions/api/i18n/[lang].ts + functions/_data/i18n.ts（前端语言切换用）
 
@@ -164,9 +165,12 @@ _STATIC_EXCLUDE_NAMES = frozenset({"tailwind.input.css"})
 
 
 def _static_ignore(dirpath: str, names: list[str]) -> set[str]:
-    del dirpath
     ignored = {".DS_Store", "__pycache__"}
     ignored.update(_STATIC_EXCLUDE_NAMES.intersection(names))
+    if os.path.normcase(os.path.abspath(dirpath)) == os.path.normcase(
+        os.path.abspath(STATIC_DIR)
+    ) and "portfolio" in names:
+        ignored.add("portfolio")
     ignored.update(
         name for name in names
         if name.endswith((".bak", ".orig", ".rej"))
@@ -350,6 +354,7 @@ PAGES = (
     ("index.html", "index.html", "/", None),
     ("services.html", "services.html", "/services", None),
     ("contact.html", "contact.html", "/contact", None),
+    ("404.html", "not-found.html", "/404", None),
     # 子域专属管理页（visitor.limooo.cn / account.limooo.cn/apple），由中间件按主机名吐出
     ("visitor.html", "visitor.html", "/visitor", None),
     ("apple-account.html", "apple-account.html", "/apple-account", None),
@@ -466,6 +471,13 @@ def render_page(appmod, template: str, path: str, lang: str, extra=None) -> str:
     html = html.replace('src="static/', 'src="/static/')
     html = html.replace('href="static/', 'href="/static/')
     return html
+
+
+def write_not_found_fallback(appmod, out_dir: str) -> None:
+    """让 Pages 将所有静态 404 请求转到主站的品牌 404 页面。"""
+    html = render_page(appmod, "404-fallback.html", "/404", KEY_FALLBACK_LANG)
+    with open(os.path.join(out_dir, "404.html"), "w", encoding="utf-8") as f:
+        f.write(html)
 
 
 def render_gate(appmod, lang: str) -> str:
@@ -704,8 +716,7 @@ def write_manifest() -> dict:
 def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
     """为作品集生成 640/800px WebP 缩略图到构建输出目录。
 
-    缩略图只给首页卡片预览用；完整原图仍保留在 public/static/portfolio/，
-    仅用于构建期（生成缩略图与水印变体），不会作为干净原图对外发布。
+    缩略图只给首页卡片预览用；完整原图留在本地私有源目录，构建只发布缩略图。
     """
     # 缩略图始终从源原图（src/static/portfolio）生成，避免依赖构建输出目录
     # 里可能已被清除的原图副本。
@@ -817,7 +828,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     """从源原图生成左下角水印变体到 public/static/wm/。
 
     规则（与 Worker 里的 shouldWatermark 保持一致）：
-      - 只处理 portfolio/ 下的 png / jpg / jpeg / webp
+      - 只处理 portfolio/ 顶层的 png / jpg / jpeg / webp
       - 其他路径（icons / qr-codes 等）不生成水印变体
     使用 Limooo-xtext.svg 并保留素材本身的透明度，直接叠在照片左下角，不添加底色。
     水印尺寸：图片短边的 25%（下限 96px），边距为图片短边的 2%（下限 12px）。
@@ -846,8 +857,8 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     for root, _dirs, files in os.walk(source_root):
         for name in files:
             rel = os.path.relpath(os.path.join(root, name), source_root)
-            # 只给作品集图片加水印
-            if not rel.replace(os.sep, "/").startswith("portfolio/"):
+            # 站点只扫描 portfolio/ 顶层源图；子目录与其它素材不参与发布。
+            if os.path.dirname(rel) != "portfolio":
                 continue
             if not re.search(r"\.(png|jpe?g|webp)$", name, re.I):
                 continue
@@ -909,17 +920,22 @@ def restore_qr_png_compatibility(qr_codes_dir: str) -> int:
     return copied
 
 
-def remove_public_portfolio_originals(portfolio_dir: str) -> int:
-    """删除 public/static/portfolio 顶层原图，只保留 thumbs/ 子目录。
+def remove_public_portfolio_originals(
+    portfolio_dir: str, *, keep_thumbs: bool = True
+) -> int:
+    """删除 public/static/portfolio 中除 thumbs/ 外的所有内容。
 
     A2：作品集完整原图不再对外发布，只公开水印变体（/static/wm/portfolio/*）与
-    首页缩略图（/static/portfolio/thumbs/*）。该函数同时清掉构建期间可能混入的
-    并行副本（如 “IMG_0064 2.webp”）。
+    首页缩略图（/static/portfolio/thumbs/*）。递归清理可以覆盖意外残留的子目录、
+    SVG 和并行副本（如 “IMG_0064 2.webp”）。
+
+    首次清理传 ``keep_thumbs=False``，移除旧构建留下的缩略图；生成当前源图缩略图后，
+    再用默认值清理并保留新生成的 ``thumbs/``。
 
     调用时机：紧跟 ``shutil.copytree(STATIC_DIR, public/static)`` 之后，**在任何
-    可能失败的步骤之前**。一次在“删原图”之前中断的构建（缺 cairosvg / 缺水印
-    SVG / Ctrl-C）会留下一个含原始作品图、可被直接部署的 public/，而 wrangler.toml
-    的 pages_build_output_dir 正指向它。水印与缩略图都从源图目录
+    可能失败的步骤之前**。这样在缺 cairosvg、缺水印 SVG 或 Ctrl-C 时，旧 public/
+    中的作品集文件已先清理，而 wrangler.toml 的 pages_build_output_dir 正指向它。
+    水印与缩略图都从源图目录
     （src/static/portfolio）生成，不读这里的副本，所以提前删除不影响产物。
     """
     # CI 干净 checkout 没原图，public/static/portfolio 可能不存在；缺失即跳过。
@@ -933,14 +949,24 @@ def remove_public_portfolio_originals(portfolio_dir: str) -> int:
     removed = 0
     for name in sorted(os.listdir(portfolio_dir)):
         full = os.path.join(portfolio_dir, name)
-        if os.path.isfile(full) and re.search(
-            r"\.(png|jpe?g|webp|avif|gif|bmp|ico)$", name, re.I
+        if (
+            keep_thumbs
+            and name == "thumbs"
+            and os.path.isdir(full)
+            and not os.path.islink(full)
         ):
-            try:
+            continue
+        try:
+            if os.path.isdir(full) and not os.path.islink(full):
+                removed += sum(len(files) for _root, _dirs, files in os.walk(full))
+                shutil.rmtree(full)
+            else:
                 os.remove(full)
                 removed += 1
-            except OSError as exc:
-                print(f"[build] remove public original skip {name}: {exc}", flush=True)
+        except OSError as exc:
+            raise RuntimeError(
+                f"cannot remove non-thumbnail portfolio output {full}: {exc}"
+            ) from exc
     if removed:
         print(f"[build] removed public portfolio originals: {removed}", flush=True)
     return removed
@@ -1051,6 +1077,8 @@ def main() -> int:
             f.write(render_gate(appmod, lang))
         print(f"[build] {lang} rendered", flush=True)
 
+    write_not_found_fallback(appmod, PUBLIC_DIR)
+
     # 3) 静态资源镜像
     shutil.copytree(
         STATIC_DIR,
@@ -1058,15 +1086,14 @@ def main() -> int:
         dirs_exist_ok=True,
         ignore=_static_ignore,
     )
+    # 3.0) A2：静态资源复制后**立刻**清理公开 bundle 里的作品集旧产物。
+    #      源目录已整体排除；这里清理旧 public/ 中可能遗留的原图副本，
+    #      避免任何中途失败留下可被裸 `wrangler pages deploy` 发布的完整原图。
+    remove_public_portfolio_originals(
+        os.path.join(PUBLIC_DIR, "static", "portfolio"), keep_thumbs=False
+    )
     restore_qr_png_compatibility(
         os.path.join(PUBLIC_DIR, "static", "qr-codes")
-    )
-    # 3.0) A2：copytree 刚把源图复制进来，**立刻**删掉公开 bundle 里的作品集原图。
-    #      必须紧跟 copytree（而不是放在水印/缩略图之后）：水印与缩略图都从源图目录
-    #      生成、不读这里的副本，而任何中途失败都会留下一个含完整原图、可被裸
-    #      `wrangler pages deploy` 直接发布的 public/。
-    remove_public_portfolio_originals(
-        os.path.join(PUBLIC_DIR, "static", "portfolio")
     )
     # 3.1) 作品集卡片缩略图（首页只加载这些，不再直接下载 1080×1440 原图）
     generate_portfolio_thumbs(

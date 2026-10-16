@@ -1,0 +1,98 @@
+.not-found-main {
+    position: fixed;
+    inset: 70px 0 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.not-found-panel {
+    width: min(100%, 640px);
+    padding: clamp(36px, 7vw, 72px) clamp(24px, 7vw, 64px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--panel-bg);
+    box-shadow: 0 24px 64px var(--shadow-card);
+    text-align: center;
+}
+
+.not-found-code {
+    margin: 0;
+    color: var(--accent);
+    font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
+    font-size: clamp(5rem, 20vw, 9rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 0.9;
+}
+
+.not-found-divider {
+    display: block;
+    width: 48px;
+    height: 1px;
+    margin: 28px auto;
+    background: var(--accent);
+    opacity: 0.75;
+}
+
+.not-found-panel h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 4vw, 2rem);
+    font-weight: 600;
+    letter-spacing: calc(0.08em * var(--ls-scale));
+}
+
+.not-found-message,
+.not-found-redirect {
+    color: var(--text-muted);
+    line-height: 1.7;
+}
+
+.not-found-message {
+    margin: 16px 0 0;
+}
+
+.not-found-redirect {
+    margin: 8px 0 28px;
+    font-size: 0.9rem;
+}
+
+.not-found-home {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 24px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+    transition: filter 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.not-found-home:hover {
+    filter: brightness(1.08);
+}
+
+.not-found-home:active {
+    transform: scale(0.97);
+}
+
+.not-found-home:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+}
+
+@media (min-width: 768px) {
+    .not-found-main {
+        inset-block-start: 100px;
+    }
+}
+
+@media (max-width: 559px) {
+    .not-found-main {
+        inset-block-end: 68px;
+    }
+}

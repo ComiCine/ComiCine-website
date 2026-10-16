@@ -172,6 +172,20 @@ def test_static_ignore_excludes_tailwind_input():
     assert "tailwind.css" not in ignored
 
 
+def test_static_ignore_excludes_private_portfolio_source(tmp_path, monkeypatch):
+    static = tmp_path / "static"
+    static.mkdir()
+    monkeypatch.setattr(build, "STATIC_DIR", str(static))
+
+    root_ignored = build._static_ignore(str(static), ["portfolio", "icons"])
+    nested_ignored = build._static_ignore(
+        str(static / "portfolio"), ["original.webp"]
+    )
+
+    assert "portfolio" in root_ignored
+    assert "original.webp" not in nested_ignored
+
+
 # ── W4-6 缩略图只缩不放 ─────────────────────────────────────────────
 
 
@@ -318,18 +332,33 @@ def test_generate_watermarks_skips_without_sources(tmp_path):
 
 
 def test_remove_public_portfolio_originals_keeps_thumbs(tmp_path):
-    """删原图只删顶层图片文件，thumbs/ 子目录必须留下。"""
+    """只留下 thumbs/；递归移除顶层、嵌套目录和非图片文件。"""
     portfolio_dir = tmp_path / "portfolio"
     thumbs = portfolio_dir / "thumbs"
     thumbs.mkdir(parents=True)
+    nested = portfolio_dir / "album"
+    nested.mkdir()
     (portfolio_dir / "IMG_0001.webp").write_bytes(b"original")
     (portfolio_dir / "IMG_0002.webp").write_bytes(b"original")
     (thumbs / "IMG_0001-640.webp").write_bytes(b"thumb")
-    (portfolio_dir / "notes.txt").write_text("keep me", encoding="utf-8")
+    (portfolio_dir / "notes.txt").write_text("remove me", encoding="utf-8")
+    (nested / "original.svg").write_text("<svg/>", encoding="utf-8")
 
-    assert build.remove_public_portfolio_originals(str(portfolio_dir)) == 2
-    assert sorted(p.name for p in portfolio_dir.iterdir()) == ["notes.txt", "thumbs"]
+    assert build.remove_public_portfolio_originals(str(portfolio_dir)) == 4
+    assert sorted(p.name for p in portfolio_dir.iterdir()) == ["thumbs"]
     assert (thumbs / "IMG_0001-640.webp").exists()
+
+
+def test_remove_public_portfolio_originals_can_clear_stale_thumbs(tmp_path):
+    portfolio_dir = tmp_path / "portfolio"
+    stale_thumbs = portfolio_dir / "thumbs"
+    stale_thumbs.mkdir(parents=True)
+    (stale_thumbs / "removed-source-640.webp").write_bytes(b"stale")
+
+    assert build.remove_public_portfolio_originals(
+        str(portfolio_dir), keep_thumbs=False
+    ) == 1
+    assert list(portfolio_dir.iterdir()) == []
 
 
 def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):

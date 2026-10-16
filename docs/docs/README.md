@@ -306,7 +306,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | 条目 | 效果 |
 | --- | --- |
 | `ASN/<number>` | 可选的 Cloudflare 区域级 ASN Access Rule 条目。需要手动运行 `bash ops/waf_whitelist.sh --apply` 才会更改区域规则；ASN 条目不会绕过 Pages Functions 门禁。 |
-| `IP-CIDR/<ip>/<mask>` | Pages 边缘完全放行来源（例如 `IP-CIDR/97.64.18.11/32`），同时跳过封禁检查与人机验证。 |
+| `IP-CIDR/<ip>/<mask>` | Pages 边缘完全放行来源（例如 `IP-CIDR/97.64.18.11/32`）；IPv4 前缀只接受 `/24`–`/32`，IPv6 只接受 `/64`–`/128`，同时跳过封禁检查与人机验证。 |
 
 当前生成名单有 **0 个 ASN 条目**和 **2 个 IP 网段**。完整部署只生成本地白名单，不会更改 Cloudflare 区域级 ASN Access Rules。编辑 `own-ips.txt` 后，部署会运行 `ops/sync_whitelist.py`；构建随后运行 `ops/check_gate_trust.py --emit` 生成边缘副本。
 

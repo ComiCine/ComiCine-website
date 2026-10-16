@@ -311,7 +311,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | エントリ | 効果 |
 | --- | --- |
 | `ASN/<number>` | 任意の Cloudflare ゾーン単位 ASN Access Rule エントリです。ゾーンルールを変更するには `bash ops/waf_whitelist.sh --apply` を手動実行します。ASN エントリは Pages Functions のゲートを迂回しません。 |
-| `IP-CIDR/<ip>/<mask>` | Pages エッジで完全に許可されるソースです（例：`IP-CIDR/97.64.18.11/32`）。ブロックリストとチャレンジゲートの両方をスキップします。 |
+| `IP-CIDR/<ip>/<mask>` | Pages エッジで完全に許可されるソースです（例：`IP-CIDR/97.64.18.11/32`）。IPv4 は `/24`–`/32`、IPv6 は `/64`–`/128` のプレフィックスのみ許可され、ブロックリストとチャレンジゲートの両方をスキップします。 |
 
 現在の生成リストには **ASN が 0 件**、**IP-CIDR が 2 件**あります。通常のデプロイはローカルのホワイトリストを生成しますが、ゾーン単位の ASN Access Rules は変更しません。`own-ips.txt` の編集後、デプロイ時に `ops/sync_whitelist.py` を実行し、その後ビルドで `ops/check_gate_trust.py --emit` がエッジ用ファイルを生成します。
 

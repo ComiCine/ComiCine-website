@@ -1,6 +1,10 @@
 {
   "redirect_title": "Redirecting…",
   "redirect_text": "Redirecting... (・ω・)",
+  "not_found_title": "Page not found · Limooo",
+  "not_found_heading": "This page cannot be found",
+  "not_found_message": "The address may be incorrect, or the page may have moved.",
+  "not_found_redirect": "You’ll be redirected to the homepage in 3 seconds.",
   "gate_title": "Verifying you are human…",
   "gate_heading": "Please complete this CAPTCHA to access the site.",
   "gate_location": "Location",

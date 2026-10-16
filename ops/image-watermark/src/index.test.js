@@ -92,6 +92,22 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
   assert.equal(icon.target, `${ORIGIN}/static/icons/Limooo.svg`);
 });
 
+test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {
+  const thumb = routeFor(new URL("https://image.limooo.cn/portfolio/thumbs/a.avif"), { headers: new Headers() }, ORIGIN);
+  assert.equal(thumb.target, `${ORIGIN}/static/portfolio/thumbs/a.avif`);
+  assert.equal(thumb.watermarked, false);
+
+  for (const path of [
+    "/portfolio/album/a.webp",
+    "/portfolio/a.svg",
+    "/portfolio/a.avif",
+    "/portfolio/thumbs/album/a.webp",
+  ]) {
+    const route = routeFor(new URL(`https://image.limooo.cn${path}`), { headers: new Headers() }, ORIGIN);
+    assert.equal(route.target, "", `${path} must not be served as a clean original`);
+  }
+});
+
 test("/static prefix is compatible: /static/portfolio/a.webp still watermarked", () => {
   const route = routeFor(new URL("https://images.limooo.cn/static/portfolio/a.webp"), { headers: new Headers() }, ORIGIN);
   assert.equal(route.watermarked, true);
@@ -103,8 +119,34 @@ test("never proxies /api/* or unknown paths", () => {
   assert.equal(api.target, "");
   assert.equal(api.image, false);
 
+  const apiRoot = routeFor(new URL("https://image.limooo.cn/api"), { headers: new Headers() }, ORIGIN);
+  assert.equal(apiRoot.target, "");
+
   const unknown = routeFor(new URL("https://image.limooo.cn/random/thing"), { headers: new Headers() }, ORIGIN);
   assert.equal(unknown.target, "");
+});
+
+test("rejects non-GET/HEAD methods without contacting the origin", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response("unexpected origin request");
+  };
+  try {
+    for (const path of ["/api/private", "/portfolio/a.webp"]) {
+      const response = await worker.fetch(
+        new Request(`https://image.limooo.cn${path}`, { method: "POST" }),
+        {},
+        { waitUntil() {} },
+      );
+      assert.equal(response.status, 405);
+      assert.equal(response.headers.get("Allow"), "GET, HEAD");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(fetchCalls, 0);
 });
 
 test("watermark origin URL hits /static/wm/ with a version param", () => {

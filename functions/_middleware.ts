@@ -47,6 +47,7 @@ import {
   GATE_HOSTNAME,
   IMAGES_HOSTNAME,
   LANG_COOKIE,
+  REDIRECT_HOSTNAME,
   ROOT_DOMAIN,
   VISITOR_HOSTNAME,
   WWW_HOSTNAME,
@@ -106,6 +107,33 @@ async function servePublicFile(
   });
 }
 
+function redirectMissingDocument(request: Request, response: Response): Response {
+  if (response.status !== 404 || !isHtmlNavigation(request)) return response;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${BASE_URL}/404`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+function isHtmlNavigation(request: Request): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (
+    request.headers.get("Sec-Fetch-Dest") === "document" ||
+    request.headers.get("Sec-Fetch-Mode") === "navigate"
+  ) {
+    return true;
+  }
+  return (request.headers.get("Accept") ?? "")
+    .split(",")
+    .some((value) => {
+      const [mediaType = ""] = value.trim().split(";", 1);
+      return mediaType.toLowerCase() === "text/html";
+    });
+}
+
 /** 非业务日志必须在响应返回后写入，不能阻塞页面/跳转。 */
 function defer(context: RequestContext, promise: Promise<unknown>): void {
   if (typeof context.waitUntil === "function") {
@@ -139,33 +167,41 @@ const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/qr-codes",
   "/icons",
 ]);
-// Root-level .html aliases may target only public subdomains with a live DNS record
-// and a homepage service. Keep this list in sync with those host deployments.
-const LEGACY_HTML_SUBDOMAINS = new Set(["contact", "docs", "services", "status"]);
+const LEGACY_HTML_HOST_ROOTS = new Map<string, string>([
+  [ROOT_DOMAIN, `${BASE_URL}/`],
+  [WWW_HOSTNAME, `${BASE_URL}/`],
+  [IMAGES_HOSTNAME, `${BASE_URL}/`],
+  [`services.${ROOT_DOMAIN}`, `https://services.${ROOT_DOMAIN}/`],
+  [`contact.${ROOT_DOMAIN}`, `https://contact.${ROOT_DOMAIN}/`],
+  [VISITOR_HOSTNAME, `https://${VISITOR_HOSTNAME}/`],
+  [APPLE_ACCOUNT_HOSTNAME, `https://${APPLE_ACCOUNT_HOSTNAME}/`],
+]);
+const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
+  ["www", `${BASE_URL}/`],
+  ["images", `${BASE_URL}/`],
+  ["portfolio", `${BASE_URL}/portfolio`],
+  ["services", `https://services.${ROOT_DOMAIN}/`],
+  ["contact", `https://contact.${ROOT_DOMAIN}/`],
+  ["visitor", `https://${VISITOR_HOSTNAME}/`],
+  ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/`],
+  ["redirect", `https://${REDIRECT_HOSTNAME}/`],
+  // docs.limooo.cn/ currently redirects to the main site via its own _redirects file.
+  ["docs", `${BASE_URL}/`],
+  ["status", `https://status.${ROOT_DOMAIN}/`],
+]);
 
 function legacyHtmlRedirectTarget(
   hostname: string,
   pathname: string,
 ): string | null {
-  if (hostname !== ROOT_DOMAIN && !hostname.endsWith(`.${ROOT_DOMAIN}`)) return null;
+  const hostRoot = LEGACY_HTML_HOST_ROOTS.get(hostname);
+  if (!hostRoot) return null;
   const match = pathname.match(/^\/([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.html$/i);
   if (!match) return null;
 
   const subdomain = match[1].toLowerCase();
-  if (subdomain === "index") {
-    return hostname === ROOT_DOMAIN ||
-      hostname === WWW_HOSTNAME ||
-      hostname === IMAGES_HOSTNAME
-      ? `${BASE_URL}/`
-      : `https://${hostname}/`;
-  }
-  if (subdomain === "www") return `${BASE_URL}/`;
-  if (LEGACY_HTML_SUBDOMAINS.has(subdomain)) {
-    return `https://${subdomain}.${ROOT_DOMAIN}/`;
-  }
-  return hostname === WWW_HOSTNAME || hostname === IMAGES_HOSTNAME
-    ? `${BASE_URL}/`
-    : `https://${hostname}/`;
+  if (subdomain === "index") return hostRoot;
+  return LEGACY_HTML_PATH_TARGETS.get(subdomain) ?? null;
 }
 
 type CacheLike = {
@@ -368,6 +404,14 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
+  // images.limooo.cn is a static asset host, never an API origin.
+  if (hostname === IMAGES_HOSTNAME && isApiPath(pathname)) {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   // 应用层封禁的豁免名单：这些路径即使来自被封 IP 也必须可达，否则管理员
   // 从被封 IP 就再也登不进来/退不出去，只能等 Cloudflare IP List 的下一次同步。
   // 只匹配精确路径或它的子路径（routing.ts 的 isExemptPath）：宽前缀
@@ -390,7 +434,8 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     // 干净文件 URL `/files/<名>` → 构建产物 `/static/files/<名>`，
     // 公开、不经过人机门禁（images.limooo.cn 下也走这条）。
     if (pathname.startsWith(PUBLIC_FILES_PREFIX)) {
-      return servePublicFile(context, pathname);
+      const response = await servePublicFile(context, pathname);
+      return redirectMissingDocument(request, response);
     }
     // `/api/*` 仍然要过封禁检查（W9-1）：只有静态资源、/files/，
     // 以及豁免路径/已信任来源的 API 直接返回。豁免路径不查库（也查不出结果）。
@@ -452,13 +497,50 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
 
-  // images.limooo.cn 只保留静态资源服务；旧目录页 URL 永久回到主站。
+  // Preserve www's existing challenge redirect to the canonical host before handling aliases.
+  if (forceChallenge && hostname === WWW_HOSTNAME) {
+    return withLangCookie(request, new Response(null, {
+      status: 301,
+      headers: {
+        Location: `${BASE_URL}${pathname}${url.search}`,
+        "Cache-Control": "no-store",
+      },
+    }));
+  }
+
+  // Keep forced challenges ahead of legacy redirects, then resolve known aliases before
+  // the images-only and www catch-all branches below.
+  if (forceChallenge) {
+    defer(
+      context,
+      logEvent(env, "gate_redirect", request, {
+        outcome: "forced",
+        status: 403,
+        path: pathname,
+        message: "force_theme_challenge",
+      }),
+    );
+    return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
+  }
+
+  // Preserve permanent redirects for the image host's retired landing paths.
   const normalizedImagePath = pathname.replace(/\/+$/, "") || "/";
   if (hostname === IMAGES_HOSTNAME && IMAGE_ASSET_LANDING_PATHS.has(normalizedImagePath)) {
     return new Response(null, {
       status: 301,
       headers: {
         Location: `${BASE_URL}/`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  const legacyHtmlTarget = legacyHtmlRedirectTarget(hostname, pathname);
+  if (legacyHtmlTarget) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${legacyHtmlTarget}${url.search}`,
         "Cache-Control": "no-store",
       },
     });
@@ -481,7 +563,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         });
       }
     }
-    return new Response("Not Found", { status: 404 });
+    return redirectMissingDocument(request, new Response("Not Found", { status: 404 }));
   }
 
   // www 保持原 nginx 行为：先 301 到主站（保留路径）。
@@ -493,32 +575,6 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         "Cache-Control": "no-store",
       },
     }));
-  }
-
-  // 快速切换主题触发的强制挑战：即使来自白名单 IP、
-  // 只有有效 __gate cookie 或经 Cloudflare verifiedBot 验证才放行；cf_clearance 不再作为绕过依据。
-  if (forceChallenge) {
-    defer(
-      context,
-      logEvent(env, "gate_redirect", request, {
-        outcome: "forced",
-        status: 403,
-        path: pathname,
-        message: "force_theme_challenge",
-      }),
-    );
-    return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
-  }
-
-  const legacyHtmlTarget = legacyHtmlRedirectTarget(hostname, pathname);
-  if (legacyHtmlTarget) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `${legacyHtmlTarget}${url.search}`,
-        "Cache-Control": "no-store",
-      },
-    });
   }
 
   const trust = await resolveGateTrust(context);
@@ -576,9 +632,10 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         lang,
       });
     }
+    const nextResponse = redirectMissingDocument(request, await next());
     return withLangCookie(
       request,
-      await renewGateCookie(context, await next(), trust.shouldRenew),
+      await renewGateCookie(context, nextResponse, trust.shouldRenew),
       lang,
     );
   }

@@ -319,7 +319,7 @@ at deploy time, one entry per line:
 | Entry | Effect |
 | --- | --- |
 | `ASN/<number>` | Optional ASN entry for the zone-level Cloudflare Access Rule managed manually by `ops/waf_whitelist.sh --apply`. ASN entries do not bypass the Pages Functions gate. |
-| `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); skips both the blocklist and the challenge gate. |
+| `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); IPv4 prefixes must be `/24`–`/32` and IPv6 `/64`–`/128`; skips both the blocklist and the challenge gate. |
 
 The current generated list contains **0 ASN entries** and **2 fully allowed IPs**. Full deploys generate the local whitelist but do not change zone-level ASN Access Rules; run `ops/waf_whitelist.sh --apply` manually when you intend to change those rules.
 

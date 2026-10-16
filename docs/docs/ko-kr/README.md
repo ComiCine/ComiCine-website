@@ -310,7 +310,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | 항목 | 효과 |
 | --- | --- |
 | `ASN/<number>` | 선택 항목이며 Cloudflare zone 수준 ASN Access Rule에 사용됩니다. zone 규칙을 바꾸려면 `bash ops/waf_whitelist.sh --apply`를 수동 실행하세요. ASN 항목은 Pages Functions 게이트를 우회하지 않습니다. |
-| `IP-CIDR/<ip>/<mask>` | Pages 엣지에서 완전히 허용되는 소스입니다(예: `IP-CIDR/97.64.18.11/32`). 차단 목록과 챌린지 게이트를 모두 건너뜁니다. |
+| `IP-CIDR/<ip>/<mask>` | Pages 엣지에서 완전히 허용되는 소스입니다(예: `IP-CIDR/97.64.18.11/32`). IPv4는 `/24`–`/32`, IPv6는 `/64`–`/128` 프리픽스만 허용하며 차단 목록과 챌린지 게이트를 모두 건너뜁니다. |
 
 현재 생성 목록에는 **ASN 항목 0개**와 **IP-CIDR 2개**가 있습니다. 전체 배포는 로컬 화이트리스트만 생성하고 zone 수준 ASN Access Rules는 변경하지 않습니다. `own-ips.txt`를 수정한 뒤 배포하면 `ops/sync_whitelist.py`가 실행되고, 빌드에서 `ops/check_gate_trust.py --emit`이 엣지 사본을 생성합니다.
 

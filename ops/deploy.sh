@@ -108,6 +108,11 @@
 
 set -euo pipefail
 
+# 统一入口及所有子进程的诊断消息语言，同时保留其他 locale 设置。
+unset LC_ALL
+export LANG=C
+export LC_MESSAGES=C
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 

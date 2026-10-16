@@ -1,6 +1,10 @@
 {
   "redirect_title": "リダイレクト中…",
   "redirect_text": "リダイレクト中... (・ω・)",
+  "not_found_title": "ページが見つかりません · Limooo",
+  "not_found_heading": "このページは見つかりません",
+  "not_found_message": "URLが正しくないか、ページが移動した可能性があります。",
+  "not_found_redirect": "3 秒後にホームページへ移動します。",
   "gate_title": "人間であることを確認しています…",
   "gate_heading": "このサイトにアクセスするには、人認証を完了してください",
   "gate_location": "Location",
