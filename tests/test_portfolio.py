@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""作品区动态排版：卡片数量必须跟随 src/static/portfolio 里的图片数量。"""
+"""Dynamic portfolio layout: the number of cards follows the image count in src/static/portfolio."""
 
 import re
 
@@ -62,7 +62,7 @@ def test_home_renders_one_card_per_portfolio_image():
 
     assert html.count('class="work-box"') == len(items)
     for item in items:
-        # 每张图都要有 AVIF + WebP 三档 srcset
+        # Each image must have three AVIF and WebP srcset sizes.
         assert f"/static/portfolio/thumbs/{item['stem']}-800.avif" in html
         assert f"/static/portfolio/thumbs/{item['stem']}-640.webp" in html
 
@@ -90,7 +90,7 @@ def test_portfolio_items_expose_ratio_and_orientation(tmp_path):
 
     items = {i["stem"]: i for i in portfolio.portfolio_items(str(tmp_path))}
 
-    # 比例为约分后的精确整数对（3:2 而不是 1.5 的近似值）
+    # Ratios are reduced integer pairs (3:2 rather than an approximate 1.5).
     assert items["portrait"]["ratio"] == "3 / 4"
     assert items["landscape"]["ratio"] == "3 / 2"
     assert items["square"]["ratio"] == "1 / 1"
@@ -102,7 +102,7 @@ def test_portfolio_items_expose_ratio_and_orientation(tmp_path):
 def test_home_cards_carry_per_image_aspect_ratio():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
 
-    # 每张卡片写出自己的画幅与固有尺寸，避免被统一裁成 3:4、也避免 CLS
+    # Each card declares its own aspect ratio and intrinsic dimensions to avoid cropping everything to 3:4 and to prevent CLS.
     for item in portfolio.portfolio_items():
         assert f'style="aspect-ratio: {item["ratio"]}"' in html
         assert f'width="{item["width"]}" height="{item["height"]}"' in html
@@ -126,7 +126,7 @@ def test_generate_portfolio_thumbs_writes_webp_and_avif(tmp_path):
 
 
 def test_thumbs_keep_source_aspect_ratio_in_both_formats(tmp_path):
-    """3:2 / 2:3 / 3:4 源图：webp 与 avif 都必须等比，宽度按档位、高度按比例。"""
+    """For 3:2, 2:3, and 3:4 sources, WebP and AVIF preserve the ratio; width follows the size and height follows the ratio."""
     Image = pytest.importorskip("PIL.Image")
 
     source = tmp_path / "src"
@@ -149,7 +149,7 @@ def test_thumbs_keep_source_aspect_ratio_in_both_formats(tmp_path):
 
 
 def test_avif_thumbs_are_decodable_and_not_webp(tmp_path):
-    """AVIF 档位必须真的是 AVIF 容器，不能退化成 webp/原格式。"""
+    """The AVIF size must use a real AVIF container, not WebP or the source format."""
     Image = pytest.importorskip("PIL.Image")
     if not features.check("avif"):
         pytest.skip("当前 Pillow 没有 AVIF 编解码支持")
@@ -170,7 +170,7 @@ def test_avif_thumbs_are_decodable_and_not_webp(tmp_path):
 
 
 def test_generate_portfolio_thumbs_skips_when_source_dir_missing(tmp_path):
-    """CI 干净 checkout 没有源图目录：跳过而不报错，且不产生空目录噪音。"""
+    """A clean CI checkout has no source directory; skip without error or creating an empty directory."""
     output = tmp_path / "out"
 
     assert build.generate_portfolio_thumbs(str(tmp_path / "missing"), str(output)) == 0
@@ -178,7 +178,7 @@ def test_generate_portfolio_thumbs_skips_when_source_dir_missing(tmp_path):
 
 
 def test_home_avif_and_webp_srcsets_cover_every_image():
-    """首页每张图都要有 AVIF + WebP 两套 srcset，且档位一致。"""
+    """Every home-page image must have matching AVIF and WebP srcsets with the same size options."""
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
 
     for item in portfolio.portfolio_items():
@@ -186,6 +186,6 @@ def test_home_avif_and_webp_srcsets_cover_every_image():
         for fmt in ("avif", "webp"):
             for width in build.PORTFOLIO_THUMB_WIDTHS:
                 assert f"/thumbs/{stem}-{width}.{fmt} {width}w" in html
-        # AVIF 优先、WebP 兜底：picture 里 AVIF 的 source 必须在 img 之前
+        # Prefer AVIF with WebP as a fallback; the AVIF source must precede img in picture.
         assert html.index(f"{stem}-800.avif") < html.index(f"{stem}-800.webp")
 

@@ -18,8 +18,8 @@
  */
 
 /**
- * image-watermark 路由纯函数测试（tasks/14，A2 归一化代理）。
- * 运行：node --test ops/image-watermark/src/index.test.js
+ * Pure-function route tests for image-watermark (tasks/14, A2 normalization proxy).
+ * Run with: `node --test ops/image-watermark/src/index.test.js`.
  */
 
 import { strict as assert } from "node:assert";

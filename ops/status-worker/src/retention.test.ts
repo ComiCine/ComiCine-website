@@ -18,12 +18,12 @@
  */
 
 /**
- * D1 保留任务测试（tasks/22 W5-8）。
+ * D1 retention job tests (tasks/22 W5-8).
  *
- * `runRetention` 每天对**生产** D1 发 DELETE（scheduled handler 调用），却一行
- * 测试都没有：表名与时间戳列是从两张字符串映射里运行期拼出来的，写错一个名字
- * 就是「清理静默失效」或「删错表」。这里用最小 D1 stub 把 SQL、绑定参数、窗口、
- * 失败隔离全部锁住。
+ * `runRetention` issues DELETEs against **production** D1 daily from the scheduled handler, but
+ * previously had no tests. Table names and timestamp columns are assembled at runtime from two
+ * string maps, so a typo could silently disable pruning or delete from the wrong table. This
+ * minimal D1 stub locks down the SQL, bound parameters, windows, and failure isolation.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +35,7 @@ interface Call {
   meta: { changes: number } | undefined;
 }
 
-/** 记录 prepare/bind；按表名决定返回的 changes 或抛错。 */
+/** Record prepare/bind calls; return a change count or throw based on the table name. */
 function fakeDb(options: { failTables?: string[]; changes?: number } = {}) {
   const calls: Call[] = [];
   const db = {
@@ -90,7 +90,7 @@ describe("retention buckets", () => {
       expect(seconds, `${table} window`).toBeGreaterThan(0);
       expect(seconds % DAY_SECONDS, `${table} window must be whole days`).toBe(0);
     }
-    // 只有这三张表的时间戳列不是默认的 ts。
+    // Only these three tables use a timestamp column other than the default `ts`.
     expect(TIMESTAMP_COLUMNS).toEqual({
       visitor_rollups: "last_ts",
       probe_uptime_daily: "day",
@@ -99,8 +99,8 @@ describe("retention buckets", () => {
   });
 
   it("prunes auth_sessions only well after the session TTL", async () => {
-    // 每次登录写一行 auth_sessions，没有清理就无限增长（tasks/22 W9-18）。
-    // 但窗口必须**长于**会话 TTL，否则会删掉仍在用的会话（登录态被踢）。
+    // Each login adds one auth_sessions row, which would grow without bound without pruning (tasks/22 W9-18).
+    // The retention window must be **longer than** the session TTL to avoid deleting active sessions.
     const sessionTtlSeconds = 2_592_000; // config-contract.json: session_ttl_seconds
     expect(BUCKETS.auth_sessions).toBeGreaterThan(sessionTtlSeconds);
     expect(TIMESTAMP_COLUMNS.auth_sessions).toBe("exp");
@@ -123,7 +123,7 @@ describe("retention buckets", () => {
       const call = calls.find((entry) => entry.sql.startsWith(`DELETE FROM ${table} `));
       expect(call, `DELETE for ${table}`).toBeDefined();
       expect(call!.sql).toBe(`DELETE FROM ${table} WHERE ${column} < ?1`);
-      // 截断值必须走绑定参数，不能拼进 SQL。
+      // The cutoff must be passed as a bound parameter, not interpolated into SQL.
       expect(call!.sql).not.toContain(String(NOW - seconds));
       expect(call!.values).toEqual([NOW - seconds]);
     }
@@ -152,7 +152,7 @@ describe("retention buckets", () => {
     const healthy = results.filter((result) => result.table !== "visitor_rollups");
     expect(healthy).toHaveLength(Object.keys(BUCKETS).length - 1);
     expect(healthy.every((result) => result.deleted === 3 && !result.error)).toBe(true);
-    // 失败的表之后仍要继续发 DELETE（不是 break）。
+    // Continue issuing DELETEs after a table fails; do not break out of the loop.
     expect(calls.filter((call) => call.sql.startsWith("DELETE FROM")).length).toBe(
       Object.keys(BUCKETS).length,
     );

@@ -1,6 +1,6 @@
-{# Limooo - 统一跳转页（redirect.limooo.cn）
-   由 build.py 按 4 种语言预渲染为 public/<lang>/redirect.html。
-   to / preload / preload_links 由 Pages 中间件在运行时注入。 #}
+{# Limooo redirect page (redirect.limooo.cn).
+   build.py pre-renders public/<lang>/redirect.html in all four languages.
+   The Pages middleware injects to, preload, and preload_links at runtime. #}
 <!DOCTYPE html>
 <html lang="{{ g.lang }}">
 <head>
@@ -16,7 +16,7 @@
 {{ preload_links|safe }}
 <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 <link rel="stylesheet" href="/static/css/redirect.css?v=10">
-<!-- 站点基础样式：页脚 .global-footer 等结构样式复用主站 base.css -->
+<!-- Site base styles; structural styles such as .global-footer reuse the main base.css. -->
 <link rel="stylesheet" href="/static/css/base.css?v=19">
 </head>
 <body data-lang="{{ g.lang }}" data-to="{{ to }}" data-preload='{{ preload_placeholder }}'>

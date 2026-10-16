@@ -72,7 +72,8 @@ def hangul(cp):
     else:  # 치: ㅊ on the left, ㅣ on the right
         capsule(p, (435, 810), (455, 750), 90)
         capsule(p, (205, 605), (705, 605))
-        # Curved descending strokes echo the original CJK 人 / 文 terminals.
+        # Curved descending strokes echo the terminals of the Chinese
+        # characters for "person" and "writing" in the original typeface.
         raw = p
         p = ReverseContourPen(raw)
         p.moveTo((407, 555))

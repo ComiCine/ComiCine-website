@@ -40,7 +40,7 @@ PAGES_PROJECT="${PAGES_PROJECT:-limooo}"
 PAGES_BRANCH="${PAGES_BRANCH:-main}"
 SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 
-# iCloud 同步区里读大量小文件会卡死；用 /tmp 的隔离构建目录。
+# Reading many small files from the iCloud-synced directory can stall; use an isolated build directory under /tmp.
 PUBLIC_DIR="${LIMOOO_PUBLIC_DIR:-/tmp/limooo-public}"
 PREVIEW_DIR="${LIMOOO_PREVIEW_DIR:-/tmp/limooo-preview}"
 VENV_PYTHON="${LIMOOO_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
@@ -73,7 +73,7 @@ if [ "$DRY_RUN" = 1 ]; then
     exit 0
 fi
 
-# 构建
+# Build.
 if [ ! -x "$VENV_PYTHON" ]; then
     echo "FATAL: build venv not found: $VENV_PYTHON" >&2
     echo "       recreate: python3 -m venv /tmp/limooo-venv && /tmp/limooo-venv/bin/pip install -r ops/requirements.txt" >&2
@@ -82,11 +82,11 @@ fi
 
 echo "[pages] building (isolated output: ${PUBLIC_DIR})"
 
-# cairosvg 需要 libcairo 的动态库（2026-10-11 加）：本机由 Homebrew 提供，而它在
-# 非标准前缀下（/opt/homebrew/opt/cairo/lib），Apple Silicon 上不会被默认搜索到。
-# 不设这个变量时 build.py 的图片前置检查会 FATAL（"cairosvg (and local libcairo)
-# is missing"），而那个报错看着像没装 cairosvg —— 实际只是找不到库。
-# 只在本机存在该目录、且调用方没有自己设置时才注入；非 macOS / Linux CI 不受影响。
+# Added 2026-10-11: cairosvg needs the libcairo shared library. Homebrew installs it under a
+# non-standard prefix (/opt/homebrew/opt/cairo/lib), which is not searched by default on Apple
+# Silicon. Without this variable, build.py's image preflight reports that cairosvg and local
+# libcairo are missing, even when cairosvg is installed. Set the path only when it exists locally
+# and the caller has not provided one; this does not affect non-macOS systems or Linux CI.
 if [ -z "${DYLD_FALLBACK_LIBRARY_PATH:-}" ]; then
     for _cairo_lib in /opt/homebrew/opt/cairo/lib /usr/local/opt/cairo/lib; do
         if [ -d "$_cairo_lib" ]; then
@@ -104,12 +104,12 @@ if [ ! -f "$PUBLIC_DIR/manifest.json" ]; then
     echo "       rerun the build and check the log for the failing step." >&2
     exit 1
 fi
-# manifest 存在还不够：内容必须与目录里每个文件逐字节对得上（构建之后被手改、
-# 多放或漏放的文件都在这里拦下）。同时兜住“构建产物被别的进程改过”这种情况。
+# The manifest must match every file in the directory byte for byte. This catches edits made
+# after the build, as well as extra or missing files, including changes made by another process.
 LIMOOO_PUBLIC_DIR="$PUBLIC_DIR" "$VENV_PYTHON" src/build.py --verify-manifest
 echo "[pages] artifact: $(find "$PUBLIC_DIR" -type f | wc -l | tr -d ' ') files"
 
-# 部署前校验
+# Pre-deploy validation.
 echo "[pages] validating config contract and security headers"
 "$VENV_PYTHON" ops/check_config_contract.py
 python3 ops/check_security_headers.py
@@ -119,7 +119,7 @@ if [ "$BUILD_ONLY" = 1 ]; then
     exit 0
 fi
 
-# 凭据
+# Credentials.
 if [ ! -f "$SECRETS_FILE" ]; then
     echo "FATAL: missing $SECRETS_FILE" >&2
     exit 1
@@ -140,14 +140,14 @@ if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
     exit 1
 fi
 
-# wrangler 自己会往输出里塞 emoji；这里只把 emoji 过滤掉，其余输出原样保留。
+# Wrangler adds emoji to its output; remove only emoji and preserve all other output.
 strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
-# 部署
-# 必须在本目录（site/）执行，否则 wrangler 找不到 functions/，会把整个
-# Pages Functions 丢掉（tasks/17 §11.6 出过这次事故）。
+# Deploy.
+# This must run from this directory (site/), or Wrangler cannot find functions/ and will omit
+# the entire Pages Functions bundle (this happened in tasks/17 §11.6).
 echo "[pages] deploying Pages (must run under site/, otherwise Functions are dropped)"
 export CI=1 WRANGLER_SEND_METRICS=false
 "$WRANGLER_BIN" pages deploy "$PUBLIC_DIR" \
@@ -155,7 +155,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
     --branch "$PAGES_BRANCH" \
     --commit-dirty=true 2>&1 | strip_emoji
 
-# 部署后冒烟
+# Post-deploy smoke check.
 echo "[pages] post-deploy check"
 health="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://limooo.cn/_health || echo 000)"
 if [ "$health" != "200" ]; then

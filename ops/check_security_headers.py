@@ -17,10 +17,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""校验 ops/security-headers.json 与 Pages 侧 functions/_lib/security.ts 一致。
+"""Verify that ops/security-headers.json matches functions/_lib/security.ts on Pages.
 
-只依赖标准库。05 的安全头 JSON 是唯一文案源，本脚本用于防止两侧镜像漂移。
-运行：
+This uses only the standard library. The security-headers JSON from task 05 is the sole copy
+source; this script prevents the two representations from drifting.
+
+Run:
     python3 ops/check_security_headers.py
 """
 
@@ -64,15 +66,15 @@ def main() -> int:
                 if match and "https://limooo.cn" in match.group(1):
                     errors.append(f"CSP {section} still allows https://limooo.cn, use 'self' instead")
 
-            # 第三方组件一致性守卫。
+            # Third-party component consistency checks.
             #
-            # Turnstile 完成一次求解需要三条指令同时放行同一来源：
-            #   script-src  加载 api.js
-            #   frame-src   内嵌 challenge iframe
-            #   connect-src 提交求解结果、取回 token
-            # 只放行前两条会得到一个"能显示、点不动、永远拿不到 token"的
-            # widget —— 表现为无限人机验证。历史上正是 connect-src 漏了
-            # challenges.cloudflare.com，导致门禁永远无法通过。
+            # Turnstile needs all three directives to allow the same source to complete a challenge:
+            #   script-src  loads api.js
+            #   frame-src   embeds the challenge iframe
+            #   connect-src submits the solution and retrieves the token
+            # Allowing only the first two produces a widget that displays but cannot be used or obtain a token,
+            # resulting in an endless challenge. The gate was previously unusable because connect-src omitted
+            # challenges.cloudflare.com.
             def origins(header: str, section: str) -> set[str]:
                 match = re.search(rf"{section} ([^;]+)", header)
                 if not match:
@@ -90,10 +92,10 @@ def main() -> int:
                     "the services page cannot load currency reference rates"
                 )
 
-            # 少数第三方组件的"拉脚本"与"回传数据"本来就落在不同主机上，
-            # 不能按"script-src 的来源必须在 connect-src"一刀切。已登记的例外：
-            # Cloudflare Web Analytics 的 beacon —— 脚本来自
-            # static.cloudflareinsights.com（script-src），RUM 数据回传到
+            # Some third-party components load scripts from one host and send data to another,
+            # so do not require every script-src source to also appear in connect-src. Registered exception:
+            # Cloudflare Web Analytics loads its beacon script from
+            # static.cloudflareinsights.com (script-src), while RUM data is sent to
             # cloudflareinsights.com（connect-src）。
             script_connect_pairs = {
                 "static.cloudflareinsights.com": "cloudflareinsights.com",

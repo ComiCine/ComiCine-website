@@ -18,90 +18,91 @@
  */
 
 /**
- * image-watermark —— image.limooo.cn 图片水印 Worker（A2 归一化代理）
+ * image-watermark — image.limooo.cn image watermark Worker (A2 normalization proxy).
  *
- * A2（原图彻底不外发）后，公开 bundle 里：
- *   - /static/wm/portfolio/*  水印全图（原来就放在这里，旧缓存无害）
- *   - /static/portfolio/thumbs/*  干净缩略图（仅首页卡片用）
- *   - /static/qr-codes/*、/static/icons/*  干净资源
- *   作品集原始图不再对外发布（/static/portfolio/<图> 404）。
+ * After A2 (portfolio originals are no longer published), the public bundle contains:
+ *   - /static/wm/portfolio/*  Watermarked full-size images (already stored here; old cache entries are harmless).
+ *   - /static/portfolio/thumbs/*  Clean thumbnails used only by home page cards.
+ *   - /static/qr-codes/* and /static/icons/*  Clean assets.
+ * Portfolio originals are no longer public (`/static/portfolio/<image>` returns 404).
  *
- * Worker 职责：把 image.limooo.cn 收到的请求，按「逻辑路径」归一化后，
- * 永远回源到对应的公开静态资源（水印或干净版）；不做 Referer 判定，
- * 因为原始图已不存在于任何公开地址。规则：
- *   1. /portfolio/<图>（png/jpg/jpeg/webp，且不在 thumbs/ 子目录）
- *      → 永远返回水印变体 /static/wm/portfolio/<图>（无论来源）。
- *   2. 其他图片/资源（thumbs、qr-codes、icons）→ 返回干净静态版 /static/<路径>。
- *   3. 绝不代理 /api/*；非图片、非已知目录 → 404。
- *   4. 兼容 images.limooo.cn 风格的 /static/portfolio/... 路径（去掉 /static 前缀）。
+ * The Worker normalizes each request to a logical path and always fetches the corresponding
+ * public static asset, watermarked or clean. It does not check Referer because no public URL
+ * serves the originals. Rules:
+ *   1. `/portfolio/<image>` (png/jpg/jpeg/webp, outside `thumbs/`) always returns the
+ *      watermarked variant at `/static/wm/portfolio/<image>`, regardless of the request source.
+ *   2. Other images and assets (`thumbs`, `qr-codes`, `icons`) return the clean file at `/static/<path>`.
+ *   3. Never proxy `/api/*`; return 404 for non-images outside known asset directories.
+ *   4. Accept `images.limooo.cn`-style `/static/portfolio/...` paths by removing the `/static` prefix.
  *
- * 缓存：按「回源 URL」走 Cache API，水印/干净版是不同 URL，天然互不污染。
- * 客户端响应只返回一份（A2 下无 Referer 差异化），因此不再带 Vary: Referer。
+ * Cache API uses the origin URL as the key; watermarked and clean variants have different URLs
+ * and cannot pollute each other's cache. All clients receive the same response under A2, so the
+ * response no longer includes `Vary: Referer`.
  */
 
 const ORIGIN = "https://limooo.cn";
-// image.limooo.cn 是资源归一化入口；访问域名根目录时返回主站。
+// image.limooo.cn normalizes asset paths; its root redirects to the main site.
 const LANDING_PAGE = "https://limooo.cn/";
 
-// 站点上实际使用的图片扩展名（与 public/static 暴露的内容一致）
+// Image extensions actually used by the site, matching content exposed under public/static.
 const IMAGE_PATH_RE = /\.(png|jpe?g|webp|avif|gif|bmp|ico|svg)$/i;
 
-// 水印版只覆盖作品集根目录下的 png/jpg/jpeg/webp；thumbs 子目录不算。
+// Watermarked variants cover only png/jpg/jpeg/webp files in the portfolio root, not its thumbs directory.
 const PORTFOLIO_ROOT_IMG_RE = /^\/portfolio\/[^/]+\.(png|jpe?g|webp)$/i;
 const PORTFOLIO_THUMB_RE = /^\/portfolio\/thumbs\/[^/]+\.(webp|avif)$/i;
 const PORTFOLIO_PATH_RE = /^\/portfolio(?:\/|$)/;
 
-// 允许非图片静态资源的目录（杜绝代理 /api/* 与其他任意路径）
+// Allow non-image assets only from known directories; block /api/* and all other arbitrary paths.
 const KNOWN_DIR_RE = /^\/(?:qr-codes|icons)(?:\/|$)/;
 
-// 浏览器缓存 1 天（A2 下所有来源返回同一份，可放心共享缓存）
+// Browser cache for one day; under A2, all request sources receive the same response.
 const CLIENT_CACHE =
   "public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400";
 
-// 水印变体版本号：改了水印外观（build.py 的生成参数）后 +1，
-// 让 Worker 用新的回源 URL 绕过 CDN/本地缓存里的旧版水印图
+// Increment after changing watermark appearance or build.py parameters so the Worker fetches a
+// new origin URL and bypasses old watermark images in CDN and local caches.
 const WM_VERSION = "4";
 
-/** 去掉 images.limooo.cn 风格的 /static 前缀，得到逻辑路径。 */
+/** Remove the `images.limooo.cn`-style `/static` prefix to get the logical path. */
 export function logicalPath(pathname) {
   return pathname.startsWith("/static/")
     ? pathname.slice("/static".length)
     : pathname;
 }
 
-/** image.limooo.cn 的裸域统一跳转到主站。 */
+/** Redirect the bare `image.limooo.cn` domain to the main site. */
 export function landingRedirect(url) {
   return url.pathname === "/" ? LANDING_PAGE : "";
 }
 
-/** 构造水印变体回源 URL（带版本参数，缓存破坏用）。 */
+/** Build the origin URL for a watermarked variant, including its cache-busting version. */
 export function wmTarget(origin, pathname, search = "") {
   const u = new URL(origin + "/static/wm" + pathname + search);
   u.searchParams.set("__wmver", WM_VERSION);
   return u.toString();
 }
 
-/** 是否为作品集根目录下应加水印的图片（用于判断是否走水印变体）。 */
+/** Check whether an image in the portfolio root should use the watermarked variant. */
 export function shouldWatermark(logical) {
   return PORTFOLIO_ROOT_IMG_RE.test(logical);
 }
 
 /**
- * 决定请求的回源目标。
- * 返回 { target, originalUrl?, watermarked, image }。
- * A2 下水印无 Referer 区分，因此不再需要 refererAllowed。
+ * Resolve the origin target for a request.
+ * Returns `{ target, originalUrl?, watermarked, image }`.
+ * Under A2, watermarked responses do not vary by Referer, so `refererAllowed` is no longer needed.
  */
 export function routeFor(url, request, origin) {
   const base = origin || ORIGIN;
   const path = logicalPath(url.pathname);
 
-  // 绝不放行 /api/*
+  // Never allow /api/* through.
   if (path === "/api" || path.startsWith("/api/")) {
     return { target: "", watermarked: false, image: false };
   }
 
-  // 作品集根目录图片：永远返回水印变体；若水印变体缺失直接 404，
-  // 不回退到原图（原图已不公开，避免旧缓存里的干净原图被误当成回源）。
+  // Always return a watermarked variant for portfolio root images. If it is missing, return
+  // 404 instead of falling back to the original, which is no longer public and may remain in an old cache.
   if (PORTFOLIO_ROOT_IMG_RE.test(path)) {
     return {
       target: wmTarget(base, path, url.search),
@@ -121,13 +122,13 @@ export function routeFor(url, request, origin) {
     return { target: "", watermarked: false, image: false };
   }
 
-  // 其他图片/资源（qr-codes、icons 及非作品集 /static 图片）：干净静态版
+  // Other images and assets (qr-codes, icons, and non-portfolio /static images) use the clean static file.
   if (IMAGE_PATH_RE.test(path)) {
     const clean = base + "/static" + path + url.search;
     return { target: clean, originalUrl: clean, watermarked: false, image: true };
   }
 
-  // 非图片但位于已知资源目录（理论不会出现，容错回源干净静态版）
+  // Non-image files in known asset directories are not expected, but fall back to the clean static file.
   if (KNOWN_DIR_RE.test(path)) {
     return {
       target: base + "/static" + path + url.search,
@@ -139,7 +140,7 @@ export function routeFor(url, request, origin) {
   return { target: "", watermarked: false, image: false };
 }
 
-/** 组装发给客户端（浏览器）的响应。A2 下无 Referer 区分，不加 Vary: Referer。 */
+/** Build the client response. Under A2, responses do not vary by Referer, so omit `Vary: Referer`. */
 function clientResponse(store, watermarked) {
   const headers = new Headers({
     "Content-Type": store.headers.get("Content-Type") || "application/octet-stream",
@@ -152,7 +153,7 @@ function clientResponse(store, watermarked) {
   return new Response(store.body, { status: store.status, headers });
 }
 
-/** HEAD 请求：与 GET 相同的路由决策，只返回头部。 */
+/** HEAD requests use the same routing decision as GET and return headers only. */
 async function headResponse(request, origin) {
   const url = new URL(request.url);
   const route = routeFor(url, request, origin);
@@ -169,7 +170,7 @@ async function headResponse(request, origin) {
 }
 
 /**
- * 回源并缓存：Cache API key 用回源 URL；水印/干净版是不同 URL，互不污染。
+ * Fetch from origin and cache by origin URL; watermarked and clean variants have separate URLs.
  */
 async function proxyAndCache(originUrl, ctx, watermarked) {
   const cacheRequest = new Request(originUrl, { method: "GET" });
@@ -215,7 +216,7 @@ export default {
     const landing = landingRedirect(url);
     if (landing) return Response.redirect(landing, 301);
 
-    // HEAD：同 GET 决策，只回头部
+    // HEAD uses the same routing decision as GET and returns headers only.
     if (request.method === "HEAD") {
       return headResponse(request, origin);
     }
@@ -224,7 +225,7 @@ export default {
     if (!route.image) return fetch(route.target);
 
     const resp = await proxyAndCache(route.target, ctx, route.watermarked);
-    // 水印变体缺失（尚未重新构建）时直接 404，不回退原图，避免干净原图外泄
+    // If the watermark variant is missing (not rebuilt yet), return 404 without falling back to the clean original.
     if (route.watermarked && resp.status === 404) return resp;
     return resp;
   },

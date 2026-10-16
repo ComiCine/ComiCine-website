@@ -51,8 +51,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# site/docs/ 是按子域分目录的容器：docs/ = docs.limooo.cn，services/ = services.limooo.cn。
-# 本脚本只负责 docs.limooo.cn 那一份内容（含它自己的 .vitepress/）。
+# site/docs/ is a container organized by subdomain: docs/ = docs.limooo.cn,
+# services/ = services.limooo.cn. This script handles only docs.limooo.cn content,
+# including its own .vitepress/ directory.
 DOCS_DIR="$ROOT/docs/docs"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 
@@ -71,9 +72,10 @@ TARBALL="$BUILD_DIR/vitepress.tgz"
 SHA_MARKER="$BUILD_DIR/vitepress.sha"
 
 PNPM_BIN="${PNPM_BIN:-pnpm}"
-# pnpm 发现 node_modules 由别的版本/store 建过时会停下来要求 TTY 确认删除目录，
-# 而部署是在非交互 shell 里跑的（报 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY）。
-# 这里的语义本来就是「依赖树对不上就重装」，所以直接授权它重建。
+# If pnpm detects that node_modules was created by another version or store, it prompts for
+# interactive confirmation before removing it. Deployments run in a non-interactive shell and
+# fail with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY. The intended behavior is to reinstall
+# when the dependency tree differs, so allow pnpm to rebuild it.
 PNPM_INSTALL_FLAGS="--config.confirmModulesPurge=false"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 
@@ -118,7 +120,7 @@ fi
 
 mkdir -p "$BUILD_DIR"
 
-# ① 构建 fork（按 commit 缓存）
+# Stage 1: build the fork, cached by commit.
 ensure_vitepress() {
     if [ ! -d "$VITEPRESS_DIR/.git" ]; then
         echo "[docs] cloning VitePress fork: $VITEPRESS_REPO"
@@ -141,7 +143,8 @@ ensure_vitepress() {
         echo "[docs] LIMOOO_SKIP_VITEPRESS_BUILD=1, reusing cached tarball"
         return 0
     fi
-    # FETCH=0 表示在 fork 工作区里开发：工作区可能是脏的，commit sha 没变也要重建
+    # FETCH=0 means developing in the fork's working tree. It may be dirty, so rebuild even
+    # when the commit SHA has not changed.
     if [ "${LIMOOO_VITEPRESS_FETCH:-1}" = 1 ] && [ -f "$TARBALL" ] \
         && [ "$(cat "$SHA_MARKER" 2>/dev/null || true)" = "$sha" ]; then
         echo "[docs] VitePress fork already built for this commit, reusing tarball"
@@ -169,7 +172,7 @@ ensure_vitepress() {
 
 ensure_vitepress
 
-# ② 同步内容到构建工作区
+# Stage 2: sync content to the build workspace.
 echo "[docs] syncing $DOCS_DIR -> $SRC_DIR"
 mkdir -p "$SRC_DIR"
 rsync -a --delete \
@@ -209,14 +212,14 @@ if [ "$DEV" = 1 ]; then
     exec bash -c "cd '$SRC_DIR' && '$PNPM_BIN' exec vitepress dev . --host"
 fi
 
-# ③ 构建站点
+# Stage 3: build the site.
 echo "[docs] building docs site"
 (
     cd "$SRC_DIR"
     "$PNPM_BIN" exec vitepress build . --outDir "$DIST_DIR"
 )
 
-# ④ 校验产物：每个 md 都要有对应 HTML
+# Stage 4: validate the output; every Markdown file must have a corresponding HTML file.
 echo "[docs] validating markdown -> html mapping"
 python3 "$ROOT/ops/docs_check_output.py" "$DOCS_DIR" "$DIST_DIR"
 
@@ -229,7 +232,7 @@ if [ "$BUILD_ONLY" = 1 ]; then
     exit 0
 fi
 
-# ⑤ 凭据
+# Stage 5: credentials.
 if [ ! -f "$SECRETS_FILE" ]; then
     echo "FATAL: missing $SECRETS_FILE" >&2
     exit 1
@@ -245,13 +248,13 @@ if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
     export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 fi
 
-# wrangler 自己会往输出里塞 emoji；这里只把 emoji 过滤掉，其余输出原样保留。
+# Wrangler adds emoji to its output; remove only emoji and preserve all other output.
 strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
-# ⑥ 部署到 Pages
-# 在 BUILD_DIR 下执行：避免 wrangler 向上找到 site/wrangler.toml 里主站项目的 name。
+# Stage 6: deploy to Pages.
+# Run from BUILD_DIR so Wrangler does not find the main site's project name in site/wrangler.toml.
 echo "[docs] deploying Pages project: $PAGES_PROJECT"
 export CI=1 WRANGLER_SEND_METRICS=false
 (
@@ -262,10 +265,11 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
-# ⑦ 冒烟
+# Stage 7: smoke checks.
 echo "[docs] post-deploy check"
-# 自定义域刚部署完可能还指向上一个部署（2026-10-08 踩过：新部署已生效，
-# 但首次探测拿到的还是旧产物），所以每次探测都重试几轮。
+# Immediately after deployment, the custom domain may still serve the previous deployment.
+# This happened on 2026-10-08: the new deployment was live, but the first probe saw old output.
+# Retry each probe several times.
 check_code() {
     local path="$1" expected="$2" code=""
     local i
@@ -299,7 +303,7 @@ check_root_redirect() {
     echo "[docs] / = 302 to https://limooo.cn OK"
 }
 
-# 无后缀的内容页路径必须 302 到对应的 /<page>/zh-cn
+# Content page paths without a language suffix must return 302 to /<page>/zh-cn.
 for path in /video-platform /README /LICENSE; do
     check_code "$path" 302
 done

@@ -18,10 +18,11 @@
  */
 
 /**
- * Cloudflare Access JWT 验签单测（tasks/17 §11.6 的 7/7 规格）。
+ * Cloudflare Access JWT validation tests (the seven cases specified in tasks/17 §11.6).
  *
- * 用本地生成的 RS256 密钥签发真实 JWT，覆盖：合法通过；iss 不符 / aud 未登记 /
- * 过期 / alg:none / 篡改 payload / 空令牌 全部拒绝。
+ * Sign real JWTs with a locally generated RS256 key. Accept valid tokens and
+ * reject mismatched iss, unregistered aud, expired tokens, alg:none, modified
+ * payloads, and empty tokens.
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,8 +95,8 @@ function baseClaims(overrides: Record<string, unknown> = {}): Record<string, unk
   };
 }
 
-// 密钥只生成一次：access.ts 的 JWKS 有 1 小时模块级缓存，
-// 每个用例换密钥会互相污染。
+// Generate the key once because access.ts caches JWKS at module scope for one
+// hour; using a different key in each case would contaminate the others.
 beforeAll(async () => {
   const pair = await crypto.subtle.generateKey(
     {
@@ -243,7 +244,7 @@ describe("verifyAccessJwt", () => {
   });
 
   it("rejects when JWKS fetch fails and nothing is cached", async () => {
-    // 本用例必须跑在冷缓存上，否则会命中前面用例留下的模块级缓存。
+// Run this case with a cold cache or it may reuse an entry left by an earlier case.
     vi.resetModules();
     const cold = await import("./access");
     vi.stubGlobal("fetch", async () => new Response("boom", { status: 500 }));
@@ -252,7 +253,7 @@ describe("verifyAccessJwt", () => {
   });
 
   it("reuses the cache when JWKS fetch fails but a cache exists", async () => {
-    // 先热一次缓存，再让网络挂掉。
+// Warm the cache once, then simulate a network failure.
     expect(await verifyAccessJwt(baseEnv, await signToken(baseClaims()))).not.toBeNull();
     vi.stubGlobal("fetch", async () => new Response("boom", { status: 500 }));
     const token = await signToken(baseClaims());
@@ -260,12 +261,13 @@ describe("verifyAccessJwt", () => {
   });
 
   it("refetches JWKS once when the token's kid is not in the cache", async () => {
-    // Cloudflare 每 6 周轮换签名密钥。缓存 1h 且不按 kid 刷新时，轮换后新 token
-    // 会被判无效直到缓存过期：/login 401、受保护子域无限 302。
+// Cloudflare rotates signing keys every six weeks. With a one-hour cache that
+// does not refresh on a kid miss, new tokens are rejected until expiry, causing
+// /login 401s and 302 loops on protected subdomains.
     vi.resetModules();
     const fresh = await import("./access");
 
-    // 先热出「只有旧 kid」的缓存。
+// Warm the cache with only the old kid.
     let jwksCalls = 0;
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -284,7 +286,7 @@ describe("verifyAccessJwt", () => {
     expect(warm).not.toBeNull();
     const callsAfterWarm = jwksCalls;
 
-    // 轮换后的 token：kid 未命中 → 必须绕过 TTL 重拉一次 JWKS，然后验签通过。
+// After rotation, a missing kid must bypass the TTL, refetch JWKS, and validate the token.
     const rotated = await signToken(baseClaims(), "RS256", KID);
     expect(await fresh.verifyAccessJwt(baseEnv, rotated)).not.toBeNull();
     expect(jwksCalls).toBe(callsAfterWarm + 1);

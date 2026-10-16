@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# 安装仓库自带的 git hooks（.githooks/pre-push）。
-# 每台机器 clone 后跑一次：
+# Install the repository's git hooks (.githooks/pre-push).
+# Run once after cloning on each machine:
 #   bash ops/install_git_hooks.sh
 
 set -euo pipefail

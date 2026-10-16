@@ -18,18 +18,18 @@
  */
 
 /**
- * GET /login → Cloudflare Access 身份落地（tasks/17 §11.6 / §11.10）
+ * GET /login → Cloudflare Access identity handoff (tasks/17 §11.6 / §11.10)
  *
- * Access 前置在 `visitor.limooo.cn` / `account.limooo.cn/apple` 之前，
- * 已认证用户到达这里时请求头带 `Cf-Access-Jwt-Assertion`。本端点负责：
+ * Access sits in front of `visitor.limooo.cn` and `account.limooo.cn/apple`.
+ * Authenticated users arrive with a `Cf-Access-Jwt-Assertion` request header. This endpoint:
  *
- *   1. 验签 Access JWT（**必须自验**，否则伪造请求头即可冒充管理员）；
- *   2. 用 AUD 判定 admin / viewer；
- *   3. 写入 D1 `auth_sessions` 并签发跨子域会话 cookie；
- *   4. 302 回 `next`。
+ *   1. verifies the Access JWT (**verification is mandatory**; otherwise a forged header could impersonate an admin);
+ *   2. uses AUD to distinguish admin from viewer;
+ *   3. writes to D1 `auth_sessions` and issues a cross-subdomain session cookie;
+ *   4. redirects to `next` with 302.
  *
- * 会话层完全沿用 tasks/09：requireAuth 同时校验签名 cookie 与撤销表，
- * 撤销表不可用时敏感接口 503，不凭 cookie 放行。
+ * The session layer follows tasks/09: requireAuth checks both the signed cookie and the revocation table.
+ * Sensitive endpoints return 503 when the table is unavailable; the cookie alone never grants access.
  */
 
 import {
@@ -61,8 +61,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       status: 401,
       message: "access_jwt_invalid",
     });
-    // 走到这里说明 Access 没生效（域名没挂 Access、或 JWT 被篡改）。
-    // 直接回 401 而不是自建登录页：Access 是唯一身份来源。
+    // Reaching this point means Access did not take effect (the hostname is not protected or the JWT was modified).
+    // Return 401 instead of creating a local login page; Access is the sole identity provider.
     return new Response("Unauthorized: no valid Cloudflare Access token\n", {
       status: 401,
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
@@ -92,9 +92,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     message: `role=${session.role}`,
   });
 
-  // 相对 next 按**当前请求所在域**解析：Access 前置在哪个子域，登录后回哪个子域。
-  // 若按主站 BASE_URL 解析，`account.limooo.cn/apple` 登录后会落到
-  // `limooo.cn/apple`（主站无该路由 → 404）；绝对地址（白名单主机）原样使用。
+  // Resolve a relative next against the **current request host** so login returns to the subdomain where Access was used.
+  // Resolving against the main-site BASE_URL would send `account.limooo.cn/apple` to
+  // `limooo.cn/apple` (which has no route and returns 404). Use allowlisted absolute URLs as-is.
   const target = next.startsWith("/") ? new URL(next, request.url).toString() : next;
   const resp = new Response(null, { status: 302, headers: { Location: target } });
   resp.headers.append("Set-Cookie", await createSessionCookie(env, session));

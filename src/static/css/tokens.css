@@ -1,12 +1,12 @@
 /*
-   Limooo 全站颜色与界面令牌（单一事实源）
-   页面由 base.html 引入本文件；独立门禁页、跳转页和预览页也复用同一色板。
-   组件样式只引用下方语义变量，不在页面样式中重复写颜色值。
+   Limooo site-wide color and interface tokens (single source of truth).
+   base.html includes this file; the standalone gate, redirect, and preview pages share its palette.
+   Component styles should use these semantic variables instead of duplicating color values.
    */
 :root {
     color-scheme: dark;
 
-    /* 主文字层级 */
+    /* Primary text hierarchy. */
     --text-primary: #e2e2e3;
     --text-secondary: #b7b7bb;
     --text-muted: #a1a1aa;
@@ -15,7 +15,7 @@
     --text-inverse: #ffffff;
     --text-rgb: 226, 226, 227;
 
-    /* 表面、边框与品牌 */
+    /* Surfaces, borders, and brand. */
     --bg: #1b1b1f;
     --browser-theme-color: #1e1e1e;
     --text: var(--text-primary);
@@ -33,7 +33,7 @@
     --accent-glow: rgba(5, 165, 166, 0.2);
     --focus-ring: var(--accent);
 
-    /* 状态色 */
+    /* Status colors. */
     --danger: #f43f5e;
     --danger-strong: #ff4757;
     --danger-soft: rgba(255, 71, 87, 0.12);
@@ -51,7 +51,7 @@
     --status-down: #dc2626;
     --status-pending: #d97706;
 
-    /* 透明叠层与阴影 */
+    /* Translucent overlays and shadows. */
     --overlay-medium: rgba(0, 0, 0, 0.48);
     --overlay-strong: rgba(0, 0, 0, 0.6);
     --image-caption-scrim: rgba(0, 0, 0, 0.55);
@@ -67,7 +67,7 @@
     --visitor-panel-rgb: 27, 29, 33;
     --auth-card-bg: #202127;
 
-    /* 门禁页专属背景与页脚文字 */
+    /* Gate page background and footer text. */
     --auth-bg-start: #17181c;
     --auth-bg-end: #101114;
     --footer-label: #E7EBCE;
@@ -75,17 +75,17 @@
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
-    /* 统一圆角 */
+    /* Shared corner radii. */
     --radius: 10px;
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
     --radius-full: 999px;
 
-    /* 字距缩放：中日韩全角文字按 0.65 收紧，仅英文半角按 0.3 收紧 */
+    /* Letter-spacing scale: 0.65 for full-width CJK text and 0.3 for half-width English. */
     --ls-scale: 0.65;
 
-    /* 深浅切换滑块 */
+    /* Theme switch slider. */
     --switch-icon: #dfdfd6;
     --switch-shadow: 0 1px 3px var(--shadow-panel);
 }
@@ -95,7 +95,7 @@ html[lang^="en"] { --ls-scale: 0.3; }
 .light-mode {
     color-scheme: light;
 
-    /* 主文字层级 */
+    /* Primary text hierarchy. */
     --text-primary: #1f2328;
     --text-secondary: #45474c;
     --text-muted: #6b7280;
@@ -104,7 +104,7 @@ html[lang^="en"] { --ls-scale: 0.3; }
     --text-inverse: #ffffff;
     --text-rgb: 31, 35, 40;
 
-    /* 表面、边框与品牌 */
+    /* Surfaces, borders, and brand. */
     --bg: #ffffff;
     --browser-theme-color: #ffffff;
     --line: #e2e2e3;
@@ -116,7 +116,7 @@ html[lang^="en"] { --ls-scale: 0.3; }
     --focus-ring: var(--accent);
     --footer-border: var(--line);
 
-    /* 透明叠层与阴影 */
+    /* Translucent overlays and shadows. */
     --visitor-panel-rgb: 240, 240, 240;
     --auth-card-bg: #ffffff;
     --auth-bg-start: #f3f4f6;

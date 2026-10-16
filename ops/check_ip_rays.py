@@ -18,29 +18,29 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""按客户端 IP 反查它最近的 Ray ID（D1 双表），供管理员终端排障。
+"""Look up recent Ray IDs by client IP across D1 tables for administrator troubleshooting.
 
-为什么不是「直接按 IP 查表」：
-    D1 里 IP 是脱敏存储的，两张表各有一半信息 ——
-      1. `ray_log_v2`（保留 7 天）有 ray/时间/host/路径/状态，但只有
-         `ip_hash`（OBSERVABILITY_HMAC_KEY 的 HMAC-SHA256 前 16 位）。
-         该密钥是 Pages 的 write-only Secret，本机拿不到，无法现算。
-      2. `visitor_rollups.ip_enc` 是 Fernet 密文（`VISITOR_IP_KEY`，本机有），
-         能还原**明文 IP**，并带同一行的 `ip_hash`。
-    所以链路是：明文 IP → 在所有 ip_enc 里找出匹配行 → 拿到 ip_hash
-    → 用 ip_hash 去 ray_log_v2 取最近 N 条 ray（迁移 017 起该表有
-    (ip_hash, ts DESC) 索引，这一步已从扫表变成精确取行）。
+Why not query directly by IP:
+    D1 stores IP data in redacted form, with each table containing only part of the information:
+      1. `ray_log_v2` (seven-day retention) stores ray, time, host, path, and status, but only the
+         `ip_hash` (the first 16 characters of an HMAC-SHA256 using OBSERVABILITY_HMAC_KEY).
+         This is a write-only Pages secret, so it is unavailable locally and cannot be computed.
+      2. `visitor_rollups.ip_enc` is Fernet ciphertext encrypted with the locally available
+         `VISITOR_IP_KEY`; it can be decrypted to the plaintext IP and includes the matching ip_hash.
+    The lookup flow is: plaintext IP -> find matching ip_enc rows -> get ip_hash -> query the most
+    recent N rays in ray_log_v2 by ip_hash. Migration 017 added an (ip_hash, ts DESC) index, turning
+    this into an indexed lookup rather than a table scan.
 
-    `ray_log`（旧表）存的是明文 IP，可直接精确匹配，但 2026-09-25 起已停写，
-    故仅作历史兜底。
+    The legacy `ray_log` table stores plaintext IP and can be queried directly, but writes stopped
+    on 2026-09-25, so it is used only as a historical fallback.
 
-用法：
-    python3 ops/check_ip_rays.py 176.122.161.108          # 默认最近 5 条
+Usage:
+    python3 ops/check_ip_rays.py 176.122.161.108          # most recent 5 by default
     python3 ops/check_ip_rays.py 176.122.161.108 --limit 10
-    python3 ops/check_ip_rays.py --hash d51153cb767fc758   # 已知 ip_hash 时跳过解密
+    python3 ops/check_ip_rays.py --hash d51153cb767fc758   # skip decryption when ip_hash is known
     python3 ops/check_ip_rays.py 8.8.8.8 --json
 
-退出码：0 有命中；1 无命中或查询失败；2 参数非法。
+Exit codes: 0 if found; 1 if not found or query failed; 2 for invalid arguments.
 """
 
 from __future__ import annotations
@@ -60,22 +60,22 @@ from ops import d1_client  # noqa: E402
 
 DEFAULT_LIMIT = 5
 
-# ip_enc 需要 cryptography；缺失时只降级掉「IP → hash」这半步，不影响 --hash。
+# ip_enc requires cryptography. If it is unavailable, only the IP-to-hash step is skipped; --hash remains available.
 try:
     from cryptography.fernet import Fernet, InvalidToken  # noqa: E402
-except ImportError:  # pragma: no cover - 取决于解释器
+except ImportError:  # pragma: no cover - Depends on the Python interpreter.
     Fernet = None  # type: ignore[assignment]
 
     class InvalidToken(Exception):  # type: ignore[no-redef]
-        """占位：cryptography 缺失时也不会被用到。"""
+        """Placeholder that is unused when cryptography is missing."""
 
 
 def normalize_ip(raw: str) -> str:
-    """校验并归一化 IP（IPv4/IPv6）；非法时抛 ValueError。"""
+    """Validate and normalize an IPv4 or IPv6 address; raise ValueError if invalid."""
     value = (raw or "").strip()
     if not value:
         raise ValueError("empty IP")
-    # 去掉 curl/日志里常见的方括号与端口： [::1]:443 / 1.2.3.4:80
+    # Remove brackets and ports commonly found in curl output and logs: [::1]:443 / 1.2.3.4:80
     if value.startswith("["):
         value = value[1:].split("]", 1)[0]
     else:
@@ -100,7 +100,7 @@ d1_query_retry = d1_client.d1_query_retry
 
 
 def warn(message: str) -> None:
-    """先 flush stdout 再写 stderr，避免两个流交错。"""
+    """Flush stdout before writing to stderr to avoid interleaved output."""
     sys.stdout.flush()
     print(message, file=sys.stderr)
     sys.stderr.flush()
@@ -114,10 +114,10 @@ def visitor_key(env: dict[str, str]) -> str:
 
 
 def resolve_hashes(cfg: dict[str, str], env: dict[str, str], ip: str) -> tuple[list[str], str | None]:
-    """明文 IP → ip_hash 集合：解密所有 ip_enc 行并比对。
+    """Map a plaintext IP to ip_hash values by decrypting and comparing all ip_enc rows.
 
-    返回 (hash 列表, 警告)。警告非空表示链路降级或不完整，调用方需如实提示，
-    不能把「解不出来」说成「没有记录」。
+    Return (hash list, warning). A non-empty warning means the lookup is degraded or incomplete;
+    callers must report it accurately and must not describe a decryption failure as no record.
     """
     key = visitor_key(env)
     if not key:
@@ -143,7 +143,7 @@ def resolve_hashes(cfg: dict[str, str], env: dict[str, str], ip: str) -> tuple[l
         try:
             candidate = fernet.decrypt(str(token).encode()).decode()
         except (InvalidToken, ValueError, TypeError):
-            continue  # 换过密钥的历史行解不开，跳过
+            continue  # Skip historical rows that cannot be decrypted with the current key.
         try:
             if ipaddress.ip_address(candidate) != target:
                 continue
@@ -154,13 +154,13 @@ def resolve_hashes(cfg: dict[str, str], env: dict[str, str], ip: str) -> tuple[l
             hashes.append(row_hash)
 
     if not hashes:
-        # ip_enc 只覆盖启用该功能之后的行，空结果不等于「该 IP 没来过」。
+        # ip_enc covers only rows written after this feature was enabled; an empty result does not mean the IP was never seen.
         return [], "this IP is not present in ip_enc (that column only covers records written after encryption was enabled; it may be an older visit)"
     return hashes, None
 
 
 def rays_by_hash(cfg: dict[str, str], hashes: list[str], limit: int) -> tuple[list[dict], str | None]:
-    """按 ip_hash 从 ray_log_v2 取最近 limit 条（走迁移 017 的 (ip_hash, ts DESC) 索引）。"""
+    """Fetch the most recent limit rows from ray_log_v2 by ip_hash using migration 017's index."""
     if not hashes:
         return [], None
     quoted = ", ".join("'" + h.replace("'", "''") + "'" for h in hashes)
@@ -175,7 +175,7 @@ def rays_by_hash(cfg: dict[str, str], hashes: list[str], limit: int) -> tuple[li
 
 
 def rays_legacy(cfg: dict[str, str], ip: str, limit: int) -> tuple[list[dict], str | None]:
-    """旧表 ray_log 明文 IP 精确匹配（2026-09-25 已停写，仅历史兜底）。"""
+    """Match plaintext IP exactly in the legacy ray_log table (writes stopped 2026-09-25; historical fallback only)."""
     sql = (
         "SELECT ray, ts, host, path, method, status, country, ip "
         f"FROM ray_log WHERE ip = '{ip.replace(chr(39), chr(39) * 2)}' ORDER BY ts DESC LIMIT {int(limit)}"
@@ -196,7 +196,7 @@ def render_v2(row: dict) -> str:
     country = str(row.get("country", ""))
     duration = row.get("duration_ms")
     ms = f"{int(duration)}ms" if isinstance(duration, (int, float)) and duration else ""
-    # 定宽对齐：时间/ray/状态/方法/国家/耗时不抖动；host+path 放最后（长度不可控）。
+    # Use fixed-width columns for time, ray, status, method, country, and duration; put host and path last because their lengths are unbounded.
     return f"{stamp} {row.get('ray',''):<22} {status:>3} {method:<4} {country:<2} {ms:>7}  {host}{path}"
 
 
@@ -239,7 +239,7 @@ def main() -> int:
         except ValueError:
             print("invalid IP", file=sys.stderr)
             return 2
-        # 先报代价再开扫：要解密全部 ip_enc 才能把明文 IP 映射到 ip_hash。
+        # Report the cost before scanning: mapping plaintext IPs to ip_hash requires decrypting every ip_enc row.
         warn(
             scan_cost_note(
                 cfg,
@@ -268,7 +268,7 @@ def main() -> int:
 
     legacy: list[dict] = []
     if ip and len(rows) < limit:
-        # v2 命中不足时，用旧表补齐（旧表有明文 IP）。
+        # Fill in missing v2 matches from the legacy table, which stores plaintext IPs.
         extra, warn2 = rays_legacy(cfg, ip, limit - len(rows))
         if warn2:
             warnings.append(warn2)

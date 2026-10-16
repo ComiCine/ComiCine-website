@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Apple Account 列表与新增接口测试（mock 所有外部依赖）。 */
+/** Tests for Apple Account listing and creation; all external dependencies are mocked. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet, onRequestPost } from "./accounts";
@@ -30,7 +30,7 @@ import type { Env } from "../../_lib/env";
 
 vi.mock("../../_lib/d1", () => ({ queryAll: vi.fn(), execute: vi.fn() }));
 vi.mock("../../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -122,15 +122,15 @@ describe("apple account accounts API", () => {
     expect(viewer.status).toBe(403);
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（503），且不得落库。
+  // W5-15: fail closed with 503 when the revocation table is unavailable; do not write account data.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestPost(
       context(appleAccountRequest("POST", { email: "a", password: "p", notes: "" })) as never,
     );
     expect(resp.status).toBe(503);
-    // 这条顺带证明 beforeEach 里配的 authUnavailableResponse（生产 JSON 体）
-    // 不再是死配置：以前桩里没有 catch，这条路径永远走不到。
+    // This also proves that authUnavailableResponse configured in beforeEach (the production JSON body)
+    // is active rather than dead configuration; the previous stub had no catch, so this path was unreachable.
     expect(((await resp.json()) as { error: string }).error).toBe("auth_sessions_unavailable");
     expect(vi.mocked(execute)).not.toHaveBeenCalled();
   });
@@ -180,8 +180,8 @@ describe("apple account accounts API", () => {
   });
 
   /**
-   * W9-4 / W9-6：Apple 账号变更是最敏感的管理操作之一（明文密码），必须留审计；
-   * 同时不能把任何 D1 故障都说成「该邮箱已存在」。
+   * W9-4 / W9-6: Apple Account changes are among the most sensitive admin operations because they involve
+   * plaintext passwords, so they must be audited. D1 failures must not be reported as "this email already exists."
    */
   describe("audit and error classification", () => {
     const payload = { email: "alice", password: "secret", notes: "note" };
@@ -199,7 +199,7 @@ describe("apple account accounts API", () => {
       expect(details?.outcome).toBe("account_created");
       expect(details?.status).toBe(200);
       expect(details?.actorSub).toBe("user-1");
-      // 绝不把口令写进审计。
+      // Never write a password to the audit log.
       expect(JSON.stringify(audit)).not.toContain("secret");
     });
 

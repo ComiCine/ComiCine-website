@@ -1,5 +1,5 @@
 /*
-   服务详情弹层：打开 / 关闭
+   Service detail dialog: open and close.
    */
 
 var lastServiceTrigger = null;
@@ -14,12 +14,12 @@ function openServiceDetail(id) {
     document.body.style.overflow = 'hidden';
     var closeButton = modal.querySelector('.modal-close');
     if (closeButton) closeButton.focus();
-    // 服务详情用独立路径，支持复制链接与直接访问。
+    // Service details use their own paths, so links can be copied and opened directly.
     var target = '/' + id;
     if (location.pathname !== target || location.hash) history.pushState(null, '', target);
 }
 
-/* 去除地址栏的整个 hash（连 # 一起），回到干净 URL */
+/* Remove the full hash, including #, to return to a clean URL. */
 function clearHash() {
     if (location.hash || location.pathname === '/convention' || location.pathname === '/outdoor') {
         history.replaceState(null, '', '/' + location.search);
@@ -44,7 +44,7 @@ function serviceModalFocusables(modal) {
     )).filter(function(el) { return !el.hidden && el.offsetParent !== null; });
 }
 
-/* 键盘操作：卡片支持 Enter/Space，弹层支持 Escape 与焦点循环。 */
+/* Keyboard support: Enter/Space opens a card; Escape and focus trapping work in the dialog. */
 document.addEventListener('keydown', function(e) {
     var trigger = e.target.closest && e.target.closest('[data-action="openServiceDetail"]');
     if (trigger && (e.key === 'Enter' || e.key === ' ')) {
@@ -78,7 +78,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-/* 浏览器前进 / 后退时，让弹层与地址栏路径保持同步 */
+/* Keep the dialog in sync with the URL when navigating backward or forward. */
 window.addEventListener('popstate', function() {
     var route = location.pathname.replace(/^\/+|\/+$/g, '');
     var target = route === 'convention' || route === 'outdoor' ? route : '';
@@ -100,7 +100,7 @@ window.addEventListener('popstate', function() {
     }
 });
 
-/* 从主页作品框或旧 hash 链接进入时，直达对应服务弹层 */
+/* Open the matching service dialog when arriving from a home card or a legacy hash link. */
 (function() {
     var route = location.pathname.replace(/^\/+|\/+$/g, '');
     var id = route === 'convention' || route === 'outdoor' ? route : location.hash.slice(1);
@@ -115,7 +115,7 @@ window.addEventListener('popstate', function() {
 })();
 
 
-/* 服务卡片级联淡入 */
+/* Fade in service cards in sequence. */
 setTimeout(function() {
     document.querySelectorAll('.reveal-item').forEach(function(el, i) {
         setTimeout(function() { el.classList.add('show'); }, i * 60);

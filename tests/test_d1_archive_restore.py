@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/d1-archive/restore.py：灾备快照必须能**精确**还原回 D1。
+"""Tests for ops/d1-archive/restore.py: disaster-recovery snapshots must restore D1 exactly.
 
-快照的价值全在「还原之后和原来一样」这一句上，所以这里的断言不做任何宽松处理：
-0/1、NULL 与空串、epoch 整数、单引号、换行、NUL 字节都逐值比对。
+The value of a snapshot is that the restored database matches the original. Assertions
+are exact: compare 0/1, NULL versus empty strings, epoch integers, single quotes,
+newlines, and NUL bytes value by value.
 """
 
 from __future__ import annotations
@@ -162,12 +163,12 @@ def test_round_trip_preserves_every_value_and_type(tmp_path):
             for row in con.execute(
                 "SELECT id, email, password, notes, sort_order FROM apple_accounts ORDER BY id"
             )] == APPLE_ROWS
-    # 类型逐列核对：active 是整数 0/1，不是字符串也不是布尔；notes 的 NULL 与 '' 分得开。
+    # Check each column type: active is integer 0/1, not a string or boolean; distinguish NULL from an empty notes value.
     assert con.execute("SELECT typeof(active) FROM blocked_ips").fetchone()[0] == "integer"
     assert con.execute("SELECT typeof(prefix) FROM blocked_ips WHERE prefix = 24").fetchone()[0] == "integer"
     assert con.execute("SELECT notes FROM apple_accounts WHERE id = 1").fetchone()[0] is None
     assert con.execute("SELECT reason FROM blocked_ips WHERE prefix = 24").fetchone()[0] == ""
-    # DDL 也一起进去了：索引和自增表都在。
+    # DDL is included too, including indexes and autoincrement tables.
     objects = {row[0] for row in con.execute("SELECT name FROM sqlite_master")}
     assert {"blocked_ips", "apple_accounts", "idx_blocked_ips_active"} <= objects
 
@@ -196,15 +197,15 @@ def test_nul_byte_survives_the_round_trip(tmp_path):
     code, sql, _ = run_restore(tmp_path, directory)
 
     assert code == 0
-    assert "CAST(x'" in sql  # 文本字面量存不下 NUL，必须走 blob 强转
+    assert "CAST(x'" in sql  # Text literals cannot store NUL, so cast through a blob.
     con = sqlite3.connect(":memory:")
     con.executescript(sql)
     assert con.execute("SELECT password FROM apple_accounts").fetchone()[0] == "a\x00b"
 
 
 def test_reads_a_plain_jsonl_file_too(tmp_path):
-    # 有些下载路径（R2 REST API / wrangler r2 object get）会把 content-encoding
-    # 当作传输层细节静默解压，落地的 .jsonl.gz 其实是明文。认 magic bytes。
+    # Some download paths (R2 REST API / wrangler r2 object get) silently decompress content-encoding
+    # as a transport detail, so a downloaded .jsonl.gz may actually be plaintext. Check the magic bytes.
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
     plain = (directory / "apple_accounts.jsonl.gz").read_bytes()
     with gzip.open(directory / "apple_accounts.jsonl.gz", "rb") as handle:
@@ -230,7 +231,7 @@ def test_data_only_omits_the_schema(tmp_path):
 
 
 def test_replace_mode_is_rerunnable(tmp_path):
-    # 建库用完整脚本，重放用 --data-only --replace：第二次跑不许炸，也不许翻倍。
+    # Create the database with the full script, then replay with --data-only --replace; the second run must neither fail nor duplicate rows.
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
     assert run_restore(tmp_path, directory)[0] == 0
     code, sql, _ = run_restore(tmp_path, directory, "--data-only", "--replace")
@@ -271,7 +272,7 @@ def test_without_a_manifest_it_falls_back_to_scanning_the_directory(tmp_path):
 
 
 def test_inconsistent_columns_fail_loudly(tmp_path):
-    # 同一个文件里列不一致 = 快照坏了；宁可拒绝还原，也不要写进去一半。
+    # Inconsistent columns within one file indicate a corrupt snapshot; reject the restore instead of writing partial data.
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
     with gzip.open(directory / "apple_accounts.jsonl.gz", "wt", encoding="utf-8") as handle:
         handle.write(json.dumps({"id": 1, "email": "a@example.test"}) + "\n")

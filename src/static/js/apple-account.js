@@ -1,9 +1,9 @@
 let accounts = [];
 let pwVisible = {};
 let pwAutoHideTimer = null;
-let currentRole = 'viewer'; // 'admin' 可写 / 'viewer' 只读
+let currentRole = 'viewer'; // Admins can write; viewers are read-only.
 let csrfToken = '';
-const PW_VISIBLE_MS = 30000; // 明文密码最多在内存保留 30 秒
+const PW_VISIBLE_MS = 30000; // Keep plaintext passwords in memory for at most 30 seconds.
 
 function clearAllPw() {
     if (Object.keys(pwVisible).length) { pwVisible = {}; renderList(); }
@@ -14,7 +14,7 @@ function schedulePwAutoHide() {
     pwAutoHideTimer = setTimeout(clearAllPw, PW_VISIBLE_MS);
 }
 
-// 切换到后台/锁屏时立即清空明文，防止驻留内存
+// Clear plaintext immediately when the page is backgrounded or the device is locked.
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
         if (pwAutoHideTimer) { clearTimeout(pwAutoHideTimer); pwAutoHideTimer = null; }
@@ -26,7 +26,7 @@ window.addEventListener('pageshow', function(e) {
     if (e.persisted) initDashboard();
 });
 
-// 前端切换语言后重渲染:弹层标题/描述 + 账号列表
+// Re-render dialog titles, descriptions, and the account list after a language change.
 document.addEventListener('languagechange', function() {
     var modal = document.getElementById('modal');
     if (modal && !modal.classList.contains('hidden')) {
@@ -41,7 +41,7 @@ document.addEventListener('languagechange', function() {
     renderList();
 });
 
-// 页面能加载说明后端已放行（已登录），直接初始化；API 401 时才跳登录
+// If the page loads, the backend has allowed the signed-in user through; redirect to login only on API 401.
 function initDashboard() {
     fetch('/api/auth/status').then(r => r.ok ? r.json() : Promise.reject(new Error('auth_status_failed'))).then(data => {
         csrfToken = data.csrf_token || '';
@@ -73,7 +73,7 @@ function showDashboard() {
     var dash = document.getElementById('dashboard');
     dash.classList.remove('hidden');
     if (currentRole !== 'admin') {
-        // 只读账户:隐藏添加按钮(写操作按钮一并隐藏,无提示)
+        // Hide add and other write-action buttons for read-only accounts without showing a notice.
         var addBtn = document.querySelector('.search-actions .btn-primary');
         if (addBtn) addBtn.hidden = true;
     }
@@ -115,7 +115,7 @@ function hitCardAt(x, y) {
 function initDrag() {
     document.querySelectorAll('.account-card').forEach(card => {
         if (isTouchDevice) {
-            // 移动端：原生 HTML5 DnD 支持不完整，改用 touch 事件
+            // Native HTML5 drag and drop is incomplete on mobile, so use touch events instead.
             const handle = card.querySelector('.drag-handle');
             if (!handle) return;
             handle.addEventListener('touchstart', function(e) {
@@ -123,7 +123,7 @@ function initDrag() {
                 card.classList.add('dragging');
             }, { passive: true });
             handle.addEventListener('touchmove', function(e) {
-                e.preventDefault(); // 阻止页面滚动
+                e.preventDefault(); // Prevent page scrolling during the drag.
                 const t = e.touches[0];
                 const target = hitCardAt(t.clientX, t.clientY);
                 document.querySelectorAll('.account-card').forEach(c => c.classList.remove('drag-over'));
@@ -133,10 +133,10 @@ function initDrag() {
                 const t = e.changedTouches[0];
                 const target = hitCardAt(t.clientX, t.clientY);
                 const targetId = target ? target.dataset.id : null;
-                performDrop(targetId); // 需在 clearDragState 前执行，此时 dragSrcId 仍有效
+                performDrop(targetId); // Run before clearDragState, while dragSrcId is still available.
                 clearDragState();
             }, { passive: true });
-            // 拖拽中途被系统打断（来电/弹窗）时清理状态
+            // Clear drag state if the system interrupts a drag, such as for a call or dialog.
             handle.addEventListener('touchcancel', clearDragState, { passive: true });
         } else {
             card.setAttribute('draggable', 'true');
@@ -244,12 +244,12 @@ async function revealPw(id) {
         const resp = await fetch('/api/apple-account/accounts/' + id + '/reveal', { method: 'POST', headers: csrfHeaders() });
         if (resp.status === 403) { toast(t('toast_no_permission')); return null; }
         if (resp.status === 401) {
-            // 近期认证超时(reauth):会话本身还有效,只是 authAt 太旧。
-            // 跳 /login 重新走一次 Access,回来后由用户再点一次,不自动重放 reveal。
+            // Recent authentication expired, but the session is still valid; authAt is simply too old.
+            // Go through Access again via /login. The user must retry reveal after returning; do not replay it automatically.
             var body = {};
             try { body = await resp.json(); } catch(e) { body = {}; }
             if (body && body.reauth) toast(t('toast_reauth_required'));
-            // 先让提示显示一帧,再跳转
+            // Let the notice render for one frame before redirecting.
             setTimeout(function() {
                 window.location.href = '/login?next=' + encodeURIComponent(location.href);
             }, body && body.reauth ? 800 : 0);
@@ -261,9 +261,9 @@ async function revealPw(id) {
     } catch(e) { toast(t('toast_pw_fetch_failed')); return null; }
 }
 
-/* 弹窗密码输入框:小眼睛切换明文/密文。
-   输入框始终 type="text"(不用原生 password,避免浏览器密文样式不一致),
-   密文状态显示与密码等长的圆点串,真实密码存于 data-real */
+/* Password field in the dialog with an eye toggle for plain and masked states.
+   Keep type="text" instead of using browser password rendering, which varies by browser.
+   The masked state shows dots matching the password length; the actual value is stored in data-real. */
 let fieldPwHidden = true;
 
 function renderFieldPw() {
@@ -283,7 +283,7 @@ function toggleFieldPw() {
     renderFieldPw();
 }
 
-/* 用户输入时更新真实值并重绘圆点 */
+/* Update the real value and redraw the dots as the user types. */
 document.getElementById('field-password').addEventListener('input', function() {
     this.dataset.real = this.value;
     if (fieldPwHidden) renderFieldPw();
@@ -357,7 +357,7 @@ function openAddModal() {
     document.getElementById('modal-title').textContent = t('modal_add_title');
     document.getElementById('field-email').value = '';
     document.getElementById('field-notes').value = '';
-    // 密码:真实值清空,密文状态
+    // Clear the real password and restore the masked state.
     var pwInput = document.getElementById('field-password');
     pwInput.dataset.real = '';
     fieldPwHidden = true;
@@ -373,8 +373,8 @@ function openEditModal(id) {
     document.getElementById('modal-desc').textContent = t('modal_edit_desc');
     document.getElementById('field-email').value = a.email.split('@')[0];
     document.getElementById('field-notes').value = a.notes || '';
-    // 密码:列表 API 返回的是掩码值,需通过 reveal 接口取真实密码,
-    // 预填为密文状态(圆点),修改时保存到 dataset.original 判断是否变更
+    // The list API returns a masked password, so fetch the real value through the reveal endpoint.
+    // Prefill with dots and store the original value in dataset.original to detect changes.
     var pwInput = document.getElementById('field-password');
     pwInput.dataset.real = '';
     pwInput.dataset.original = '';
@@ -394,7 +394,7 @@ function closeModal() {
     var modal = document.getElementById('modal');
     if (!modal) return;
     modal.classList.add('hidden');
-    // 重置密码字段状态,避免下次打开残留明文/圆点
+    // Reset the password field so a later dialog does not retain plaintext or dots.
     fieldPwHidden = true;
     document.getElementById('field-password').dataset.real = '';
     document.getElementById('field-password').dataset.original = '';

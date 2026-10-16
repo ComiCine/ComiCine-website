@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 极简 D1 类型与封装（避免依赖 @cloudflare/workers-types 类型包） */
+/** Minimal D1 types and wrappers, avoiding the @cloudflare/workers-types package. */
 
 export interface D1Result<T> {
   results: T[];
@@ -54,15 +54,14 @@ export async function queryAll<T>(
 }
 
 /**
- * 执行一条写语句，返回「是否真的改动了行」。
+ * Execute a write statement and report whether it actually changed any rows.
  *
- * 不能只看 `success`：D1 的 `run()` 对「0 行受影响」的 UPDATE/DELETE
- * 依然报 `success: true`，于是
- *   - `PUT /api/apple-account/accounts/<不存在的 id>` 带新密码会返回 200 ok
- *     （密码被静默丢弃）；
- *   - `revokeAuthSession` 对不存在的 sid 回答「已撤销」。
- * `meta.changes` 明确为 0 时算失败。部分驱动/桩不返回 `meta`，此时保持兼容
- * 按成功处理（拿不到变更数就不敢判定失败，否则会把正常写判成故障）。
+ * Do not rely on `success` alone: D1 `run()` reports `success: true` when an
+ * UPDATE or DELETE affects zero rows. This previously let a password update
+ * for a missing account return 200 without changing anything and let
+ * `revokeAuthSession` report success for a missing session. Treat an explicit
+ * `meta.changes` value of zero as failure. For compatibility, drivers and
+ * stubs without `meta` remain successful because the change count is unknown.
  */
 export async function execute(
   db: D1Database | undefined,
@@ -79,7 +78,7 @@ export async function execute(
   return true;
 }
 
-/** 在单个 D1 事务中执行多条语句；任一失败则整体失败（D1 batch 语义）。 */
+/** Execute multiple statements in one D1 transaction; any failure fails the batch. */
 export async function executeBatch(
   db: D1Database | undefined,
   statements: D1PreparedStatement[],

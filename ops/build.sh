@@ -17,20 +17,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Limooo 可复现构建入口。
+# Reproducible Limooo build entry point.
 #
-# 干净环境下执行：
+# Run in a clean environment:
 #   npm ci
 #   npm run build
 #
-# 该脚本为 npm 的 build 命令提供 Python 侧依赖的安装与隔离：
-# 1. 创建项目本地 .venv-build（不入库）并安装锁定的依赖；
-# 2. 校验 cross-runtime 配置契约；
-# 3. 以 LIMOOO_BUILD=1 运行纯渲染构建（不初始化数据库、不读取生产密钥）；
-# 4. 生成 public/manifest.json。
+# This script installs and isolates the Python dependencies used by npm's build command:
+# 1. Create the local, untracked .venv-build and install locked dependencies.
+# 2. Validate the cross-runtime configuration contract.
+# 3. Run a render-only build with LIMOOO_BUILD=1 (no database initialization or production secrets).
+# 4. Generate public/manifest.json.
 set -euo pipefail
 
-# macOS Homebrew 的 cairosvg/cairocffi 需要显式搜索 Cairo 动态库。
+# Homebrew's cairosvg/cairocffi on macOS needs an explicit search path for the Cairo shared library.
 if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
     CAIRO_PREFIX="$(brew --prefix cairo 2>/dev/null || true)"
     if [ -n "$CAIRO_PREFIX" ] && [ -d "$CAIRO_PREFIX/lib" ]; then

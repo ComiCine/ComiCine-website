@@ -67,23 +67,23 @@ API = "https://api.cloudflare.com/client/v4"
 LIST_NAME = "limooo_blocklist"
 PAGE_SIZE = 500
 MAX_PAGES = 20
-# 运维脚本自己记账时用的 job 名，与两个 cron Worker 的 job 区分开。
+# Job name used by this operations script for its own records, distinct from the jobs run by the two cron Workers.
 CHECK_JOB = "blocklist_sync_check"
-# 每张表最多打印几行；只影响输出，不影响判定。
+# Maximum rows printed per table; this affects output only, not the result.
 SAMPLE_LIMIT = 10
 
 
 def install_ca_bundle() -> None:
-    """让本机 Python 用 certifi 的 CA 包（脚本要在任意 shell 里直接能跑）。
+    """Use certifi's CA bundle with local Python so the script works from any shell.
 
-    macOS 的 framework Python 默认不吃 /opt/homebrew 的证书链，urllib 会直接
-    `CERTIFICATE_VERIFY_FAILED`；这不是脚本的问题，但排障脚本因为 TLS 起不来就
-    没用了，所以在这里兜底。显式设置 SSL_CERT_FILE 时以环境变量为准。
+    macOS framework Python does not always use the Homebrew certificate chain, and urllib can
+    fail with `CERTIFICATE_VERIFY_FAILED`. This is not a script bug, but it would make a diagnostic
+    script unusable, so provide a fallback here. Honor an explicitly set SSL_CERT_FILE.
     """
     if os.environ.get("SSL_CERT_FILE"):
         return
     try:
-        import certifi  # noqa: PLC0415 - 可选依赖，缺了就保持系统默认
+        import certifi  # noqa: PLC0415 - Optional dependency; use the system default if unavailable.
     except ImportError:
         return
     os.environ["SSL_CERT_FILE"] = certifi.where()
@@ -93,10 +93,10 @@ def install_ca_bundle() -> None:
 
 
 def normalize_list_item(value: str) -> str:
-    """与 ops/sync-worker/src/index.ts 的 normalizeListItem 保持一致。
+    """Match normalizeListItem in ops/sync-worker/src/index.ts.
 
-    Cloudflare 的 IP List 把 IPv4 /32 存成裸 IP、IPv6 /128 同理；两侧都用原始
-    字符串比较时，同一条记录会被判成「既该加又该删」。
+    Cloudflare's IP List stores IPv4 /32 and IPv6 /128 entries as bare IPs. Comparing raw strings
+    on both sides would make the same entry appear to need both adding and removing.
     """
     raw = (value or "").strip()
     slash = raw.rfind("/")
@@ -112,7 +112,7 @@ def normalize_list_item(value: str) -> str:
 
 
 def cf_get_json(token: str, url: str, attempts: int = 4) -> object:
-    """带退避重试的 Cloudflare GET；绝不在错误信息里回显 token。"""
+    """Make a Cloudflare GET with backoff retries; never include the token in errors."""
     last: Exception | None = None
     for _attempt in range(attempts):
         request = urllib.request.Request(
@@ -127,15 +127,15 @@ def cf_get_json(token: str, url: str, attempts: int = 4) -> object:
             detail = exc.read().decode("utf-8", "replace")[:300]
             last = RuntimeError(f"HTTP {exc.code} {url}: {detail}")
             if exc.code < 500:
-                # 403/404 这类是明确的答案，重试没有意义。
+                # A 403 or 404 is a definitive response and should not be retried.
                 break
-        except Exception as exc:  # noqa: BLE001 - 网络抖动统一重试
+        except Exception as exc:  # noqa: BLE001 - Retry transient network failures uniformly.
             last = exc
     raise RuntimeError(f"Cloudflare API request failed: {last}")
 
 
 def find_list(cfg: dict[str, str]) -> dict:
-    """按名字找 IP List；找不到直接报错（本脚本只读，不创建列表）。"""
+    """Find an IP List by name; raise an error if it is missing (this script does not create lists)."""
     url = f"{API}/accounts/{cfg['account_id']}/rules/lists?per_page=100"
     payload = cf_get_json(cfg["token"], url)
     for item in payload.get("result") or []:
@@ -145,7 +145,7 @@ def find_list(cfg: dict[str, str]) -> dict:
 
 
 def list_items(cfg: dict[str, str], list_id: str) -> dict[str, str]:
-    """返回 {归一化后的 ip: 列表项 id}，按 cursor 翻页（与 Worker 同一套规则）。"""
+    """Return {normalized IP: list item ID}, paginating by cursor like the Worker."""
     items: dict[str, str] = {}
     cursor = ""
     for _ in range(MAX_PAGES):
@@ -172,14 +172,14 @@ def list_items(cfg: dict[str, str], list_id: str) -> dict[str, str]:
 
 
 def query_last_runs(cfg: dict[str, str], jobs: list[str]) -> tuple[dict[str, dict | None], str | None]:
-    """每个 job 最近一条运行记录（走 idx_worker_runs_job_started，各读 1 行）。
+    """Return the latest run per job using idx_worker_runs_job_started (one row each).
 
-    返回 ({job: 最近一行}, 错误说明)。表缺失与查询失败分开描述 ——
-    「读不到」不能当成「没有记录」。
+    Returns ({job: latest row}, error message). Report a missing table separately from a failed
+    query; "unreadable" must not be treated as "no record".
     """
     found: dict[str, dict | None] = {}
     for job in jobs:
-        # job 名来自本脚本内部常量/命令行，取值受控；仍然加引号转义以防万一。
+        # The job name comes from this script's constants or CLI and is constrained; still quote it to be safe.
         escaped = job.replace("'", "''")
         sql = (
             "SELECT job, started_at, finished_at, outcome, added, removed, error, dry_run "
@@ -222,10 +222,10 @@ def format_run(job: str, row: dict | None) -> str:
 
 
 def compute_diff(desired: list[str], actual: dict[str, str]) -> tuple[list[str], list[str]]:
-    """返回 (to_add, to_remove)，两侧都按归一化形式比较。
+    """Return (to_add, to_remove), comparing normalized values on both sides.
 
-    to_add 报 D1 侧的**原始写法**（那才是 Worker 会推上去的值），to_remove 报
-    列表侧的归一化值（Cloudflare 存的就是这个形式）。
+    Report the D1-side original value in to_add because that is what the Worker will upload.
+    Report the normalized list value in to_remove because that is what Cloudflare stores.
     """
     desired_norm = {normalize_list_item(cidr) for cidr in desired}
     to_add = sorted(cidr for cidr in desired if normalize_list_item(cidr) not in actual)
@@ -234,7 +234,7 @@ def compute_diff(desired: list[str], actual: dict[str, str]) -> tuple[list[str],
 
 
 def record_check(cfg: dict[str, str], outcome: str, detail: str) -> str | None:
-    """把这次人工检查也记进 worker_runs（opt-in）；返回错误说明。"""
+    """Optionally record this manual check in worker_runs; return an error message if it fails."""
     now = int(dt.datetime.now(dt.UTC).timestamp())
     escaped = detail.replace("'", "''")
     sql = (
@@ -243,7 +243,7 @@ def record_check(cfg: dict[str, str], outcome: str, detail: str) -> str | None:
     )
     try:
         d1_client.d1_query(cfg, sql)
-    except Exception as exc:  # noqa: BLE001 - 记账失败不影响检查结论
+    except Exception as exc:  # noqa: BLE001 - A recording failure does not affect the check result.
         return str(exc)
     return None
 
@@ -290,7 +290,7 @@ def main() -> int:
         runs, run_error = query_last_runs(cfg, jobs)
         list_meta = find_list(cfg)
         actual = list_items(cfg, str(list_meta.get("id")))
-    except Exception as exc:  # noqa: BLE001 - 运维脚本统一收口
+    except Exception as exc:  # noqa: BLE001 - Use the common error handling for operations scripts.
         error = str(exc)
 
     if error:

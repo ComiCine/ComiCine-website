@@ -18,14 +18,14 @@
  */
 
 /**
- * 灾备快照（backup/）与滚动清理的单测。
+ * Unit tests for disaster-recovery snapshots (backup/) and rolling cleanup.
  *
- * 四组硬要求各对应一组用例：
- *   1. DDL + 小表确实写进 backup/YYYY_MM_DD/，键路径与类型保真；
- *   2. 大表一次都没被读（stub 对白名单外的任何 FROM 直接抛错 = spy 断言）；
- *   3. 保留期只删 backup/ 前缀，analytics/ 一个字节都不动（含「绑定返回了
- *      analytics 键」这种坏绑定场景）；
- *   4. 快照抛错时归档仍然完成，并且 config_backup 记了一行 failed。
+ * Four hard requirements, each covered by a test group:
+ *   1. DDL and small tables are written to backup/YYYY_MM_DD/ with correct key paths and type fidelity.
+ *   2. Large tables are never read (the stub throws on any FROM outside the allowlist, serving as a spy assertion).
+ *   3. Retention deletes only backup/ prefixes and leaves analytics/ untouched, including when a broken binding
+ *      returns analytics keys.
+ *   4. An archive completes if the snapshot throws, and config_backup records a failed run.
  */
 
 import { gunzipSync } from "node:zlib";
@@ -50,12 +50,12 @@ const scheduled = worker.scheduled;
 
 const DAY = new Date("2026-10-11T00:00:00Z");
 
-/** 分析归档的四张表：它们只允许出现在 analytics/ 路径里。 */
+/** Four analytics archive tables; they may appear only under the analytics/ path. */
 const ANALYTICS_TABLES = ["visitor_rollups", "visitors_v2", "ray_log_v2", "events"] as const;
 
 /**
- * 任何**不在快照白名单**里的表名。stub 见到这些就抛错，于是「有没有偷偷扫大表」
- * 从「靠人看代码」变成「测试直接红」。
+ * Any table name not in the snapshot allowlist. The stub throws when it sees one, turning
+ * "did we accidentally scan a large table?" from a code-review question into a failing test.
  */
 const FORBIDDEN_TABLES = [
   "visitors",
@@ -72,7 +72,7 @@ const FORBIDDEN_TABLES = [
 ] as const;
 
 const SCHEMA_ROWS: SchemaRow[] = [
-  // 故意乱序，且故意把 index 放在 table 之前：DDL 必须自己排回来。
+  // Deliberately unordered, with an index before its table: DDL must sort them correctly.
   { type: "index", name: "idx_blocked_ips_active", tbl_name: "blocked_ips", sql: "CREATE INDEX idx_blocked_ips_active\n    ON blocked_ips (active, updated_at)" },
   { type: "table", name: "blocked_ips", tbl_name: "blocked_ips", sql: 'CREATE TABLE "blocked_ips" (\n    cidr TEXT PRIMARY KEY)' },
   { type: "table", name: "schema_version", tbl_name: "schema_version", sql: "CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))" },
@@ -80,7 +80,7 @@ const SCHEMA_ROWS: SchemaRow[] = [
   { type: "table", name: "_cf_KV", tbl_name: "_cf_KV", sql: "CREATE TABLE _cf_KV (\n        key TEXT PRIMARY KEY,\n        value BLOB\n      ) WITHOUT ROWID" },
 ];
 
-/** 每张白名单表的假行；类型保真用例要的就是这里的 0/1、NULL 与空串。 */
+/** Fake rows for each allowlisted table; type-fidelity tests rely on 0/1, NULL, and empty strings here. */
 const TABLE_ROWS: Record<string, Record<string, unknown>[]> = {
   schema_version: [{ version: 19001, applied_at: "2026-10-11 00:03:01" }],
   blocked_ips: [
@@ -96,7 +96,7 @@ const TABLE_ROWS: Record<string, Record<string, unknown>[]> = {
   worker_runs: [{ id: 4, job: "d1_archive", started_at: 1791700000, finished_at: 1791700001, outcome: "ok", added: 4, removed: null, error: null, dry_run: 0 }],
 };
 
-/** 每张表的 rows_read（模拟 D1 的 meta），用来断言成本口径。 */
+/** rows_read per table (simulated D1 metadata), used to assert the cost calculation. */
 const TABLE_ROWS_READ: Record<string, number> = {
   schema_version: 19,
   blocked_ips: 83,
@@ -116,10 +116,10 @@ interface SqlCall {
 }
 
 /**
- * 快照 + 归档共用的 D1 桩。
+ * D1 stub shared by snapshots and archives.
  *
- * 关键设计：**从 SQL 里解析出表名**，不在白名单里就抛错并记进 `violations`。
- * 于是「未触碰大表」不是断言某个计数，而是任何一次越界读取都会让用例失败。
+ * Key design: parse table names from SQL, throwing and recording a `violations` entry for anything outside the allowlist.
+ * Thus, "large tables were untouched" is not inferred from a count; any out-of-bounds read fails the test.
  */
 function d1Stub(options: { failSql?: RegExp; failSchema?: boolean; noMeta?: boolean } = {}) {
   const calls: SqlCall[] = [];
@@ -193,10 +193,10 @@ interface PutCall {
 }
 
 /**
- * 内存 R2：实现 put / list（含 delimiter 语义）/ delete，并记下每一次调用。
+ * In-memory R2 implementation: supports put / list (including delimiter behavior) / delete and records every call.
  *
- * `leakKeys` 用来模拟「坏掉的绑定」——它会在按前缀列对象时**多返回**不属于该
- * 前缀的键（例如 analytics/ 下的对象），好让 isBackupKey() 那道闸真正被考到。
+ * `leakKeys` simulates a broken binding that returns extra keys outside the requested prefix
+ * (such as objects under analytics/), exercising the isBackupKey() guard.
  */
 function r2Stub(initial: Record<string, string> = {}, leakKeys: string[] = []) {
   const objects = new Map<string, string>(Object.entries(initial));
@@ -225,8 +225,8 @@ function r2Stub(initial: Record<string, string> = {}, leakKeys: string[] = []) {
         }
         return { objects: direct, delimitedPrefixes: [...dirs].sort(), truncated: false };
       }
-      // 原样返回：这是「坏绑定」的模拟，绝不能因为「这个键本来就在桶里」被过滤掉，
-      // 否则 isBackupKey() 那道闸就永远考不到（反向抽查当场抓到过这个洞）。
+      // Return these as-is to simulate a broken binding. Do not filter them just because the keys exist in the bucket,
+      // or the isBackupKey() guard would never be exercised (a reverse audit caught this gap).
       const leaked = leakKeys;
       return {
         objects: [
@@ -275,7 +275,7 @@ const putFor = (puts: PutCall[], key: string): PutCall => {
   return found!;
 };
 
-/** 造 N 天的历史快照前缀，每天两个对象，另加一个必须活下来的 analytics 对象。 */
+/** Create N days of historical snapshot prefixes, with two objects per day and an analytics object that must survive. */
 function seedBucket(days: string[], analytics: boolean) {
   const initial: Record<string, string> = {};
   if (analytics) {
@@ -296,7 +296,7 @@ afterEach(() => {
 
 describe("config backup keys and dates", () => {
   it("stamps the prefix with the run day, not the data day", () => {
-    // 本地的 10-11 06:00 (+08) 仍是 UTC 的 10-10 22:00 —— 快照用 UTC 日。
+    // Local 10-11 06:00 (+08) is still 10-10 22:00 UTC; snapshots use the UTC date.
     expect(utcDayStamp(new Date("2026-10-10T22:00:00Z"))).toBe("2026_10_10");
     expect(utcDayStamp(DAY)).toBe("2026_10_11");
     expect(snapshotPrefix("2026_10_11")).toBe("backup/2026_10_11/");
@@ -313,7 +313,7 @@ describe("config backup keys and dates", () => {
   it("orders DDL tables before the indexes that depend on them", () => {
     const ordered = orderSchema(SCHEMA_ROWS).map((row) => row.name);
     expect(ordered.indexOf("blocked_ips")).toBeLessThan(ordered.indexOf("idx_blocked_ips_active"));
-    // 表在前、索引在后；同一类内按名字（`_` 的码位小于小写字母，所以 _cf_KV 最前）。
+    // Tables precede indexes; sort by name within each kind (`_` sorts before lowercase letters, so _cf_KV comes first).
     expect(ordered).toEqual([
       "_cf_KV",
       "blocked_ips",
@@ -338,12 +338,12 @@ describe("config backup snapshot", () => {
       ...CONFIG_TABLES.map((table) => `${prefix}${table.name}.jsonl.gz`),
     ];
     expect(r2.puts.map((call) => call.key).sort()).toEqual([...expected].sort());
-    // 一天 = 13 个对象：ddl + schema + 10 张表 + manifest。
+    // A day contains 13 objects: ddl + schema + 10 tables + manifest.
     expect(r2.puts).toHaveLength(13);
     expect(result.objects).toBe(13);
     expect(result.day).toBe("2026_10_11");
 
-    // 键路径必须落在 backup/ 下，且一个 analytics/ 对象都不许写。
+    // Keys must be under backup/, and no analytics/ object may be written.
     for (const call of r2.puts) {
       expect(call.key.startsWith(prefix)).toBe(true);
       expect(call.key.startsWith("analytics/")).toBe(false);
@@ -351,7 +351,7 @@ describe("config backup snapshot", () => {
     expect(putFor(r2.puts, `${prefix}ddl.sql`).options).toEqual({
       httpMetadata: { contentType: "text/plain; charset=utf-8" },
     });
-    // 故意不是 contentEncoding:gzip：那会让每次下载都被静默解压，.gz 名不副实。
+    // Intentionally omit contentEncoding:gzip; otherwise each download is silently decompressed and the .gz extension becomes misleading.
     expect(putFor(r2.puts, `${prefix}blocked_ips.jsonl.gz`).options).toEqual({
       httpMetadata: { contentType: "application/gzip" },
     });
@@ -362,14 +362,14 @@ describe("config backup snapshot", () => {
     expect(sql).toContain('CREATE TABLE "blocked_ips" (');
     expect(sql).toContain("CREATE INDEX idx_blocked_ips_active");
     expect(sql).toContain("CREATE TABLE schema_version");
-    // 内部对象不进可重放的 SQL（sqlite_sequence 是保留名、_cf_KV 由平台自管）……
+    // Internal objects are omitted from replayable SQL (sqlite_sequence is reserved, and _cf_KV is platform-managed)...
     expect(sql).not.toContain("CREATE TABLE sqlite_sequence");
     expect(sql).not.toContain("CREATE TABLE _cf_KV");
-    // ……但必须列在头部说明里，否则读的人会以为漏了。
+    // ...but must be listed in the header comment so readers know they were intentionally excluded.
     expect(sql).toContain("--   sqlite_sequence");
     expect(sql).toContain("--   _cf_KV");
     expect(skipped).toEqual(["_cf_KV", "sqlite_sequence"]);
-    // 每条语句都以分号收尾，可以直接喂给 wrangler d1 execute --file。
+    // Every statement ends with a semicolon and can be passed directly to wrangler d1 execute --file.
     expect(sql.endsWith(";\n")).toBe(true);
     expect(sql).not.toContain(";;");
   });
@@ -384,7 +384,7 @@ describe("config backup snapshot", () => {
       .split("\n")
       .map((line) => JSON.parse(line));
     expect(blocked).toHaveLength(2);
-    // active 是 0/1 整数，不是布尔也不是字符串；空串与 NULL 必须可区分。
+    // active is an integer 0/1, not a boolean or string; empty strings must remain distinct from NULL.
     expect(blocked[0]).toMatchObject({ active: 1, prefix: 24, reason: "", updated_by: "admin" });
     expect(blocked[1]).toMatchObject({ active: 0, updated_by: "" });
     expect(typeof blocked[1].active).toBe("number");
@@ -392,7 +392,7 @@ describe("config backup snapshot", () => {
     const apple = JSON.parse(
       asGunzipped(putFor(r2.puts, "backup/2026_10_11/apple_accounts.jsonl.gz").value).trim(),
     );
-    // 密文原样搬运，不尝试解密；NULL 保持 null。
+    // Copy ciphertext verbatim without attempting to decrypt it; preserve NULL as null.
     expect(apple.password).toBe("enc:v1:AAAA");
     expect(apple.notes).toBeNull();
 
@@ -431,14 +431,14 @@ describe("config backup snapshot", () => {
     expect(manifest.keep_snapshots).toBe(KEEP_SNAPSHOTS);
     expect(manifest.tables).toHaveLength(CONFIG_TABLES.length);
     expect(manifest.tables.every((table: { error: string | null }) => table.error === null)).toBe(true);
-    // 排除清单随备份一起走，读的人不必回仓库翻文档。
+    // Include the exclusion list in the backup so readers do not need to consult repository documentation.
     const excluded = manifest.excluded_tables.map((table: { name: string }) => table.name);
     expect(excluded).toContain("visitors");
     expect(excluded).toContain("visitors_daily");
-    // probe_uptime_daily 于 2026-10-11 从排除清单移进白名单：它是唯一**不可重建**的表
-  // （heartbeats 只留 30 天、它留 90 天，worker 漏一天就永久丢失那天的在线率），
-  // 而实测只 75 行、上限约 270 行、预算从 428 增到 ~503 行/天。两个方向都断言，
-  // 防止有人又把它挪回排除清单。
+    // probe_uptime_daily moved from the exclusion list to the allowlist on 2026-10-11. It is the only table that cannot be rebuilt:
+    // heartbeats are retained for 30 days while this table keeps 90, so a missed worker run permanently loses that day's uptime.
+    // It has only 75 measured rows, about 270 at the upper bound, raising the budget from 428 to roughly 503 rows/day.
+    // Assert both sides to prevent it from being moved back to the exclusion list.
   expect(excluded).not.toContain("probe_uptime_daily");
   expect(manifest.tables.map((table: { name: string }) => table.name)).toContain(
     "probe_uptime_daily",
@@ -451,7 +451,7 @@ describe("config backup snapshot", () => {
     const r2 = r2Stub();
     await runConfigBackup({ DB: d1.db, ARCHIVE: r2.bucket } as never, DAY);
 
-    // stub 对白名单外的 FROM 直接抛错并记录：这里为空 = 一次都没碰。
+    // The stub throws and records any FROM outside the allowlist; an empty list means none were touched.
     expect(d1.violations).toEqual([]);
 
     const reads = d1.calls
@@ -461,11 +461,11 @@ describe("config backup snapshot", () => {
       const pattern = new RegExp(`FROM\\s+"?${table}"?\\b`);
       expect(reads.some((sql) => pattern.test(sql)), `snapshot read ${table}`).toBe(false);
     }
-    // 正向：9 张小表一条不少，且都带主键 ORDER BY（可重复产出同样字节）。
+    // Positive case: all nine small tables are present, each ordered by its primary key for reproducible bytes.
     for (const table of CONFIG_TABLES) {
       expect(reads).toContain(`SELECT * FROM ${table.name} ORDER BY ${table.orderBy}`);
     }
-    // 归档那四张分析表只走 analytics/ 的带窗口查询，快照不该出现它们的裸 SELECT。
+    // The four analytics tables are queried with a time window only under analytics/; snapshots must not issue bare SELECTs for them.
     for (const table of ANALYTICS_TABLES) {
       expect(reads).not.toContain(`SELECT * FROM ${table} ORDER BY ts`);
     }
@@ -493,7 +493,7 @@ describe("config backup snapshot", () => {
 
 describe("config backup retention", () => {
   it("keeps the newest 14 day-prefixes and deletes the older ones as whole snapshots", async () => {
-    // 20 天历史：应删最老的 6 天，且每天的两个对象一起走（不留半份）。
+    // With 20 historical days, delete the six oldest; delete both objects per day so no partial snapshot remains.
     const days = Array.from({ length: 20 }, (_, index) => {
       const day = new Date(Date.UTC(2026, 8, 1 + index));
       return day.toISOString().slice(0, 10).replaceAll("-", "_");
@@ -513,7 +513,7 @@ describe("config backup retention", () => {
     for (const day of days.slice(-14)) {
       expect(r2.objects.has(`backup/${day}/ddl.sql`)).toBe(true);
     }
-    // 列目录只发 backup/ 前缀，且每个待删前缀单独列一次。
+    // List only the backup/ prefix, and list each prefix due for deletion exactly once.
     expect(r2.lists[0]).toMatchObject({ prefix: "backup/", delimiter: "/" });
     expect(r2.lists.some((call) => call.prefix === `backup/${days[0]}/`)).toBe(true);
   });
@@ -533,7 +533,7 @@ describe("config backup retention", () => {
       expect(key.startsWith("backup/")).toBe(true);
       expect(key.startsWith("analytics/")).toBe(false);
     }
-    // 每个 delete 调用的参数都必须是纯 backup/ 键。
+    // Every delete call must contain only backup/ keys.
     for (const batch of r2.deletes) {
       expect(batch.length).toBeGreaterThan(0);
       for (const key of batch) expect(isBackupKey(key)).toBe(true);
@@ -543,8 +543,8 @@ describe("config backup retention", () => {
   });
 
   it("drops an analytics/ key even when a broken binding hands one back", async () => {
-    // 坏绑定：按 backup/<day>/ 前缀列对象时多返回两个 analytics/ 键。
-    // 没有 isBackupKey() 这道闸，它们就会被 delete() 带走。
+    // Broken binding: listing a backup/<day>/ prefix returns two extra analytics/ keys.
+    // Without the isBackupKey() guard, delete() would remove them.
     const days = Array.from({ length: 16 }, (_, index) => {
       const day = new Date(Date.UTC(2026, 7, 1 + index));
       return day.toISOString().slice(0, 10).replaceAll("-", "_");
@@ -572,10 +572,10 @@ describe("config backup retention", () => {
 
     const pruned = await pruneBackups(r2.bucket as never, 0);
 
-    // keep<=0 被夹到 1：最新的那一天必须活下来。
+    // Clamp keep<=0 to 1; the newest day must survive.
     expect(pruned.kept).toEqual(["backup/2026_09_02/"]);
     expect(pruned.deletedKeys).toEqual(["backup/2026_09_01/ddl.sql"]);
-    // 形状不合法的前缀不参与轮换（宁可留着，也不按前缀乱删）。
+    // Malformed prefixes do not participate in rotation; keep them rather than deleting by a loose prefix match.
     expect(r2.objects.has("backup/notes.txt")).toBe(true);
     expect(r2.objects.has("backup/manual/dump.sql")).toBe(true);
   });
@@ -593,7 +593,7 @@ describe("config backup runs inside the archive Worker", () => {
 
     const result = await runConfigBackup({ DB: d1.db, ARCHIVE: r2.bucket } as never, DAY);
 
-    // 15 个前缀（14 个旧的 + 今天）超过 14，只删最老的那一个。
+    // Fifteen prefixes (14 old ones plus today) exceed 14, so delete only the oldest.
     expect(result.deleted).toBe(2);
     expect(r2.objects.has(`backup/${days[0]}/ddl.sql`)).toBe(false);
     expect(r2.objects.has("backup/2026_10_11/ddl.sql")).toBe(true);
@@ -624,7 +624,7 @@ describe("config backup runs inside the archive Worker", () => {
   });
 
   it("records a failed config_backup run while the analytics archive still completes", async () => {
-    // sqlite_master 读不了 = 快照致命失败；分析归档必须照常写完四个对象。
+    // An unreadable sqlite_master is fatal to the snapshot; the analytics archive must still write all four objects.
     const d1 = d1Stub({ failSchema: true });
     const r2 = r2Stub();
     const { errors } = captureConsole();
@@ -635,12 +635,12 @@ describe("config backup runs inside the archive Worker", () => {
     });
 
     expect(waited).toHaveLength(1);
-    // 归档完成：四张分析表各一个对象。
+    // The archive completed: one object for each of the four analytics tables.
     const analyticsKeys = r2.puts
       .map((call) => call.key)
       .filter((key) => key.startsWith("analytics/"));
     expect(analyticsKeys).toHaveLength(4);
-    // 语义差别就在这里：analytics/ 用**数据所属日**（前一天），backup/ 用**运行日**。
+    // This is the semantic distinction: analytics/ uses the data's day (yesterday), while backup/ uses the run day.
     const now = new Date();
     const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     const dataDay = new Date(todayStart - 86400 * 1000).toISOString().slice(0, 10).replaceAll("-", "_");
@@ -656,21 +656,21 @@ describe("config backup runs inside the archive Worker", () => {
     expect(failures).toHaveLength(1);
     expect(failures[0].values[4]).toMatch(/simulated/);
 
-    // 失败必须同时落进检索得到的单行 JSON 日志（stage=scheduled 的收口行）。
+    // The failure must also appear in the searchable single-line JSON log (the stage=scheduled summary row).
     const lines = errors.map((line) => JSON.parse(line));
     const scheduledFailure = lines.find((line) => line.stage === "scheduled");
     expect(scheduledFailure).toMatchObject({ job: CONFIG_JOB, outcome: "failed" });
-    // 归档那一步是成功的：只有配置快照失败。
+    // The archive stage succeeded; only the configuration snapshot failed.
     expect(lines.some((line) => line.job === JOB && line.outcome === "failed")).toBe(false);
   });
 
   it("reports the config_backup run on the same health endpoint as the archive", async () => {
-    // 健康端点按 job 各报一条：归档绿着而快照连着失败，必须一眼看得出来。
+    // The health endpoint reports one row per job, making it obvious if the archive is healthy while snapshots keep failing.
     const rows: Record<string, Record<string, unknown>> = {
       d1_archive: { id: 1, job: "d1_archive", outcome: "ok", started_at: 1791671264, finished_at: 1791671266, added: 576, removed: null, error: null, dry_run: 0 },
       config_backup: { id: 2, job: CONFIG_JOB, outcome: "failed", started_at: 1791671266, finished_at: 1791671270, added: 428, removed: 0, error: "blocklist_audit: boom", dry_run: 0 },
     };
-    // 只服务 lastRun(db, job)：按绑定进来的 job 返回各自最近一条。
+    // Serves only lastRun(db, job): return the latest row for the supplied job.
     const db = {
       prepare: (sql: string) => {
         expect(sql).toMatch(/FROM worker_runs/);
@@ -702,7 +702,7 @@ describe("config backup runs inside the archive Worker", () => {
   });
 
   it("keeps archiving even when the snapshot stage explodes mid-flight", async () => {
-    // 写 schema.jsonl.gz 时 R2 抛错（快照的第一个写动作）——归档不受影响。
+    // R2 throws while writing schema.jsonl.gz (the snapshot's first write); the archive remains unaffected.
     const d1 = d1Stub();
     const r2 = r2Stub();
     const boom = vi.fn(async (key: string) => {

@@ -17,15 +17,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# pre-push：推之前把每个「将要推上去的 commit」在临时 worktree 里跑一遍
-# ops/ci_check.sh（= 复刻 .github/workflows/tests.yml）。这样 CI 的红/绿
-# 在本地就定了，不会再出现「push 之后 30 秒收到失败通知」。
+# Before pushing, run ops/ci_check.sh for every commit about to be pushed in a temporary
+# worktree. This mirrors .github/workflows/tests.yml so CI results are known locally.
 #
-# 注意校验的是 commit，不是工作区：即使工作区很脏，也校验真正要推的那棵树。
+# Check the commit, not the working tree: even with unrelated local changes, validate the tree that will be pushed.
 #
-# 跳过方式（应急）：
+# Emergency bypass:
 #   LIMOOO_SKIP_CI_CHECK=1 git push
-# deploy.sh 刚检查过的同一个 commit 会自动跳过（LIMOOO_CI_CHECKED_SHA）。
+# The same commit already checked by deploy.sh is skipped automatically (LIMOOO_CI_CHECKED_SHA).
 
 set -uo pipefail
 

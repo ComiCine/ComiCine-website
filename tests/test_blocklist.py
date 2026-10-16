@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""封禁名单解析与 D1 同步测试（Nginx 扫描部分已随 VPS 退租删除）。"""
+"""Tests for blocklist parsing and D1 sync (Nginx scanning was removed with the VPS)."""
 
 import auto_block
 
@@ -102,13 +102,13 @@ def test_sync_d1_dry_run_does_not_write(monkeypatch, tmp_path):
     assert not any("INSERT" in body["sql"] or "DELETE" in body["sql"] for _, _, body in calls)
 
 
-# 双向对账的写回（2026-10-11：reconcile）
+# Write back the result of bidirectional reconciliation (2026-10-11: reconcile).
 
 def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
-    """受管段整体重写，**手写区一字不动**。
+    """Rewrite the managed section while preserving the manually maintained section exactly.
 
-    这是这个功能最容易出事的地方：它写的是用户手工维护的文件。手写区被吃掉
-    等于用户自己加的封禁项凭空消失。
+    This is the riskiest part of the feature because it writes a user-maintained file.
+    Losing the manual section would silently remove user-added block entries.
     """
     p = tmp_path / "blocklist.txt"
     p.write_text(
@@ -124,16 +124,16 @@ def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
     text = p.read_text(encoding="utf-8")
     head, sep, managed = text.partition(auto_block.MANAGED_MARKER)
     assert sep, "必须写出受管段标记"
-    # 手写区的四行原样保留（含行尾注释）
+    # Preserve all four hand-maintained lines exactly, including trailing comments.
     assert "# 自定义封禁列表" in head
     assert "1.2.3.4" in head
     assert "5.6.7.0/24   # 我的备注" in head
-    # 受管段带来源标注
+    # Include the source marker in the managed section.
     assert "10.0.0.0/8" in managed and "source=cli/add" in managed
 
 
 def test_write_pulled_section_is_idempotent(tmp_path):
-    """连写两次不重复追加（每次整体重写）。"""
+    """Writing the section twice does not append duplicate entries."""
     p = tmp_path / "blocklist.txt"
     p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
     rows = {"10.0.0.0/8": "admin", "10.1.0.0/16": "auto_block"}
@@ -148,7 +148,7 @@ def test_write_pulled_section_is_idempotent(tmp_path):
 
 
 def test_pulled_section_survives_being_read_back(tmp_path):
-    """写回去的文件必须还能被 read_blocklist 解析（否则下一轮对账就崩）。"""
+    """The written file remains parseable by read_blocklist for the next reconciliation."""
     p = tmp_path / "blocklist.txt"
     p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
 
@@ -160,7 +160,7 @@ def test_pulled_section_survives_being_read_back(tmp_path):
 
 
 def test_managed_section_starts_empty_and_grows(tmp_path):
-    """先把手写区落盘（受管段为空），再加行 —— 两态都要合法。"""
+    """Both an empty managed section and one with added rows must remain valid."""
     p = tmp_path / "blocklist.txt"
     p.write_text("# 只有手写区\n", encoding="utf-8")
 

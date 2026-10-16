@@ -18,27 +18,28 @@
  */
 
 /**
- * 每日 03:30 把 D1 里的 active blocked_ips 增量同步到 Cloudflare IP List
- * （原 auto_block.py 的 sync_cloudflare 移植；ipset/iptables 部分随迁移放弃）
+ * Incrementally sync active blocked_ips rows from D1 to the Cloudflare IP List daily at 03:30.
+ * This ports sync_cloudflare from the former auto_block.py; ipset/iptables support was dropped
+ * during the migration.
  *
- * 失败可见性（2026-10-11 补）：此前 scheduled() 只写 `ctx.waitUntil(sync(env))`，
- * 协程的 rejection 被 waitUntil 静默吞掉 —— cron 面板显示「已运行」，实际一条
- * 都没写进去，且没有任何地方留下痕迹。现在：
- *   1. 每次运行在 D1 worker_runs 落一行（成功/失败都落，失败带 error）；
- *   2. scheduled() 显式 await + try/catch，失败打结构化单行 JSON 到 Workers 日志；
- *   3. GET /?health=1 只报健康状态（不触发同步），返回 { ok, job, lastRun }。
- * 三条都不参与热路径读：运行记录只写不读，健康端点才读。
+ * Failure visibility (added 2026-10-11): scheduled() previously used only
+ * `ctx.waitUntil(sync(env))`. waitUntil silently swallowed promise rejections, so the cron panel
+ * showed "ran" even when nothing was written, with no record of the failure. Now:
+ *   1. Write one row per run to D1 worker_runs (successes and failures; failures include error).
+ *   2. scheduled() explicitly awaits with try/catch and logs failures as structured single-line JSON.
+ *   3. GET /?health=1 reports health without triggering a sync and returns { ok, job, lastRun }.
+ * None of these add reads to the hot path: run records are write-only there; only the health endpoint reads them.
  */
 
 import { insertRun, lastRun, runStartedAt, updateRun, type RunRow } from "./runlog";
 
 /**
- * 结构化单行 JSON 运行日志（风格对齐 functions/_lib/logging.ts 的 logEvent：
- * 一行一个完整 JSON、字段名可 grep）。
+ * Structured single-line JSON run log, matching the style of logEvent in
+ * functions/_lib/logging.ts: one complete JSON object per line with grep-friendly field names.
  *
- * 失败走 console.error、其余走 console.log：Cloudflare 日志面板与 `wrangler
- * tail` 都能按级别筛，因此 `outcome:"failed"` 是**可检索**的 —— 这正是本次修
- * 的核心（此前 waitUntil 把 rejection 吞掉，日志里连一行都没有）。
+ * Failures use console.error; other outcomes use console.log. Cloudflare Logs and `wrangler tail`
+ * can filter by level, making `outcome:"failed"` searchable. This is the core fix: waitUntil
+ * previously swallowed rejections without leaving any log line.
  */
 function logRun(fields: Record<string, unknown> & { outcome?: string }): void {
   const payload: { event: string; ts: number; job: string; outcome?: string } & Record<
@@ -80,17 +81,17 @@ interface Env {
 const LIST_NAME = "limooo_blocklist";
 const API = "https://api.cloudflare.com/client/v4";
 const BATCH = 200;
-// 列表项接口的 per_page 上限是 500；传 1000 会返回 400
-// （code 10027 "invalid or expired cursor"），导致整次同步失败。
+// The list-item API caps per_page at 500. Passing 1000 returns HTTP 400
+// (code 10027 "invalid or expired cursor") and fails the entire sync.
 const PAGE_SIZE = 500;
-// items 接口按 cursor 翻页且没有「最后一页」标志；给一个迭代上限，避免
-// 上游行为变化（忽略 cursor、cursor 永不结束）时死循环到 Worker 被杀。
+// The items API paginates by cursor and has no "last page" flag. Cap iterations to avoid an
+// infinite loop if upstream behavior changes, such as ignoring the cursor or never terminating.
 const MAX_ITEM_PAGES = 20;
-// bulk_operations 轮询：40 次 × 2s ≈ 80s，超时按失败处理（不再静默当成功）。
+// Poll bulk_operations 40 times at 2 seconds each (~80 seconds); treat timeout as failure.
 const OPERATION_POLLS = 40;
 const OPERATION_POLL_MS = 2000;
 
-/** 运行记录里的任务名：与 ops/migrations/018_worker_runs.sql 的 job 列取值一致。 */
+/** Job name for run records; must match the job values in ops/migrations/018_worker_runs.sql. */
 export const JOB = "blocklist_sync";
 
 export interface SyncResult {
@@ -99,9 +100,9 @@ export interface SyncResult {
 }
 
 /**
- * Cloudflare IP List 会把 IPv4 /32 归一化成裸 IP（写入 1.2.3.4/32 读回 1.2.3.4），
- * IPv6 /128 同理。若两侧都用原始字符串比较，同一条记录会被判成
- * “既该加又该删”，每次同步都反复删除重加。这里统一成可比形式。
+ * Cloudflare's IP List normalizes IPv4 /32 entries to bare IPs (write 1.2.3.4/32, read back
+ * 1.2.3.4), and does the same for IPv6 /128. Comparing raw strings would mark one entry for both
+ * adding and removing, repeatedly deleting and re-adding it on every sync. Normalize both forms here.
  */
 export function normalizeListItem(value: string): string {
   const raw = (value ?? "").trim();
@@ -118,7 +119,7 @@ export function diffSync(
   desired: Set<string>,
   existing: Map<string, string>,
 ): SyncResult {
-  // 两侧都归一化后再比较，避免 /32 与裸 IP 的不一致。
+  // Normalize both sides before comparing to avoid mismatches between /32 and bare IPs.
   const desiredNorm = new Set([...desired].map(normalizeListItem));
   const existingNorm = new Set([...existing.keys()].map(normalizeListItem));
   const toAdd = [...desiredNorm].filter((cidr) => !existingNorm.has(cidr));
@@ -140,10 +141,10 @@ async function cf(token: string, method: string, url: string, body?: unknown): P
 }
 
 /**
- * 等待一次 bulk operation 结束。
+ * Wait for one bulk operation to finish.
  *
- * 关键点（tasks/22 W7-6）：`failed` 与轮询超时都必须**抛错**。此前两者都当成
- * 正常返回，调用方照样打印 `synced: +N -M`，于是「一条都没写进去」看起来像成功。
+ * Key requirement (tasks/22 W7-6): both `failed` and polling timeouts must throw. Previously,
+ * both returned normally, so callers printed `synced: +N -M` and made a failed write look successful.
  */
 async function waitOperation(token: string, accountId: string, operationId?: string): Promise<void> {
   if (!operationId) return;
@@ -170,11 +171,11 @@ async function waitOperation(token: string, accountId: string, operationId?: str
 }
 
 /**
- * 读取 IP List 的全部条目。
+ * Read every entry in the IP List.
  *
- * 翻页用 `result_info.cursor`（Cloudflare 已不再支持 `page=`；继续传 page 时
- * 上游会返回同一页，旧实现因此可能死循环）。cursor 不前进或超过
- * MAX_ITEM_PAGES 时抛错，绝不安静地只同步第一页。
+ * Paginate with `result_info.cursor` (Cloudflare no longer supports `page=`; passing it returns
+ * the same page and could make the old implementation loop forever). Throw if the cursor does not
+ * advance or MAX_ITEM_PAGES is exceeded; never silently sync only the first page.
  */
 async function listItems(token: string, accountId: string, listId: string): Promise<Map<string, string>> {
   const items = new Map<string, string>();
@@ -215,7 +216,7 @@ export async function sync(
     return { toAdd: [], toRemove: [] };
   }
 
-  // 只同步 active 行：admin/unblock 的软删除墓碑不会重新出现在 CF List。
+  // Sync only active rows; soft-deleted admin/unblock tombstones must not return to the CF List.
   const rows = await env.DB.prepare(
     "SELECT cidr FROM blocked_ips WHERE active = 1",
   ).all<{ cidr: string }>();
@@ -245,8 +246,8 @@ export async function sync(
     const resp = await cf(token, "POST", `${API}/accounts/${accountId}/rules/lists/${list.id}/items`, chunk);
     await waitOperation(token, accountId, resp?.result?.operation_id);
   }
-  // toRemove 是归一化后的值，不能直接拿来 existing.get()：
-  // /32 与裸 IP 形式不一致时取不到列表项 id，删除会被静默跳过。
+  // toRemove contains normalized values, so do not pass them directly to existing.get(). A /32
+  // may differ from its bare-IP form and fail to find the list-item ID, silently skipping deletion.
   const idByNormalized = new Map<string, string>();
   for (const [rawIp, id] of existing) idByNormalized.set(normalizeListItem(rawIp), id);
   for (let i = 0; i < toRemove.length; i += BATCH) {
@@ -265,16 +266,16 @@ export async function sync(
 }
 
 /**
- * scheduled / fetch 共用的入口：跑一次同步，并把这次运行写成 worker_runs 的一行。
+ * Shared entry point for scheduled and fetch: run one sync and write one worker_runs row.
  *
- * 与 sync() 的关键区别是**谁负责把失败记下来**。sync() 照旧只做同步并抛错，
- * 由这里在最外层收口，保证「抛了」跟「记了」不会分家：
- *   - 抛错  → outcome='failed' + error 文本，然后**继续往外抛**（日志仍可检索）；
- *   - 成功  → outcome='ok' + 本次增量；
- *   - 缺凭据提前返回 → outcome='skipped'（同步本身没跑，不是失败）。
+ * The key difference from sync() is who records failures. sync() still performs the sync and throws;
+ * this outer layer records the result so throwing and recording cannot get out of sync:
+ *   - On error, write outcome='failed' and the error text, then rethrow so logs remain searchable.
+ *   - On success, write outcome='ok' and the current delta.
+ *   - If credentials are missing, write outcome='skipped' because no sync was attempted.
  *
- * 运行记录写入失败只 console.error，绝不影响同步本身（fail-open，与
- * functions/_lib/logging.ts 的写失败处理一致）；记录读的失败同理，由调用方兜。
+ * A run-record write failure only uses console.error and never affects the sync (fail-open, like
+ * write failures in functions/_lib/logging.ts). The caller handles record-read failures similarly.
  */
 export async function runSync(
   env: Env,
@@ -314,14 +315,14 @@ export async function runSync(
 }
 
 /**
- * 手动触发端点的鉴权：比对 Authorization: Bearer <SYNC_TOKEN>。
+ * Authenticate the manual trigger endpoint by checking Authorization: Bearer <SYNC_TOKEN>.
  *
- * 这个 worker 只在 *.workers.dev 上可达，而 workers.dev 不属于本账户，
- * 无法用 zone 级 mTLS/Client Certificate 保护，因此用共享密钥。
- * 定时任务（scheduled）走内部调用，不经过这里。
+ * This Worker is reachable only on *.workers.dev, which is not in this account, so zone-level
+ * mTLS/Client Certificates cannot protect it. Use a shared secret instead. Scheduled tasks call
+ * internally and do not pass through this check.
  *
- * 未配置 SYNC_TOKEN 时 fail-closed（拒绝所有 HTTP 调用），避免"忘了设
- * secret 就等于开放"。
+ * Fail closed when SYNC_TOKEN is not configured, rejecting all HTTP calls so a missing secret
+ * cannot leave the endpoint open.
  */
 export function authorized(request: Request, env: Env): boolean {
   const expected = (env.SYNC_TOKEN ?? "").trim();
@@ -331,7 +332,7 @@ export function authorized(request: Request, env: Env): boolean {
   if (!header.startsWith(prefix)) return false;
   const provided = header.slice(prefix.length).trim();
   if (!provided || provided.length !== expected.length) return false;
-  // 长度相等时逐字符比较，避免提前返回泄露前缀信息。
+  // Compare every character after confirming equal lengths; do not return early and leak prefix information.
   let diff = 0;
   for (let i = 0; i < expected.length; i++) {
     diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
@@ -339,12 +340,12 @@ export function authorized(request: Request, env: Env): boolean {
   return diff === 0;
 }
 
-/** 只报健康状态（不触发同步）：最近一次运行记录 + 表不可用时的原因。 */
+/** Report health only, without syncing: include the latest run and any reason the table is unavailable. */
 export async function health(env: Env): Promise<{ ok: boolean; job: string; lastRun: RunRow | null; error?: string }> {
   try {
     return { ok: true, job: JOB, lastRun: await lastRun(env.DB, JOB) };
   } catch (error) {
-    // 读不到运行记录不等于同步失败，如实区分：ok 仍为真，附上读失败原因。
+    // An unreadable run record does not mean the sync failed. Keep ok=true and include the read error.
     return { ok: true, job: JOB, lastRun: null, error: String(error) };
   }
 }
@@ -355,13 +356,13 @@ export default {
     env: Env,
     ctx: { waitUntil(p: Promise<unknown>): void },
   ): Promise<void> {
-    // 必须显式 await 进一个 try/catch：`ctx.waitUntil(sync(env))` 会把 rejection
-    // 吞掉，cron 面板照样显示成功 —— 同步连续失败 20 天也无人发现（2026-10-11）。
+    // Explicitly await inside try/catch: `ctx.waitUntil(sync(env))` swallows rejections while the
+    // cron panel still reports success. This hid 20 consecutive days of sync failures (2026-10-11).
     const work = (async () => {
       try {
         const result = await runSync(env);
-        // runSync 已经打过一行 outcome='ok' 的结构化日志；这里只补一条 cron
-        // 语义的收尾行，让「cron 到底跑没跑完」在日志里也一眼可见。
+        // runSync already logged a structured outcome='ok' line. Add this cron completion line so
+        // logs make it clear whether the cron invocation finished.
         logRun({
           outcome: "scheduled_ok",
           added: result.toAdd.length,
@@ -381,8 +382,8 @@ export default {
       }
     })();
     /**
-     * 同时递给 waitUntil 与本地 await：前者保证 isolate 在响应后仍把活干完，后者
-     * 保证这次的 promise 被显式观察过 —— 这正是修掉「rejection 被静默吞掉」的关键。
+     * Pass the promise to both waitUntil and local await. The former lets the isolate finish the
+     * work after the response; the latter explicitly observes the promise and prevents silent rejection.
      */
     ctx.waitUntil(work);
     await work;
@@ -391,7 +392,7 @@ export default {
     if (request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    // 鉴权先于一切分支：健康端点也只在带上 SYNC_TOKEN 时才回话。
+    // Authenticate before any branch; even the health endpoint requires SYNC_TOKEN.
     if (!authorized(request, env)) {
       return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
@@ -402,8 +403,8 @@ export default {
     const dryRun = url.searchParams.get("dry-run") === "1";
     try {
       const result = await runSync(env, { dryRun });
-      // 保留原有 `ok:true + toAdd/toRemove` 形状（.zshrc 的 _limooo_sync_cf 与
-      // 其它调用方依赖它），新增字段只做增量。
+      // Preserve the existing `ok:true + toAdd/toRemove` shape used by .zshrc's _limooo_sync_cf
+      // and other callers; add new fields only.
       return Response.json({
         ok: true,
         status: "synced",
@@ -415,8 +416,8 @@ export default {
         lastRun: await lastRun(env.DB, JOB),
       });
     } catch (error) {
-      // 失败不再只回 { ok:false }：把 error 与刚写下的那条失败运行记录一并返回，
-      // 调用方不必再翻日志才知道「为什么没推上去」。
+      // Return the error and newly recorded failure row instead of only { ok:false }, so callers
+      // can see why the update did not reach Cloudflare without searching logs.
       return Response.json(
         {
           ok: false,

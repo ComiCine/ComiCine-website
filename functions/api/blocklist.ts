@@ -18,11 +18,11 @@
  */
 
 /**
- * GET /api/blocklist            — admin-only，分页查询
- * POST /api/blocklist           — admin-only，加封/重新激活
- * DELETE /api/blocklist?cidr=…  — admin-only，解封（软删除 + 审计）
+ * GET /api/blocklist            — admin-only paginated query
+ * POST /api/blocklist           — admin-only block or reactivate
+ * DELETE /api/blocklist?cidr=…  — admin-only unblock (soft delete + audit)
  *
- * D1 blocked_ips 是唯一权威源；每次变更同时写 blocklist_audit 与 events。
+ * D1 blocked_ips is the sole source of truth; each change also writes to blocklist_audit and events.
  */
 
 import { execute, executeBatch, queryAll } from "../_lib/d1";
@@ -47,7 +47,7 @@ interface BlockedRow {
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
-/** 封禁理由的长度上限：与其余字符串字段的 cap 口径一致，防单行写爆库。 */
+/** Maximum block-reason length, consistent with the caps on other string fields and preventing oversized rows. */
 const BLOCKLIST_REASON_MAX_LENGTH = 255;
 
 function pageParams(url: URL): { page: number; pageSize: number; offset: number } {
@@ -59,7 +59,7 @@ function pageParams(url: URL): { page: number; pageSize: number; offset: number 
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 
-/** 本文件的管理员文案与默认值不同（对外更直白），故显式传入。 */
+/** This file uses more direct admin-facing copy than the default, so pass it explicitly. */
 function adminSession(env: Env, request: Request) {
   return requireAdminSession(env, request, "需要管理员权限");
 }
@@ -126,9 +126,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   if (!parsed) {
     return Response.json({ error: "invalid cidr" }, { status: 400 });
   }
-  // 理由必须限长：其余字符串字段都有 cap，这里以前没有，一个请求就能写入
-  // 几百 KB。分页响应会被撑爆、500 MB 库容量被吃掉，而且审计行与变更在同一
-  // 批次里，语句过大时连审计一起丢（等于变更没有留痕）。
+  // Limit the reason length. Other string fields are capped, but this one was not, so one request
+  // could write hundreds of KB. That could overwhelm paginated responses, consume the 500 MB database,
+  // and cause the audit row to be lost with the change if the batch statement grew too large.
   const rawReason =
     typeof (body as { reason?: unknown }).reason === "string" ? (body as { reason: string }).reason : "";
   const reason = rawReason.slice(0, BLOCKLIST_REASON_MAX_LENGTH);
@@ -238,8 +238,8 @@ async function writeAndAudit(
       env.DB.prepare(mutationSql).bind(...mutationValues),
       env.DB.prepare(auditSql).bind(...auditValues),
     ]);
-    // D1 batch 用于保持“封禁变更 + 审计”原子性；失败时不能降级为
-    // 两次独立写入，否则可能出现无审计的线上变更。
+  // Use a D1 batch to keep the block change and audit atomic. On failure, do not fall back to
+  // two separate writes, which could leave a production change without an audit record.
     return ok;
   }
   const mutationOk = await execute(env.DB, mutationSql, ...mutationValues);

@@ -15,11 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/readme_facts.py 的目录树校验：干净 checkout 里也要成立。
+"""Directory-tree checks for ops/readme_facts.py; they must pass in a clean checkout.
 
-背景（2026-10-11 的 CI 红）：README 的目录树里写了 `secrets/`，本机存在、
-`.gitignore` 排除、CI 的干净 checkout 里没有。校验只看文件系统时，本机通过、
-CI 必红 —— 所以判据要落在 git（被忽略 = 不入库 = 不算漂移），而不是落在本机。
+CI failed on 2026-10-11 because README listed secrets/, which existed locally but was
+excluded by .gitignore and absent from a clean checkout. A filesystem-only check
+passed locally and failed in CI. Use Git status as the criterion (ignored means not
+tracked and therefore not drift), rather than the local filesystem.
 """
 
 import shutil
@@ -34,7 +35,7 @@ requires_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is no
 
 @pytest.fixture
 def clean_repo(tmp_path):
-    """一个只有 .gitignore 的临时 git 仓库（模拟干净 checkout 的判定环境）。"""
+    """Create a temporary Git repository containing only .gitignore to simulate a clean checkout."""
     (tmp_path / ".gitignore").write_text("secrets/\n", encoding="utf-8")
     (tmp_path / "src").mkdir()
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
@@ -50,8 +51,8 @@ def test_git_ignored_detects_local_only_paths(clean_repo):
 
 @requires_git
 def test_tree_problems_skips_gitignored_but_keeps_real_drift(clean_repo):
-    # secrets/ 不存在于这个 checkout，但被忽略：不算漂移（CI 上就是这种情况）。
-    # src/config.py 不存在且没被忽略：仍是漂移，校验没被削弱。
+    # secrets/ is absent from this checkout but ignored, so it is not drift; CI behaves the same way.
+    # If src/config.py is absent and not ignored, that is still drift; the check remains strict.
     problems = readme_facts.tree_problems(str(clean_repo), ["src", "secrets", "src/config.py"])
 
     assert problems == ["tree lists a path that does not exist: src/config.py"]
@@ -59,10 +60,10 @@ def test_tree_problems_skips_gitignored_but_keeps_real_drift(clean_repo):
 
 @requires_git
 def test_tree_problems_accepts_missing_parent_chain(clean_repo):
-    """父目录本身就不存在时不再重复报（secrets/ 的子条目）。"""
+    """Do not report missing descendants repeatedly when their parent directory is absent (such as entries under secrets/)."""
     assert readme_facts.tree_problems(str(clean_repo), ["secrets/webauthn.env"]) == []
 
 
 def test_readme_tree_check_has_no_drift():
-    """真实仓库：README 的目录树相对当前提交无漂移。"""
+    """The README directory tree in the real repository matches the current commit."""
     assert readme_facts.tree_problems(readme_facts.BASE_DIR, readme_facts.tree_paths()) == []

@@ -52,14 +52,14 @@ ROOT = Path(__file__).resolve().parents[1]
 TXT = ROOT / "ops" / "requirements.txt"
 LOCK = ROOT / "requirements.lock"
 
-# 故意只在 ops/requirements.txt 里、不进 lock 的闸门工具（见两个文件的注释）。
+# These gate tools are intentionally listed in ops/requirements.txt but omitted from the lockfile; see the comments in both files.
 DEV_ONLY = {"ruff", "mypy", "pytest-cov", "pytest"}
 
 PIN = re.compile(r"^([A-Za-z0-9_.\-]+)==(\S+)$")
 
 
 def read_pins(path: Path) -> dict[str, str]:
-    """`名字 -> 版本`，跳过注释与空行。同名多行取最后一条（后者覆盖）。"""
+    """Return a name-to-version mapping, skipping comments and blank lines; later duplicates win."""
     pins: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -95,7 +95,7 @@ def check_pins(txt: dict[str, str], lock: dict[str, str]) -> list[str]:
 
 
 def latest_versions(names: list[str]) -> dict[str, str]:
-    """PyPI 的 `info.version`（最新稳定版）。网络失败时静默跳过该包。"""
+    """Return PyPI's `info.version` (latest stable release), or silently skip a package on network failure."""
     out: dict[str, str] = {}
     for name in names:
         try:
@@ -135,10 +135,10 @@ def main() -> int:
         )
         return 1
 
-    # 包集合的形状也验一下：lock 是运行时清单，它可以含传递依赖（比 requirements.txt 多），
-    # 但不该出现重复条目或空清单。**版本**权威只对 requirements.txt 声明过的包成立——
-    # 传递依赖的版本是"某次干净解析的结果"，本模式（离线）无从复算，所以不假装能检查它；
-    # 那类漂移靠下面的 `--latest`（看自己是否落后 PyPI）与"重建 venv 对比"来发现。
+    # Validate the package set as well: the lockfile is a runtime manifest and may include transitive dependencies beyond requirements.txt,
+    # but it must not have duplicate entries or be empty. **Version** authority applies only to packages declared in requirements.txt.
+    # Transitive versions record the result of a clean resolution and cannot be recomputed offline, so this check does not pretend to validate them.
+    # Detect drift with `--latest` (compare with PyPI) or by rebuilding and comparing the virtual environment.
     lines = [line.strip() for line in LOCK.read_text(encoding="utf-8").splitlines()]
     pinned = [line for line in lines if line and not line.startswith("#")]
     names = [line.split("==")[0].lower() for line in pinned]

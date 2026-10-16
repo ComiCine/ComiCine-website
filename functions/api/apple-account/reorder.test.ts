@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 排序接口测试：admin、CSRF、输入集合校验、D1 batch 原子性。 */
+/** Tests for the reorder endpoint: admin access, CSRF, input-set validation, and D1 batch atomicity. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestPut } from "./reorder";
@@ -29,7 +29,7 @@ import type { Env } from "../../_lib/env";
 
 vi.mock("../../_lib/d1", () => ({ queryAll: vi.fn(), executeBatch: vi.fn() }));
 vi.mock("../../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -97,8 +97,8 @@ describe("apple-account reorder API", () => {
   });
 
   it("rejects a partial order so no two rows can share one sort_order", async () => {
-    // 只校验「提交的 id 都存在」时，未提交的行保留旧 sort_order，与提交行产生
-    // 重复值，排序语义变模糊。必须要求提交的集合与库里的集合**完全一致**。
+  // If validation checks only that submitted IDs exist, omitted rows keep their old sort_order and
+  // can collide with submitted rows, making the order ambiguous. Require an **exact match** with the database set.
     vi.mocked(queryAll).mockResolvedValue([{ id: 1 }, { id: 2 }]);
     const resp = await onRequestPut(context({ order: [1] }) as never);
     expect(resp.status).toBe(400);
@@ -120,11 +120,11 @@ describe("apple-account reorder API", () => {
 
   it("returns 403 when CSRF is invalid", async () => {
     vi.mocked(verifyCsrf).mockResolvedValue(false);
-    // 提交完整的 2 个 id，确保 403 来自 CSRF 而不是集合校验。
+  // Submit both IDs so that the 403 comes from CSRF validation rather than set validation.
     expect((await onRequestPut(context({ order: [1, 2] }) as never)).status).toBe(403);
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（503），且不得发 batch。
+  // W5-15: fail closed with 503 when the revocation table is unavailable; do not run a batch.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestPut(context({ order: [1, 2] }) as never);
@@ -133,7 +133,7 @@ describe("apple-account reorder API", () => {
     expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
   });
 
-  /** W9-4：排序改的是展示顺序，也属账号变更，必须留审计。 */
+/** W9-4: Reordering changes the displayed order, so it is an account change and must be audited. */
   it("audits a successful reorder and a failed reorder", async () => {
     vi.mocked(queryAll).mockResolvedValue([{ id: 1 }, { id: 2 }]);
     const ok = await onRequestPut(context({ order: [2, 1] }) as never);

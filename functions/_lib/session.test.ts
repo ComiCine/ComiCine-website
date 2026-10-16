@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** HMAC 会话 cookie + D1 会话撤销表单元测试 */
+/** Unit tests for HMAC session cookies and the D1 session revocation table. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env";
@@ -171,11 +171,13 @@ describe("runtime config", () => {
 });
 
 /**
- * requireAdminSession 是所有管理端点的鉴权收口（原先 8 处各抄一份），
- * 401 / 403 / 503 三种拒绝语义与 no-store 头在此集中验证。
+ * requireAdminSession is the shared authorization boundary for all admin
+ * endpoints; eight copies previously existed. Verify its 401, 403, and 503
+ * rejection behavior and no-store headers here.
  *
- * requireAdminSession 走的是模块内 requireAuth 绑定，无法用 spyOn 替换，
- * 因此这里签发真实 cookie + 桩化 D1 撤销表，跑的是完整校验链路。
+ * requireAdminSession uses the module's bound requireAuth and cannot be
+ * replaced with spyOn. Issue a real cookie and stub the D1 revocation table to
+ * exercise the full validation path.
  */
 describe("requireAdminSession", () => {
   async function cookieFor(role: "admin" | "viewer"): Promise<Request> {
@@ -183,7 +185,7 @@ describe("requireAdminSession", () => {
     return requestWith(cookie.split(";")[0]);
   }
 
-  /** requireAuth 需在 D1 撤销表里确认会话仍有效。 */
+/** requireAuth must confirm the session is still valid in the D1 revocation table. */
   function grantRow(role: "admin" | "viewer"): void {
     vi.mocked(queryAll).mockResolvedValue([
       { sid: "sid-1", sub: "user-1", role, auth_at: 1, exp: 9_999_999_999, revoked_at: null },
@@ -228,11 +230,12 @@ describe("requireAdminSession", () => {
 });
 
 /**
- * requireRecentAdminSession：明文密码查看的 step-up 闸门（tasks/21 T2）。
+ * requireRecentAdminSession: step-up gate for revealing plaintext passwords (tasks/21 T2).
  *
- * 判定顺序与 requireAdminSession 一致（鉴权 → 非 admin 403 → 近期认证 401），
- * 所以这里同时验证“顺序不倒退”：viewer 即使 authAt 很新也还是 403，
- * 未登录还是 401「未登录」而不是 reauth。
+ * Keep the same order as requireAdminSession: authenticate, return 403 for
+ * non-admins, then return 401 if recent authentication is required. Verify
+ * that viewers still get 403 even with a recent authAt and unauthenticated
+ * users still get 401 rather than a reauthentication response.
  */
 describe("requireRecentAdminSession", () => {
   const NOW_SECONDS = 1_800_000_000;
@@ -314,8 +317,9 @@ describe("requireRecentAdminSession", () => {
   });
 
   it("rejects a future authAt instead of letting a negative age pass", async () => {
-    // `age = now - authAt` 只判上界时负数永远通过。今天不可利用（authAt 有签名），
-    // 但这是守护「明文密码查看」的唯一一道门，方向必须封闭。
+// Checking only the upper bound on `age = now - authAt` would let negative
+// ages pass. The signed authAt cannot currently be exploited, but this is the
+// only gate protecting plaintext password access, so reject future values too.
     grantRow("admin");
     for (const age of [-1, -3600]) {
       const resp = (await requireRecentAdminSession(env, await cookieWithAge(age))) as Response;

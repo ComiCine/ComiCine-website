@@ -17,16 +17,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Limooo → Cloudflare Pages 静态化构建脚本
+"""Static-site build script for Limooo on Cloudflare Pages.
 
-把 Jinja 模板按 4 种语言预渲染成 public/ 下的静态 HTML，并生成：
-  - public/<lang>/index.html / services.html / contact.html / not-found.html
-    （中间件按语言吐到干净 URL）
-  - public/static/ 静态资源镜像
-  - functions/api/i18n/[lang].ts + functions/_data/i18n.ts（前端语言切换用）
+Prerender Jinja templates as static HTML in public/ for four languages, and generate:
+  - public/<lang>/index.html, services.html, contact.html, and not-found.html
+    (middleware serves these at clean language-aware URLs)
+  - A static asset mirror under public/static/
+  - functions/api/i18n/[lang].ts and functions/_data/i18n.ts for frontend language switching
 
-运行：python3 build.py
-输出目录：public/（git 只保留 .gitkeep，部署用 wrangler pages deploy 直传）
+Run with: python3 build.py
+Output directory: public/ (Git keeps only .gitkeep; deployment uploads it with wrangler pages deploy)
 """
 
 import hashlib
@@ -40,26 +40,26 @@ import sys
 
 from flask import Flask, g, render_template
 
-# 这两个是**可选依赖**：缺了要降级成 None（该不该报错由
-# check_image_prerequisites 在动 public/ 之前判定，它负责 raise）。
-# `x = None` 与 import 推出的 Module 冲突，这里是全仓库唯一需要放行的地方，
-# 精确到 assignment 一条——不写裸 ignore，也不全局关掉检查。
+# These are **optional dependencies**: use None when they are unavailable. Whether to fail is decided by
+# check_image_prerequisites before public/ is modified; that function raises when needed.
+# `x = None` conflicts with the Module type inferred from the import. This is the only place in the repository that needs an exception,
+# limited to this assignment rather than a blanket ignore or a global check override.
 try:
     from PIL import Image
 except ImportError:
     Image = None  # type: ignore[assignment]
 
 try:
-    # 本仓库不带 cairosvg stub，类型由 typings/cairosvg/__init__.pyi 提供。
-    # 这里只对「这个包没有 py.typed」这一条放行（不是 ignore_missing_imports
-    # 全局关掉第三方检查）；它的 svg2png 调用点仍有真类型。
-    # cairosvg 自己不带 py.typed，类型由仓库里的 typings/cairosvg/__init__.pyi
-    # 提供（mypy 直接认这份 stub，所以这里不需要 ignore）。
+    # The repository provides the cairosvg types in typings/cairosvg/__init__.pyi.
+    # Allow only for this package lacking py.typed; do not use ignore_missing_imports to
+    # disable checks for all third-party packages. Its svg2png call site still has real types.
+    # cairosvg does not include py.typed; the repository stub at typings/cairosvg/__init__.pyi
+    # provides its types. mypy recognizes this stub, so no ignore is needed here.
     import cairosvg
 except (ImportError, OSError):
-    # cairosvg 依赖本地 libcairo；缺失时 cairocffi 抛的是 OSError 而非
-    # ImportError（Linux/无 Homebrew 环境常见），这里一并降级为"不可用"，
-    # 由 generate_watermarks 判断是否真的需要水印。
+    # cairosvg depends on the local libcairo library. When it is missing, cairocffi raises OSError rather than
+    # ImportError, which is common on Linux or systems without Homebrew. Treat both cases as unavailable,
+    # and let generate_watermarks decide whether watermarking is required.
     cairosvg = None  # type: ignore[assignment]
 
 
@@ -87,11 +87,11 @@ from config import (
 
 FUNCTIONS_DIR = os.path.join(BASE_DIR, "functions")
 
-# 生成物（functions/_lib/config.ts、functions/_data/*.ts、functions/api/i18n/[lang].ts）
-# 顶部的 AGPL 头必须由生成器产出，否则下次 build 会被抹掉（tasks/22 W8-7）。
-# 措辞与 src/config.py 等手写文件里的头逐字一致，只把注释符号换成 TS 的块注释。
-# ops/check_gate_trust.py 生成 functions/_data/gateTrust.ts 时有一份同文副本，
-# 改这里请一并改那边。
+# Generated files (functions/_lib/config.ts, functions/_data/*.ts, and functions/api/i18n/[lang].ts)
+# must get their AGPL headers from the generator or the next build will remove them (tasks/22 W8-7).
+# The wording matches headers in handwritten files such as src/config.py; only the comment syntax changes to a TypeScript block comment.
+# ops/check_gate_trust.py has a matching copy for functions/_data/gateTrust.ts.
+# Update both copies together.
 LICENSE_HEADER_TS = """\
 /**
  * Limooo - serverless personal website and admin system
@@ -115,11 +115,12 @@ LICENSE_HEADER_TS = """\
 
 
 def preview_localization_patterns() -> dict[str, re.Pattern[str]]:
-    """预览产物本地化用的正则：域名一律由契约常量现算。
+    """Return preview-localization patterns built from contract domain constants.
 
-    历史实现把根域名/图片域名手写成一组转义过的域名字面量正则，改契约也不跟随；
-    这里每次调用都从 ROOT_DOMAIN / IMAGE_ASSET_HOST / IMAGE_WATERMARK_HOST 构造，
-    所以「改域名只改 config-contract.json」对预览同样成立。
+    The previous implementation hard-coded escaped domain literals for the root and
+    image hosts, so contract changes did not reach preview output. Build patterns from
+    ROOT_DOMAIN, IMAGE_ASSET_HOST, and IMAGE_WATERMARK_HOST on each call, so changing
+    config-contract.json is sufficient for previews too.
     """
     return {
         "asset": re.compile(
@@ -139,7 +140,7 @@ def preview_localization_patterns() -> dict[str, re.Pattern[str]]:
 
 
 def preview_subdomain_pages() -> tuple[tuple[str, str], ...]:
-    """预览里「子域页面 → 本地文件名」的映射，子域主机名同样来自契约。"""
+    """Map preview subdomain pages to local filenames using hostnames from the contract."""
     return (
         (SERVICES_HOST, "services.html"),
         (CONTACT_HOST, "contact.html"),
@@ -150,17 +151,17 @@ def preview_subdomain_pages() -> tuple[tuple[str, str], ...]:
 
 CONTRACT_PATH = os.path.join(BASE_DIR, "config-contract.json")
 
-# 作品集卡片缩略图：只保留足够卡片显示的分辨率，避免首屏直接下载 1080×1440 原图
+# Portfolio card thumbnails: keep only resolutions large enough for the cards, so the first view does not download 1080×1440 originals.
 PORTFOLIO_THUMB_WIDTHS = (480, 640, 800)
 PORTFOLIO_THUMB_AVIF_QUALITY = 55
 
-# 并行/备份过程可能产生 “visitor 2.js”“visitors 3.ts” 等带空格的副本，
-# 它们不是站点资源；构建时统一跳过，避免误部署到 public/。
+# Parallel or backup processes may create copies with spaces, such as “visitor 2.js” or “visitors 3.ts”.
+# These are not site assets; skip them during the build so they are not deployed to public/.
 _PARALLEL_ARTIFACT_RE = re.compile(r"\s\d+\.(?:ts|js|py|sql|json|md|map)$")
 
-# 只给 Tailwind CLI 当输入用的源码文件，不随站点发布：
-# 线上 /static/tailwind.input.css 只是 59 字节的 @tailwind 指令，
-# 发出去既没用又暴露构建细节（预编译产物是 tailwind.css）。
+# Source file used only as Tailwind CLI input; do not publish it with the site.
+# The live /static/tailwind.input.css would contain only a 59-byte @tailwind directive,
+# which is useless to visitors and exposes build details. The precompiled asset is tailwind.css.
 _STATIC_EXCLUDE_NAMES = frozenset({"tailwind.input.css"})
 
 
@@ -180,7 +181,7 @@ def _static_ignore(dirpath: str, names: list[str]) -> set[str]:
 
 
 def _remove_bad_artifacts(root: str) -> None:
-    """构建完成后清理外部进程可能再次写入的 .DS_Store / 并行副本。"""
+    """After the build, remove .DS_Store files or parallel copies that external processes may have written."""
     for dirpath, dirnames, filenames in os.walk(root, topdown=False):
         for name in filenames:
             if (
@@ -198,7 +199,7 @@ def _remove_bad_artifacts(root: str) -> None:
 
 
 def write_pages_edge_config(out_dir: str) -> None:
-    """生成 Pages _routes.json 与 _headers，静态资源不再进 Functions。"""
+    """Generate Pages _routes.json and _headers so static assets bypass Functions."""
     with open(os.path.join(out_dir, "_routes.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -208,10 +209,10 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/static/*",
                     "/favicon.svg",
                     "/Limooo-xtext.svg",
-                    # 爬虫/AI 工具的入口文件（2026-10-12）：完全绕过 Functions。
-                    # 这三份必须**无门禁**可达——否则未验证的爬虫拿到的是一张
-                    # 403 挑战页（`/robots.txt` 曾被门禁原地替换过），
-                    # 既读不到规则，也会把「站点不可访问」写进它们的索引。
+                    # Crawler and AI entry files (2026-10-12): bypass Functions entirely.
+                    # These three files must be reachable **without the gate**; otherwise an unverified crawler receives a
+                    # 403 challenge page. The gate previously replaced `/robots.txt` in place,
+                    # preventing crawlers from reading the rules and causing them to index the site as inaccessible.
                     "/robots.txt",
                     "/llms.txt",
                     "/sitemap.xml",
@@ -256,34 +257,35 @@ def write_pages_edge_config(out_dir: str) -> None:
         )
 
 
-# 爬虫 / AI 工具的入口文件（2026-10-12）
+# Crawler and AI entry files (2026-10-12)
 #
-# 站点对爬虫与 AI 工具是**开放**的（用户 2026-10-12 定），门禁只留给
-# 浏览器/未知来源。robots.txt 的爬虫规则有**两个身份**：
+# The site is **open** to crawlers and AI tools (user decision on 2026-10-12); the gate is reserved for
+# browsers and unknown sources. The robots.txt rules serve **two purposes**:
 #
-#   1. 线上 `/robots.txt` 的爬虫规则（本函数从源文件复制）；
-#   2. 门禁放行名单的**唯一来源** —— `ops/check_gate_trust.py` 解析源文件里的每一条
-#     显式 `User-agent:`（`*` 除外），生成 `GATE_TRUST_CRAWLER_UAS`，
-#      这些 UA 免人机验证（见 functions/_lib/bots.ts）。
-# `Sitemap` 行由本函数根据 config-contract.json 的 root_domain 追加，避免域名重复维护。
+#   1. The live crawler rules in `/robots.txt`, copied from the source file here.
+#   2. The **only source** of gate allowlist entries: `ops/check_gate_trust.py` parses each explicit
+#      `User-agent:` entry except `*` and generates `GATE_TRUST_CRAWLER_UAS`.
+#      These user agents bypass human verification (see functions/_lib/bots.ts).
+# This function adds the `Sitemap` line using root_domain from config-contract.json, avoiding duplicate domain configuration.
 #
-# 2026-10-12 之前这是两份东西（内部名单 docs/lists/crawlers.txt + 构建器里手写的
-# robots 文本），改一个爬虫要同时改两处、还可能改漏。现在只有
-# `docs/lists/robots.txt` 一份：加一个爬虫 = 加一行 `User-agent:`。
+# Before 2026-10-12 there were two sources: docs/lists/crawlers.txt and a crawler list hardcoded in the builder.
+# Adding a crawler required editing both and could miss one. There is now only
+# `docs/lists/robots.txt`; add a crawler by adding one `User-agent:` line.
 ROBOTS_SOURCE = os.path.join(BASE_DIR, "docs", "lists", "robots.txt")
 
 
 def write_discovery_files(out_dir: str) -> None:
-    """把 robots.txt、llms.txt 与 sitemap.xml 落进产物根目录。
+    """Write robots.txt, llms.txt, and sitemap.xml to the output root.
 
-    robots.txt 的爬虫规则来自 `docs/lists/robots.txt`；Sitemap 行使用契约里的
-    root_domain 生成。三份都必须放在产物根目录：放进 `static/` 会变成
-    `/static/robots.txt`，那不是爬虫会去读的地址。
+    Crawler rules for robots.txt come from `docs/lists/robots.txt`; the Sitemap line
+    uses root_domain from the contract. All three files must be at the output root:
+    placing them under `static/` would serve `/static/robots.txt`, which crawlers do
+    not check.
     """
     with open(ROBOTS_SOURCE, encoding="utf-8") as f:
         robots = f.read()
-    # 源文件写坏（清空、误删 User-agent 组）时**构建就失败**：线上 robots.txt
-    # 同时也是门禁名单，空名单等于悄悄把爬虫全部关回门禁页。
+    # If the source is invalid (empty or missing a User-agent group), **fail the build**. The live robots.txt
+    # also supplies the gate allowlist, so an empty list would silently put all crawlers behind the gate.
     if "User-agent: *" not in robots or "User-agent: GPTBot" not in robots:
         raise RuntimeError(f"{ROBOTS_SOURCE} does not look like the robots.txt source any more")
     with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
@@ -344,25 +346,25 @@ PORTFOLIO_THUMB_QUALITY = 75
 
 
 def _app_instance(appmod) -> Flask:
-    """兼容传入 Flask 模块（旧测试）或 Flask 应用实例（构建期纯渲染）。"""
+    """Accept either a Flask module (legacy tests) or a Flask app (build-time rendering)."""
     return appmod.app if hasattr(appmod, "app") else appmod
 
-# (模板, 输出文件名, 渲染路径) —— 用 Host: limooo.cn 渲染（is_prod=True），
-# 导航链接保留子域绝对地址（limooo.cn / services.limooo.cn / contact.limooo.cn），
-# 由中间件按主机名把对应语言页面吐到干净 URL，不做语言路径前缀。
+# (template, output filename, render path). Render with Host: limooo.cn (is_prod=True),
+# preserving absolute subdomain links (limooo.cn, services.limooo.cn, contact.limooo.cn) in navigation.
+# Middleware serves the matching language page at a clean URL based on the hostname, without a language path prefix.
 PAGES = (
     ("index.html", "index.html", "/", None),
     ("services.html", "services.html", "/services", None),
     ("contact.html", "contact.html", "/contact", None),
     ("404.html", "not-found.html", "/404", None),
-    # 子域专属管理页（visitor.limooo.cn / account.limooo.cn/apple），由中间件按主机名吐出
+    # Subdomain-specific admin pages (visitor.limooo.cn / account.limooo.cn/apple) are served by middleware based on the hostname.
     ("visitor.html", "visitor.html", "/visitor", None),
     ("apple-account.html", "apple-account.html", "/apple-account", None),
-    # 统一跳转页（redirect.limooo.cn）：预渲染默认目标（主站首页），实际跳转参数由中间件拼接
+    # Shared redirect page (redirect.limooo.cn): prerender the default target (the main home page); middleware adds the actual redirect parameters.
     ("redirect.html", "redirect.html", "/r", "redirect"),
-    # 自建登录页已随 Cloudflare Access 接管下线（tasks/17 §11.10）。
-    # 模板与样式保留在 src/templates/login.html / src/static/css/login.css 作为
-    # 备份（不参与构建、不发布），万一要切回自建登录可直接恢复这一行。
+    # The custom login page was retired when Cloudflare Access took over (tasks/17 §11.10).
+    # Keep its template and styles in src/templates/login.html and src/static/css/login.css as
+    # a backup. They are not built or published; restore this entry if custom login is needed again.
 )
 
 GATE_I18N_KEYS = (
@@ -387,7 +389,7 @@ GATE_I18N_KEYS = (
 )
 
 
-# 跳转页共享文案（functions/_data/runtime.ts）；footer_* 与门禁页共用同一批键。
+# Shared redirect-page copy (functions/_data/runtime.ts); footer_* keys are also used by the gate page.
 REDIRECT_I18N_KEYS = (
     ("title", "redirect_title"),
     ("text", "redirect_text"),
@@ -400,11 +402,13 @@ REDIRECT_I18N_KEYS = (
 def _require_locale_keys(
     lang: str, keys: tuple[tuple[str, str], ...]
 ) -> dict[str, str]:
-    """按「输出键 → locale 键」读取某语言的文案；缺键或空值即 RuntimeError。
+    """Read copy for one language through an output-key-to-locale-key mapping.
 
-    门禁页与跳转页共享这一份收口：历史实现里跳转页对 redirect_title /
-    redirect_text 用了中文字面量兜底，某个 locale 丢了键就会在英/日/韩跳转页
-    静默显示简体中文，而构建照样全绿。缺键属于契约破损，只能构建失败。
+    Gate and redirect pages share this check. The redirect page previously fell back
+    to Chinese literals for redirect_title and redirect_text. If a locale missed a
+    key, English, Japanese, or Korean redirects silently displayed Simplified Chinese
+    while the build still passed. Missing keys violate the contract, so the build must
+    fail.
     """
     path = os.path.join(LOCALES_DIR, f"{lang}.json")
     data = load_translations()[lang]
@@ -420,11 +424,12 @@ def _require_locale_keys(
 def validate_locale_completeness(
     translations: dict[str, dict[str, str]] | None = None
 ) -> None:
-    """每种语言都必须覆盖 key_fallback_lang 的全部键，否则构建失败。
+    """Require every language to include all keys from key_fallback_lang.
 
-    HTML 页脚（_footer.html 的 footer_rights / footer_source / footer_source_link）
-    走模板里的 `_()`：找不到键时会回退到 key_fallback_lang，于是英文页面会静默
-    显示中文。只有把「缺键」变成构建失败，契约才真正生效。
+    The HTML footer (footer_rights, footer_source, and footer_source_link in
+    _footer.html) uses the template's `_()` helper. Missing keys fall back to
+    key_fallback_lang, which caused English pages to silently show Chinese. Making
+    missing keys fail the build enforces the contract.
     """
     translations = translations if translations is not None else load_translations()
     reference = translations[KEY_FALLBACK_LANG]
@@ -443,18 +448,18 @@ def validate_locale_completeness(
 
 
 def _load_gate_i18n() -> dict[str, dict[str, str]]:
-    """从 locales/*.json 读取门禁文案，替代 build.py 中的硬编码字典。"""
+    """Read gate-page copy from locales/*.json instead of hard-coded dictionaries."""
     return {lang: _require_locale_keys(lang, GATE_I18N_KEYS) for lang in LANGS}
 
 GATE_I18N = _load_gate_i18n()
 
 
 def render_page(appmod, template: str, path: str, lang: str, extra=None) -> str:
-    """用 Flask 渲染上下文渲染单个页面（Host 固定为 limooo.cn）"""
+    """Render one page with Flask context and Host fixed to limooo.cn."""
     app = _app_instance(appmod)
     kwargs = {}
     if extra == "redirect":
-        # 预渲染统一跳转页外壳；实际 to / preload 由中间件按请求动态注入。
+        # Prerender the shared redirect-page shell; middleware injects the actual target and preload images per request.
         kwargs = {
             "to": "{{to}}",
             "preload": False,
@@ -465,26 +470,26 @@ def render_page(appmod, template: str, path: str, lang: str, extra=None) -> str:
     with app.test_request_context(path, headers={"Host": ROOT_DOMAIN}):
         g.lang = lang
         html = render_template(template, **kwargs)
-    # 语言由模板里的 <html lang="{{ g.lang }}"> 直接渲染，这里不再做字符串替换。
-    # 相对资源统一加根斜杠：模板里是 src="static/..."，在 /zh-cn 这类子路径下
-    # 会解析错位，改成 /static/... 后任何路径都正确（配合中间件干净 URL）
+    # The template renders the language directly in <html lang="{{ g.lang }}">; no string replacement is needed here.
+    # Add a leading slash to relative assets. A template path such as src="static/..." resolves incorrectly under a path like /zh-cn,
+    # while /static/... works at every path with the middleware clean-URL routing.
     html = html.replace('src="static/', 'src="/static/')
     html = html.replace('href="static/', 'href="/static/')
     return html
 
 
 def write_not_found_fallback(appmod, out_dir: str) -> None:
-    """让 Pages 将所有静态 404 请求转到主站的品牌 404 页面。"""
+    """Route all static 404 requests on Pages to the main site's branded 404 page."""
     html = render_page(appmod, "404-fallback.html", "/404", KEY_FALLBACK_LANG)
     with open(os.path.join(out_dir, "404.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
 def render_gate(appmod, lang: str) -> str:
-    """按语言预渲染人机验证门禁页（auth.limooo.cn/__gate）"""
+    """Prerender the human-verification gate page for each language (auth.limooo.cn/__gate)."""
     app = _app_instance(appmod)
     t = GATE_I18N[lang]
-    # sitekey 与完整 i18n 由 /__gate/config 运行时下发；构建产物不写密钥相关值。
+    # /__gate/config provides the site key and full i18n data at runtime; do not write secret-related values into build output.
     turnstile_html = '<div id="turnstile-wrap" class="turnstile-wrap"></div>'
     gate_i18n_json = json.dumps(GATE_I18N, ensure_ascii=False).replace("</", "<\\/")
     with app.test_request_context("/__gate", headers={"Host": GATE_HOST}):
@@ -509,14 +514,14 @@ def render_gate(appmod, lang: str) -> str:
             host="{{host}}",
             next="{{next}}",
         )
-    # 语言同样由模板的 <html lang="{{ g.lang }}"> 渲染，不做字符串替换。
+    # The template also renders the language in <html lang="{{ g.lang }}">; do not replace it as a string.
     return html
 
 
 def preview_i18n_patch() -> str:
-    """预览版语言切换补丁：内联 4 语言字典，切换语言不依赖 /api/i18n"""
+    """Add the four-language dictionary inline for preview switching without /api/i18n."""
     data: dict[str, dict[str, str]] = load_translations()
-    # 内联到 <script> 前转义 </script> 闭合序列，防止翻译文案意外闭合脚本
+    # Escape a closing </script> sequence before inlining content to prevent translated copy from closing the script unexpectedly.
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return (
         "<script>"
@@ -532,30 +537,30 @@ def preview_i18n_patch() -> str:
 
 
 def write_config_functions() -> None:
-    """从 config-contract.json 生成 Pages 侧常量模块（唯一事实源）。"""
+    """Generate the Pages-side constants module from the config-contract.json source of truth."""
     with open(CONTRACT_PATH, encoding="utf-8") as f:
         contract = json.load(f)
 
     lines = [
         LICENSE_HEADER_TS.rstrip("\n"),
         "",
-        "/** 由 build.py 自动生成，勿手改；修改配置请编辑 config-contract.json。 */",
+        "/** Generated by build.py. Do not edit; change config-contract.json instead. */",
         "export const CONTRACT = " + json.dumps(contract, ensure_ascii=False, indent=2) + " as const;",
         "",
         "export const ROOT_DOMAIN = CONTRACT.root_domain;",
         "export const BASE_URL = `https://${ROOT_DOMAIN}`;",
         "export const WWW_HOSTNAME = `www.${ROOT_DOMAIN}`;",
-        # 只发射 functions/ 真正引用的常量。以下 15 个「CONTRACT 字段别名」经全量
-        # 扫描确认零引用（既无生产代码也无测试 import），已停止发射：它们只是把
-        # CONTRACT 的字段换个名字再导出一遍，留在这里就是生成的死代码。要用某个
-        # 值时直接从 CONTRACT 取字段，不要再加别名。
-        #   已删：SERVICES_HOSTNAME / CONTACT_HOSTNAME / GATE_HOST / REDIRECT_HOST /
+        # Emit only constants referenced by functions/. A full scan found no references to the 15 CONTRACT field aliases below
+        # in production code or test imports, so generation stopped. They only renamed
+        # CONTRACT fields and re-exported them, which made them dead generated code. Read a field directly from
+        # CONTRACT when needed; do not add aliases.
+        #   Removed: SERVICES_HOSTNAME / CONTACT_HOSTNAME / GATE_HOST / REDIRECT_HOST /
         #   IMAGE_BASE / MANAGED_HOSTS / SHARED_LANG_HOSTS / IMAGE_ASSET_BASE /
         #   IMAGE_WATERMARK_BASE / OBSERVABILITY_HMAC_ENV / WHITELIST_FILE /
         #   KEY_FALLBACK_LANG / THEME_COOKIE / THEME_COOKIE_MAX_AGE /
         #   PENDING_TTL_SECONDS
-        # 注：functions/_lib/cidr.ts 的 canonicalCidr 不在此列——它被
-        # cidr.test.ts 引用，不是零引用，保留。
+        # Note: canonicalCidr in functions/_lib/cidr.ts is not included here because it is used by
+        # cidr.test.ts; it is referenced and must remain.
         "export const VISITOR_HOSTNAME = `visitor.${ROOT_DOMAIN}`;",
         "export const APPLE_ACCOUNT_HOSTNAME = `account.${ROOT_DOMAIN}`;",
         "export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;",
@@ -588,7 +593,7 @@ def write_config_functions() -> None:
 
 
 def write_i18n_functions() -> None:
-    """把 locales/*.json 内联进 functions/_data/i18n.ts，并生成 /api/i18n/<lang>"""
+    """Inline locales/*.json into functions/_data/i18n.ts and generate /api/i18n/<lang>."""
     data: dict[str, dict[str, str]] = load_translations()
 
     ts_path = os.path.join(FUNCTIONS_DIR, "_data", "i18n.ts")
@@ -596,7 +601,7 @@ def write_i18n_functions() -> None:
     with open(ts_path, "w", encoding="utf-8") as f:
         f.write(
             LICENSE_HEADER_TS
-            + "\n// 由 build.py 自动生成，勿手改。\n"
+            + "\n// Generated by build.py. Do not edit by hand.\n"
             "export const translations: Record<string, Record<string, string>> = "
             + json.dumps(data, ensure_ascii=False, indent=2)
             + ";\n"
@@ -607,15 +612,16 @@ def write_i18n_functions() -> None:
     with open(os.path.join(route_dir, "[lang].ts"), "w", encoding="utf-8") as f:
         f.write(
             LICENSE_HEADER_TS
-            + '\n// 由 build.py 自动生成，勿手改。\n'
+            + '\n// Generated by build.py. Do not edit by hand.\n'
             'import { translations } from "../../_data/i18n";\n'
             "\n"
             "export const onRequestGet = ({ params }: { params: Record<string, string> }) => {\n"
             "  const lang = String((params as { lang?: string }).lang ?? \"\");\n"
-            "  // 必须用 hasOwnProperty 判定：translations 是普通对象字面量，\n"
-            "  // 直接 translations[lang] 会沿原型链取到 constructor / toString /\n"
-            "  // valueOf / __proto__ 等成员，被判成「支持的语言」后 JSON.stringify\n"
-            "  // 一个函数得到 undefined → 200 空体，还被 max-age=86400 缓存。\n"
+            "  // Use hasOwnProperty because translations is a plain object literal.\n"
+            "  // Direct lookup can return inherited members such as constructor,\n"
+            "  // toString, valueOf, or __proto__, incorrectly treating them as\n"
+            "  // supported languages. JSON.stringify on a function returns\n"
+            "  // undefined, which could produce a cached 200 response with an empty body.\n"
             "  if (!Object.prototype.hasOwnProperty.call(translations, lang)) {\n"
             '    return new Response(JSON.stringify({ error: "unsupported language" }), {\n'
             "      status: 404,\n"
@@ -632,14 +638,14 @@ def write_i18n_functions() -> None:
 
 
 def write_runtime_functions() -> None:
-    """把门禁/跳转页共享文案与预热图片生成 Pages 端独立模块，消除 middleware 重复维护。"""
-    # 缺键直接 RuntimeError：不允许用中文字面量兜底（否则英/日/韩跳转页
-    # 会静默显示简体中文而构建全绿）。
+    """Generate a Pages module for shared gate/redirect copy and preload images to avoid middleware duplication."""
+    # Raise RuntimeError for missing keys. Do not fall back to Chinese literals, or English, Japanese, and Korean redirect pages
+    # could silently display Simplified Chinese while the build still passes.
     redirect_i18n = {lang: _require_locale_keys(lang, REDIRECT_I18N_KEYS) for lang in LANGS}
     output = [
         LICENSE_HEADER_TS.rstrip("\n"),
         "",
-        "// 由 build.py 自动生成，勿手改。",
+        "// Generated by build.py. Do not edit by hand.",
         "export const GATE_I18N: Record<string, Record<string, string>> = "
         + json.dumps(GATE_I18N, ensure_ascii=False, indent=2)
         + ";",
@@ -666,10 +672,11 @@ def _sha256_file(path: str) -> str:
 
 
 def write_manifest() -> dict:
-    """生成 public/manifest.json，并报告与上一次构建产物的差异。
+    """Generate public/manifest.json and report differences from the previous build.
 
-    manifest 不包含时间戳，只包含文件哈希，保证同一源码在干净环境中的输出
-    可复现；部署脚本把整个 public/ 上传时，manifest 会作为构建证据一并上传。
+    The manifest contains file hashes but no timestamps, keeping output reproducible
+    for the same source in a clean environment. The deployment script uploads it with
+    public/ as build evidence.
     """
     files: dict[str, str] = {}
     for root, _dirs, names in os.walk(PUBLIC_DIR):
@@ -714,12 +721,13 @@ def write_manifest() -> dict:
 
 
 def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
-    """为作品集生成 640/800px WebP 缩略图到构建输出目录。
+    """Generate 640/800px WebP portfolio thumbnails in the build output directory.
 
-    缩略图只给首页卡片预览用；完整原图留在本地私有源目录，构建只发布缩略图。
+    Thumbnails are only for home-page card previews. Full-size originals stay in the
+    private local source directory; the build publishes thumbnails only.
     """
-    # 缩略图始终从源原图（src/static/portfolio）生成，避免依赖构建输出目录
-    # 里可能已被清除的原图副本。
+    # Always generate thumbnails from source images in src/static/portfolio instead of relying on copies in the build output directory
+    # that may already have been removed.
     source_dir = source_dir or os.path.join(STATIC_DIR, "portfolio")
     output_dir = output_dir or os.path.join(
         PUBLIC_DIR, "static", "portfolio", "thumbs"
@@ -730,8 +738,8 @@ def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
             "`pip install -r ops/requirements.txt` before build.py."
         )
 
-    # 作品集原图不入库（.gitignore: src/static/portfolio/），CI 干净 checkout
-    # 没有该目录；源图缺失时跳过缩略图生成，避免构建失败。
+    # Portfolio originals are not tracked (.gitignore: src/static/portfolio/), so a clean CI checkout
+    # has no such directory. Skip thumbnail generation when source images are missing so the build can succeed.
     if not os.path.isdir(source_dir):
         print(
             f"[build] portfolio originals dir missing: {source_dir}; skipping thumbnails",
@@ -757,15 +765,15 @@ def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
         base = os.path.splitext(name)[0]
         skipped: list[int] = []
         for width in PORTFOLIO_THUMB_WIDTHS:
-            # 只缩不放：源图比档位窄时放大只会得到更糊、更大的文件。
-            # src/static/portfolio/ 不入库、由人管理，档位是给常规 1080px 宽源图定的。
+            # Downscale only: enlarging a source image narrower than the target would create a blurrier, larger file.
+            # src/static/portfolio/ is untracked and maintained manually; these sizes are tuned for typical 1080px-wide source images.
             if width > image.width:
                 skipped.append(width)
                 continue
             height = round(image.height * width / image.width)
             thumb = image.resize((width, height), resampling)
             out_path = os.path.join(output_dir, f"{base}-{width}.webp")
-            # 并行构建可能重建 public/ 后删掉目录；保存前再次确保目录存在。
+            # A parallel build may recreate public/ and remove this directory; ensure it exists again before saving.
             os.makedirs(os.path.dirname(out_path), exist_ok=True)
             thumb.save(
                 out_path,
@@ -793,11 +801,12 @@ def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
 
 
 def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> bool:
-    """在动 public/ 之前校验图片前置条件；返回「是否有作品集源图」。
+    """Validate image prerequisites before touching public/; return whether portfolio sources exist.
 
-    这些检查原先散在 generate_watermarks 中途：一次缺 cairosvg 的构建会在
-    copytree 复制完原图之后才失败，留下一个含作品集完整原图、可被直接部署的
-    public/（W9-22）。放到 main() 开头先跑，失败就什么都不写。
+    These checks were previously spread through generate_watermarks. If cairosvg was
+    missing, the build failed after copytree had copied originals, leaving a public/
+    directory with full portfolio images that could be deployed directly (W9-22).
+    Run checks at the start of main() so a failure writes nothing.
     """
     source_root = source_root or STATIC_DIR
     wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
@@ -825,25 +834,26 @@ def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> b
 
 
 def generate_watermarks(source_root=None, out_root=None) -> int:
-    """从源原图生成左下角水印变体到 public/static/wm/。
+    """Generate watermarked variants from source originals in public/static/wm/.
 
-    规则（与 Worker 里的 shouldWatermark 保持一致）：
-      - 只处理 portfolio/ 顶层的 png / jpg / jpeg / webp
-      - 其他路径（icons / qr-codes 等）不生成水印变体
-    使用 Limooo-xtext.svg 并保留素材本身的透明度，直接叠在照片左下角，不添加底色。
-    水印尺寸：图片短边的 25%（下限 96px），边距为图片短边的 2%（下限 12px）。
+    Rules, matching shouldWatermark in the Worker:
+      - Process only top-level png, jpg, jpeg, and webp files under portfolio/.
+      - Do not create watermarked variants for other paths such as icons/ or qr-codes/.
+    Use Limooo-xtext.svg, preserve its transparency, and overlay it at the lower-left
+    corner without a background. The watermark is 25% of the image's shorter side
+    (minimum 96px), with a margin of 2% of that side (minimum 12px).
     """
-    # 尺寸参数；水印颜色和透明度由 SVG 素材自身决定。
-    WATERMARK_SCALE = 0.25       # 水印宽度 = 图片短边的比例
-    WATERMARK_MIN_W = 96         # 水印宽度下限（px）
+    # Size parameters; the SVG asset defines watermark color and opacity.
+    WATERMARK_SCALE = 0.25       # Watermark width as a fraction of the image short edge
+    WATERMARK_MIN_W = 96         # Minimum watermark width in pixels
 
-    # A2：水印变体由源原图（src/static/portfolio）生成，公开 bundle 只发布
-    # /static/wm/portfolio/*，原图不再对外。
+    # A2: Generate watermarked variants from source originals in src/static/portfolio; the public bundle contains only
+    # /static/wm/portfolio/*; originals are no longer public.
     source_root = source_root or STATIC_DIR
     out_root = out_root or os.path.join(PUBLIC_DIR, "static", "wm")
 
-    # CI runner 不含 gitignore 的 src/static/portfolio：没有源图时无需水印，
-    # 跳过而不是失败；只有确实要水印却缺素材/缺依赖时才报错。
+    # A clean CI checkout has no gitignored src/static/portfolio directory. Without source images, watermarking is unnecessary,
+    # so skip it instead of failing. Fail only when watermarking is required but assets or dependencies are missing.
     wm_path = os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
     if not check_image_prerequisites(source_root, wm_path):
         print("[build] no portfolio files to watermark, skipping watermark generation", flush=True)
@@ -857,7 +867,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     for root, _dirs, files in os.walk(source_root):
         for name in files:
             rel = os.path.relpath(os.path.join(root, name), source_root)
-            # 站点只扫描 portfolio/ 顶层源图；子目录与其它素材不参与发布。
+            # Scan only top-level source images in portfolio/; subdirectories and other assets are not published.
             if os.path.dirname(rel) != "portfolio":
                 continue
             if not re.search(r"\.(png|jpe?g|webp)$", name, re.I):
@@ -865,7 +875,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
             try:
                 with Image.open(os.path.join(root, name)) as opened:
                     im = opened.convert("RGBA")
-            except Exception as exc:  # 无法解码的图直接跳过
+            except Exception as exc:  # Skip images that cannot be decoded.
                 print(f"[build] watermark skip {rel}: {exc}", flush=True)
                 continue
 
@@ -899,7 +909,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
 
 
 def restore_qr_png_compatibility(qr_codes_dir: str) -> int:
-    """为移入 png/ 的二维码原图保留原有静态 URL。"""
+    """Preserve existing static URLs for QR-code originals moved into png/."""
     source_dir = os.path.join(qr_codes_dir, "png")
     if not os.path.isdir(source_dir):
         return 0
@@ -923,22 +933,25 @@ def restore_qr_png_compatibility(qr_codes_dir: str) -> int:
 def remove_public_portfolio_originals(
     portfolio_dir: str, *, keep_thumbs: bool = True
 ) -> int:
-    """删除 public/static/portfolio 中除 thumbs/ 外的所有内容。
+    """Delete everything under public/static/portfolio except thumbs/.
 
-    A2：作品集完整原图不再对外发布，只公开水印变体（/static/wm/portfolio/*）与
-    首页缩略图（/static/portfolio/thumbs/*）。递归清理可以覆盖意外残留的子目录、
-    SVG 和并行副本（如 “IMG_0064 2.webp”）。
+    A2: Full-size portfolio originals are no longer published. Only watermarked images
+    (/static/wm/portfolio/*) and home-page thumbnails (/static/portfolio/thumbs/*) are
+    public. Recursive cleanup also removes leftover subdirectories, SVGs, and duplicate
+    copies such as "IMG_0064 2.webp".
 
-    首次清理传 ``keep_thumbs=False``，移除旧构建留下的缩略图；生成当前源图缩略图后，
-    再用默认值清理并保留新生成的 ``thumbs/``。
+    The first cleanup uses ``keep_thumbs=False`` to remove thumbnails from an older
+    build. After generating thumbnails from current sources, clean again with the
+    default value to preserve the new ``thumbs/`` directory.
 
-    调用时机：紧跟 ``shutil.copytree(STATIC_DIR, public/static)`` 之后，**在任何
-    可能失败的步骤之前**。这样在缺 cairosvg、缺水印 SVG 或 Ctrl-C 时，旧 public/
-    中的作品集文件已先清理，而 wrangler.toml 的 pages_build_output_dir 正指向它。
-    水印与缩略图都从源图目录
-    （src/static/portfolio）生成，不读这里的副本，所以提前删除不影响产物。
+    Call immediately after ``shutil.copytree(STATIC_DIR, public/static)``, before any
+    step that can fail. If cairosvg or the watermark SVG is missing, or the build is
+    interrupted, portfolio files in the previous public/ output have already been
+    removed while wrangler.toml still points pages_build_output_dir at that directory.
+    Watermarks and thumbnails are generated from the source directory
+    (src/static/portfolio), not these copies, so early deletion does not affect output.
     """
-    # CI 干净 checkout 没原图，public/static/portfolio 可能不存在；缺失即跳过。
+    # A clean CI checkout has no originals, so public/static/portfolio may be absent; skip it when missing.
     if not os.path.isdir(portfolio_dir):
         print(
             f"[build] public portfolio originals dir missing: {portfolio_dir}; nothing to remove",
@@ -973,11 +986,12 @@ def remove_public_portfolio_originals(
 
 
 def verify_manifest(out_dir: str | None = None) -> int:
-    """校验 ``manifest.json`` 与实际产物逐字节一致；返回不一致的条目数。
+    """Verify manifest.json byte-for-byte against the build output and return the mismatch count.
 
-    部署脚本在 ``wrangler pages deploy`` 之前调用（``python src/build.py
-    --verify-manifest``）：此前 manifest 只被检查过“存在”，构建之后目录里被手改、
-    多放或删掉文件都没人发现。缺 manifest 或不一致都算失败（非 0）。
+    The deployment script calls this before ``wrangler pages deploy`` with
+    ``python src/build.py --verify-manifest``. Previously, the manifest was only
+    checked for existence, so manual edits, added files, and removed files after the
+    build went undetected. A missing manifest or any mismatch is a failure (nonzero exit).
     """
     out_dir = out_dir or PUBLIC_DIR
     manifest_path = os.path.join(out_dir, "manifest.json")
@@ -1030,7 +1044,7 @@ def verify_manifest(out_dir: str | None = None) -> int:
 
 
 def main() -> int:
-    # 从 docs/lists/whitelist.txt 生成门禁信任配置，与中间件共用同一事实源。
+    # Generate gate trust settings from docs/lists/whitelist.txt, the same source used by middleware.
     subprocess.run(
         [
             sys.executable,
@@ -1039,32 +1053,32 @@ def main() -> int:
         ],
         check=True,
     )
-    # locale 完整性：任何语言缺键都直接失败，不能让英文页面静默回退成中文。
+    # Locale integrity: fail if any language is missing a key; English pages must not silently fall back to Chinese.
     validate_locale_completeness()
-    # 构建态标记：只读最小 Flask 渲染器，不导入业务 app，不初始化数据库/密钥。
+    # Build-mode flag: use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     os.environ.setdefault("LIMOOO_BUILD", "1")
     from render_app import RENDER_APP as appmod
 
-    # 前置条件先校验，**再动 public/**：Pillow / cairosvg / 水印 SVG 任一缺失时
-    # 半成品目录会留下作品集完整原图，而 wrangler.toml 的 pages_build_output_dir
-    # 正指向 public/（W9-22）。这里失败就什么都不写。
+    # Validate prerequisites **before modifying public/**. If Pillow, cairosvg, or the watermark SVG is missing,
+    # a partial output could retain full portfolio originals while wrangler.toml points pages_build_output_dir
+    # at public/ (W9-22). Fail here before writing anything.
     check_image_prerequisites()
 
-    # 清空并重建输出目录（public/ 为纯生成产物）
+    # Clear and recreate the output directory; public/ contains generated files only.
     if os.path.isdir(PUBLIC_DIR):
         _remove_bad_artifacts(PUBLIC_DIR)
         shutil.rmtree(PUBLIC_DIR)
     os.makedirs(PUBLIC_DIR)
 
-    # Pages 边缘配置：静态资源完全绕过 Functions（否则每次请求都先冷启动
-    # 中间件后再读 ASSETS）；公开 HTML 仍由中间件按语言/门禁路由。
+    # Pages edge routing: static assets bypass Functions entirely. Otherwise each request would cold-start
+    # middleware before reading ASSETS. Middleware still routes public HTML by language and gate status.
     write_pages_edge_config(PUBLIC_DIR)
-    # 爬虫/AI 工具入口文件（robots.txt / llms.txt）：路径必须与 _routes.json 的
-    # exclude 名单成对出现，改一处就要改另一处。
+    # Crawler and AI entry files (robots.txt / llms.txt): these paths must match the
+    # _routes.json exclude list; update both locations together.
     write_discovery_files(PUBLIC_DIR)
 
-    # 1) 每个语言渲染所有公开页面
+    # 1) Render all public pages in each language
     for lang in LANGS:
         lang_dir = os.path.join(PUBLIC_DIR, lang)
         os.makedirs(lang_dir, exist_ok=True)
@@ -1072,54 +1086,54 @@ def main() -> int:
             html = render_page(appmod, template, path, lang, extra)
             with open(os.path.join(lang_dir, filename), "w", encoding="utf-8") as f:
                 f.write(html)
-        # 人机验证门禁页（auth.limooo.cn/__gate）
+        # Human-verification gate page (auth.limooo.cn/__gate)
         with open(os.path.join(lang_dir, "auth.html"), "w", encoding="utf-8") as f:
             f.write(render_gate(appmod, lang))
         print(f"[build] {lang} rendered", flush=True)
 
     write_not_found_fallback(appmod, PUBLIC_DIR)
 
-    # 3) 静态资源镜像
+    # 3) Mirror static assets
     shutil.copytree(
         STATIC_DIR,
         os.path.join(PUBLIC_DIR, "static"),
         dirs_exist_ok=True,
         ignore=_static_ignore,
     )
-    # 3.0) A2：静态资源复制后**立刻**清理公开 bundle 里的作品集旧产物。
-    #      源目录已整体排除；这里清理旧 public/ 中可能遗留的原图副本，
-    #      避免任何中途失败留下可被裸 `wrangler pages deploy` 发布的完整原图。
+    # 3.0) A2: **Immediately** remove old portfolio files from the public bundle after copying static assets.
+    #      The source directory is excluded; clean any original-image copies left in public/
+    #      so a failure cannot leave full originals that a bare `wrangler pages deploy` could publish.
     remove_public_portfolio_originals(
         os.path.join(PUBLIC_DIR, "static", "portfolio"), keep_thumbs=False
     )
     restore_qr_png_compatibility(
         os.path.join(PUBLIC_DIR, "static", "qr-codes")
     )
-    # 3.1) 作品集卡片缩略图（首页只加载这些，不再直接下载 1080×1440 原图）
+    # 3.1) Portfolio card thumbnails (the home page loads these instead of 1080×1440 originals)
     generate_portfolio_thumbs(
         os.path.join(STATIC_DIR, "portfolio"),
         os.path.join(PUBLIC_DIR, "static", "portfolio", "thumbs"),
     )
-    # 3.2) 水印变体（A2：公开 bundle 只发布水印全图 /static/wm/portfolio/*）
+    # 3.2) Watermarked variants (A2: the public bundle contains only full-size watermarked images at /static/wm/portfolio/*)
     generate_watermarks(STATIC_DIR, os.path.join(PUBLIC_DIR, "static", "wm"))
-    # 3.3) 兜底：构建期间若又混入原图/并行副本，这里再清一次（无新增则不打日志）
+    # 3.3) Fallback cleanup in case originals or parallel copies reappear during the build; stay quiet if nothing is removed.
     remove_public_portfolio_originals(
         os.path.join(PUBLIC_DIR, "static", "portfolio")
     )
-    # 门禁验证页引用的根路径 logo（放行路径之一）
+    # Root-level logo used by the gate page; one of the allowed paths.
     shutil.copy2(
         os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg"),
         os.path.join(PUBLIC_DIR, "Limooo-xtext.svg"),
     )
 
-    # 4) i18n Functions（前端语言切换接口）
+    # 4) i18n Functions (frontend language-switching endpoint)
     write_config_functions()
     write_i18n_functions()
     write_runtime_functions()
 
-    # 5) 子域预览（本地预览用，不入库）：生成的预览输出到 preview/templates/，
-    #    每个子域页面一个文件（预览默认语言），不按语言分文件夹，
-    #    并镜像 static/ 资源，HTML 里的图片引用改为本地相对路径（离线可看）
+    # 5) Subdomain previews (for local use, not tracked): write previews to preview/templates/.
+    #    Create one file per subdomain page in the preview default language, without language subdirectories,
+    #    and mirror static assets. Rewrite image references to local relative paths for offline viewing.
     PREVIEW_OUT = os.path.join(PREVIEW_DIR, "templates")
     if os.path.isdir(PREVIEW_DIR):
         shutil.rmtree(PREVIEW_DIR)
@@ -1130,8 +1144,8 @@ def main() -> int:
         dirs_exist_ok=True,
         ignore=_static_ignore,
     )
-    # 预览目录直接复用 public/ 已生成的缩略图（同一批源图、同一套参数），
-    # 避免同一次构建把 18 张缩略图重新编码一遍（webp + avif 共 36 个文件）。
+    # Reuse the thumbnails already generated in public/ for previews (same sources and parameters),
+    # avoiding re-encoding 18 thumbnails (36 WebP and AVIF files) during one build.
     _preview_thumbs = os.path.join(PREVIEW_DIR, "static", "portfolio", "thumbs")
     _public_thumbs = os.path.join(PUBLIC_DIR, "static", "portfolio", "thumbs")
     if os.path.isdir(_public_thumbs):
@@ -1146,63 +1160,63 @@ def main() -> int:
             os.path.join(STATIC_DIR, "portfolio"),
             _preview_thumbs,
         )
-    # 预览产物固定用中文（本地人工核对用）；真实站点语言列表来自契约
-    # supported_langs，这里只决定 preview/templates/*.html 用哪一份。
+    # Preview output uses Chinese for local review; the actual site language list comes from the contract.
+    # supported_langs. This setting only selects the language for preview/templates/*.html.
     PREVIEW_LANG = "zh-cn"
     preview_patterns = preview_localization_patterns()
     preview_pages = preview_subdomain_pages()
-    # 语言切换补丁对每个预览页都是同一段字符串：算一次复用即可。原先它在页面
-    # 循环里逐页调用，每个页面都要重读一遍 4 份 locale JSON 再 json.dumps 整个
-    # 字典（8 页 = 8 次），产物完全相同、纯属重复劳动。
+    # The language-switching patch is identical on every preview page, so compute it once and reuse it. Previously, the page loop
+    # recomputed it for every page, rereading all four locale JSON files and serializing the entire
+    # dictionary eight times. The output was identical, so this was redundant work.
     preview_i18n_html = preview_i18n_patch()
     src = os.path.join(PUBLIC_DIR, PREVIEW_LANG)
     for name in os.listdir(src):
         if name.endswith(".html"):
             html = open(os.path.join(src, name), encoding="utf-8").read()
-            # 资源引用本地化：https://<root_domain>/static/... 与
-            # https://<image_asset_host>/static/... 与 <image_watermark_host>/...
+            # Localize asset URLs: https://<root_domain>/static/... and
+            # https://<image_asset_host>/static/... and <image_watermark_host>/....
             # → ../static/...
-            # （只替换 HTML 标签属性，不碰 JS 里的绝对 URL；
-            #   三个域名都从契约常量构造，不手写 limooo.cn）
+            # Replace HTML tag attributes only; leave absolute URLs in JavaScript untouched.
+            #   Construct all three hostnames from contract values; do not hardcode limooo.cn.
             html = re.sub(preview_patterns["asset"], r'\1="../static/', html)
-            # 内联 CSS 里的根路径资源（门禁页 @font-face 的 url(/static/...)）同步本地化
+            # Also localize root-relative assets in inline CSS, such as the gate page @font-face url(/static/...).
             html = html.replace("url(/static/", "url(../static/")
             html = html.replace(
                 'src="/Limooo-xtext.svg"',
                 'src="../static/icons/Limooo-xtext.svg"',
             )
-            # 站内导航本地化：https://<子域>.<root_domain> → 同目录本地文件
-            # （子域主机名同样来自契约，不手写 limooo.cn）
+            # Localize site navigation: https://<subdomain>.<root_domain> becomes a local file in the same directory.
+            # Subdomain hostnames also come from the contract; do not hardcode limooo.cn.
             for host, page in preview_pages:
                 html = re.sub(
                     rf'href="https://{re.escape(host)}/?', f'href="{page}"', html
                 )
             html = re.sub(preview_patterns["root_href"], 'href="index.html"', html)
-            # redirect 预览默认目标也指向本地首页
+            # Point the redirect preview default target to the local home page too.
             html = re.sub(preview_patterns["root_url"], "url=index.html", html)
             html = html.replace(f'"https://{ROOT_DOMAIN}/"', '"index.html"')
-            # 门禁/跳转页的运行时注入占位符，在本地预览中填默认值
+            # Fill runtime-injected gate and redirect placeholders with default values for local previews.
             html = html.replace("{{host}}", ROOT_DOMAIN)
             html = html.replace("{{next}}", "/")
             html = html.replace("{{error}}", "")
             html = html.replace("{{preload}}", "[]")
             html = html.replace("{{preload_links}}", "")
             html = html.replace("{{to}}", "index.html")
-            # redirect 预览：静止展示跳转页，不自动跳走
+            # Redirect preview: show the page without automatically navigating.
             if name == "redirect.html":
                 html = re.sub(r'<meta http-equiv="refresh"[^>]*>', '', html)
                 html = html.replace(
                     "function go() { location.replace(target); }",
                     "function go() {}",
                 )
-            # 语言切换本地化：内联 4 语言字典（页面内可切换语言，无需 /api/i18n）
-            # 同一段补丁已在循环外算好（preview_i18n_html），这里只做替换。
+            # Localize language switching: inline all four dictionaries so pages can switch languages without /api/i18n.
+            # The shared patch was computed outside the loop as preview_i18n_html; replace it here.
             html = html.replace("</body>", preview_i18n_html + "</body>")
             with open(os.path.join(PREVIEW_OUT, name), "w", encoding="utf-8") as f:
                 f.write(html)
-    # 预览索引（列出所有子域页面，模板在 site/src/templates/preview.html）
+    # Preview index listing all subdomain pages; template: site/src/templates/preview.html.
     with appmod.test_request_context("/", headers={"Host": ROOT_DOMAIN}):
-        # 预览索引固定预览语言（模板用 <html lang="{{ g.lang }}">，不再写死 zh-cn）
+        # Set the preview index language here; the template uses <html lang="{{ g.lang }}"> instead of hardcoding zh-cn.
         g.lang = PREVIEW_LANG
         index_html = render_template(
             "preview.html",
@@ -1222,15 +1236,15 @@ def main() -> int:
         pass
     print(f"[build] preview generated for {len(LANGS)} languages", flush=True)
 
-    # 保留 .gitkeep（git 只跟踪它，生成内容不入库）
+    # Keep .gitkeep; Git tracks it, while generated content remains untracked.
     with open(os.path.join(PUBLIC_DIR, ".gitkeep"), "w", encoding="utf-8"):
         pass
 
-    # 外部进程可能在构建期间写入 .DS_Store / “file 2.ext” 副本，
-    # 在生成 manifest 和部署前统一清理。
+    # External processes may create .DS_Store files or copies such as “file 2.ext” during the build;
+    # remove them before generating the manifest and deploying.
     _remove_bad_artifacts(PUBLIC_DIR)
 
-    # 生成构建清单；部署脚本会在上传前校验产物哈希。
+    # Generate the build manifest; the deploy script verifies artifact hashes before upload.
     write_manifest()
 
     total = 0
@@ -1241,8 +1255,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # --verify-manifest：只校验现有产物与 manifest.json 是否一致（部署前由
-    # ops/pages_deploy.sh 调用），不做任何构建。
+    # --verify-manifest: check only whether existing artifacts match manifest.json. It is called before deployment by
+    # ops/pages_deploy.sh and does not build anything.
     if "--verify-manifest" in sys.argv[1:]:
         sys.exit(verify_manifest())
     sys.exit(main())

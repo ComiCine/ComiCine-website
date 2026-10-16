@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** /api/visitors/<hash>/ip：admin-only 单行解密。 */
+/** Tests admin-only decryption of a single record through /api/visitors/<hash>/ip. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./ip";
@@ -30,7 +30,7 @@ import type { Env } from "../../../_lib/env";
 vi.mock("../../../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../../../_lib/logging", () => ({ logEvent: vi.fn() }));
 vi.mock("../../../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -84,7 +84,7 @@ describe("visitor ip API", () => {
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（503），不能退化成 401/404。
+  // W5-15: fail closed with 503 when the revocation table is unavailable; do not downgrade to 401 or 404.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestGet(context(HASH, { VISITOR_IP_KEY: TEST_KEY } as Env) as never);
@@ -124,8 +124,9 @@ describe("visitor ip API", () => {
   });
 
   /**
-   * W9-4：解密明文 IP 是最敏感的读操作。同类的密码查看（reveal.ts）一直有审计，
-   * 这里此前一条都没有 —— 「谁在什么时候看了哪个访客的真实 IP」无从追溯。
+   * W9-4: Decrypting a plaintext IP is a highly sensitive read. Password reveals (reveal.ts) have always
+   * been audited, but this endpoint previously had no audit trail, so there was no way to determine
+   * who viewed a visitor's real IP or when.
    */
   describe("audit trail", () => {
     function auditCall() {
@@ -146,7 +147,7 @@ describe("visitor ip API", () => {
       const details = audit?.[3] as { outcome?: string; status?: number; message?: string };
       expect(details?.outcome).toBe("visitor_ip_revealed");
       expect(details?.status).toBe(200);
-      // 审计里只能有哈希，不能出现明文 IP。
+      // The audit event may contain the hash, but never the plaintext IP.
       expect(JSON.stringify(vi.mocked(logEvent).mock.calls)).not.toContain("8.8.8.8");
       expect(details?.message).toContain(HASH);
     });

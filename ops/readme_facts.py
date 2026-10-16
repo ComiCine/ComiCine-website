@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Limooo - 统一配置与公共工具
+# Limooo - shared configuration and utilities
 #
 # Copyright (C) 2026 Limooo <https://limooo.cn/>
 #
@@ -17,18 +17,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""README 事实读取器：把「可预测可变」的信息一律从当下权威来源读出来。
+"""Read README facts from the current authoritative sources.
 
-README（`site/README.md` 与 docs 站四份副本）里有大量会变但可推导的事实：
-cron 表、D1 保留期、cookie TTL、缓存头、语言数、信任 ASN 数、目录树……
-写死一次就会过期。本脚本负责：
+The README (`site/README.md` and four docs-site copies) contains many facts that change over time
+but can be derived: cron schedules, D1 retention, cookie TTLs, cache headers, language counts,
+trusted ASN counts, and the directory tree. Hard-coded copies become stale. This script supports:
 
-    python3 ops/readme_facts.py            # 读仓库（不联网），打印事实清单
-    python3 ops/readme_facts.py --check    # 校验 README 与仓库事实一致，漂移即失败
-    python3 ops/readme_facts.py --live     # 读线上（D1 / Pages / Workers / DNS / WAF / List）
-    python3 ops/readme_facts.py --json     # 机器可读输出（键值全英文）
-
-面向终端的输出一律英文（AGENTS.md：脚本 stdout 用英文，代码注释保留中文）。
+    python3 ops/readme_facts.py            # read repository facts offline and print them
+    python3 ops/readme_facts.py --check    # compare README facts with the repository; fail on drift
+    python3 ops/readme_facts.py --live     # read live state (D1 / Pages / Workers / DNS / WAF / List)
+    python3 ops/readme_facts.py --json     # machine-readable output with English keys and values
 """
 
 from __future__ import annotations
@@ -58,7 +56,7 @@ def contract() -> dict:
 
 
 def wrangler_facts() -> list[dict]:
-    """每个 wrangler.toml → {path, name, crons}（cron 由 Worker 自己声明）。"""
+    """Return one {path, name, crons} record per wrangler.toml; each Worker declares its own cron schedule."""
     out = []
     for root, _dirs, files in os.walk(BASE_DIR):
         if "node_modules" in root or ".venv" in root:
@@ -87,15 +85,16 @@ def retention_facts() -> dict:
 
 
 def gate_trust_facts() -> dict:
-    """信任清单计数：ASN 读 docs/lists/whitelist.txt（唯一事实源），其余读生成产物。
+    """Count trusted entries, reading ASNs from the authoritative whitelist and others from generated output.
 
-    ASN 不再 emit 进 functions/_data/gateTrust.ts（运行时只消费 verified_bot /
-    ip_cidrs，ASN 只供手动运行的 zone-level Access Rule 脚本使用），所以计数必须从 whitelist.txt
-    现读；继续对生成物做正则只会读到 0。ip_cidrs 与 crawler_uas 仍以生成物为准，
-    顺便能发现“名单改了但没重新 build”的漂移。
+    ASNs are no longer emitted to functions/_data/gateTrust.ts. Runtime code consumes
+    verified_bot and ip_cidrs; ASNs are only used by the manually run zone-level Access Rule
+    script. Read ASN counts from whitelist.txt, or parsing the generated file would always return
+    zero. Read ip_cidrs and crawler_uas from the generated file so this can detect a list change
+    that was not followed by a build.
     """
-    # 2026-10-11 从 data/ 移到 docs/lists/（与封禁名单同目录）；
-    # 该文件是生成物，由 ops/sync_whitelist.py 每次部署刷新。
+    # Moved from data/ to docs/lists/ on 2026-10-11 to sit alongside the blocklist.
+    # This generated file is refreshed by ops/sync_whitelist.py during each deploy.
     whitelist = read(os.path.join(BASE_DIR, "docs", "lists", "whitelist.txt"))
     asns = {
         int(match.group(1))
@@ -103,8 +102,8 @@ def gate_trust_facts() -> dict:
     }
     text = read(os.path.join(BASE_DIR, "functions", "_data", "gateTrust.ts"))
     cidrs = re.search(r'"ip_cidrs":\s*\[(.*?)\]\s*\}', text, re.S)
-    # 爬虫放行名单（2026-10-12）：源码是 docs/lists/robots.txt 的显式 User-agent，这里数生成物
-    # 里真正下发到 isolate 的那一份。
+    # Crawler allowlist (2026-10-12): its source is the explicit User-agent entries in docs/lists/robots.txt.
+    # Count the generated entries actually sent to the isolate.
     crawlers = re.search(r"GATE_TRUST_CRAWLER_UAS[^=]*=\s*\[(.*?)\];", text, re.S)
     return {
         "verified_bot": '"verified_bot": true' in text,
@@ -115,13 +114,13 @@ def gate_trust_facts() -> dict:
 
 
 def cache_facts() -> dict:
-    """页面缓存头：逐条指令解析，缺哪条就说哪条缺，绝不伪造 0。
+    """Parse page cache directives individually and report missing directives without inventing zero values.
 
-    以前这里用一条写死的正则把 `max-age / s-maxage / swr` 三段一口气匹配下来，
-    任一段缺失（例如按 W2-1 拍板去掉 `s-maxage`）就整条失配，然后回退成
-    `0/0/0` —— 于是校验反过来要求 README 写「s-maxage=0」，把解析器的 bug
-    变成了文档的错。现在按指令取值：没有的键就是 None，`check()` 只校验
-    真正存在的指令。
+    A previous hard-coded regex parsed `max-age / s-maxage / swr` together. If any directive was
+    absent (for example, when `s-maxage` was removed for W2-1), the entire match failed and
+    defaulted to `0/0/0`. The checker then required README to state `s-maxage=0`, turning a parser
+    bug into a documentation error. Now each directive is read separately; missing keys are None,
+    and `check()` validates only directives that are actually present.
     """
     text = read(os.path.join(BASE_DIR, "functions", "_middleware.ts"))
     directive = re.search(r'PAGE_CACHE_CONTROL\s*=\s*"([^"]*)"', text)
@@ -172,10 +171,11 @@ def migration_facts() -> dict:
 
 
 def tree_paths() -> list[str]:
-    """README 目录树里出现的路径（用于「树上写的都真的存在」校验）。
+    """Return paths in the README directory tree for checking that each listed path exists.
 
-    树是按缩进分层的，这里按每层 4 个字符（``│   `` / ``├── `` / ``└── ``）还原层级，
-    再把名字接到父目录后面；一行写多个名字（``a.py / b.py``）也算同级。
+    The tree uses indentation levels of four characters (``│   `` / ``├── `` / ``└── ``). Restore
+    the path hierarchy and append each name to its parent. Multiple names on one line (``a.py / b.py``)
+    are treated as siblings.
     """
     block = re.search(r"## Project structure\n\n```\n(.*?)```", read(README), re.S)
     if not block:
@@ -267,23 +267,23 @@ def _git_check_ignore(path: str, root: str) -> bool:
 
 
 def git_ignored(path: str, root: str = BASE_DIR) -> bool:
-    """该路径是否被 .gitignore 排除（`secrets/` 这类只在本机存在、不入库的东西）。
+    """Check whether .gitignore excludes a path, such as local-only secrets/ files.
 
-    目录树校验要在「CI 的干净 checkout」里也成立，所以不能只看本机文件系统：
-    被忽略的路径本来就不进仓库，本机有、CI 没有都算正常。
-    路径不存在时 git 分不清它是文件还是目录，因此带尾斜杠再问一次 —— `secrets/`
-    这种只匹配目录的规则，写成 `secrets` 会答「没被忽略」，带尾斜杠才认（就是
-    2026-10-11 那次 CI 变红的坑）。
-    git 不可用（无 git、非仓库）时返回 False，由调用方按文件系统兜底。
+    The directory-tree check must also pass in a clean CI checkout, so it cannot rely only on the
+    local filesystem: ignored paths are not tracked, and it is normal for a local path to be absent
+    in CI. For a missing path, Git cannot tell whether it is a file or directory, so also check with
+    a trailing slash. A rule matching only directories, such as `secrets/`, does not match `secrets`
+    without the slash; this caused a CI failure on 2026-10-11. Return False if Git is unavailable
+    (not installed or not in a repository), allowing the caller to fall back to the filesystem.
     """
     return any(_git_check_ignore(candidate, root) for candidate in (path, f"{path}/"))
 
 
 def tree_problems(root: str, paths: list[str]) -> list[str]:
-    """目录树里写了、但干净的 checkout 里并不存在的路径。
+    """Return paths listed in the directory tree that are missing from a clean checkout.
 
-    两类豁免：被 .gitignore 排除的条目（`secrets/` 在本机存在、CI 里没有）、
-    以及父目录链本身就缺的条目（父目录自己已经算过一次了）。其余一律报漂移。
+    Ignore paths excluded by .gitignore (such as local secrets/ absent in CI) and entries under a
+    missing parent directory, which has already been reported. Report every other mismatch.
     """
     problems: list[str] = []
     for path in paths:
@@ -297,11 +297,11 @@ def tree_problems(root: str, paths: list[str]) -> list[str]:
 
 
 def check(facts: dict) -> list[str]:
-    """README 与仓库事实对账；返回漂移清单（空 = 一致）。"""
+    """Compare README with repository facts and return the drift list (empty means consistent)."""
     text = read(README)
     problems: list[str] = []
 
-    # cron 表必须覆盖每个 Worker 声明的调度，且不能写不存在的调度
+    # The cron table must include every schedule declared by a Worker and must not include schedules that do not exist.
     table = {(worker, cron) for cron, worker in CRON_ROW.findall(text) if "*" in cron}
     for item in facts["wrangler"]:
         for cron in item["crons"]:
@@ -311,12 +311,12 @@ def check(facts: dict) -> list[str]:
     for entry in sorted(table - known):
         problems.append(f"cron table lists an undeclared schedule: {entry[1]} @ {entry[0]}")
 
-    # 保留期
+    # Retention periods
     for table_name, days in facts["retention_days"].items():
         if not re.search(rf"`{table_name}`[^)\n]*\({days}d\)", text) and f"`{table_name}` ({days}d)" not in text:
             problems.append(f"retention table does not state {table_name} = {days}d")
 
-    # 缓存头与 Vary：只校验**真的存在**的指令，缺的指令不要求文档写「=0」
+    # Cache headers and Vary: validate only directives that actually exist; missing directives do not require the docs to say `=0`.
     cache = facts["cache"]
     if f"max-age={cache['max_age']}" not in text:
         problems.append(f"cache header max-age={cache['max_age']} not stated")
@@ -329,7 +329,7 @@ def check(facts: dict) -> list[str]:
     if cache["vary"] not in text:
         problems.append(f"Vary header '{cache['vary']}' not stated")
 
-    # TTL / 超时
+    # TTLs and timeouts
     ttl_hours = facts["gate_ttl_seconds"] // 3600
     if "1h TTL" not in text and f"({ttl_hours}h" not in text:
         problems.append(f"gate cookie TTL ({ttl_hours}h) not stated")
@@ -340,16 +340,16 @@ def check(facts: dict) -> list[str]:
     if f"JWKS cached {jwks_hours}h" not in text:
         problems.append(f"JWKS cache ({jwks_hours}h) not stated")
 
-    # 语言数
+    # Language count
     count = len(facts["langs"])
     if f"{count} languages" not in text and f"in {count} language" not in text:
         problems.append(f"language count ({count}) not stated")
 
-    # 目录树里的路径必须存在（判据见 tree_problems：被 .gitignore 排除的本机
-    # 目录不计，否则本地有 secrets/ 时通过、CI 的干净 checkout 上必红）。
+    # Every path in the directory tree must exist (see tree_problems for the rule). Locally ignored paths
+    # do not count, or secrets/ would pass locally and fail in a clean CI checkout.
     problems.extend(tree_problems(BASE_DIR, tree_paths()))
 
-    # 信任清单计数
+    # Trusted-list counts
     trust = facts["gate_trust"]
     if str(trust["asns"]) not in text or str(trust["ip_cidrs"]) not in text:
         problems.append(
@@ -361,7 +361,7 @@ def check(facts: dict) -> list[str]:
 
 
 def live_facts() -> dict:
-    """线上事实：D1 / Pages / Workers / DNS / WAF / IP List / cron。"""
+    """Read live facts from D1, Pages, Workers, DNS, WAF, IP List, and cron configuration."""
     import urllib.error
     import urllib.request
 
@@ -388,7 +388,7 @@ def live_facts() -> dict:
                     return json.loads(response.read())
             except urllib.error.HTTPError as exc:
                 return {"success": False, "errors": [f"HTTP {exc.code}"]}
-            except Exception as exc:  # 瞬时读错误重试
+            except Exception as exc:  # Retry transient read errors.
                 last = exc
         return {"success": False, "errors": [str(last)]}
 

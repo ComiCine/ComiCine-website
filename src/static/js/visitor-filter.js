@@ -1,13 +1,12 @@
 /**
- * 访客列表状态筛选纯函数（浏览器 ESM）。
+ * Pure status filter for the visitor list (browser ESM).
  *
- * 该模块不访问 DOM、不发网络请求，便于在 Vitest 中直接测试。
+ * This module does not access the DOM or make network requests, so Vitest can test it directly.
  *
- * 约定：
- * - status 为 'all' 时返回原数组的拷贝；
- * - statuses 以字符串键保存（如 { "200": 3 }），调用方传入的 status
- *   也会被统一转为字符串比较；
- * - 不修改传入数组，保持原始顺序。
+ * Rules:
+ * - Return a copy of the original array when status is 'all'.
+ * - statuses uses string keys (for example, { "200": 3 }); convert the caller's status to a string before comparing.
+ * - Do not modify the input array or change its order.
  */
 
 export function filterMarkers(markers, status) {

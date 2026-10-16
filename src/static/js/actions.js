@@ -1,9 +1,9 @@
 /**
- * CSP 友好的事件委托层（tasks/14）。
+ * CSP-friendly event delegation layer (tasks/14).
  *
- * 模板不再写 onclick/oninput 内联事件，改为 data-action / data-input
- * 声明，由本文件在页面加载后统一委托到 window 上的同名全局函数。
- * 这样 script-src 可保持 'self'，不需要 'unsafe-inline'。
+ * Templates declare data-action / data-input instead of inline onclick/oninput handlers.
+ * After page load, this file delegates them to the matching global functions on window.
+ * This keeps script-src at 'self' without requiring 'unsafe-inline'.
  */
 (function () {
   function runAction(el, event) {
