@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import re
 import sys
@@ -53,6 +54,10 @@ IP_CIDR_RE = re.compile(
     r"^IP-CIDR/([0-9A-Fa-f:.]+)/(\d{1,3})$",
     re.I,
 )
+# IP-CIDR 会同时绕过门禁与应用封禁，限制到常见的单出口网段范围。
+ASN_MIN = 1
+ASN_MAX = 4_294_967_295
+MIN_CIDR_PREFIX = {4: 24, 6: 64}
 
 # robots.txt 的 User-agent 行：`User-agent: GPTBot`（大小写不敏感，冒号后可留空格）。
 ROBOTS_USER_AGENT_RE = re.compile(r"^\s*user-agent\s*:\s*(.+?)\s*$", re.I)
@@ -89,32 +94,48 @@ LICENSE_HEADER_TS = """\
 """
 
 
-def load_whitelist(path: Path) -> tuple[list[int], list[tuple[str, int]]]:
+def parse_whitelist(lines: list[str]) -> tuple[list[int], list[tuple[str, int]]]:
+    """Parse and validate whitelist entries before emitting any runtime data."""
     asns: list[int] = []
     networks: list[tuple[str, int]] = []
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise RuntimeError(f"cannot read whitelist {path}: {exc}") from exc
-
     for raw in lines:
         line = re.sub(r"#.*$", "", raw).strip()
         if not line:
             continue
         asn = ASN_RE.match(line)
         if asn:
-            asns.append(int(asn.group(1)))
+            number = int(asn.group(1))
+            if not ASN_MIN <= number <= ASN_MAX:
+                raise RuntimeError(f"invalid ASN: {line}")
+            asns.append(number)
             continue
         cidr = IP_CIDR_RE.match(line)
         if cidr:
             prefix = int(cidr.group(2))
-            if prefix < 0 or prefix > 128:
-                raise RuntimeError(f"invalid CIDR prefix: {line}")
-            networks.append((cidr.group(1), prefix))
+            try:
+                network = ipaddress.ip_network(
+                    f"{cidr.group(1)}/{prefix}", strict=False
+                )
+            except ValueError as exc:
+                raise RuntimeError(f"invalid IP-CIDR entry: {line}") from exc
+            minimum = MIN_CIDR_PREFIX[network.version]
+            if network.prefixlen < minimum:
+                raise RuntimeError(
+                    f"CIDR is too broad: {line}; minimum prefix is /{minimum}"
+                )
+            networks.append((network.network_address.compressed, network.prefixlen))
             continue
         raise RuntimeError(f"cannot parse whitelist line: {line}")
 
     return sorted(set(asns)), networks
+
+
+def load_whitelist(path: Path) -> tuple[list[int], list[tuple[str, int]]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise RuntimeError(f"cannot read whitelist {path}: {exc}") from exc
+    return parse_whitelist(lines)
 
 
 def load_crawler_agents(path: Path) -> list[str]:

@@ -22,6 +22,10 @@ export const translations: Record<string, Record<string, string>> = {
   "zh-cn": {
     "redirect_title": "正在跳转…",
     "redirect_text": "正在跳转... (・ω・)",
+    "not_found_title": "页面未找到 · Limooo",
+    "not_found_heading": "没有找到这个页面",
+    "not_found_message": "你访问的地址可能有误，或页面已移动。",
+    "not_found_redirect": "3 秒后将自动返回主页。",
     "gate_title": "正在验证您是否为人类…",
     "gate_heading": "请完成人机验证后再访问本站",
     "gate_location": "Location",
@@ -207,6 +211,10 @@ export const translations: Record<string, Record<string, string>> = {
   "en-us": {
     "redirect_title": "Redirecting…",
     "redirect_text": "Redirecting... (・ω・)",
+    "not_found_title": "Page not found · Limooo",
+    "not_found_heading": "This page cannot be found",
+    "not_found_message": "The address may be incorrect, or the page may have moved.",
+    "not_found_redirect": "You’ll be redirected to the homepage in 3 seconds.",
     "gate_title": "Verifying you are human…",
     "gate_heading": "Please complete this CAPTCHA to access the site.",
     "gate_location": "Location",
@@ -392,6 +400,10 @@ export const translations: Record<string, Record<string, string>> = {
   "ja-jp": {
     "redirect_title": "リダイレクト中…",
     "redirect_text": "リダイレクト中... (・ω・)",
+    "not_found_title": "ページが見つかりません · Limooo",
+    "not_found_heading": "このページは見つかりません",
+    "not_found_message": "URLが正しくないか、ページが移動した可能性があります。",
+    "not_found_redirect": "3 秒後にホームページへ移動します。",
     "gate_title": "人間であることを確認しています…",
     "gate_heading": "このサイトにアクセスするには、人認証を完了してください",
     "gate_location": "Location",
@@ -577,6 +589,10 @@ export const translations: Record<string, Record<string, string>> = {
   "ko-kr": {
     "redirect_title": "리디렉션 중…",
     "redirect_text": "리다이렉트 중... (・ω・)",
+    "not_found_title": "페이지를 찾을 수 없습니다 · Limooo",
+    "not_found_heading": "이 페이지를 찾을 수 없습니다",
+    "not_found_message": "주소가 잘못되었거나 페이지가 이동했을 수 있습니다.",
+    "not_found_redirect": "3초 후 홈페이지로 이동합니다.",
     "gate_title": "사람인지 확인하는 중…",
     "gate_heading": "사이트에 접속하려면 인증을 완료해 주세요",
     "gate_location": "Location",

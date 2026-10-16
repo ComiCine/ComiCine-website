@@ -48,9 +48,11 @@ const IMAGE_PATH_RE = /\.(png|jpe?g|webp|avif|gif|bmp|ico|svg)$/i;
 
 // 水印版只覆盖作品集根目录下的 png/jpg/jpeg/webp；thumbs 子目录不算。
 const PORTFOLIO_ROOT_IMG_RE = /^\/portfolio\/[^/]+\.(png|jpe?g|webp)$/i;
+const PORTFOLIO_THUMB_RE = /^\/portfolio\/thumbs\/[^/]+\.(webp|avif)$/i;
+const PORTFOLIO_PATH_RE = /^\/portfolio(?:\/|$)/;
 
-// 允许的资源目录（杜绝代理 /api/* 与其他任意路径）
-const KNOWN_DIR_RE = /^\/(?:portfolio|qr-codes|icons)(?:\/|$)/;
+// 允许非图片静态资源的目录（杜绝代理 /api/* 与其他任意路径）
+const KNOWN_DIR_RE = /^\/(?:qr-codes|icons)(?:\/|$)/;
 
 // 浏览器缓存 1 天（A2 下所有来源返回同一份，可放心共享缓存）
 const CLIENT_CACHE =
@@ -94,7 +96,7 @@ export function routeFor(url, request, origin) {
   const path = logicalPath(url.pathname);
 
   // 绝不放行 /api/*
-  if (path.startsWith("/api/")) {
+  if (path === "/api" || path.startsWith("/api/")) {
     return { target: "", watermarked: false, image: false };
   }
 
@@ -109,7 +111,17 @@ export function routeFor(url, request, origin) {
     };
   }
 
-  // 其他图片/资源（thumbs、qr-codes、icons 及任意 /static 图片）：干净静态版
+  // Portfolio is private source material. Only generated thumbs are clean public assets;
+  // never let the general image rule expose originals, nested files, or unsupported formats.
+  if (PORTFOLIO_PATH_RE.test(path)) {
+    if (PORTFOLIO_THUMB_RE.test(path)) {
+      const clean = base + "/static" + path + url.search;
+      return { target: clean, originalUrl: clean, watermarked: false, image: true };
+    }
+    return { target: "", watermarked: false, image: false };
+  }
+
+  // 其他图片/资源（qr-codes、icons 及非作品集 /static 图片）：干净静态版
   if (IMAGE_PATH_RE.test(path)) {
     const clean = base + "/static" + path + url.search;
     return { target: clean, originalUrl: clean, watermarked: false, image: true };
@@ -190,6 +202,16 @@ export default {
     const url = new URL(request.url);
     const origin = env.ORIGIN || ORIGIN;
 
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response(null, {
+        status: 405,
+        headers: {
+          Allow: "GET, HEAD",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const landing = landingRedirect(url);
     if (landing) return Response.redirect(landing, 301);
 
@@ -197,11 +219,6 @@ export default {
     if (request.method === "HEAD") {
       return headResponse(request, origin);
     }
-    // 其他非 GET 方法直接透传到同路径（仍走干净静态，不做水印判定）
-    if (request.method !== "GET") {
-      return fetch(origin + url.pathname + url.search, { method: request.method });
-    }
-
     const route = routeFor(url, request, origin);
     if (!route.target) return new Response("Not Found", { status: 404 });
     if (!route.image) return fetch(route.target);

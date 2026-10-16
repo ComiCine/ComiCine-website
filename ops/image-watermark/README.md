@@ -21,15 +21,18 @@ Referer to bypass.
 
 ## Behaviour
 
-- `/portfolio/<image>.webp|jpg|jpeg|png` (not inside `thumbs/`) -> **always** returns
+- `/portfolio/<image>.webp|jpg|jpeg|png` at the portfolio root -> **always** returns
   the watermarked variant `/static/wm/portfolio/<image>`, whatever the source.
-- `/portfolio/thumbs/*`, `/qr-codes/*`, `/icons/*` -> returns the clean static asset
-  at `/static/<path>`.
+- `/portfolio/thumbs/<image>.webp|avif` -> returns the generated clean thumbnail at
+  `/static/<path>`. Nested portfolio paths and other portfolio formats return 404.
+- `/qr-codes/*`, `/icons/*`, and other non-portfolio image paths -> returns the clean
+  static asset at `/static/<path>`.
 - Accepts the `images.limooo.cn` style `/static/portfolio/...` too: the `/static`
   prefix is stripped before normalisation.
 - The roots of `images.limooo.cn` and `image.limooo.cn` redirect to `https://limooo.cn/`;
   `images.limooo.cn` remains the static asset host.
-- Never proxies `/api/*`; anything that is not an image or a known directory -> 404.
+- Never proxies `/api/*`; anything that is not an image or an allowed static directory -> 404.
+- Accepts only `GET` and `HEAD`; other methods return 405 without contacting the origin.
 - A missing watermark variant returns 404 and **never falls back to the original**
   (so an old cached clean image cannot be mistaken for an origin response).
 
