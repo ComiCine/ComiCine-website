@@ -226,6 +226,7 @@
             margin: 0 12px;
             flex-shrink: 0;
         }
+        .nav-divider-lang-theme { display: block; }
         .nav-divider-mobile { display: none; }
         @media (max-width: 767px) {
             .nav-divider-mobile { display: block; }
