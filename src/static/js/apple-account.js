@@ -85,7 +85,7 @@ function handleLogout() {
     location.href = '/logout?next=' + next;
 }
 
-// ── Drag & Drop Sort ─────────────────────────────────
+// Drag & Drop Sort
 
 let dragSrcId = null;
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -175,7 +175,7 @@ async function saveOrder() {
     } catch(e) {}
 }
 
-// ── CRUD ─────────────────────────────────────────────
+// CRUD
 
 async function loadAccounts() {
     const container = document.getElementById('account-list');
@@ -348,7 +348,7 @@ async function confirmDelete() {
     toast(t('toast_deleted'));
 }
 
-// ── Modal ───────────────────────────────────────────
+// Modal
 
 let editingId = null;
 

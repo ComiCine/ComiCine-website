@@ -40,7 +40,7 @@ MIGRATE = ROOT / "ops" / "migrate_d1.sh"
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
 
-# ── 辅助 ──────────────────────────────────────────────────────────────
+# 辅助
 
 
 # 这些用例测的是 deploy.sh 的**闸门逻辑**，不是工具链。工具自愈（2026-10-11 加）
@@ -149,7 +149,7 @@ def write_fake_wrangler(path: Path, file_error: str, versions: list[int]) -> Pat
     return path
 
 
-# ── W3-2：--worker= 空值 ──────────────────────────────────────────────
+# W3-2：--worker= 空值
 
 
 def test_deploy_rejects_empty_worker_value():
@@ -167,7 +167,7 @@ def test_deploy_rejects_worker_name_with_unsafe_characters():
     assert "FATAL: invalid Worker name" in result.stderr
 
 
-# ── W3-1：非 main 分支不得 commit / push ─────────────────────────────
+# W3-1：非 main 分支不得 commit / push
 
 
 def test_deploy_dry_run_on_feature_branch_is_fatal(tmp_path):
@@ -197,7 +197,7 @@ def test_deploy_dry_run_on_main_is_allowed(tmp_path):
     assert "Deploy: dry-run done" in result.stdout
 
 
-# ── 推完看 CI（2026-10-12 加）：本地闸门看不见 runner 环境 ─────────────
+# 推完看 CI（2026-10-12 加）：本地闸门看不见 runner 环境
 
 
 def test_ci_check_stays_as_strict_as_ci():
@@ -245,7 +245,7 @@ def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
         assert gone not in ran.stdout, f"{gone} 应该被并进阶段行"
 
 
-# ── W3-3：Pages / docs 前先跑 CI，脏树要拒绝 ─────────────────────────
+# W3-3：Pages / docs 前先跑 CI，脏树要拒绝
 
 
 def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
@@ -334,7 +334,7 @@ def test_deploy_pages_allows_a_dirty_tree_with_the_escape_hatch(tmp_path):
     assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
 
-# ── W3-4 / W3-5：--remote 必需，--dry-run 完全离线 ────────────────────
+# W3-4 / W3-5：--remote 必需，--dry-run 完全离线
 
 
 def test_deploy_all_includes_every_worker(tmp_path):
@@ -417,7 +417,7 @@ def test_migrate_dry_run_is_offline_and_lists_every_migration(tmp_path):
     assert not cache.exists()
 
 
-# ── W3-7：--check-schema 用精确表名，不做子串匹配 ────────────────────
+# W3-7：--check-schema 用精确表名，不做子串匹配
 
 
 def test_check_schema_does_not_accept_a_prefix_table(tmp_path):
@@ -446,7 +446,7 @@ def test_check_schema_passes_when_every_table_is_present(tmp_path):
     assert "schema check: OK" in result.stdout
 
 
-# ── W3-5 / W3-6 / W3-8：D1 schema_version 是唯一事实源 ────────────────
+# W3-5 / W3-6 / W3-8：D1 schema_version 是唯一事实源
 
 
 def test_apply_ignores_the_local_cache_and_reads_d1_state(tmp_path):

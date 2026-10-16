@@ -1,8 +1,8 @@
-/* ═══════════════════════════════════════════════════════════════
+/*
    联系页：二维码悬停浮层 + 一键复制
-   ═══════════════════════════════════════════════════════════════ */
+   */
 
-/* ── 问卷方块位置：英语置底，其他语言置顶 ── */
+/* 问卷方块位置：英语置底，其他语言置顶 */
 function positionSurvey() {
     var block = document.getElementById('surveyBlock');
     if (!block) return;
@@ -15,7 +15,7 @@ function positionSurvey() {
 }
 document.addEventListener('languagechange', positionSurvey);
 
-/* ── 复制提示持续时间 ── */
+/* 复制提示持续时间 */
 var COPY_HINT_DURATION = 2000;
 
 /* 更新气泡提示文本 */
@@ -42,7 +42,7 @@ function handleCopy(el, text) {
     });
 }
 
-/* ── 二维码相关：桌面端悬停显示对应社交账号的二维码 ── */
+/* 二维码相关：桌面端悬停显示对应社交账号的二维码 */
 var qrDisplay, qrImage;
 
 /* DOM 加载完毕后初始化二维码浮层 */

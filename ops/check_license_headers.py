@@ -54,7 +54,7 @@ RULES: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     ("tests", (".py",), False),
 )
 
-# ── 范围说明：为什么只有这几个目录，以及为什么**故意不查** js 资产 ──────────
+# 范围说明：为什么只有这几个目录，以及为什么**故意不查** js 资产
 #
 # 纳入判据是「**随仓库走、且属源码性质**」：functions/**/*.ts（含 *.test.ts 与
 # types.d.ts）、ops/**/*.{ts,js,py,sh}、src/*.py、tests/*.py —— 它们要么定义运行时

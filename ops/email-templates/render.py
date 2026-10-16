@@ -179,7 +179,7 @@ def _main() -> None:
     except Exception as e:  # noqa: BLE001
         print(f"[render] ERROR: {e}", file=sys.stderr)
         sys.exit(1)
-    # 纯英文、无装饰符号（AGENTS.md）：标题行本身就是分隔，不需要 === === 包装。
+    # 纯英文、无装饰符号（AGENTS.md）：标题行本身就是分隔，不需要额外符号包装。
     print("plain")
     print(plain)
     print()

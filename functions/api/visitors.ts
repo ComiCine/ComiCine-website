@@ -156,7 +156,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
   const statusNum = statusParam === null ? null : Number(statusParam);
 
-  // ── 进程内缓存（300 s）────────────────────────────────────────────────
+  // 进程内缓存（300 s）
   // 一次查询实测 13.1 万行读取（见下方 SQL 注释）。管理页整天开着轮询 600 s
   // 也有 ≈ 144 次/天 → 直接逼近 5,000,000 行/天的免费版上限，正是 2026-09-17
   // 事故的形态。同一请求 URL（含 status 过滤）在 5 分钟内结果完全相同，缓存
