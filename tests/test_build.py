@@ -215,7 +215,7 @@ def test_remove_bad_artifacts(tmp_path):
     assert (root / "visitor.js").read_text(encoding="utf-8") == "new"
 
 
-# ── W1 · 契约未生效 ────────────────────────────────────────────────────────
+# W1 · 契约未生效
 
 
 def test_html_lang_is_rendered_by_the_template_for_every_language():

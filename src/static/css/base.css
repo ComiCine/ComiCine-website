@@ -1,7 +1,7 @@
 /* Limooo - 全站基础样式。
    颜色/圆角/缓动等设计令牌已抽到 tokens.css（单一事实源），
    本文件只保留基础排版、页头、页脚等结构样式。 */
-        /* ── 全局基础样式 ── */
+        /* 全局基础样式 */
         html, body {
             margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: var(--bg) !important;
@@ -29,7 +29,7 @@
         }
         .pressable:active { transform: scale(0.97); }
 
-        /* ── 底部版权信息 ── */
+        /* 底部版权信息 */
         .global-footer {
             position: fixed; bottom: 0; left: 0; width: 100%; z-index: 90;
             border-top: 1px solid var(--footer-border);
@@ -64,7 +64,7 @@
         .footer-text > .footer-item:not(:first-child)::before {
             content: "·"; margin: 0 0.55em; opacity: 0.7;
         }
-        /* ── 移动端：固定两行 ──
+        /* 移动端：固定两行
            第一行只放版权，其余三段整体在第二行。
            做法：让版权块自己占满一整行（flex-basis:100%），
            后面的块自然被挤到第二行。
@@ -95,7 +95,7 @@
            "·" 后间距比其他语言宽 3px，故删除。 */
         /* 页脚在移动端（触屏设备）同样显示，不再按指针类型隐藏 */
 
-        /* ── 图标按钮（社交链接 / 主题切换 / 语言切换 / 移动端菜单，VitePress 风格） ── */
+        /* 图标按钮（社交链接 / 主题切换 / 语言切换 / 移动端菜单，VitePress 风格） */
         .icon-btn, .theme-btn {
             width: 36px; height: 36px; display: flex; align-items: center;
             justify-content: center; border-radius: var(--radius-md);
@@ -110,7 +110,7 @@
         @media (hover: hover) and (pointer: fine) {
             .icon-btn:hover, .theme-btn:hover { background: var(--highlight); opacity: 1; }
         }
-        /* ── 语言切换按钮（VitePress VPFlyout：文A图标 + 下箭头） ── */
+        /* 语言切换按钮（VitePress VPFlyout：文A图标 + 下箭头） */
         .lang-btn {
             display: flex; align-items: center;
             padding: 0 12px; height: 36px;
@@ -124,7 +124,7 @@
         .lang-btn .lang-icon { width: 16px; height: 16px; }
         .lang-btn .lang-chevron { width: 14px; height: 14px; margin-left: 4px; opacity: 0.6; }
 
-        /* ── 深浅切换（VitePress VPSwitchAppearance：太阳-月亮胶囊滑块） ── */
+        /* 深浅切换（VitePress VPSwitchAppearance：太阳-月亮胶囊滑块） */
         .appearance-switch {
             position: relative; border-radius: 11px; display: block;
             width: 40px; height: 22px; flex-shrink: 0;
@@ -193,7 +193,7 @@
             .theme-option:hover { opacity: 1; background: var(--highlight); }
         }
 
-        /* ── 入场动画（reveal-item → show） ── */
+        /* 入场动画（reveal-item → show） */
         .reveal-item {
             opacity: 0 !important; transform: translateY(20px);
             transition: transform 500ms var(--ease-out), opacity 500ms ease-out;
@@ -235,5 +235,5 @@
             .nav-divider-mobile { display: block; }
         }
 
-        /* ── 导航展开菜单 ── */
+        /* 导航展开菜单 */
         /* 完全复用 .theme-menu / .theme-option 样式，无需额外 CSS */
