@@ -118,7 +118,7 @@ fi
 
 mkdir -p "$BUILD_DIR"
 
-# ── ① 构建 fork（按 commit 缓存）────────────────────────────────────
+# ① 构建 fork（按 commit 缓存）
 ensure_vitepress() {
     if [ ! -d "$VITEPRESS_DIR/.git" ]; then
         echo "[docs] cloning VitePress fork: $VITEPRESS_REPO"
@@ -169,7 +169,7 @@ ensure_vitepress() {
 
 ensure_vitepress
 
-# ── ② 同步内容到构建工作区 ──────────────────────────────────────────
+# ② 同步内容到构建工作区
 echo "[docs] syncing $DOCS_DIR -> $SRC_DIR"
 mkdir -p "$SRC_DIR"
 rsync -a --delete \
@@ -209,14 +209,14 @@ if [ "$DEV" = 1 ]; then
     exec bash -c "cd '$SRC_DIR' && '$PNPM_BIN' exec vitepress dev . --host"
 fi
 
-# ── ③ 构建站点 ──────────────────────────────────────────────────────
+# ③ 构建站点
 echo "[docs] building docs site"
 (
     cd "$SRC_DIR"
     "$PNPM_BIN" exec vitepress build . --outDir "$DIST_DIR"
 )
 
-# ── ④ 校验产物：每个 md 都要有对应 HTML ─────────────────────────────
+# ④ 校验产物：每个 md 都要有对应 HTML
 echo "[docs] validating markdown -> html mapping"
 python3 "$ROOT/ops/docs_check_output.py" "$DOCS_DIR" "$DIST_DIR"
 
@@ -229,7 +229,7 @@ if [ "$BUILD_ONLY" = 1 ]; then
     exit 0
 fi
 
-# ── ⑤ 凭据 ──────────────────────────────────────────────────────────
+# ⑤ 凭据
 if [ ! -f "$SECRETS_FILE" ]; then
     echo "FATAL: missing $SECRETS_FILE" >&2
     exit 1
@@ -250,7 +250,7 @@ strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
-# ── ⑥ 部署到 Pages ──────────────────────────────────────────────────
+# ⑥ 部署到 Pages
 # 在 BUILD_DIR 下执行：避免 wrangler 向上找到 site/wrangler.toml 里主站项目的 name。
 echo "[docs] deploying Pages project: $PAGES_PROJECT"
 export CI=1 WRANGLER_SEND_METRICS=false
@@ -262,7 +262,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
-# ── ⑦ 冒烟 ──────────────────────────────────────────────────────────
+# ⑦ 冒烟
 echo "[docs] post-deploy check"
 # 自定义域刚部署完可能还指向上一个部署（2026-10-08 踩过：新部署已生效，
 # 但首次探测拿到的还是旧产物），所以每次探测都重试几轮。

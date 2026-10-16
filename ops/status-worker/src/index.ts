@@ -248,7 +248,7 @@ export async function scheduleRetry(
   );
 }
 
-// ── 告警邮件（tasks/17 阶段 3） ───────────────────────────────────
+// 告警邮件（tasks/17 阶段 3）
 //
 // 通过 Cloudflare Email Service 的 `send_email` binding（env.EMAIL）发送。
 // 未配置 binding / 收件人时只记日志、不报错，保证探针本身不受影响。
@@ -598,7 +598,7 @@ export async function maybeAlert(
   }
 }
 
-// ── 每日检查（cron `47 3 * * *`） ─────────────────────────────────
+// 每日检查（cron `47 3 * * *`）
 //
 // 两个 cron Worker 的运行记录（`worker_runs`，迁移 018）写下来了但**没有读者**：
 // 同步/归档失败只留在表里，不会通知任何人。这里补上读者，顺带把另一条只有手工
@@ -860,7 +860,7 @@ export async function statusPayload(env: Env) {
   };
 }
 
-// ── 状态页（服务端渲染；tasks/17 阶段 2） ─────────────────────────
+// 状态页（服务端渲染；tasks/17 阶段 2）
 //
 // 页面标记 / 样式 / 脚本 / 文案分别在 page.ts 与 i18n.ts，本文件只负责取数与路由。
 // 由本 Worker 直接出 HTML，因此没有客户端取数、也没有内联 script/style

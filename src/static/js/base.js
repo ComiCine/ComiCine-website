@@ -19,10 +19,10 @@ function sharedCookieDomain() {
 }
 document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
-/* ═══════════════════════════════════════════════════════════════
+/*
        图片预加载（仅预加载二维码等小资源；带 loading="lazy" 的作品图
        不在此列，避免提前请求废掉懒加载）
-       ═══════════════════════════════════════════════════════════════ */
+       */
     function preloadPageImages() {
         if (!window.matchMedia('(hover: hover)').matches) return; // 移动端不预载二维码
         var urls = new Set();
@@ -35,11 +35,11 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
+    /*
        主题切换系统（VitePress appearance 行为）
        - 首次访问跟随系统，点击后固定为浅/深并缓存到 localStorage
        - 之后不再跟随系统，除非清除 localStorage
-       ═══════════════════════════════════════════════════════════════ */
+       */
 
     /* 读取操作系统偏好 */
     function getSystemTheme() {
@@ -116,13 +116,13 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════════
+    /*
        前端翻译工具
        - I18N:当前语言完整字典(由后端注入,首屏优先)
        - I18N_CACHE:全语言字典缓存,其余语言在页面加载完成后后台预取
        - t():按 key 取文本,支持 {param} 占位符替换
        - applyLang():纯前端切换,重写带 data-i18n 标记的元素,不刷新页面
-       ═══════════════════════════════════════════════════════════════ */
+       */
     var I18N = JSON.parse(document.body.getAttribute('data-i18n-dict') || '{}');
     var CURRENT_LANG = bodyAttr('data-lang', DEFAULT_LANG);
     var I18N_CACHE = window.I18N_CACHE || {};
@@ -244,7 +244,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
+    /*
        跨页预取:当前页加载完成后后台预取另外两个主页(HTML + 图片)
        - HTML 用 <link rel=prefetch> 原生缓存(带 cookie 保持语言一致,
          不支持/不缓存时优雅降级)
@@ -252,7 +252,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
          的静态边缘缓存，联系页二维码继续走 image.limooo.cn Worker
        - 移动端不预取二维码(contact 页二维码仅桌面悬停展示)
        - 图片清单与 index.html / contact.html 的 src 保持同步
-       ═══════════════════════════════════════════════════════════════ */
+       */
     /* 主页作品图清单由模板按 src/static/portfolio 的实际图片生成
        （body[data-portfolio-thumbs]）；属性缺失时退回默认清单。 */
     var HOME_IMAGES = (document.body && document.body.getAttribute('data-portfolio-thumbs') || '')
@@ -340,7 +340,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
     }
 
-    /* ── 语言菜单开关 ── */
+    /* 语言菜单开关 */
     function toggleLangMenu(e) {
         if (e) e.stopPropagation();
         var m = document.getElementById('langMenu');
@@ -374,7 +374,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
     })();
 
-    /* ── 导航菜单切换 ── */
+    /* 导航菜单切换 */
     function toggleMobileMenu(e) {
         if (e) e.stopPropagation();
         document.getElementById('navLinksDropdown').classList.toggle('open');
@@ -396,7 +396,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         window.open(url, "_blank", "noopener");
     }
 
-    /* ── DOM 加载完毕后初始化 ── */
+    /* DOM 加载完毕后初始化 */
     window.addEventListener('load', function() {
         preloadPageImages();
 

@@ -71,7 +71,7 @@ CIDR24_RE = re.compile(r'^(\d+\.\d+\.\d+)\.0/24$')
 
 # 受管段的起始标记（2026-10-11）：`reconcile` 从 D1 拉回的行写在这一行之后，
 # 每次整体重写；这一行之前是**手写区**，永远原样保留。
-MANAGED_MARKER = "# ── 以下是 D1 blocked_ips 的活跃行"
+MANAGED_MARKER = "# 以下是 D1 blocked_ips 的活跃行"
 
 
 def read_blocklist_txt(path: str) -> tuple[list[str], set[str]]:
@@ -101,7 +101,7 @@ def read_blocklist_txt(path: str) -> tuple[list[str], set[str]]:
     return static_lines, existing_prefixes
 
 
-# ── Cloudflare IP List 同步（原 sync_blocklist_cf.py） ──
+# Cloudflare IP List 同步（原 sync_blocklist_cf.py）
 # 读 webauthn.env 里的 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID，
 # 不存在则跳过。使用纯标准库(urllib)。
 def load_env(path: str) -> dict:
@@ -412,8 +412,8 @@ def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
     """
     lines = [
         "",
-        "# ── 以下是 D1 blocked_ips 的活跃行（自动维护，勿手改；本轮从 D1 拉回 "
-        f"{len(pulled)} 条）" + "─" * 8,
+        "# 以下是 D1 blocked_ips 的活跃行（自动维护，勿手改；本轮从 D1 拉回 "
+        f"{len(pulled)} 条）",
         "# 手写区在上面；这一段每次 `auto_block.py reconcile` 都会整体重写。",
     ]
     for cidr in sorted(rows):

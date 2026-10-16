@@ -87,7 +87,7 @@ done
 
 jsonq() { "$PY" -c "import sys,json;d=json.load(sys.stdin);$1"; }
 
-# ── 凭据：只读本机环境或 secrets/webauthn.env（与 pages_deploy.sh 同一份） ──
+# 凭据：只读本机环境或 secrets/webauthn.env（与 pages_deploy.sh 同一份）
 needs_network() {
     [ "$MODE" = show ] || [ "$MODE" = snapshot ] || [ "$MODE" = apply ]
 }
@@ -235,7 +235,7 @@ PY
     echo
 fi
 
-# ── 计划：python 只把「动作表」写成 TSV，bash 逐行读；不做字符串插值 ──
+# 计划：python 只把「动作表」写成 TSV，bash 逐行读；不做字符串插值
 PLAN="$(mktemp)"
 "$PY" - "$SNAPFILE" "$DROP_DISABLED" > "$PLAN" <<'PY'
 import json, re, sys

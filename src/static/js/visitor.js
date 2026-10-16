@@ -11,7 +11,7 @@
 
 import { filterMarkers } from './visitor-filter.js';
 
-// ── 数据与请求状态 ──
+// 数据与请求状态
 let allMarkers = [];
 let statusCounts = {};
 let currentStatus = 'all';
@@ -26,7 +26,7 @@ function t(key, params) {
   return typeof translator === 'function' ? translator(key, params) : key;
 }
 
-// ── 仪表盘 ──
+// 仪表盘
 function showDashboard() {
   const dash = document.getElementById('dashboard');
   dash.classList.remove('hidden');
@@ -41,7 +41,7 @@ function handleLogout() {
   location.href = '/logout?next=' + next;
 }
 
-// ── 数据 ──
+// 数据
 function showLoading() {
   const container = document.getElementById('visitor-list');
   if (container) {
@@ -242,7 +242,7 @@ document.getElementById('filter-bar').addEventListener('click', (event) => {
   applyFilter();
 });
 
-// ── 点击访客行：解密该行 IP 并跳 ipinfo.io ──
+// 点击访客行：解密该行 IP 并跳 ipinfo.io
 // 列表接口只给 ip_hash；完整 IP 走单行端点按需解密（见
 // functions/api/visitors/[hash]/ip.ts），避免每次轮询把 500 条密文全解一遍。
 const IP_LITERAL_RE = /^[0-9a-fA-F:.]{3,45}$/;

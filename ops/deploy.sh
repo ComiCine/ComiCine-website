@@ -192,7 +192,7 @@ if [ "${LIMOOO_SKIP_DOCS:-0}" = 1 ]; then
     DO_DOCS=0
 fi
 
-# ── ⓪0 分支断言：commit / push 只能在 main 上做（W3-1）───────────────
+# ⓪0 分支断言：commit / push 只能在 main 上做（W3-1）
 # 历史 bug：脚本比的是 HEAD、推的却是 refs/heads/main。在特性分支上跑完整部署时，
 # 提交进特性分支 → push main（通常 no-op，却仍打印 "pushed"）→ 随后用**特性分支的
 # 工作树**构建 Pages：边缘于是跑在 GitHub 前面，正好破坏本脚本自己的顺序保证。
@@ -287,7 +287,7 @@ fi
 
 echo "Deploy: start"
 
-# ── ⓪-1 工具自愈（2026-10-11）─────────────────────────────────────────
+# ⓪-1 工具自愈（2026-10-11）
 # 这个仓库把构建 venv 与 wrangler 放在 /tmp（iCloud 同步区里跑不动，
 # 见 AGENTS.md）。但 **macOS 会定期清理 /tmp** —— 清理之后 `deploy` 会以
 # "build venv not found" / "wrangler not found" 失败，而那两个 FATAL 看起来像
@@ -328,7 +328,7 @@ show_cmd() {
     return 0
 }
 
-# ── ⓪a 先入暂存区，再跑检查（检查必须针对将要提交的那棵树）──────────
+# ⓪a 先入暂存区，再跑检查（检查必须针对将要提交的那棵树）
 # 顺序很重要：原先是「先检查、后 git add -A」，检查与提交之间只要有任何工具
 # 改过文件，提交内容就不等于检查过的内容。现在先 stage，再取一次**工作区快照**
 # （见 ⓪c），检查完重算比对。git add 正常无输出，不需要 run_step 包一层。
@@ -358,7 +358,7 @@ STAGED_TREE_BEFORE=""
 # ⓪c 的比对就必然报「检查期间工作区又被改动」，部署需要跑两遍才过
 # （2026-10-12 实测踩到）。
 
-# ── ⓪b 本地 CI 复刻（必须先于 commit / push / Pages / docs）────────────
+# ⓪b 本地 CI 复刻（必须先于 commit / push / Pages / docs）
 # 历史教训：CI 是「先 build 再 typecheck / 测试」，而本地只跑过 vitest/pytest，
 # 于是「本地全绿、push 完 30 秒收到失败通知」。这里把 CI 原样跑一遍。
 #
@@ -399,7 +399,7 @@ if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
 fi
 
-# ── 白名单生成（在任何闸门之前）────────────────────────────────────
+# 白名单生成（在任何闸门之前）
 # 本地从 own-ips.txt 生成 whitelist.txt，不访问外部名单源。
 # 准备阶段（Lists / Bans / Check）的成功行合并成一个词：`Prepare: done`。
 DEFERRED_LABEL="Prepare"
@@ -407,7 +407,7 @@ if [ "$NEED_CHECKS" = 1 ]; then
     run_step "Lists" python3 ops/sync_whitelist.py
 fi
 
-# ── 封禁名单双向对账（同样在闸门之前）──────────────────────────────
+# 封禁名单双向对账（同样在闸门之前）
 # 权威是 D1 的 blocked_ips：D1 有而文件没有的**拉回文件**，文件有而 D1 没有的
 # **推上去**（`src/auto_block.py reconcile`）。放在脏树闸门与 CI 之前，理由同白名单：
 # 它会产生改动。
@@ -428,7 +428,7 @@ if [ "$NEED_CHECKS" = 1 ]; then
     fi
 fi
 
-# ── ⓪a-2 stage 与快照（必须在名单同步之后、CI 之前）──────────────────
+# ⓪a-2 stage 与快照（必须在名单同步之后、CI 之前）
 # 上面两步（Lists / Bans）会合法地改写工作区里的名单文件，所以「要提交的
 # 那棵树」到这里才定稿：先 git add -A 把内容并入索引，再取一次工作区快照
 # （供 ⓪c 比对）。
@@ -454,7 +454,7 @@ fi
 # 准备阶段到此结束：把攒下的成功行打成 `Prepare: done`（Check 也是这一阶段的一步）。
 flush_steps
 
-# ── ⓪c 检查期间工作区是否又被改动 ──────────────────────────────────
+# ⓪c 检查期间工作区是否又被改动
 # 检查前后各取一次工作区快照，不一致说明检查期间有别的工具动了文件：此时提交的
 # 内容不等于检查过的内容，直接退出让用户重跑（宁可多跑一次，也不提交未检查的树）。
 # 快照取不到（如 read-tree 失败）时两边都会是 "unavailable"，不在这里挡路。
@@ -468,7 +468,7 @@ if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     fi
 fi
 
-# ── ① git commit ────────────────────────────────────────────────────
+# ① git commit
 if [ "$DO_COMMIT" = 1 ]; then
     if [ "$IN_GIT_TREE" = 0 ]; then
         echo "Warning: not a git work tree, skipped commit" >&2
@@ -508,7 +508,7 @@ if [ "$DO_COMMIT" = 1 ]; then
     fi
 fi
 
-# ── ② git push ──────────────────────────────────────────────────────
+# ② git push
 PUSH_FAILED=0
 if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -540,14 +540,14 @@ if [ "$DO_PUSH" = 1 ]; then
     fi
 fi
 
-# ── ②b 脏树闸门（提交之后再验一次）──────────────────────────────────
+# ②b 脏树闸门（提交之后再验一次）
 # --commit 时 ⓪a 的 git add 会把未提交改动全部提交掉，所以这里要在 commit 之后
 # 才能判断「提交完还剩没剩脏东西」；--pages / --docs 单独跑时已在 ⓪b 之前挡过。
 if [ "$DO_COMMIT" = 1 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
     dirty_tree_gate
 fi
 
-# ── ③ Pages：只在失败时吐出日志，成功时只留一行状态 ─────────────────
+# ③ Pages：只在失败时吐出日志，成功时只留一行状态
 # 发布阶段（Pages / Docs / Workers）的成功行同样合并成一个词：`Release: done`。
 DEFERRED_LABEL="Release"
 if [ "$DO_PAGES" = 1 ]; then
@@ -555,13 +555,13 @@ if [ "$DO_PAGES" = 1 ]; then
     run_step "Pages" bash ops/pages_deploy.sh
 fi
 
-# ── ③b docs.limooo.cn（独立 Pages 项目 limooo-docs）─────────────────
+# ③b docs.limooo.cn（独立 Pages 项目 limooo-docs）
 if [ "$DO_DOCS" = 1 ]; then
     # docs_deploy.sh 自己会对各语言路径做冒烟，失败即非 0 退出
     run_step "Docs" bash ops/docs_deploy.sh
 fi
 
-# ── ④ 独立 Worker（可选，与 Pages 互不影响）─────────────────────────
+# ④ 独立 Worker（可选，与 Pages 互不影响）
 if [ -n "$WORKER" ]; then
     run_step "Worker: $WORKER" bash ops/workers_deploy.sh "--worker=$WORKER"
 fi

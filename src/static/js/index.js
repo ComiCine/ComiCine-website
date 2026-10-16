@@ -1,8 +1,8 @@
-/* ═══════════════════════════════════════════════════════════════
+/*
    作品图加载（不影响首屏）：
    缩略图只在切换到作品区时才启动，避免作品图在首屏阶段抢占带宽；
    进入作品区后按 srcset 选择合适尺寸。
-   ═══════════════════════════════════════════════════════════════ */
+   */
 function loadWorkImages() {
     document.querySelectorAll('.work-img[data-src]').forEach(function (img) {
         if (img.dataset.srcset) img.srcset = img.dataset.srcset;
@@ -13,13 +13,13 @@ function loadWorkImages() {
     });
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/*
    首页滚动切换动画
    - 滚轮 / 触摸下滑 → 切换到作品展示页（portfolio）
    - 滚轮 / 触摸上滑 → 返回首屏（home）
-   ═══════════════════════════════════════════════════════════════ */
+   */
 
-/* ── 动画时序常量 ── */
+/* 动画时序常量 */
 var ANIM_DELAY = { initialReveal: 200, homeExit: 250, portfolioReveal: 300, staggerStep: 150, reverseExit: 250 };
 var STAGGER_BUDGET = 1500; /* 作品图卡片级联淡入的总时长上限（ms） */
 
@@ -226,7 +226,7 @@ function reverseToHome() {
     }, Math.max(ANIM_DELAY.reverseExit, 400));
 }
 
-/* ── 鼠标滚轮监听 ── */
+/* 鼠标滚轮监听 */
 window.addEventListener('wheel', function(event) {
     // 切换动画进行中：吞掉所有滚轮事件，阻断触控板惯性继续把作品页往下滚
     if (isTransitioning) { event.preventDefault(); return; }
@@ -234,7 +234,7 @@ window.addEventListener('wheel', function(event) {
     if (event.deltaY < -WHEEL_THRESHOLD && !isOnHome && portfolioScreen.scrollTop <= 0) { event.preventDefault(); reverseToHome(); }
 }, { passive: false });
 
-/* ── 触摸滑动监听 ── */
+/* 触摸滑动监听 */
 document.addEventListener('touchstart', function(event) {
     touchStartY = event.touches[0].clientY;
 }, { passive: true });

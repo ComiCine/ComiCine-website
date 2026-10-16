@@ -53,7 +53,7 @@ const HOME_URL = "https://limooo.cn";
 const SERVICES_URL = "https://services.limooo.cn";
 const CONTACT_URL = "https://contact.limooo.cn";
 
-// ── SVG（逐字取自 base.html，只把 Tailwind 的 w-[18px] h-[18px] 换成 .icon-svg）──
+// SVG（逐字取自 base.html，只把 Tailwind 的 w-[18px] h-[18px] 换成 .icon-svg）
 const SVG_LANG =
   '<svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>';
 const SVG_CHEVRON =
@@ -151,7 +151,7 @@ html[lang^="en"]{--ls-scale:.3}
 html,body{margin:0;padding:0;width:100%}
 body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
 
-/* ── 页头（base.html <nav> 的等价 CSS）── */
+/* 页头（base.html <nav> 的等价 CSS） */
 .site-nav{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:80rem;z-index:100;display:flex;align-items:center;padding:0 1.25rem;height:70px;background:var(--bg)}
 @media(min-width:768px){.site-nav{padding:0 2rem;height:100px}}
 .nav-logo{display:flex;align-items:center;gap:.5rem;flex-shrink:0;text-decoration:none;color:var(--text)}
@@ -198,7 +198,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .theme-option.selected{opacity:1;background:var(--highlight)}
 @media(hover:hover) and (pointer:fine){.theme-option:hover,.nav-menu-option:hover{opacity:1;background:var(--highlight)}}
 
-/* ── 页脚（_footer.html 的等价 CSS）── */
+/* 页脚（_footer.html 的等价 CSS） */
 .global-footer{position:fixed;bottom:0;left:0;width:100%;z-index:90;border-top:1px solid var(--footer-border);background:var(--bg);display:flex;align-items:center;justify-content:center}
 .footer-link{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:1.25rem 0;padding-bottom:calc(1.25rem + env(safe-area-inset-bottom));color:inherit;text-decoration:none}
 .footer-text{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;row-gap:.45em;column-gap:0;padding-inline:1rem;font-size:10px;font-weight:600;letter-spacing:calc(.15em*var(--ls-scale));opacity:.5;text-align:center;line-height:1}
@@ -209,7 +209,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .footer-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;letter-spacing:.02em;font-size:10px;font-size-adjust:.6552}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
-/* ── 状态内容 ── */
+/* 状态内容 */
 .status-main{max-width:880px;margin:0 auto;padding:96px 20px 110px}
 @media(min-width:768px){.status-main{padding-top:132px}}
 h1{font-size:28px;margin:0 0 6px}
@@ -243,7 +243,7 @@ section{margin-top:32px}
 .empty{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:var(--radius-lg);padding:16px 18px;margin:0}
 .note{color:var(--muted);font-size:12px;margin-top:10px}
 
-/* ── 故障页（404 / 渲染失败）── */
+/* 故障页（404 / 渲染失败） */
 .err-box{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel-bg);padding:20px}
 .err-box p{margin:0;color:var(--muted)}
 .err-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}

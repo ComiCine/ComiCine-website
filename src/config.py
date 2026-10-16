@@ -27,7 +27,7 @@ import json
 import os
 import sqlite3
 
-# ── 路径常量 ──────────────────────────────────────────────
+# 路径常量
 # 仓库根目录（本文件位于 src/ 下，向上取一层）
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -121,7 +121,7 @@ BLOCKLIST_FILE = os.path.join(LISTS_DIR, "blocklist.txt")
 SECRET_DIR = os.path.join(BASE_DIR, "secrets")
 ENV_FILE = os.path.join(SECRET_DIR, "webauthn.env")
 
-# ── Cloudflare 封禁同步（auto_block.py / sync-worker 共用约定） ──
+# Cloudflare 封禁同步（auto_block.py / sync-worker 共用约定）
 CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 CF_LIST_NAME = "limooo_blocklist"
 CF_BATCH_SIZE = 200
@@ -129,7 +129,7 @@ D1_DATABASE_ID = os.environ.get(
     "D1_DATABASE_ID", "e2f29d54-29c0-46af-938d-e13995a11d7f"
 )
 
-# ── 域名与子域 ────────────────────────────────────────────
+# 域名与子域
 ROOT_DOMAIN = _contract_str("root_domain")
 BASE_URL = f"https://{ROOT_DOMAIN}"
 WWW_HOST = f"www.{ROOT_DOMAIN}"
@@ -157,11 +157,11 @@ GATE_TRUST = CONTRACT.get("gate_trust", {})
 OBSERVABILITY_HMAC_ENV = _contract_str("observability_hmac_env")
 SESSION_COOKIE_DOMAIN = f".{ROOT_DOMAIN}"
 
-# ── 开源仓库 ────────────────────────────────────────────
+# 开源仓库
 # AGPL-3.0 顶栏/页脚“源码在此”链接指向的仓库地址。
 SOURCE_REPO_URL = "https://github.com/Limooooo-Studio/Limooo-Website"
 
-# ── 多语言 ────────────────────────────────────────────────
+# 多语言
 # 语言代码统一小写（与 Cloudflare Turnstile 的 language 参数格式一致）
 SUPPORTED_LANGS = tuple(_contract_str_list("supported_langs"))
 DEFAULT_LANG = _contract_str("default_lang")  # 无法判定时使用该语言
@@ -173,7 +173,7 @@ LANG_COOKIE_MAX_AGE = _contract_int("lang_cookie_max_age")
 THEME_COOKIE = _contract_str("theme_cookie")
 THEME_COOKIE_MAX_AGE = _contract_int("theme_cookie_max_age")
 
-# ── 人机验证门禁与登录（与 Pages 侧 functions/_lib/config.ts 保持一致） ──
+# 人机验证门禁与登录（与 Pages 侧 functions/_lib/config.ts 保持一致）
 GATE_COOKIE = _contract_str("gate_cookie")
 SESSION_COOKIE = _contract_str("session_cookie")
 PENDING_COOKIE = _contract_str("pending_cookie")
@@ -185,12 +185,12 @@ PENDING_TTL = _contract_int("pending_ttl_seconds")
 REVEAL_MAX_AUTH_AGE = _contract_int("reveal_max_auth_age_seconds")
 WHITELIST_FILE = _contract_str("whitelist_file")
 
-# ── Apple Account ──────────────────────────────────────────────
+# Apple Account
 APPLE_ACCOUNT_DOMAIN = f"@{APPLE_ACCOUNT_HOST}"
 APPLE_ACCOUNT_KEY_ETC = "/etc/limooo/apple_account_encryption.key"
 APPLE_ACCOUNT_KEY_FILE = os.path.join(SECRET_DIR, "apple_account_encryption.key")
 
-# ── 统一跳转页预热图片（与 Page 端 manifest 及 Pages 中间件保持一致） ──
+# 统一跳转页预热图片（与 Page 端 manifest 及 Pages 中间件保持一致）
 REDIRECT_PRELOAD_IMAGES = [
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0203-800.webp",
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0146-800.webp",
@@ -200,7 +200,7 @@ REDIRECT_PRELOAD_IMAGES = [
     f"{IMAGE_ASSET_BASE_URL}/static/portfolio/thumbs/IMG_0179-800.webp",
 ]
 
-# ── 数据库连接工厂 ────────────────────────────────────────
+# 数据库连接工厂
 def get_geo_db() -> sqlite3.Connection:
     """创建带 WAL 模式和超时的 SQLite 连接，支持并发访问"""
     conn = sqlite3.connect(DATABASE, timeout=10)
@@ -218,7 +218,7 @@ def get_apple_account_db() -> sqlite3.Connection:
     return conn
 
 
-# ── IP 工具 ───────────────────────────────────────────────
+# IP 工具
 def is_private_ip(ip: str) -> bool:
     """判断 IP 是否为私有/回环地址，这类地址不需要 GeoIP 查询"""
     if ip in ("127.0.0.1", "localhost", "::1", "-"):
@@ -230,7 +230,7 @@ def is_private_ip(ip: str) -> bool:
     return False
 
 
-# ── 地理位置缓存数据库操作 ──────────────────────────────
+# 地理位置缓存数据库操作
 def ensure_geo_cache(conn: sqlite3.Connection) -> None:
     """创建 geo_cache 表（如果不存在），并执行必要的 schema 迁移"""
     conn.execute("""

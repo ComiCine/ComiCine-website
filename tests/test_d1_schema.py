@@ -110,7 +110,7 @@ def schema() -> dict[str, set[str]]:
         con.close()
 
 
-# ── literal extraction ──────────────────────────────────────────────────────
+# literal extraction
 
 
 def _string_literals(text: str) -> str:
@@ -319,7 +319,7 @@ def _sql_references() -> list[tuple[str, int, str, str]]:
     return references
 
 
-# ── tests ───────────────────────────────────────────────────────────────────
+# tests
 
 
 def test_migrations_load_in_order(schema: dict[str, set[str]]) -> None:

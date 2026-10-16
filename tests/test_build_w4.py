@@ -37,7 +37,7 @@ import portfolio
 import render_app
 import services_pricing
 
-# ── W4-1 构建期只算一次不变量 ────────────────────────────────────────
+# W4-1 构建期只算一次不变量
 
 
 def test_context_processor_computes_invariants_once(tmp_path, monkeypatch):
@@ -161,7 +161,7 @@ def test_two_portfolio_dirs_do_not_cross_pollute(tmp_path, monkeypatch):
     assert "alpha-640.webp" not in html_second
 
 
-# ── W4-2 部署包里不该有构建输入 ──────────────────────────────────────
+# W4-2 部署包里不该有构建输入
 
 
 def test_static_ignore_excludes_tailwind_input():
@@ -186,7 +186,7 @@ def test_static_ignore_excludes_private_portfolio_source(tmp_path, monkeypatch):
     assert "original.webp" not in nested_ignored
 
 
-# ── W4-6 缩略图只缩不放 ─────────────────────────────────────────────
+# W4-6 缩略图只缩不放
 
 
 def _write_image(path, size):
@@ -232,7 +232,7 @@ def test_thumbnails_still_generate_all_widths_for_normal_source(tmp_path):
         assert (output / f"shot-{width}.avif").exists()
 
 
-# ── W4-5 manifest 必须与产物对得上 ──────────────────────────────────
+# W4-5 manifest 必须与产物对得上
 
 
 def _fake_artifact(root, name="index.html", body="hello"):
@@ -284,7 +284,7 @@ def test_verify_manifest_rejects_missing_or_broken_manifest(tmp_path):
     assert build.verify_manifest(str(tmp_path)) == 1
 
 
-# ── W9-22 先校验前置条件，再动 public/ ───────────────────────────────
+# W9-22 先校验前置条件，再动 public/
 
 
 def test_check_image_prerequisites_returns_false_without_sources(tmp_path):

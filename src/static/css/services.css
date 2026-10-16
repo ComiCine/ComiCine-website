@@ -1,8 +1,8 @@
-/* ═══════════════════════════════════════════════════════════════
+/*
    服务页样式：服务卡片与详情弹层
-   ═══════════════════════════════════════════════════════════════ */
+   */
 
-/* ── 服务卡片 ── */
+/* 服务卡片 */
 .services-main { min-height: 100vh; }
 .service-card {
     position: relative;
@@ -24,7 +24,7 @@
 }
 .service-card:active { transform: scale(0.97); }
 
-/* ── 卡片上的"点击查看详情"提示 ── */
+/* 卡片上的"点击查看详情"提示 */
 .detail-hint {
     margin-top: 14px;
     font-size: 10px; font-weight: 600; letter-spacing: calc(0.35em*var(--ls-scale)); text-transform: uppercase;
@@ -37,7 +37,7 @@
     .service-card:hover .detail-hint svg { transform: translateX(4px); }
 }
 
-/* ── 详情弹层 ──
+/* 详情弹层
    入场:容器 opacity 瞬达 1,毛玻璃立即生效(backdrop-filter 在容器 opacity
    渐入时会被 Safari 延迟采样,模糊出现有滞后);面板单独 transform 展开
    退出:容器统一 opacity 300ms 淡出,模糊/遮罩/面板同步消失,保持镜像 */
@@ -106,7 +106,7 @@
 }
 .modal-title { font-size: 22px; font-weight: 600; letter-spacing: calc(0.25em*var(--ls-scale)); }
 
-/* ── 套餐 ── */
+/* 套餐 */
 .plan-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 640px) { .plan-grid { grid-template-columns: repeat(3, 1fr); } }
 /* 4 档位(场照/正片)移动端也保持 2 列两行 */
@@ -197,7 +197,7 @@
 .plan-features li span:first-child { opacity: 0.45; }
 .plan-features li span:last-child { font-weight: 600; opacity: 0.85; }
 
-/* ── 可选加购 ── */
+/* 可选加购 */
 .extras { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .extras-title { font-size: 13px; font-weight: 600; letter-spacing: calc(0.3em*var(--ls-scale)); opacity: 0.4; margin: 0 0 10px; }
 .extra-row {
@@ -209,7 +209,7 @@
 .extra-row span:first-child { opacity: 0.6; }
 .extra-row span:last-child { font-weight: 600; opacity: 0.8; }
 
-/* ── 弹层底部咨询链接 ── */
+/* 弹层底部咨询链接 */
 .modal-footer { margin-top: 26px; text-align: center; }
 .modal-footer-links { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; }
 .cta-link {
@@ -222,10 +222,10 @@
     .cta-link:hover { opacity: 1; border-color: var(--hover-highlight); color: var(--hover-highlight); }
 }
 
-/* ── 服务项文字（不换行） ── */
+/* 服务项文字（不换行） */
 .service-item { white-space: nowrap; }
 
-/* ── 标题字重 ── */
+/* 标题字重 */
 h1, h3 { font-weight: 600 !important; }
 
 /* Currency selector */

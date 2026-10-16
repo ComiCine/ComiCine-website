@@ -102,7 +102,7 @@ def test_sync_d1_dry_run_does_not_write(monkeypatch, tmp_path):
     assert not any("INSERT" in body["sql"] or "DELETE" in body["sql"] for _, _, body in calls)
 
 
-# ── 双向对账的写回（2026-10-11：reconcile）──────────────────────────────
+# 双向对账的写回（2026-10-11：reconcile）
 
 def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
     """受管段整体重写，**手写区一字不动**。

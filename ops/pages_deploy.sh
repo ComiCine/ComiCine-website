@@ -73,7 +73,7 @@ if [ "$DRY_RUN" = 1 ]; then
     exit 0
 fi
 
-# ── 构建 ────────────────────────────────────────────────────────────
+# 构建
 if [ ! -x "$VENV_PYTHON" ]; then
     echo "FATAL: build venv not found: $VENV_PYTHON" >&2
     echo "       recreate: python3 -m venv /tmp/limooo-venv && /tmp/limooo-venv/bin/pip install -r ops/requirements.txt" >&2
@@ -109,7 +109,7 @@ fi
 LIMOOO_PUBLIC_DIR="$PUBLIC_DIR" "$VENV_PYTHON" src/build.py --verify-manifest
 echo "[pages] artifact: $(find "$PUBLIC_DIR" -type f | wc -l | tr -d ' ') files"
 
-# ── 部署前校验 ──────────────────────────────────────────────────────
+# 部署前校验
 echo "[pages] validating config contract and security headers"
 "$VENV_PYTHON" ops/check_config_contract.py
 python3 ops/check_security_headers.py
@@ -119,7 +119,7 @@ if [ "$BUILD_ONLY" = 1 ]; then
     exit 0
 fi
 
-# ── 凭据 ────────────────────────────────────────────────────────────
+# 凭据
 if [ ! -f "$SECRETS_FILE" ]; then
     echo "FATAL: missing $SECRETS_FILE" >&2
     exit 1
@@ -145,7 +145,7 @@ strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
-# ── 部署 ────────────────────────────────────────────────────────────
+# 部署
 # 必须在本目录（site/）执行，否则 wrangler 找不到 functions/，会把整个
 # Pages Functions 丢掉（tasks/17 §11.6 出过这次事故）。
 echo "[pages] deploying Pages (must run under site/, otherwise Functions are dropped)"
@@ -155,7 +155,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
     --branch "$PAGES_BRANCH" \
     --commit-dirty=true 2>&1 | strip_emoji
 
-# ── 部署后冒烟 ──────────────────────────────────────────────────────
+# 部署后冒烟
 echo "[pages] post-deploy check"
 health="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://limooo.cn/_health || echo 000)"
 if [ "$health" != "200" ]; then

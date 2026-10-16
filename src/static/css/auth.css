@@ -27,7 +27,7 @@
     position: fixed; top: 18px; right: 18px; z-index: 10;
     display: flex; align-items: center; gap: 8px;
   }
-  /* ── 语言切换按钮（与主站一致：文A 图标 + 下箭头） ── */
+  /* 语言切换按钮（与主站一致：文A 图标 + 下箭头） */
   .theme-toggle { position: relative; display: flex; align-items: center; }
   .lang-btn {
     display: flex; align-items: center;
@@ -41,7 +41,7 @@
   }
   .lang-btn .lang-icon { width: 16px; height: 16px; }
   .lang-btn .lang-chevron { width: 14px; height: 14px; margin-left: 4px; opacity: 0.6; }
-  /* ── 语言菜单（与主站一致：VitePress VPFlyout 弹出层） ── */
+  /* 语言菜单（与主站一致：VitePress VPFlyout 弹出层） */
   .theme-menu {
     position: absolute; top: calc(100% + 8px); right: 0; min-width: 120px;
     background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius-md);
@@ -69,7 +69,7 @@
   @media (hover: hover) and (pointer: fine) {
     .theme-option:hover { opacity: 1; background: var(--highlight); }
   }
-  /* ── 深浅切换（与主站一致：太阳-月亮胶囊滑块） ── */
+  /* 深浅切换（与主站一致：太阳-月亮胶囊滑块） */
   .appearance-switch {
     position: relative; border-radius: 11px; display: block;
     width: 40px; height: 22px; flex-shrink: 0;
@@ -159,7 +159,7 @@
     letter-spacing: 0.02em;
     font-size-adjust: 0.6552;
   }
-  /* ── 底部版权（与主站 base.html 一致） ── */
+  /* 底部版权（与主站 base.html 一致） */
   .global-footer {
     position: fixed; bottom: 0; left: 0; width: 100%; z-index: 90;
     border-top: 1px solid var(--footer-border);
@@ -193,7 +193,7 @@
     .footer-text > .footer-item:not(:first-child)::before {
         content: "·"; margin: 0 0.55em; opacity: 0.7;
     }
-    /* ── 移动端：固定两行 ──
+    /* 移动端：固定两行
        第一行只放版权，其余三段整体在第二行。
        让版权块自己占满一整行（flex-basis:100%），后者被挤到下一行。
        注意不能用 ::after 造换行——伪元素在 flex item 内部，

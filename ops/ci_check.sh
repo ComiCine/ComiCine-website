@@ -91,7 +91,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# ── 隔离的构建输出：别在 iCloud 同步区里反复 rm -rf public/ ──────────
+# 隔离的构建输出：别在 iCloud 同步区里反复 rm -rf public/
 # 默认路径必须**每进程唯一**：两个 ci_check.sh 并发时，build.py 开头的 rmtree 会
 # 互删对方的中转目录（Errno 66 Directory not empty / FileNotFoundError），审计期间
 # 已经因此浪费了两个代理的排查时间。显式传入时行为完全不变——沿用传入值、不做
@@ -126,7 +126,7 @@ if [ -x "$ROOT/.venv-build/bin/python" ]; then
     PYTHON_BIN="$ROOT/.venv-build/bin/python"
 fi
 
-# ── 闸门工具：缺了就装，而不是 SKIP（2026-10-12 改）────────────────────
+# 闸门工具：缺了就装，而不是 SKIP（2026-10-12 改）
 # 以前 ruff / mypy / pytest-cov 是「探测式」：没装只打印一行 SKIP 就算过。可 CI 那边
 # 它们是**装了**的（ops/requirements.txt 里钉着版本），于是本地「全绿」与 CI 的真实
 # 结果可以不一致 —— 这正是 2026-10-12 那次「本地全绿、push 完 CI 红」的一半原因。
@@ -161,7 +161,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ── 选定要检查的树 ──────────────────────────────────────────────────
+# 选定要检查的树
 TARGET="$ROOT"
 if [ -n "$REF" ]; then
     if ! git rev-parse --verify --quiet "$REF^{commit}" >/dev/null; then
@@ -181,7 +181,7 @@ else
     echo "[ci] checking working tree at $ROOT"
 fi
 
-# ── 守卫 1：iCloud 冲突副本（"build 2.py" / ".venv-build 2" 这类）────
+# 守卫 1：iCloud 冲突副本（"build 2.py" / ".venv-build 2" 这类）
 # 冲突副本既可以是文件，也可以是**整个目录**——iCloud 把 `site/.venv-build`
 # 复制成 `site/.venv-build 2` 时只有目录名带序号，`-type f` 永远看不到它。
 # 所以这里用 `\( -type f -o -type d \)` 同时扫，模式统一放在 -name 列表里。
@@ -201,7 +201,7 @@ if [ -n "$CONFLICTS" ]; then
     exit 1
 fi
 
-# ── 守卫 2：敏感文件绝不能被提交 ────────────────────────────────────
+# 守卫 2：敏感文件绝不能被提交
 # 背景：checkout 里如果缺少 .gitignore（新 clone / AI 工具自动开的 worktree），
 # `git add -A` 会把 secrets/、*.db、*.pem 一并提交。.gitignore 现已入库，但
 # 守卫仍然必需：`git add -f` 和「先 add 后改规则」都能绕过它。
@@ -246,7 +246,7 @@ if [ -n "$SENSITIVE_HITS" ]; then
     exit 1
 fi
 
-# ── 守卫 3：生成的 TS 产物必须由 build 现场再生，且与仓库一致 ────────
+# 守卫 3：生成的 TS 产物必须由 build 现场再生，且与仓库一致
 # build 之后如果 functions/_lib/config.ts、functions/_data/*.ts、
 # src/config.py 相对 HEAD 有差异，说明提交时忘了带上它们 —— 这正是 CI 变红的根因。
 GENERATED_PATHS=(functions/_lib/config.ts functions/_data src/config.py)

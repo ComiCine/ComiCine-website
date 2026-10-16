@@ -118,7 +118,7 @@ def test_compute_diff_is_order_independent():
     assert a == b == (["a/24", "b/24"], [])
 
 
-# --- 端到端（stub 掉 D1 与 Cloudflare，main() 之外的代码全真跑） ---------------
+# 端到端（stub 掉 D1 与 Cloudflare，main() 之外的代码全真跑）
 
 CFG = {"token": "t", "account_id": "acct", "database_id": "db"}
 
