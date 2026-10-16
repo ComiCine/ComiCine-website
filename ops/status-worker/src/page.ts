@@ -104,6 +104,7 @@ export function navHtml(lang: Lang): string {
     `<button class="appearance-switch" id="theme-switch" type="button" role="switch" aria-checked="false" aria-label="${esc(t(lang, "theme_aria"))}">` +
     `<span class="appearance-check"><span class="appearance-icon">${SVG_SUN}${SVG_MOON}</span></span>` +
     "</button>" +
+    '<span class="nav-divider"></span>' +
     '<span class="nav-divider nav-divider-mobile"></span>' +
     `<a class="icon-btn nav-social-link" href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">${SVG_GITHUB}</a>` +
     `<a class="icon-btn nav-social-link" href="${BILIBILI_URL}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t(lang, "visit_bilibili"))}" title="${esc(t(lang, "visit_bilibili"))}">${SVG_BILIBILI}</a>` +
