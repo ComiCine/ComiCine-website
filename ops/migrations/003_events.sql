@@ -1,6 +1,6 @@
--- Limooo 可观测性：统一事件表（docs/06）
--- 由 wrangler d1 execute limooo --file=./migrations/003_events.sql 执行；
--- 健康检查脚本首次运行时也会通过 D1 API 幂等创建同名表。
+-- Limooo observability: shared event table (docs/06).
+-- Apply with: wrangler d1 execute limooo --file=./migrations/003_events.sql
+-- The health-check script also creates this table idempotently through the D1 API on first run.
 
 CREATE TABLE IF NOT EXISTS events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

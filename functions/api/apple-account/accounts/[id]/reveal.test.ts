@@ -18,12 +18,13 @@
  */
 
 /**
- * Apple Account 明文 reveal 接口测试：admin、近期认证、CSRF、审计、无明文回退。
+ * Tests for the Apple Account plaintext reveal endpoint: admin access, recent authentication,
+ * CSRF, auditing, and fallback behavior without plaintext.
  *
- * 会话层用**真实实现**（`requireAuth` → `requireAdminSession` →
- * `requireRecentAdminSession`）：只桩化 D1、CSRF、Fernet 与日志。原因见
- * `_lib/session.test.ts` —— 会话模块内部调用走的是模块内绑定，`vi.mock`
- * 替换导出名并不会改写它，硬桩会变成“测了自己写的桩”。
+ * The session layer uses the **real implementation** (`requireAuth` → `requireAdminSession` →
+ * `requireRecentAdminSession`); only D1, CSRF, Fernet, and logging are stubbed. See
+ * `_lib/session.test.ts`: calls within the session module use its local bindings, so `vi.mock`
+ * does not replace them. Stubbing the exports directly would test the stubs instead.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +47,7 @@ const env = {
   DB: {},
 } as unknown as Env;
 
-/** 固定“当前时间”，让 authAt 与 reveal 窗口（契约 600s）的关系可断言。 */
+/** Fix the current time so assertions can compare authAt with the 600-second reveal window. */
 const NOW_SECONDS = 1_800_000_000;
 
 let requestCookie = "";
@@ -68,7 +69,7 @@ function context() {
   };
 }
 
-/** 签一个真实会话 cookie，authAt 距当前时间 `ageSeconds` 秒。 */
+/** Sign a real session cookie with authAt set `ageSeconds` seconds in the past. */
 async function sessionCookie(ageSeconds: number, role: "admin" | "viewer" = "admin"): Promise<string> {
   const header = await createSessionCookie(env, {
     sid: "sid-1",
@@ -80,7 +81,7 @@ async function sessionCookie(ageSeconds: number, role: "admin" | "viewer" = "adm
   return header.split(";")[0];
 }
 
-/** requireAuth 必须在 D1 撤销表里查到这一行才放行。 */
+/** requireAuth allows the request only when this row exists in the D1 revocation table. */
 function authRow(role: "admin" | "viewer" = "admin") {
   return {
     sid: "sid-1",
@@ -115,7 +116,7 @@ describe("apple-account reveal API", () => {
     vi.mocked(queryAll).mockResolvedValue([authRow("viewer")]);
     requestCookie = await sessionCookie(0, "viewer");
     expect((await onRequestPost(context() as never)).status).toBe(403);
-    // 只读账户即便刚登录也不能 reveal
+    // A read-only account cannot reveal a password, even immediately after login.
     expect(vi.mocked(fernetDecrypt)).not.toHaveBeenCalled();
   });
 
@@ -153,7 +154,7 @@ describe("apple-account reveal API", () => {
   });
 
   it("reveals to admin and writes an audit event", async () => {
-    // requireAuth 先查会话行，reveal 再查密码；按调用顺序给两次结果。
+    // requireAuth reads the session first and reveal reads the password second; return results in call order.
     vi.mocked(queryAll)
       .mockResolvedValueOnce([authRow()])
       .mockResolvedValueOnce([{ password: "cipher" }]);

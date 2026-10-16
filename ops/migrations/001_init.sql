@@ -1,5 +1,5 @@
--- Limooo Cloudflare Pages D1 初始 schema
--- 由 wrangler d1 execute limooo --file=./migrations/001_init.sql 执行
+-- Initial Limooo Cloudflare Pages D1 schema.
+-- Apply with: wrangler d1 execute limooo --file=./migrations/001_init.sql
 
 CREATE TABLE IF NOT EXISTS apple_accounts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -17,12 +17,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** sync-worker 差异计算与 dry-run 基础测试（tasks/10）。 */
+/** Basic sync-worker diff calculation and dry-run tests (tasks/10). */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, { authorized, diffSync, normalizeListItem, runSync, sync } from "./index";
 
-// scheduled 是 default export 的一个方法；单拎出来让用例读起来更像 cron。
+// scheduled is a method on the default export; extracting it makes the test read more like a cron invocation.
 const scheduled = worker.scheduled;
 
 const envWith = (token: string) => ({ SYNC_TOKEN: token }) as never;
@@ -57,9 +57,9 @@ describe("sync-worker", () => {
 });
 
 /**
- * 回归（2026-09-21 实测）：Cloudflare IP List 会把 /32 归一化成裸 IP
- * （写入 1.2.3.4/32，读回 1.2.3.4）。若直接用原始字符串比较，同一条记录
- * 会同时出现在 toAdd 与 toRemove，导致每次同步反复删除重加。
+ * Regression (verified 2026-09-21): Cloudflare IP List normalizes /32 entries to bare IPs
+ * (write 1.2.3.4/32, read back 1.2.3.4). Comparing the raw strings puts the same record
+ * in both toAdd and toRemove, causing it to be repeatedly deleted and re-added on every sync.
  */
 describe("normalizeListItem", () => {
   it("normalises IPv4 /32 and IPv6 /128 to a bare IP", () => {
@@ -76,7 +76,7 @@ describe("normalizeListItem", () => {
 
 describe("diffSync and /32 normalisation", () => {
   it("does not re-add an existing /32", () => {
-    // D1 是 /32，Cloudflare 存裸 IP —— 修复前这里既 toAdd 又 toRemove。
+    // D1 stores /32 while Cloudflare stores a bare IP; before the fix, this appeared in both toAdd and toRemove.
     const result = diffSync(
       new Set(["1.2.3.4/32", "5.6.7.0/24"]),
       new Map([
@@ -102,8 +102,8 @@ describe("diffSync and /32 normalisation", () => {
 });
 
 /**
- * 手动触发端点的鉴权（workers.dev 无法用 zone 级 mTLS，改用共享密钥）。
- * 关键行为：未配置 SYNC_TOKEN 时必须 fail-closed。
+ * Authentication for the manual trigger endpoint (workers.dev cannot use zone-level mTLS, so a shared secret is used).
+ * Key behavior: fail closed when SYNC_TOKEN is unset.
  */
 describe("authorized", () => {
   it("allows a correct token", () => {
@@ -132,9 +132,9 @@ describe("authorized", () => {
 });
 
 /**
- * tasks/22 W7-6 / W7-7：bulk operation 失败要抛、翻页要用 cursor 且有上限。
+ * tasks/22 W7-6 / W7-7: bulk operation failures must throw, and pagination must use a cursor with a limit.
  *
- * 这些用例 stub 掉 fetch，绝不访问 Cloudflare：只验证 sync() 的控制流。
+ * These tests stub fetch and never access Cloudflare; they verify only sync() control flow.
  */
 const LIST_ID = "list-1";
 const API = "https://api.cloudflare.com/client/v4";
@@ -161,7 +161,7 @@ interface StubCall {
   url: string;
 }
 
-/** 记录每次请求；handler 决定返回什么。 */
+/** Record each request; the handler determines the response. */
 function stubFetch(
   handler: (call: StubCall) => unknown,
 ): StubCall[] {
@@ -249,11 +249,11 @@ describe("cursor pagination (W7-7)", () => {
 
     const result = await sync(syncEnv(["1.2.3.0/24", "9.9.9.9"]), {});
 
-    // 第二页的 4.5.6.0/24 必须被看见（否则会被重复添加、且漏删）。
+    // The 4.5.6.0/24 entry on page two must be seen; otherwise it would be added again and not removed.
     expect(result.toAdd).toEqual(["9.9.9.9"]);
     expect(result.toRemove).toEqual(["4.5.6.0/24"]);
     expect(calls.some((c) => c.url.includes("cursor=cursor-2"))).toBe(true);
-    // 注意别把 `per_page=` 当成 `page=`：这里要求真的没有 page 参数。
+    // Do not confuse `per_page=` with `page=`; this asserts that the page parameter is truly absent.
     expect(calls.some((c) => /[?&]page=/.test(c.url))).toBe(false);
   });
 
@@ -286,10 +286,10 @@ describe("cursor pagination (W7-7)", () => {
 });
 
 /**
- * 失败可见性（2026-10-11）：把「同步失败只能在 Workers 日志里人肉翻」变成
- * ① worker_runs 落一行、② scheduled 打结构化单行 JSON、③ `?health=1` 可查。
+ * Failure visibility (2026-10-11): replace manually searching Workers logs for sync failures with
+ * 1. a worker_runs row, 2. structured single-line JSON from scheduled, and 3. a `?health=1` lookup.
  *
- * 这些用例全部 stub 掉 fetch 与 DB，不访问 Cloudflare，也不碰真实 D1。
+ * These tests stub fetch and DB; they do not access Cloudflare or a real D1 database.
  */
 interface RunCall {
   sql: string;
@@ -304,8 +304,8 @@ const mockRunDb = () => {
     prepare(sql: string) {
       const call: RunCall = { sql, values: [] };
       calls.push(call);
-      // sync() 用 `prepare(sql).all()`（无 bind），runlog 用 `prepare(sql).bind(...).all()`
-      // 与 `.run()`；两种形状都要在，否则桩会把真正的调用签名挡掉。
+      // sync() uses `prepare(sql).all()` (without bind), while runlog uses `prepare(sql).bind(...).all()`
+      // and `.run()`; both shapes are required or the stub will reject valid call signatures.
       return {
         all: async () => {
           if (/INSERT INTO worker_runs/.test(sql)) return { results: [{ id: nextId++ }], success: true };
@@ -349,7 +349,7 @@ const captureConsole = () => {
   return { logs, errors };
 };
 
-/** CF 调用按顺序成功，第 failAfter 次起抛错；返回访问过的 URL 列表。 */
+/** CF calls succeed in order and throw starting at failAfter; return the list of URLs accessed. */
 function stubCfFailAfter(failAfter: number): string[] {
   const urls: string[] = [];
   vi.stubGlobal(
@@ -386,7 +386,7 @@ describe("run history records every run", () => {
     expect(update).toBeDefined();
     expect(update!.values[1]).toBe("failed");
     expect(String(update!.values[4])).toMatch(/simulated upstream failure/);
-    // 失败必须同时出现在 Workers 日志里，且是单行可检索 JSON。
+    // The failure must also appear in Workers logs as searchable single-line JSON.
     const failedLine = errors.find((l) => l.includes('"outcome":"failed"'));
     expect(failedLine).toBeDefined();
     const parsed = JSON.parse(failedLine!);
@@ -438,7 +438,7 @@ describe("run history records every run", () => {
       SYNC_TOKEN: "s3cret-token",
     } as never;
 
-    // 记账失败绝不能把同步本身带崩。
+    // A bookkeeping failure must not break the sync itself.
     await expect(runSync(env)).resolves.toMatchObject({ runId: null });
     expect(errors.some((l) => l.includes("worker_run_store_error"))).toBe(true);
   });
@@ -478,8 +478,8 @@ describe("run history records every run", () => {
     expect(parts.calls.some((c) => /UPDATE worker_runs/.test(c.sql) && c.values[1] === "failed")).toBe(true);
     expect(errors.some((l) => l.includes('"outcome":"failed"'))).toBe(true);
     expect(waited).toHaveLength(1);
-    // scheduled 自己的收口行必须带 stage="scheduled" —— 否则把 catch 退回成
-    // 「静默吞掉」时，runSync 那行日志照样还在，用例就抓不到这个退化。
+    // scheduled's final log row must include stage="scheduled". Otherwise, reverting the catch to
+    // silently swallowing errors would leave the runSync log intact and this test would miss the regression.
     const scheduledLine = errors
       .map((l) => JSON.parse(l))
       .find((line) => line.stage === "scheduled");
@@ -494,7 +494,7 @@ describe("health endpoint", () => {
     const unauth = await worker.fetch(new Request("https://sync.example.com/?health=1"), fetchEnv(parts));
     expect(unauth.status).toBe(401);
     expect(await unauth.json()).toEqual({ ok: false, error: "unauthorized" });
-    // fail-closed：没配 SYNC_TOKEN 时即使是健康端点也不放行。
+    // Fail closed: do not allow even the health endpoint when SYNC_TOKEN is unset.
     const noSecret = await worker.fetch(new Request("https://sync.example.com/?health=1"), fetchEnv(parts, ""));
     expect(noSecret.status).toBe(401);
   });
@@ -516,7 +516,7 @@ describe("health endpoint", () => {
     expect(body.ok).toBe(true);
     expect(body.job).toBe("blocklist_sync");
     expect(body.lastRun).toMatchObject({ job: "blocklist_sync", outcome: "ok", added: 1, removed: 0 });
-    // 健康端点只报告，绝不触发同步（不碰 Cloudflare API）。
+    // The health endpoint only reports status and must never trigger a sync or call the Cloudflare API.
     expect(urls).toEqual([]);
   });
 

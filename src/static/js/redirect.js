@@ -4,9 +4,9 @@
         var rels = JSON.parse(document.body.getAttribute('data-preload') || '[]');
         function go() { location.replace(target); }
 
-        /* 目标是 limooo.cn 主站时，head 中的 <link rel=preload> 已在预热
-           首页作品图；这里用 new Image() 监听同批 URL（命中在途请求/缓存，
-           不重复下载），全部就绪立即跳，最多停留 800ms 避免登录回跳变慢 */
+        /* When the target is limooo.cn, <link rel=preload> in the head already warms the home portfolio images.
+           Use new Image() to observe the same URLs; in-flight requests and cached images are reused.
+           Redirect as soon as they are ready, with an 800ms limit to avoid slowing a login return. */
         if (rels.length === 0) { go(); return; }
 
         var pending = rels.length;

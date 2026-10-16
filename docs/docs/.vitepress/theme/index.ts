@@ -1,8 +1,9 @@
 /**
- * docs.limooo.cn 主题入口。
+ * Theme entry point for docs.limooo.cn.
  *
- * 继承 fork 的默认主题（页头/页脚改在 Limooooo-Studio/vitepress 里），
- * 这里只叠加 Limooo 品牌样式与主站 cookie 桥接。
+ * Extend the fork's default theme; the header and footer are maintained in
+ * Limooooo-Studio/vitepress. This file adds Limooo brand styles and the main
+ * site's cookie bridge.
  */
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'

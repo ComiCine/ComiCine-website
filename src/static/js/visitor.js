@@ -1,17 +1,17 @@
 /**
- * 访客仪表盘。
+ * Visitor dashboard.
  *
- * 状态筛选完全在本地完成：首次加载只请求一次 /api/visitors，
- * 点击状态 chip 只更新 DOM，不再发送 /api/visitors?status=... 请求。
- * 自动刷新、语言切换和页面重新可见时仍只使用无 status 参数的端点。
+ * Status filtering is entirely local: the first load makes one request to /api/visitors.
+ * Clicking a status chip updates the DOM without requesting /api/visitors?status=....
+ * Auto-refresh, language changes, and page visibility changes also use the endpoint without a status parameter.
  *
- * 点击某一行：调 /api/visitors/<hash>/ip 单行解密完整 IP（列表接口只有哈希），
- * 成功即在**新标签页**打开 https://ipinfo.io/<ip>。
+ * Clicking a row requests /api/visitors/<hash>/ip to decrypt its full IP; the list endpoint only returns hashes.
+ * On success, open https://ipinfo.io/<ip> in a new tab.
  */
 
 import { filterMarkers } from './visitor-filter.js';
 
-// 数据与请求状态
+// Data and request state.
 let allMarkers = [];
 let statusCounts = {};
 let currentStatus = 'all';
@@ -19,14 +19,14 @@ let inFlight = false;
 let dataLoaded = false;
 let lastLoadedAt = 0;
 
-// base.js 通过经典脚本注入全局 t()；模块脚本执行顺序在不同浏览器可能不同，
-// 这里做一层本地适配，翻译函数尚未就绪时只回退 key，不产生 ReferenceError。
+// base.js exposes global t() through a classic script, whose execution order relative to modules can vary by browser.
+// This adapter falls back to the key until the translator is ready, without causing a ReferenceError.
 function t(key, params) {
   const translator = typeof window !== 'undefined' ? window.t : undefined;
   return typeof translator === 'function' ? translator(key, params) : key;
 }
 
-// 仪表盘
+// Dashboard.
 function showDashboard() {
   const dash = document.getElementById('dashboard');
   dash.classList.remove('hidden');
@@ -41,7 +41,7 @@ function handleLogout() {
   location.href = '/logout?next=' + next;
 }
 
-// 数据
+// Data.
 function showLoading() {
   const container = document.getElementById('visitor-list');
   if (container) {
@@ -101,10 +101,9 @@ async function refresh() {
   }
 }
 
-// 接口给的是 UTC 时间戳（`2026-01-02T00:00:00Z` 或 Unix 秒，历史数据也可能
-// 是裸的 UTC 字符串）。统一解析成 Date 之后一律用**本机时区**的 getter 输出，
-// 这样管理员在哪个时区看，时间就是哪个时区的墙上时间。
-// 解析不出时区信息时（裸 `YYYY-MM-DD HH:MM:SS`）按 UTC 处理——它本来就是 UTC。
+// The API returns UTC timestamps (`2026-01-02T00:00:00Z` or Unix seconds); historical values may be bare UTC strings.
+// Parse them as Date values and format with local-time getters so each admin sees their own wall-clock time.
+// Treat values without a timezone (`YYYY-MM-DD HH:MM:SS`) as UTC because that is their source timezone.
 function toDate(value) {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value === 'number') {
@@ -134,7 +133,7 @@ function formatTime(value) {
     ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
 
-// 悬停看完整信息：绝对时间（带时区偏移）+ 相对多久之前，避免只看到一串数字。
+// Hover shows the full timestamp with its timezone offset and relative age instead of an unexplained number.
 function timeTitle(value) {
   const date = toDate(value);
   if (!date) return '';
@@ -242,9 +241,9 @@ document.getElementById('filter-bar').addEventListener('click', (event) => {
   applyFilter();
 });
 
-// 点击访客行：解密该行 IP 并跳 ipinfo.io
-// 列表接口只给 ip_hash；完整 IP 走单行端点按需解密（见
-// functions/api/visitors/[hash]/ip.ts），避免每次轮询把 500 条密文全解一遍。
+// Clicking a visitor row decrypts that IP and opens ipinfo.io.
+// The list endpoint returns only ip_hash; decrypt one IP on demand through
+// functions/api/visitors/[hash]/ip.ts instead of decrypting 500 rows on every poll.
 const IP_LITERAL_RE = /^[0-9a-fA-F:.]{3,45}$/;
 
 let toastTimer = null;
@@ -258,7 +257,7 @@ function toast(message) {
     document.body.appendChild(el);
   }
   el.textContent = message;
-  void el.offsetWidth; // 重新触发过渡，连续点击也有反馈
+  void el.offsetWidth; // Restart the transition so repeated clicks still provide feedback.
   el.classList.add('show');
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
@@ -270,10 +269,10 @@ async function openIpInfo(hash) {
     return;
   }
 
-  // 新标签页必须在**点击的同步阶段**先占位：await 之后再 window.open，
-  // Safari/Chrome 会判定为「非用户手势触发的弹窗」直接拦掉。
-  // noopener 只能事后补（用了 noopener 就拿不到窗口引用去改地址），
-  // 所以这里先开 about:blank，再把 opener 置空，避免 reverse tabnabbing。
+  // Reserve the new tab synchronously during the click. Calling window.open after await is
+  // treated by Safari/Chrome as a popup without a user gesture and is blocked.
+  // noopener must be set afterward because it prevents access to the window needed to change its URL.
+  // Open about:blank first, then clear opener to prevent reverse tabnabbing.
   const tab = window.open('', '_blank');
   if (tab) tab.opener = null;
   const fail = () => {
@@ -293,7 +292,7 @@ async function openIpInfo(hash) {
     return;
   }
   if (!resp.ok) {
-    // 历史行没有密文（404）、密钥缺失（503）等都归到同一个提示，不泄露细节。
+    // Map missing historical ciphertext (404), missing keys (503), and other failures to one notice without exposing details.
     fail();
     return;
   }
@@ -314,7 +313,7 @@ async function openIpInfo(hash) {
   if (tab) {
     tab.location.replace(url);
   } else {
-    // 极少数情况下占位也被拦（比如用户禁用了弹窗）：退回当前标签页，功能不丢。
+    // If the placeholder is blocked, such as when popups are disabled, fall back to the current tab.
     location.href = url;
   }
 }
@@ -331,14 +330,14 @@ function esc(value) {
   return div.innerHTML;
 }
 
-// 自动刷新：页面不可见时暂停，避免后台挂机持续请求；重新可见且数据过期时
-// 再补一次刷新。无论何时刷新，都不会改变 currentStatus 或发送 status 参数。
+// Pause auto-refresh while the page is hidden to avoid background requests; refresh once when it becomes
+// visible again if the data is stale. Refreshing never changes currentStatus or sends a status parameter.
 //
-// 节奏为什么是 10 分钟：/api/visitors 要聚合 30 天窗口，是本站最重的 D1 查询。
-// 60 秒轮询会把它放大成每天数百万行读取（2026-09-17 实测撞上免费版 5M 行/天
-// 上限，全站 D1 接口停摆一整天）。5 分钟仍留下 288 次/天的余量，10 分钟减半到
-// 144 次/天，而访客统计本身是按天看的运维数据，10 分钟延迟没有实际影响。
-// 需要立刻看最新数据时用页面上的刷新按钮，不依赖这个定时器。
+// The 10-minute interval limits the cost of /api/visitors, the site's heaviest D1 query over a 30-day window.
+// Polling every 60 seconds can read millions of rows per day; on 2026-09-17 it hit the free-plan 5M daily
+// limit and disabled all D1 endpoints for a day. A 5-minute interval allows 288 requests/day; 10 minutes
+// halves that to 144. Visitor statistics are operational data viewed by day, so this delay is acceptable.
+// Use the page's refresh button when the newest data is needed immediately.
 const REFRESH_INTERVAL_MS = 600000;
 let refreshTimer = null;
 function startAutoRefresh() {
@@ -361,11 +360,11 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// 语言切换后仍保留当前筛选状态，只重新拉取无 status 参数的数据。
+// Preserve the current filter after a language change and reload data without a status parameter.
 document.addEventListener('languagechange', () => { refresh(); });
 
-// 模板内联 onclick 仍会调用 refresh() / handleLogout()，模块作用域的函数
-// 需要显式挂到 window 上，保持与旧版经典脚本一致。
+// Template onclick handlers still call refresh() and handleLogout(). Expose these module-scoped functions
+// on window to preserve the behavior of the previous classic script.
 window.refresh = refresh;
 window.handleLogout = handleLogout;
 

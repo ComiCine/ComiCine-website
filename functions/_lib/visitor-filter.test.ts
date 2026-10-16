@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** visitor-filter.js 纯函数测试：本地状态筛选不依赖 DOM / 网络。 */
+/** Pure-function tests for visitor-filter.js; local status filtering needs no DOM or network. */
 
 import { describe, expect, it } from "vitest";
 import { filterMarkers } from "../../src/static/js/visitor-filter.js";

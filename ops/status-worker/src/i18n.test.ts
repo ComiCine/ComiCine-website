@@ -32,13 +32,13 @@ import {
   type UiKey,
 } from "./i18n";
 
-/** 表里给了整句解释的 HTTP 码（其余任何三位码都应由 http_other 兜底）。 */
+/** HTTP codes with complete descriptions in the table; other three-digit codes use `http_other`. */
 const CURATED_HTTP = [
   200, 400, 401, 403, 404, 405, 408, 409, 410, 429, 451, 500, 501, 502, 503, 504, 505, 520, 521,
   522, 523, 524, 525, 526, 530,
 ];
 
-/** `runProbe()` 与页面自身可能产生的全部错误码。 */
+/** Every error code that `runProbe()` or the page itself can produce. */
 const PROBE_CODES = [
   "ok",
   "no_data",
@@ -77,7 +77,7 @@ describe("language table", () => {
     }
     expect(langFlag("zh-cn")).toBe("🇨🇳");
     expect(langFlag("ja-jp")).toBe("🇯🇵");
-    expect(langFlag("en")).toBe(""); // 没有地区段就不编造国旗
+    expect(langFlag("en")).toBe(""); // Do not invent a flag when the region subtag is missing.
   });
 
   it("isLang accepts only the four contract languages", () => {
@@ -97,7 +97,7 @@ describe("probe error codes", () => {
     expect(msgCode("http_530")).toBe("http_530");
     expect(msgCode("d1_error: Error: D1_ERROR: no such table: probes")).toBe("d1_error");
     expect(msgCode("fetch_error: TypeError: fetch failed")).toBe("fetch_error");
-    // AbortController 超时在运行时是 DOMException/AbortError，与网络错误分开归类。
+    // AbortController timeouts are DOMException/AbortError at runtime and are classified separately from network errors.
     expect(msgCode("fetch_error: AbortError: The operation was aborted")).toBe("fetch_timeout");
     expect(msgCode("something_else")).toBe("unknown");
   });
@@ -128,14 +128,14 @@ describe("probe error codes", () => {
   });
 
   it("keeps the zh-cn table and CURATED_HTTP in sync both ways", () => {
-    // 表里所有 http_<三位码> 键：清单外多一个没人引用的键（或清单里少一个取不到的码）都要报
+    // Include every http_<three-digit-code> key in the table: catch unused entries and codes missing from the list.
     const inTable = Object.keys(UI["zh-cn"])
       .filter((key) => /^http_\d{3}$/.test(key))
       .map((key) => Number(key.slice("http_".length)))
       .sort((a, b) => a - b);
     expect(inTable).toEqual([...CURATED_HTTP].sort((a, b) => a - b));
 
-    // 反向：清单里每个码在 zh-cn 表里都要取到整句，而不是 http_other 兜底或模板本身
+    // Conversely, every listed code must resolve to a complete zh-cn entry, not the http_other fallback or its template.
     for (const code of CURATED_HTTP) {
       const text = probeDetail(`http_${code}`, "zh-cn");
       const fallback = fmt(UI["zh-cn"].http_other, { code: String(code) });
@@ -158,8 +158,8 @@ describe("probe error codes", () => {
     const raw = "d1_error: Error: D1_ERROR: no such table: probes";
     const mail = alertDetail(raw, "en-us");
     expect(mail).toContain("Database query failed");
-    expect(mail).toContain("no such table"); // 排障要看原文
-    // 纯机器码没有额外信息，不重复粘贴
+    expect(mail).toContain("no such table"); // Keep raw text for troubleshooting.
+    // A machine code alone adds no detail, so do not repeat it.
     expect(alertDetail("http_503", "en-us")).toBe("Service unavailable (HTTP 503)");
     expect(alertDetail(null, "en-us")).toBe("No probe record yet");
   });

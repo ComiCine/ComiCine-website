@@ -1,6 +1,6 @@
--- Limooo Cloudflare Pages 侧 Ray ID 请求日志
--- 由 wrangler d1 execute limooo --file=./migrations/002_ray_log.sql 执行
--- 中间件把每次请求的 CF-Ray 连同请求信息写入此表，供 check-ray-id 按 ID 反查
+-- Ray ID request log for Limooo Cloudflare Pages.
+-- Apply with: wrangler d1 execute limooo --file=./migrations/002_ray_log.sql
+-- The middleware writes each request's CF-Ray and request details here for lookup by check-ray-id.
 
 CREATE TABLE IF NOT EXISTS ray_log (
     ray     TEXT PRIMARY KEY,

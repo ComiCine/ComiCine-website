@@ -58,7 +58,7 @@ PLAN_SOURCE="$SNAP"
 PLAN=""
 SNAP_TMP=""
 
-# 只删本脚本自己建的临时文件；--from/快照输入是仓库文件，绝不能删。
+# Remove only temporary files created by this script. Never delete --from inputs or repository snapshots.
 cleanup() {
     [ -n "$PLAN" ] && rm -f "$PLAN"
     [ -n "$SNAP_TMP" ] && rm -f "$SNAP_TMP"
@@ -67,7 +67,8 @@ cleanup() {
 trap cleanup EXIT
 
 usage() {
-    # 打印文件头注释块（第 3 行起，到第一个非注释行为止），不再写死行号。
+    # Print the leading comment block, starting at line 3 and ending at the first non-comment
+    # line. Do not hard-code the ending line number.
     awk 'NR>=3 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"
 }
 
@@ -87,7 +88,7 @@ done
 
 jsonq() { "$PY" -c "import sys,json;d=json.load(sys.stdin);$1"; }
 
-# 凭据：只读本机环境或 secrets/webauthn.env（与 pages_deploy.sh 同一份）
+# Credentials come only from the local environment or secrets/webauthn.env, shared with pages_deploy.sh.
 needs_network() {
     [ "$MODE" = show ] || [ "$MODE" = snapshot ] || [ "$MODE" = apply ]
 }
@@ -126,7 +127,7 @@ if needs_network; then
     fi
 fi
 
-# 取当前 phase entrypoint（原始 API 响应）到 $1；失败即退出。
+# Fetch the current phase entrypoint (raw API response) to $1; exit on failure.
 fetch_entrypoint() {
     local out="$1"
     api GET "/zones/$ZID$PHASE_PATH" > "$out"
@@ -137,8 +138,8 @@ fetch_entrypoint() {
     fi
 }
 
-# 快照文档是 {captured_at, zone, phase, ruleset}，原始响应是 {result, success}；
-# 打印/计划统一从两者里取 ruleset，因此 --dry-run 与 live 走同一套逻辑。
+# Snapshot documents use {captured_at, zone, phase, ruleset}; raw API responses use {result, success}.
+# Printing and planning read the ruleset from either format, so --dry-run and live modes share logic.
 print_rules() {
     "$PY" - "$1" <<'PY'
 import json, sys
@@ -156,7 +157,7 @@ PY
 }
 
 if [ "$MODE" = plan ]; then
-    # 离线：只用本地快照，绝不发网络请求。
+    # Offline mode uses only the local snapshot and never makes a network request.
     if [ ! -f "$PLAN_SOURCE" ]; then
         echo "FATAL: snapshot not found: $PLAN_SOURCE" >&2
         echo "       run 'bash ops/waf_rules.sh --snapshot' once to create it." >&2
@@ -174,8 +175,8 @@ if [ "$MODE" = show ]; then
     exit 0
 fi
 
-# 把 $SNAPFILE（原始 API 响应）写成仓库快照；覆盖前先报出旧快照的规模，
-# 免得把 README 依赖的历史规则集悄悄换掉。
+# Convert $SNAPFILE (raw API response) into a repository snapshot. Report the existing snapshot's
+# size before overwriting it so the historical ruleset used by the README is not replaced silently.
 write_snapshot() {
     mkdir -p "$SNAP_DIR"
     if [ -f "$SNAP" ]; then
@@ -235,7 +236,7 @@ PY
     echo
 fi
 
-# 计划：python 只把「动作表」写成 TSV，bash 逐行读；不做字符串插值
+# Planning: Python writes only an action table as TSV; Bash reads it line by line without string interpolation.
 PLAN="$(mktemp)"
 "$PY" - "$SNAPFILE" "$DROP_DISABLED" > "$PLAN" <<'PY'
 import json, re, sys

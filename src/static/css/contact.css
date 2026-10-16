@@ -1,8 +1,8 @@
 /*
-   联系页样式：复制提示气泡、桌面端二维码浮层、底部悬停线
+   Contact page styles: copy feedback, desktop QR overlay, and hover underline.
    */
 
-/* 复制提示气泡 */
+/* Copy confirmation tooltip */
 .copyable { color: inherit; }
 .bubble-tip {
     position: absolute; bottom: 130%; left: 50%;
@@ -21,7 +21,7 @@
     color: var(--hover-highlight); border-color: var(--hover-highlight-border);
 }
 
-/* 悬停底部线条（仿链接下划线动效） */
+/* Bottom hover line styled like a link underline. */
 .copyable { position: relative; cursor: pointer; }
 .hover-line {
     position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
@@ -36,7 +36,7 @@
     .copyable a:hover { color: var(--hover-highlight); opacity: 1; }
 }
 
-/* 桌面端：二维码浮层（悬停社交链接时在屏幕右侧显示） */
+/* Desktop QR overlay, shown at the right when hovering a social link. */
 @media (hover: hover) {
     .qr-display {
         position: fixed; left: 75%; top: 50%;
@@ -46,10 +46,10 @@
         transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out), filter 0.3s var(--ease-out), visibility 0.3s;
         pointer-events: none;
         border-radius: var(--radius-md); border: 1px solid var(--line);
-        /* 浮层外框固定为 226px = 224(图) + 0*2(内边距) + 1*2(描边)，
-           与最初的 226px（200 + 12*2 + 1*2）完全一致：
-           内边距归零，把留白全部让给二维码，浮层本身尺寸不变。
-           二维码四周自带静默区，贴边不影响扫码。 */
+        /* Keep the overlay at 226px: 224px for the image plus 2px for the border.
+           This matches the original 226px frame (200 + 24px padding + 2px border).
+           Removing padding gives that space to the QR image without changing the frame size.
+           The QR code includes its own quiet zone, so it can sit flush against the frame. */
         width: 226px; box-sizing: border-box;
         padding: 0;
         background: var(--panel-bg);
@@ -60,7 +60,7 @@
         .qr-display { background: var(--bg); }
     }
     .qr-display img {
-        /* 在固定尺寸的浮层里占满可用宽度：226 - 0*2 - 1*2 = 224px */
+        /* Fill the available width in the fixed overlay: 226 - 0*2 - 1*2 = 224px. */
         display: block; width: 100%; height: auto;
         border-radius: var(--radius-sm);
         filter: invert(1);
@@ -70,7 +70,7 @@
     }
     .qr-trigger { cursor: pointer; }
 }
-/* 移动端隐藏二维码浮层 */
+/* Hide the QR overlay on mobile. */
 @media (max-width: 767px) {
     .qr-display { display: none !important; }
 }

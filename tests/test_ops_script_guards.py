@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ops/deploy.sh 与 ops/migrate_d1.sh 的安全闸门（tasks/22 · W3）。
+"""Safety guards for `ops/deploy.sh` and `ops/migrate_d1.sh` (tasks/22, W3).
 
-这些用例全部离线运行：
-  * deploy.sh 只走 --dry-run，或在临时 git 仓库里换成 stub 的 pages/docs 步骤；
-  * migrate_d1.sh 用 WRANGLER_BIN 指向假 wrangler，绝不接触 Cloudflare / 生产 D1。
+All cases run offline:
+  * `deploy.sh` uses only `--dry-run` or stubbed Pages/docs steps in a temporary Git repository;
+  * `migrate_d1.sh` points `WRANGLER_BIN` at a fake Wrangler and never contacts Cloudflare or production D1.
 """
 
 from __future__ import annotations
@@ -40,12 +40,12 @@ MIGRATE = ROOT / "ops" / "migrate_d1.sh"
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
 
-# 辅助
+# Helpers
 
 
-# 这些用例测的是 deploy.sh 的**闸门逻辑**，不是工具链。工具自愈（2026-10-11 加）
-# 会在临时仓库里尝试建 venv / 装 wrangler —— 那里没有 requirements.lock，必然失败，
-# 于是整条用例假红。默认关掉自愈；要专门测自愈的用例自己再打开。
+# These cases test deploy.sh **gate logic**, not the toolchain. Tool bootstrap (added 2026-10-11)
+# tries to create a venv and install wrangler in a temporary repository. It has no requirements.lock, so it fails,
+# making the whole test fail spuriously. Disable bootstrap by default; tests for bootstrap can enable it explicitly.
 _GUARD_ENV = {"LIMOOO_SKIP_TOOL_BOOTSTRAP": "1"}
 
 
@@ -66,13 +66,9 @@ def git(args, cwd):
 
 
 def make_repo(tmp_path: Path, branch: str = "main") -> Path:
-    """建一个干净的临时 git 仓库，并把 deploy.sh 与 stub 步骤脚本放进去。
+    """Create a clean temporary Git repository and add `deploy.sh` plus stub step scripts.
 
-    身份必须**写进这个仓库的 config**，不能只靠 `git -c`（那只管我们自己发的命令）：
-    `deploy.sh --commit` 内部会自己 `git commit`，而 CI runner 上没有 user.name /
-    user.email，git 会以 128（`Author identity unknown`）失败 —— 本地因为全局配过身份
-    看不到这个问题（2026-10-12 在 GitHub 上真的红过一次）。顺带关掉签名：
-    万一某个环境的全局配置开了 `commit.gpgsign` 而没有可用密钥，同样会让用例假红。
+    The identity must be written to this repository's config; `git -c` only applies to the command we invoke. `deploy.sh --commit` runs `git commit` internally, and CI runners have no `user.name` or `user.email`, so Git exits 128 with `Author identity unknown`. A global identity masked this locally until the GitHub failure on 2026-10-12. Also disable signing: if a global `commit.gpgsign` setting is enabled without an available key, the test fails spuriously.
     """
     repo = tmp_path / "repo"
     (repo / "ops").mkdir(parents=True)
@@ -81,9 +77,9 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
         ("docs_deploy.sh", '#!/bin/bash\necho "STUB docs_deploy ran"\n'),
-        # 白名单生成：deploy.sh 在闸门之前从 own-ips.txt 生成它。
+        # Allowlist generation: deploy.sh builds it from own-ips.txt before running the gates.
         ("sync_whitelist.py", '#!/usr/bin/env python3\nprint("STUB sync_whitelist ran (args: $*)")\n'),
-        # 封禁名单双向对账（2026-10-11 加）：要读 D1，测试里桩掉。
+        # Blocklist reconciliation (added 2026-10-11) reads D1; stub it in tests.
         ("reconcile_blocklist.sh", '#!/bin/bash\necho "STUB reconcile_blocklist ran (args: $*)"\n'),
     ):
         path = repo / "ops" / name
@@ -91,7 +87,7 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         path.chmod(0o755)
     (repo / "tracked.txt").write_text("v1\n")
     git(["-c", "init.defaultBranch=main", "init", "-q"], repo)
-    # 仓库级身份：deploy.sh 内部那次 commit 靠它，不靠 runner 的全局配置。
+    # Repository-level identity: the commit made inside deploy.sh relies on this, not the runner global config.
     git(["config", "user.name", "w3"], repo)
     git(["config", "user.email", "w3@example.com"], repo)
     git(["config", "commit.gpgsign", "false"], repo)
@@ -124,7 +120,7 @@ def wrangler_payload(names: list[str]) -> str:
 
 
 def write_fake_wrangler(path: Path, file_error: str, versions: list[int]) -> Path:
-    """假 wrangler：--file 一律按 file_error 失败，SELECT version 返回 versions。"""
+    """Fake Wrangler: every `--file` call fails with `file_error`, and `SELECT version` returns `versions`."""
     rows = ",".join(f'{{"version":{v}}}' for v in versions)
     path.write_text(
         "#!/bin/bash\n"
@@ -149,14 +145,14 @@ def write_fake_wrangler(path: Path, file_error: str, versions: list[int]) -> Pat
     return path
 
 
-# W3-2：--worker= 空值
+# W3-2: Empty --worker value.
 
 
 def test_deploy_rejects_empty_worker_value():
     result = run([BASH, "ops/deploy.sh", "--worker=", "--dry-run"])
     assert result.returncode == 2, result.stdout + result.stderr
     assert "FATAL: --worker= needs a Worker name" in result.stderr
-    # 旧行为是静默落到「无参数 = --all」，这里必须什么都不部署
+    # The old behavior silently treated no value as --all; this must deploy nothing.
     assert "would-run: bash ops/pages_deploy.sh" not in result.stdout
     assert "Deploy: dry-run done" not in result.stdout
 
@@ -167,7 +163,7 @@ def test_deploy_rejects_worker_name_with_unsafe_characters():
     assert "FATAL: invalid Worker name" in result.stderr
 
 
-# W3-1：非 main 分支不得 commit / push
+# W3-1: Do not commit or push from a branch other than main.
 
 
 def test_deploy_dry_run_on_feature_branch_is_fatal(tmp_path):
@@ -176,7 +172,7 @@ def test_deploy_dry_run_on_feature_branch_is_fatal(tmp_path):
     assert result.returncode == 2, result.stdout + result.stderr
     assert "FATAL: commit/push must run on branch main" in result.stderr
     assert "tmp/w3-check" in result.stderr
-    # 没有真正开跑
+    # No deployment actually started.
     assert "Deploy: start (dry-run)" not in result.stdout
 
 
@@ -197,17 +193,15 @@ def test_deploy_dry_run_on_main_is_allowed(tmp_path):
     assert "Deploy: dry-run done" in result.stdout
 
 
-# 推完看 CI（2026-10-12 加）：本地闸门看不见 runner 环境
+# Check CI after pushing (added 2026-10-12): local gates cannot see the runner environment.
 
 
 def test_ci_check_stays_as_strict_as_ci():
-    """闸门必须与 CI 一样严：缺工具要装、pytest 要在无 git 身份的环境里跑。
+    """The gate must be as strict as CI: install missing tools and run pytest without a Git identity.
 
-    2026-10-12 加。守的是两件容易被「顺手简化」掉的事：
-      * `ensure_gate_tools` —— ruff / mypy / pytest-cov 缺了就装；退回 SKIP 时
-        输出里必须写 `NOT VERIFIED locally`，不能让闸门看起来全绿；
-      * pytest 的环境变量 —— HOME 指空、禁 global/system 配置、关掉身份自动探测。
-        没有这一段，「用例偷偷依赖本机 git 身份」就会一路绿到 GitHub 才红。
+    Added on 2026-10-12 to protect two behaviors that are easy to simplify away:
+      * `ensure_gate_tools` installs missing `ruff`, `mypy`, and `pytest-cov`. If installation fails and the check is skipped, output must say `NOT VERIFIED locally` rather than appearing fully green.
+      * pytest runs with an empty `HOME`, global and system Git configuration disabled, and automatic identity discovery turned off. Without this, a test could silently rely on the local Git identity and pass here only to fail on GitHub.
     """
     text = (ROOT / "ops" / "ci_check.sh").read_text(encoding="utf-8")
 
@@ -223,10 +217,7 @@ def test_ci_check_stays_as_strict_as_ci():
 
 
 def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
-    """安静模式下每个阶段收成一个词：`Prepare`（Lists+Bans+Check）/ `Release`
-    （Pages+Docs+Workers）；`CI: tests success, …` 整行去掉（2026-10-13 用户逐行批注 +
-    定词）。提交行的文件清单另有批注：恢复逐行列出 —— 由 test_deploy_commits… 覆盖。
-    """
+    """In quiet mode, each phase is summarized in one word: `Prepare` (Lists, Bans, Check) and `Release` (Pages, Docs, Workers). The `CI: tests success, …` line was removed after the user's line-by-line review and naming decision on 2026-10-13. A separate review required the commit output to list changed files one per line; `test_deploy_commits...` covers that behavior."""
     repo = make_repo(tmp_path)
 
     preview = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
@@ -239,26 +230,26 @@ def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
     assert "Release: done" in ran.stdout, ran.stdout
     assert "+" not in ran.stdout.replace("++", ""), "阶段标签不该再是 A+B+C 形状"
     assert not any(line.startswith("CI:") for line in ran.stdout.splitlines()), ran.stdout
-    # 子步骤的个别行不再出现在成功路径上（跳过/失败才出声）
+    # Individual step lines are hidden on success; skipped and failed steps still print.
     for gone in ("Lists: done", "Bans: done", "Check: done",
                  "Pages: done", "Docs: done", "Workers: done"):
         assert gone not in ran.stdout, f"{gone} 应该被并进阶段行"
 
 
-# W3-3：Pages / docs 前先跑 CI，脏树要拒绝
+# W3-3: Run CI before Pages or docs deployment and reject a dirty worktree.
 
 
 def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     repo = make_repo(tmp_path)
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert result.returncode == 0, result.stdout + result.stderr
-    # 输出自 2026-10-13 起按阶段合并成两个词：`Prepare`（含 Check）先于 `Release`。
+    # Since 2026-10-13, output is grouped into `Prepare` (including Check) followed by `Release`.
     assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
-    # 真实执行序列用 --full 断言（它逐条回显命令，不合并）：
-    #   ① 白名单生成必须**先于** CI —— 它会产生改动，放在 CI 之后会被脏树
-    #      闸门拦下，也漏过 CI 对该名单的校验；
-    #   ② 闸门必须**先于**发布 —— 检查没跑过就不许发。
+    # Assert the actual command sequence with --full, which prints every command instead of grouping output:
+    #   1. Generate the allowlist **before** CI. It changes files, so running it after CI would trigger the dirty-tree
+    #      gate and skip CI validation of the allowlist.
+    #   2. Run the gates **before** release; do not deploy before checks pass.
     full = run([BASH, "ops/deploy.sh", "--pages", "--full"], cwd=repo)
     assert full.returncode == 0, full.stdout + full.stderr
     assert full.stdout.index("ops/sync_whitelist.py") < full.stdout.index("ops/ci_check.sh")
@@ -266,11 +257,9 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
 
 
 def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path):
-    """名单同步改了工作区，一次性提交仍要成功。
+    """A deployment must succeed when list synchronization changes the working tree.
 
-    回归点：stage + 工作区快照必须在 Lists / Bans 之后，否则名单同步改动会让
-    ⓪c 报「检查期间工作区又被改动」，第一次部署需要重跑。
-    这里让桩 sync_whitelist.py 真的改一个已跟踪文件来复现那个场景。
+    Regression coverage: staging and taking the worktree snapshot must happen after Lists and Bans. Otherwise, list-sync changes trigger the `0c` check that the tree changed during validation, forcing the first deployment to be retried. The stub `sync_whitelist.py` edits a tracked file to reproduce this case.
     """
     repo = make_repo(tmp_path)
     stub = repo / "ops" / "sync_whitelist.py"
@@ -282,14 +271,14 @@ def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path):
     )
     stub.chmod(0o755)
 
-    # 只走 commit 那一段：Pages / docs / Workers 在桩仓库里没有（也不在回归点上），
-    # 而快照比对（⓪c）正是 commit 路径独有的闸门。
+    # Exercise only the commit stage: Pages, docs, and Workers are absent from the stub repository and are not part of this regression.
+    # Snapshot comparison (0c) is a gate unique to the commit path.
     result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "working tree changed during checks" not in result.stderr
     assert "Git: committed" in result.stdout
-    # 刷新写进去的内容确实进了提交（而不是「检查过的树」与「提交的树」两份）
+    # Verify that refreshed content is included in the commit, so the checked tree and committed tree are the same.
     assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
 
 
@@ -316,7 +305,7 @@ def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
     assert result.returncode == 1, result.stdout + result.stderr
     assert "FATAL: working tree has uncommitted changes" in result.stderr
     assert "tracked.txt" in result.stderr
-    # 拒绝要发生在准备阶段与发布阶段之前：两个阶段词都不该出现
+    # Rejection must happen before preparation or release; neither stage label should appear.
     assert "Prepare: done" not in result.stdout
     assert "Release: done" not in result.stdout
     assert "STUB pages_deploy ran" not in result.stdout
@@ -330,36 +319,32 @@ def test_deploy_pages_allows_a_dirty_tree_with_the_escape_hatch(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Warning: deploying a dirty working tree (LIMOOO_ALLOW_DIRTY=1)" in result.stdout
-    # 阶段顺序：准备（含 Check）→ 发布
+    # Stage order: Prepare (including Check), then Release.
     assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
 
-# W3-4 / W3-5：--remote 必需，--dry-run 完全离线
+# W3-4 / W3-5: --remote is required; --dry-run must remain fully offline.
 
 
 def test_deploy_all_includes_every_worker(tmp_path):
-    """完整部署必须带上 Worker。
+    """Full deployment must include Workers.
 
-    2026-10-11 的真实事故：`deploy.sh` 只在显式 `--worker=<name>` 时才调用
-    `workers_deploy.sh`，于是 `ops/*/src/**` 里的改动会被 commit + push，
-    而线上继续跑旧代码 —— 同一个会话里静默发生了两次（webhook 通道报错、
-    告警文案该是英文却仍是中文）。Pages 与 docs **不是** Worker 更新的代理。
+    A production incident on 2026-10-11 occurred because `deploy.sh` called `workers_deploy.sh` only when `--worker=<name>` was supplied. Changes under `ops/*/src/**` were committed and pushed while production kept running old code. This happened twice in one session: the webhook channel failed, and alert copy that should have been English was still Chinese. Pages and docs do not deploy Worker updates.
     """
     repo = make_repo(tmp_path)
     result = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "bash ops/workers_deploy.sh" in result.stdout, result.stdout
-    # 其余三步也必须在，别为了加 Worker 把 Pages/docs 挤掉。
+    # Keep the other three steps too; adding a Worker must not remove Pages or docs.
     for step in ("ops/ci_check.sh", "ops/pages_deploy.sh", "ops/docs_deploy.sh"):
         assert step in result.stdout, f"{step} missing from a full deploy"
 
 
 def test_deploy_workers_only_does_not_touch_pages_or_docs(tmp_path):
-    """`--workers` 是「只发 Worker」，不能顺带把 Pages/docs 也发一遍。
+    """`--workers` means deploy Workers only; it must not also deploy Pages or docs.
 
-    这条守的是一个真实 bug：默认分支（无参数 = --all）最初没把 `DO_WORKERS` 算进去，
-    于是单独 `--workers` 落进那个分支、静默变成完整部署。
+    This guards a real bug: the default branch (no arguments, equivalent to `--all`) initially omitted `DO_WORKERS`, so `--workers` fell through that branch and silently became a full deployment.
     """
     repo = make_repo(tmp_path)
     result = run([BASH, "ops/deploy.sh", "--workers", "--dry-run"], cwd=repo)
@@ -371,7 +356,7 @@ def test_deploy_workers_only_does_not_touch_pages_or_docs(tmp_path):
 
 
 def test_deploy_rejects_workers_together_with_a_single_worker(tmp_path):
-    """`--workers` 与 `--worker=<name>` 同时给是自相矛盾，必须 FATAL。"""
+    """`--workers` and `--worker=<name>` conflict and must fail with `FATAL`."""
     repo = make_repo(tmp_path)
     result = run(
         [BASH, "ops/deploy.sh", "--workers", "--worker=status-worker", "--dry-run"],
@@ -412,16 +397,16 @@ def test_migrate_dry_run_is_offline_and_lists_every_migration(tmp_path):
     for name in names:
         assert name in result.stdout
     assert result.stdout.count("key=") == len(names)
-    # 空缓存 → 全部 cache=no；假 wrangler 不存在也不能被调用
+    # With an empty cache, every table has cache=no; do not call the fake wrangler if it is absent.
     assert "cache=yes" not in result.stdout
     assert not cache.exists()
 
 
-# W3-7：--check-schema 用精确表名，不做子串匹配
+# W3-7: --check-schema must use exact table names, not substring matches.
 
 
 def test_check_schema_does_not_accept_a_prefix_table(tmp_path):
-    """visitors_v2 存在但 visitors 丢失时必须报缺表（W3-7）。"""
+    """If `visitors_v2` exists but `visitors` is missing, the check must report the missing table (W3-7)."""
     tables = [t for t in expected_tables() if t not in ("visitors", "ray_log")]
     assert "visitors_v2" in tables and "ray_log_v2" in tables
     payload = tmp_path / "trap.json"
@@ -446,20 +431,20 @@ def test_check_schema_passes_when_every_table_is_present(tmp_path):
     assert "schema check: OK" in result.stdout
 
 
-# W3-5 / W3-6 / W3-8：D1 schema_version 是唯一事实源
+# W3-5 / W3-6 / W3-8: D1 schema_version is the only source of truth.
 
 
 def test_apply_ignores_the_local_cache_and_reads_d1_state(tmp_path):
     names = migration_names()
     prefixes = sorted({int(n.split("_")[0]) for n in names})
-    legacy = prefixes[:-1]  # 生产库现状：旧式纯版本号，缺最新那条
+    legacy = prefixes[:-1]  # Production state: legacy plain version numbers, missing the latest migration.
     newest = [n for n in names if int(n.split("_")[0]) == prefixes[-1]][0]
 
     fake = write_fake_wrangler(
         tmp_path / "wrangler", "D1_ERROR: duplicate column name: last_alert_at", legacy
     )
     cache = tmp_path / "applied"
-    # 故意埋一份「谎报最新迁移已应用」的本地缓存
+    # Deliberately seed a local cache that falsely claims the latest migration was applied.
     cache.write_text(f"{newest}\n")
 
     result = run(
@@ -467,13 +452,13 @@ def test_apply_ignores_the_local_cache_and_reads_d1_state(tmp_path):
         env={"WRANGLER_BIN": str(fake), "D1_STATE_FILE": str(cache)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    # 本地缓存不能决定跳过：最新迁移仍要执行
+    # The local cache cannot cause a migration to be skipped; the latest migration must still run.
     assert f"[d1] apply: {newest}" in result.stdout
     assert "skip (recorded legacy version" in result.stdout
-    # ALTER 重复报错要被识别成「已应用」而不是 FATAL
+    # Treat a duplicate ALTER error as already applied, not as FATAL.
     assert f"already applied (schema already present, record was missing): {newest}" in result.stdout
     assert f"[d1] recorded: {newest} key=" in result.stdout
-    # 跑完后缓存被覆盖成 D1 的权威集合
+    # After the run, replace the cache with D1's authoritative migration set.
     assert cache.read_text().split() == names
 
 
@@ -501,16 +486,13 @@ def test_scripts_are_syntactically_valid(name):
 
 
 def test_deploy_bootstraps_missing_tooling(tmp_path):
-    """`/tmp` 被清理后，deploy.sh 要自己把构建 venv 补回来。
+    """`deploy.sh` must recreate its build virtual environment after `/tmp` is cleaned.
 
-    2026-10-11 真实踩过：macOS 定期清理 /tmp，之后一次 `deploy` 同时挂在
-    "build venv not found" 与 "wrangler not found" —— 那两个 FATAL 看起来像配置
-    问题，实际只是工具被删了。
+    This happened on macOS on 2026-10-11: periodic `/tmp` cleanup removed the tools, and a later `deploy` failed with `build venv not found` and `wrangler not found`. Those `FATAL` messages looked like configuration problems, but the tools had simply been deleted.
 
-    这里用桩 python3 / 桩 npm 观察**它尝试了什么**（不真装东西）：
-      * 只有 `-m venv <dir>` 这个调用才算数（我第一版桩对任何 python3 调用都留标记，
-        于是"跳过"那条测试假红）；
-      * npm 必须桩掉，否则真 npm 会把 wrangler 装上，测试就测不到失败路径。
+    This test uses stub `python3` and `npm` commands to observe the attempted actions without installing anything:
+      * Only `-m venv <dir>` counts as a venv creation attempt. The first stub marked every Python call, which made the skip case fail spuriously.
+      * `npm` must also be stubbed; otherwise the real npm would install Wrangler and hide the failure path.
     """
     repo = make_repo(tmp_path)
     fake_venv = tmp_path / "venv"
@@ -519,7 +501,7 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
     bindir = tmp_path / "bin"
     bindir.mkdir()
 
-    # 只在 `-m venv <dir>` 时留痕并造出 venv 结构。
+    # Record and create a venv structure only for `-m venv <dir>`.
     (bindir / "python3").write_text(
         "#!/bin/bash\n"
         'if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then\n'
@@ -531,7 +513,7 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
         "exit 0\n"
     )
     (bindir / "python3").chmod(0o755)
-    # 桩 npm：留痕但**不**产出 wrangler —— 于是 bootstrap 会走到明确的 FATAL。
+    # Stub npm records the call but **does not** create wrangler, so bootstrap must report FATAL.
     (bindir / "npm").write_text(f"#!/bin/bash\necho \"$@\" >> {npm_marker}\nexit 0\n")
     (bindir / "npm").chmod(0o755)
 
@@ -540,7 +522,7 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
         "LIMOOO_VENV_PYTHON": str(fake_venv / "bin" / "python"),
         "WRANGLER_BIN": str(tmp_path / "wrangler" / "node_modules" / ".bin" / "wrangler"),
         "LIMOOO_SKIP_CHECKS": "1",
-        # run() 默认会把自愈关掉（见 _GUARD_ENV）；这条用例正是要测自愈，显式打开。
+        # run() disables bootstrap by default (see _GUARD_ENV); this case tests bootstrap, so enable it explicitly.
         "LIMOOO_SKIP_TOOL_BOOTSTRAP": "0",
     }
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
@@ -548,13 +530,13 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
     assert venv_marker.is_file(), f"没有尝试创建 venv\n{result.stdout}\n{result.stderr}"
     assert "recreating the build venv" in result.stdout, result.stdout
     assert npm_marker.is_file(), "没有尝试安装 wrangler"
-    # wrangler 装不出来时必须明确失败，而不是静默继续去跑 pages_deploy。
+    # If wrangler cannot be installed, fail explicitly instead of silently continuing to pages_deploy.
     assert result.returncode != 0, result.stdout + result.stderr
     assert "could not install wrangler" in result.stderr, result.stderr
 
 
 def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
-    """`LIMOOO_SKIP_TOOL_BOOTSTRAP=1` 时不做任何重建尝试。"""
+    """`LIMOOO_SKIP_TOOL_BOOTSTRAP=1` disables all bootstrap attempts."""
     repo = make_repo(tmp_path)
     venv_marker = tmp_path / "venv-created"
     bindir = tmp_path / "bin"
@@ -578,5 +560,5 @@ def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
 
     assert "recreating the build venv" not in result.stdout, result.stdout
     assert not venv_marker.is_file(), "跳过后不该创建 venv"
-    # 跳过自愈 → 缺 venv 由 pages_deploy 的桩接住（桩脚本不看 venv）。
+    # With bootstrap disabled, let the pages_deploy stub handle the missing venv; the stub does not inspect it.
     assert "Release: done" in result.stdout, result.stdout

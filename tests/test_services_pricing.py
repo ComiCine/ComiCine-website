@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""services.limooo.cn 价目表：CSV 是唯一数据源，构建时读取。"""
+"""Price list for services.limooo.cn; CSV is the single source of data and is read at build time."""
 
 import re
 
@@ -36,17 +36,17 @@ def _write(dir_path, name, text):
     return path
 
 
-# 这里曾经有一个 autouse fixture 在每个用例前后调 render_app._cached_pricing.cache_clear()：
-# 当时缓存把 SERVICES_DIR 闭包在 import 期，换目录不会失配。现在 render_app 的缓存
-# **以目录为 key**（`_cached_pricing(services_dir)`，见 render_app 里那段注释），
-# 换目录自然 miss，兜底失效逻辑已成死代码，故删除。
-# 回归保护在 tests/test_build_w4.py：test_two_services_dirs_do_not_cross_pollute
-# （两个临时目录连续渲染，**不调用** cache_clear，断言互不污染）。
+# An autouse fixture used to call render_app._cached_pricing.cache_clear() before and after each case.
+# At the time, the cache closed over SERVICES_DIR at import time, so changing directories did not invalidate it. render_app now
+# **uses the directory as its key** (`_cached_pricing(services_dir)`; see the comment in render_app),
+# so changing directories naturally misses the cache. The cache_clear workaround became dead code and was removed.
+# Regression coverage: tests/test_build_w4.py::test_two_services_dirs_do_not_cross_pollute
+# renders two temporary directories consecutively, **without** cache_clear, and asserts they do not cross-pollute.
 
 
 @pytest.fixture
 def services_dir(tmp_path, monkeypatch):
-    """把价目表目录指向临时目录，避免测试依赖仓库里的真实 CSV 内容。"""
+    """Point the price-list directory at a temporary directory so the test does not depend on repository CSV contents."""
     monkeypatch.setattr("services_pricing.SERVICES_DIR", str(tmp_path))
     return tmp_path
 
@@ -91,7 +91,7 @@ def test_convention_rows_are_sorted_by_shot_count(services_dir):
 
 
 def test_outdoor_rows_are_rendered_in_fixed_order(services_dir):
-    """CSV 行序变化不应打乱四张卡片的版式（棚拍在前、外景在后）。"""
+    """Changing CSV row order must not change the layout of the four cards (studio first, then outdoor)."""
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,20\n3,55\n6,100\n9,150\n")
     _write(
         services_dir,
@@ -114,7 +114,7 @@ def test_outdoor_rows_are_rendered_in_fixed_order(services_dir):
     ],
 )
 def test_bookable_column_drives_the_strikethrough(services_dir, bookable, expected):
-    """`bookable` = no 加删除线；= yes 或留空（含整列不存在）都不加。"""
+    """`bookable=no` adds a strikethrough; `yes`, blank, or a missing column does not."""
     column = "" if bookable is None else ",bookable"
     cells = [bookable] * 4 if bookable is not None else [None] * 4
 
@@ -159,12 +159,12 @@ def test_bookable_column_drives_the_strikethrough(services_dir, bookable, expect
 @pytest.mark.parametrize(
     "studio,expected",
     [
-        # 两档棚拍都不接 → 说明栏显示暂停文案
+        # When neither studio tier is bookable, show the paused note.
         (("no", "no"), "studio_paused"),
-        # 只要有一档还接单 → 说明栏显示可预约，不能和卡片上的删除线自相矛盾
+        # If either tier is bookable, show the available note so it does not contradict card strikethroughs.
         (("yes", "yes"), "studio_bookable"),
         (("yes", "no"), "studio_bookable"),
-        # 留空同样算接单
+        # A blank value also means bookable.
         (("", ""), "studio_bookable"),
     ],
 )
@@ -187,7 +187,7 @@ def test_studio_note_row_follows_the_bookable_column(services_dir, studio, expec
 
 
 def test_studio_note_row_is_rendered(services_dir):
-    """说明栏那一行必须由模板渲染出来；棚拍全不接时显示暂停文案。"""
+    """The note row must be rendered by the template; show the paused message when no studio tier is bookable."""
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,20\n3,55\n6,100\n9,150\n")
     _write(
         services_dir,
@@ -243,7 +243,7 @@ def test_missing_csv_fails_the_build(services_dir):
 
 
 def test_services_page_renders_csv_prices(services_dir):
-    """模板里的价格必须来自 CSV，而不是写死的常量。"""
+    """Prices in the template must come from the CSV rather than hard-coded constants."""
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,30\n3,60\n6,110\n9,160\n")
     _write(
         services_dir,
@@ -263,10 +263,10 @@ def test_services_page_renders_csv_prices(services_dir):
         "130",
         "190",
     ]
-    # 档位标签与单位后缀仍然走 i18n
+    # Tier labels and unit suffixes still use i18n.
     assert 'data-i18n="plan_studio_solo"' in html
     assert 'data-i18n="unit_per_9"' in html
-    # 棚拍两档「是否接单=否」→ 删除线；外景两档不加
+    # Mark both studio tiers as unavailable with strikethrough; do not mark either outdoor tier.
     assert html.count('class="plan-price strikethrough"') == 2
 
 
@@ -275,7 +275,7 @@ def test_services_page_renders_csv_prices(services_dir):
     ["N/A", "n/a", "NA", " N/A ", "TBD", "", "1OO", "0", "-5", "12.5"],
 )
 def test_non_positive_integer_price_renders_dash(services_dir, literal):
-    """价格没有白名单：解析不出正整数（N/A / 留空 / 写错 / 0 / 负数）→ no_price，构建照常通过。"""
+    """There is no price placeholder allowlist: values that do not parse as positive integers (`N/A`, blank, invalid text, `0`, or a negative number) map to `no_price`, and the build still succeeds."""
     _write(
         services_dir,
         CONVENTION_CSV,
@@ -304,7 +304,7 @@ def test_non_positive_integer_price_renders_dash(services_dir, literal):
 
 
 def test_no_price_renders_as_dash(services_dir):
-    """没有价格只把数字换成 '-'：CNY 前缀与单位后缀留在原位，同页其他档位照旧。"""
+    """When a price is missing, replace only the number with `-`; keep the `CNY` prefix and unit suffix in place, and leave other tiers unchanged."""
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,N/A\n3,55\n6,100\n9,150\n")
     _write(
         services_dir,
@@ -314,7 +314,7 @@ def test_no_price_renders_as_dash(services_dir):
 
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
 
-    # 场照带单位后缀（/ 张），正片带 / 小时；前缀都不省
+    # Studio photography uses a per-shot suffix; outdoor photography uses a per-hour suffix. Keep both prefixes.
     assert '<span class="price-num">CNY -<span class="plan-unit" data-i18n="unit_per_shot">' in html
     assert (
         html.count(
@@ -335,27 +335,25 @@ def test_no_price_renders_as_dash(services_dir):
 
 
 def test_services_page_matches_committed_csv():
-    """仓库里真实的 CSV 必须能渲染（防止只改 CSV 改坏格式就提交/部署）。"""
+    """The repository's actual CSV files must render, so malformed formatting cannot be committed or deployed unnoticed."""
     pricing = load_pricing()
 
     assert pricing["convention"], "convention.csv must have at least one tier"
     assert len(pricing["outdoor"]) == 4
-    # 张数升序且不重复
+    # Shot counts are ascending and unique.
     shots = [plan["shots"] for plan in pricing["convention"]]
     assert shots == sorted(shots) and len(set(shots)) == len(shots)
 
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
-    # 每个档位都必须渲染出一个价格格（数字或 '-'），数量跟 CSV 对齐
+    # Render one price cell per tier (a number or `-`), matching the CSV row count.
     assert html.count('<span class="price-num">') == len(pricing["convention"]) + 4
     assert "None" not in html
 
 
 def test_overflow_price_column_renders_dash(services_dir):
-    """价格列多一个逗号（`1,000`）不能让构建抛 AttributeError。
+    """An extra comma in a price such as `1,000` must not make the build raise `AttributeError`.
 
-    数据行字段数多于表头时，csv.DictReader 把溢出的列塞进 row[None]（值是 list）。
-    约定是「解析不出正整数就渲染 '-'，构建永不因此失败」，所以溢出列要归一化成
-    字符串（"1,000"）交给 _parse_price，自然得到 None。
+    When a data row has more fields than the header, `csv.DictReader` stores the overflow fields in `row[None]` as a list. The rule is that values that do not parse as positive integers render as `-` and never fail the build, so the overflow fields must be normalized to a string (`"1,000"`) and passed to `_parse_price`, which returns `None`.
     """
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,1,000\n3,55\n6,100\n9,150\n")
     _write(
@@ -374,7 +372,7 @@ def test_overflow_price_column_renders_dash(services_dir):
 
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
 
-    # 溢出的那一档只把数字换成 '-'：CNY 前缀与单位后缀留在原位，其他档位照旧
+    # For an overflow tier, replace only the number with `-`; keep the CNY prefix and unit suffix, and leave other tiers unchanged.
     assert '<span class="price-num">CNY -<span class="plan-unit" data-i18n="unit_per_shot">' in html
     assert re.findall(r'<span class="price-num">CNY (\d+)', html) == [
         "55",
@@ -400,7 +398,7 @@ def test_overflow_price_column_renders_dash(services_dir):
     ],
 )
 def test_duplicate_header_fails_the_build(services_dir, filename, text):
-    """重复表头（`shots,price,price`）会静默取最后一列——必须报错，且报错要带文件名。"""
+    """Duplicate headers (`shots,price,price`) would silently select the last column; the build must fail and include the filename in the error."""
     _write(services_dir, CONVENTION_CSV, "shots,price\n1,20\n3,55\n6,100\n9,150\n")
     _write(
         services_dir,

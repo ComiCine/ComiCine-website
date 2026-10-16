@@ -18,65 +18,66 @@
  */
 
 /**
- * `worker_runs` 的「有人在看」那一环（迁移 018）。
+ * The monitoring layer for `worker_runs` (migration 018).
  *
- * 迁移 018 让两个 cron Worker 把每次运行记成一行，但**没有任何人或任何任务是
- * 那张表的读者**：失败写进去了，仍然不会通知到人（`ops/check_blocklist_sync.py`
- * 是手工入口，实测被自动化调用 0 处）。本文件补上读者——status-worker 的
- * 每日任务（cron `47 3 * * *`，恰好排在归档 `0 0 * * *` 与同步 `30 3 * * *`
- * 之后）读每个 job 的最近一次运行，异常就交给现有告警通道。
+ * Migration 018 made two cron Workers record each run, but **nothing read that table**:
+ * failures were stored without notifying anyone (`ops/check_blocklist_sync.py` is a manual
+ * entry point with no automated callers). This file adds a reader: the status-worker daily
+ * job (cron `47 3 * * *`, after archive `0 0 * * *` and sync `30 3 * * *`) reads the latest run
+ * for each job and reports problems through the existing alert channel.
  *
- * 成本纪律（AGENTS.md「D1 读取预算」）：
- *   - **每天只跑一次**，且只在 `47 3 * * *` 分支里；绝不放进每分钟的探针 cron。
- *   - 查询形状是「每个 job 各走一次索引 seek、各读 1 行」，不是范围扫、不是
- *     `COUNT(*)`、也不是 `IN (SELECT MAX(id) ... GROUP BY job)`。
+ * Cost limits (see the D1 read budget in AGENTS.md):
+ *   - Runs **once per day**, only in the `47 3 * * *` branch, never in the per-minute probe cron.
+ *   - Each job uses one index seek and reads one row; this is not a range scan, `COUNT(*)`, or
+ *     `IN (SELECT MAX(id) ... GROUP BY job)`.
  *
- *     为什么不用后者（它是「每 job 取最近一行」最直觉的写法）：实测
- *     `EXPLAIN QUERY PLAN` 显示它会对 `idx_worker_runs_job_started` 做
- *     **SCAN**（整索引扫），线上实测 `rows_read=10`（当时表里只有 6 行！），
- *     行数随表增长——与「个位数行读取/天」的预算直接冲突。现在的写法在线实测
- *     `rows_read=2`（两个 job），且随 job 数量线性、与表大小无关：
+ *     Why not the latter, the most obvious way to get the latest row per job: production
+ *     `EXPLAIN QUERY PLAN` showed a **SCAN** of `idx_worker_runs_job_started`; it read 10 rows
+ *     when the table had only 6. The count grows with the table and violates the budget of a
+ *     handful of rows per day. The current query read 2 rows for two jobs and scales with the
+ *     number of jobs, independent of table size:
  *         SEARCH worker_runs USING INDEX idx_worker_runs_job_started (job=?)
  *
- *   - 排序键只用 `started_at DESC`（不带 `id DESC`）：索引就是
- *     `(job, started_at DESC)`，加上 id 之后 SQLite 无法用索引满足 ORDER BY，
- *     会退化成「扫完该 job 的所有行再排序」。线上实测同一个 job：只按
- *     `started_at DESC` = 1 行，加 `, id DESC` = 3 行（该 job 当时有 3 行）。
- *     同理 `ORDER BY id DESC` = 7 行。见 ops/sync-worker/src/runlog.ts 的 lastRun，
- *     它是「读一行」的场景却用了 `started_at DESC, id DESC`。
+ *   - Sort only by `started_at DESC`, without `id DESC`. The index is `(job, started_at DESC)`;
+ *     adding `id` prevents SQLite from satisfying ORDER BY from the index and makes it scan and
+ *     sort every row for that job. Production measurements for the same job: `started_at DESC`
+ *     read 1 row, adding `, id DESC` read 3 (the job had 3 rows), and `ORDER BY id DESC` read 7.
+ *     See `lastRun` in `ops/sync-worker/src/runlog.ts`, which reads one row but sorts by both
+ *     `started_at DESC` and `id DESC`.
  *
- * 失败一律 fail-open：表不存在（迁移未应用）或读失败时**只记日志、不报警**，
- * 也绝不抛给调用方——每日任务里还有 D1 保留清理，不能被这一步带倒。
+ * Fail open on every error: if the table is missing (migration not applied) or a read fails,
+ * **log only and do not alert**. Never throw to the caller; the daily job still needs to run D1
+ * retention cleanup.
  */
 
 /**
- * 被监视的 cron 任务名，与写 `worker_runs` 的那几个 JOB 常量一一对应：
+ * Watched cron job names, matching the JOB constants that write to `worker_runs`:
  *   - `blocklist_sync`        ops/sync-worker/src/index.ts        (cron 30 3 * * *)
  *   - `d1_archive`            ops/d1-archive/src/index.ts        (cron 0 0 * * *)
- *   - `config_backup`         ops/d1-archive/src/config-backup.ts（同一个 d1-archive cron）
- *   - `blocklist_sync_check`  是 ops/check_blocklist_sync.py --record 的手工记录，
- *     **故意不看**：手工检查没跑不等于故障。
+ *   - `config_backup`         ops/d1-archive/src/config-backup.ts (same d1-archive cron)
+ *   - `blocklist_sync_check`  manual records from `ops/check_blocklist_sync.py --record`; it is
+ *     **intentionally excluded** because a manual check not being run is not a failure.
  *
- * 这是一个常量而不是 `SELECT DISTINCT job`：后者要扫整张索引（每行都读），
- * 而这里每个 job 只读 1 行。代价是**新增 job 时必须往这里加一行**——没加就等于
- * 那个 job 的失败仍然没人看（本文件存在的理由），所以加 job 的改动要连着改这里。
+ * This is a constant rather than `SELECT DISTINCT job`, which scans the whole index and reads
+ * every row; this query reads one row per job. The tradeoff is that **every new job must be
+ * added here**. Otherwise its failures remain unwatched, defeating the purpose of this file.
  */
 export const WATCHED_JOBS = ["blocklist_sync", "d1_archive", "config_backup"] as const;
 
 /**
- * `running` 多久才算异常（秒）。
+ * Time in seconds after which a `running` job is considered stale.
  *
- * `started_at` 是 INSERT 时就写的，任务正在跑的那一刻必然停在 `running`；
- * 没有阈值就会在「检查恰好撞上任务执行」时误报。两个 cron 任务的实测耗时都是
- * 秒级（同步 1 秒、归档数十秒），2 小时远超任何正常运行时长，只会捞到真正
- * 卡死/被杀掉的进程。
+ * `started_at` is written on INSERT, so an active job remains `running`. Without a threshold,
+ * a check that overlaps normal execution would alert incorrectly. Both cron jobs take seconds
+ * in production (about 1 second for sync and tens of seconds for archive); two hours is far
+ * longer than any normal run and catches only a genuinely stuck or terminated process.
  */
 export const STALE_RUNNING_S = 2 * 3600;
 
-/** 结果里正常、无需告警的 outcome。 */
+/** Normal outcomes that do not require an alert. */
 const HEALTHY_OUTCOMES = new Set(["ok", "skipped"]);
 
-/** error 摘要的最大长度（告警文案里只留摘要，原文留在表里可查）。 */
+/** Maximum error summary length; alerts include only the summary, while the full value stays in the table. */
 export const ERROR_SUMMARY_CHARS = 200;
 
 export interface LatestRun {
@@ -90,20 +91,20 @@ export interface RunIssue {
   job: string;
   outcome: string;
   started_at: number;
-  /** 告警文案里的一行说明：outcome + 时间 + error 摘要。 */
+  /** One-line alert detail: outcome, time, and error summary. */
   detail: string;
 }
 
 export interface LatestRunsResult {
   rows: LatestRun[];
-  /** 读失败的原因（表不存在/网络）。**有值 ≠ 没有异常运行**，两者不能混。 */
+  /** Read failure reason (missing table or network error). **An error value is not the same as no failed runs.** */
   error?: string;
 }
 
 /**
- * 「每 job 最近一行」的 SQL：每个 job 一个 `WHERE job = ?` + `LIMIT 1` 的
- * 索引 seek，用 `UNION ALL` 拼成**一条**语句（一次 prepare、一次往返，
- * 测试里可用 spy 断言「这张表只读一次」）。
+ * SQL for the latest row per job: one indexed `WHERE job = ?` + `LIMIT 1` seek for each job,
+ * combined with `UNION ALL` into **one** statement (one prepare and one round trip; tests can
+ * assert with a spy that the table is read only once).
  */
 export function latestRunsSql(jobs: readonly string[] = WATCHED_JOBS): string {
   return jobs
@@ -117,8 +118,8 @@ export function latestRunsSql(jobs: readonly string[] = WATCHED_JOBS): string {
 }
 
 /**
- * 读每个 job 的最近一次运行。任何失败（含「表不存在」）都返回 `error`，
- * 绝不抛——调用方据此只记日志。
+ * Read the latest run for each job. Any failure, including a missing table, is returned in
+ * `error`; never throw, so the caller can log it.
  */
 export async function readLatestRuns(
   db: D1Database,
@@ -134,22 +135,23 @@ export async function readLatestRuns(
 }
 
 /**
- * 时间戳 → `2026-10-12 03:30`（UTC，2026-10-11 用户指定）。
+ * Format a timestamp as `2026-10-12 03:30` (UTC; requested on 2026-10-11).
  *
- * 这是**告警件里时间的唯一格式**：本函数与 `index.ts` 的 `renderAlert` 共用同一实现，
- * 此前两处各拼一遍 `toISOString().replace("T"," ").slice(0,19) + " UTC"`，改一处就会不一致。
- * 前导零必须保留 —— 它让字典序等于时间序，日志与群消息里可以直接排。
- * 秒被有意省略（告警粒度是分钟，`ALERT_COOLDOWN_S` 也是分钟级），也不带 `UTC` 后缀
- * （读者只有站点主人，UTC 是既定前提；后缀在群消息里只是噪声）。
+ * This is the **only timestamp format used in alerts**. `index.ts` `renderAlert` shares this
+ * implementation; previously, formatting was duplicated and could drift. Keep leading zeroes
+ * so lexicographic order matches chronological order and log or chat messages sort correctly.
+ * Seconds are omitted because alerts and `ALERT_COOLDOWN_S` have minute-level precision. The
+ * `UTC` suffix is also omitted because the site owner is the only reader and UTC is understood.
  */
 export function formatUtc(epochSeconds: number): string {
   if (!Number.isFinite(epochSeconds) || epochSeconds <= 0) return "-";
-  // `toISOString()` 给的是 `2023-11-14T22:13:20.000Z`：切到 16 位后把 `T` 换成空格，
-  // 就得到 `2023-11-14 22:13`。**只换 `T`**（此前那版把 `:` 也换成 `-`，是上一种格式的写法）。
+  // `toISOString()` returns `2023-11-14T22:13:20.000Z`; take the first 16 characters and
+  // replace `T` with a space to get `2023-11-14 22:13`. **Replace only `T`**; the previous
+  // format also changed `:` to `-`.
   return new Date(epochSeconds * 1000).toISOString().slice(0, 16).replace("T", " ");
 }
 
-/** error 摘要：压平换行、截断，避免把整段堆栈塞进告警。 */
+/** Flatten newlines and truncate the error summary so a full stack trace does not fill the alert. */
 export function errorSummary(error: unknown): string {
   const flat = String(error ?? "")
     .replace(/\s+/g, " ")
@@ -159,12 +161,12 @@ export function errorSummary(error: unknown): string {
 }
 
 /**
- * 从最近一行判定要不要告警（纯函数）：
- *   - `ok` / `skipped`        → 正常（同步「没凭据所以没跑」是预期状态，不是故障）
- *   - `running` 且已超阈值     → 异常（卡死/被杀，finished_at 永远回填不上）
- *   - `running` 未超阈值       → 正常（任务正在跑）
- *   - 其它（`failed`/未知值）  → 异常：宁可多报一条，也不要让一个新的 outcome
- *                              取值悄悄变成「没人看」
+ * Decide whether the latest run should alert (pure function):
+ *   - `ok` / `skipped`        → healthy (`skipped` due to missing sync credentials is expected)
+ *   - `running` past threshold → issue (stuck or terminated; `finished_at` will never be set)
+ *   - `running` within threshold → healthy (the job is still running)
+ *   - Other values (`failed` or unknown) → issue; an unfamiliar outcome should alert rather
+ *     than silently become unwatched.
  */
 export function runIssues(
   rows: readonly LatestRun[],

@@ -18,10 +18,11 @@
  */
 
 /**
- * Limooo 统一安全响应头（Pages Functions 侧）。
+ * Shared Limooo security response headers for Pages Functions.
  *
- * 唯一文案源是 `ops/security-headers.json`；本文件是 Pages 构建/运行时镜像。
- * 修改时请同时更新 JSON，并运行 `python3 ops/check_security_headers.py`。
+ * `ops/security-headers.json` is the only source of truth; this file mirrors
+ * it for Pages build and runtime. Update the JSON too and run
+ * `python3 ops/check_security_headers.py` when changing these headers.
  */
 
 export const SECURITY_HEADERS: Record<string, string> = {

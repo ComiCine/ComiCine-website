@@ -18,11 +18,12 @@
  */
 
 /**
- * tasks/22 W4-4：`functions/_data/gateTrust.ts` 只应带运行时会消费的字段。
+ * tasks/22 W4-4: `functions/_data/gateTrust.ts` should contain only fields consumed at runtime.
  *
- * ASN 条目不进入运行时 payload（`GATE_TRUST.verified_bot`、`GATE_TRUST_IPS`、
- * `GATE_TRUST_NETWORKS` 才有人读），ASN 只由手动运行的 zone-level Access Rule 脚本消费。
- * 这里把生成物钉成契约：一旦有人把 ASN 塞回 isolate，测试直接红。
+ * ASN entries are not part of the runtime payload; only `GATE_TRUST.verified_bot`, `GATE_TRUST_IPS`,
+ * and `GATE_TRUST_NETWORKS` are read at runtime. ASN data is consumed only by the manually run
+ * zone-level Access Rule script. This test locks down the generated contract and fails if ASN data
+ * is added back to the isolate.
  */
 
 import { describe, expect, it } from "vitest";

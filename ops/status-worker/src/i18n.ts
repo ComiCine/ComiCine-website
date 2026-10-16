@@ -18,25 +18,26 @@
  */
 
 /**
- * 状态页（status.limooo.cn）的**全部**用户可见文案，四种语言一份表。
+ * All user-visible copy for status.limooo.cn, in one table for four languages.
  *
- * 为什么这里自带一份表，而不读 site/locales/*.json：
- *   状态页由独立 Worker 服务端渲染，Pages 的 locales 目录在构建期就没了；
- *   而且状态页要在主站宕机时照常可读——文案不能依赖另一个源的运行时。
- *   代价是这份表与 site/locales/*.json 的**同名键**需要人工保持一致
- *   （页面自身的 title/sub/… 与主站无关，只有 nav_* / footer_* / lang_* 是共享口径）。
+ * Why this file carries its own table instead of reading `site/locales/*.json`:
+ *   The status page is server-rendered by a separate Worker, and Pages locales are unavailable
+ *   at runtime. The copy must also remain available when the main site is down.
+ *   The tradeoff is that matching keys in this table and `site/locales/*.json` must be kept in
+ *   sync manually. The page's own `title`, `sub`, and related keys are independent; only
+ *   `nav_*`, `footer_*`, and `lang_*` share wording with the main site.
  *
- * 为什么键集写成「基准语言 + 其余语言必须是同一键集」：
- *   `UI` 的第二维类型是 `Record<UiKey, string>`，而 `UiKey = keyof typeof ZH_CN`，
- *   任何一门语言漏一个键 **tsc 直接报错**（`npm run typecheck` 会拦住）。
- *   这正是「所有可能出现的错误都要有对照」的机器保证：漏翻一条错误文案
- *   不可能悄悄上线，只会在 CI 里变成编译失败。
+ * Why the key set is defined by a base language and required to match across the others:
+ *   `UI` uses `Record<UiKey, string>` and `UiKey = keyof typeof ZH_CN`; **tsc reports an error**
+ *   if any language is missing a key (`npm run typecheck` catches it).
+ *   This guarantees that every possible error has a translation: a missing error message
+ *   cannot ship silently and instead fails compilation in CI.
  */
 
 export const LANGS = ["zh-cn", "en-us", "ja-jp", "ko-kr"] as const;
 export type Lang = (typeof LANGS)[number];
 
-/** 无 Accept-Language / 无 cookie 时的默认语言：与改动前的 pageLang() 行为一致。 */
+/** Default language without Accept-Language or a cookie; matches the previous `pageLang()` behavior. */
 export const DEFAULT_LANG: Lang = "zh-cn";
 
 export function isLang(v: unknown): v is Lang {
@@ -44,16 +45,17 @@ export function isLang(v: unknown): v is Lang {
 }
 
 /**
- * 跨子域共享的偏好（与 site/config-contract.json 的 lang_cookie / theme_cookie /
- * lang_cookie_max_age / root_domain 一致）。Worker 读不到契约文件，只能镜像常量；
- * 改契约时这里要一起改，`site/tests/` 里没有覆盖 Worker 的契约测试。
+ * Preferences shared across subdomains. These values must match `lang_cookie`, `theme_cookie`,
+ * `lang_cookie_max_age`, and `root_domain` in `site/config-contract.json`. The Worker cannot read
+ * the contract file, so these constants mirror it. Update them with the contract; `site/tests/`
+ * does not include contract tests for this Worker.
  */
 export const ROOT_DOMAIN = "limooo.cn";
 export const LANG_COOKIE = "user_lang_preference";
 export const THEME_COOKIE = "limooo_theme";
 export const COOKIE_MAX_AGE = 31536000;
 
-/** 浮层里每门语言的自称：与 site/locales/*.json 的 lang_<primary> 同值。 */
+/** Each language's own name in the overlay; must match `lang_<primary>` in `site/locales/*.json`. */
 export const LANG_LABELS: Record<Lang, string> = {
   "zh-cn": "简体中文",
   "en-us": "English",
@@ -62,8 +64,8 @@ export const LANG_LABELS: Record<Lang, string> = {
 };
 
 /**
- * 语言码的地区子标签 → 国旗 emoji（zh-cn → 🇨🇳），与 site/src/render_app.py 的
- * `_lang_flag()` 同一算法：没有地区段就返回空串，不编造国旗。
+ * Map the region subtag of a language code to a flag emoji (`zh-cn` → 🇨🇳). This matches
+ * `_lang_flag()` in `site/src/render_app.py`: return an empty string when no region is present.
  */
 export function langFlag(code: string): string {
   const parts = code.split("-");
@@ -75,12 +77,13 @@ export function langFlag(code: string): string {
 }
 
 /**
- * 语言判定：显式 `?lang=` > Accept-Language 前缀 > 默认语言。
+ * Language selection order: explicit `?lang=` > Accept-Language prefix > default language.
  *
- * `?lang=` 是给语言浮层与「cookie 与首屏语言不一致」时的二次跳转用的：
- * 页面 HTML 是边缘缓存的（`Vary: Accept-Language`），把语言写进 cookie 却让
- * 服务端按 cookie 渲染，就必须 `Vary: Cookie` —— 那会把缓存按 cookie 原文打碎，
- * 直接放大 D1 读取，得不偿失。查询串天然进缓存键，语言变体数是有界的 4 个。
+ * `?lang=` supports the language overlay and a second redirect when the cookie disagrees with
+ * the initial page language. The HTML is edge-cached with `Vary: Accept-Language`. Rendering
+ * from a language cookie would require `Vary: Cookie`, fragmenting the cache by cookie value and
+ * increasing D1 reads. The query string is already part of the cache key, with only four
+ * possible language variants.
  */
 export function pickLang(request: Request, url?: URL): Lang {
   const explicit = url?.searchParams.get("lang")?.trim().toLowerCase();
@@ -97,13 +100,14 @@ export function pickLang(request: Request, url?: URL): Lang {
 }
 
 /**
- * 探针 `heartbeats.msg` → 归一化错误码。
+ * Normalize probe values from `heartbeats.msg` into error codes.
  *
- * 库里存的是**英文机器码**（`http_503`、`fetch_error: TypeError: fetch failed`…）。
- * 这里只做「分类」，不做翻译，也**不把原始异常文本带出去**：`d1_error:` / `fetch_error:`
- * 后面跟的是运行时异常原文（可能含 SQL、库名、内网信息），状态页是公开页面，
- * 归一化后再按码翻译，公开 JSON（/api/status）也只暴露归一化后的码。
- * 原始文本仍然进告警邮件与日志——排障要看的是它。
+ * The database stores **English machine codes** (`http_503`, `fetch_error: TypeError: fetch failed`, etc.).
+ * This only classifies them; it does not translate or **expose raw exception text**. Values after
+ * `d1_error:` or `fetch_error:` contain runtime exception details and may reveal SQL, database
+ * names, or internal information. The status page is public, so it translates normalized codes
+ * and exposes only those codes in public JSON (`/api/status`). Raw text remains in alert emails
+ * and logs for troubleshooting.
  */
 export const MSG_CODES = [
   "ok",
@@ -127,7 +131,7 @@ export function msgCode(msg: string | null | undefined): MsgCode {
   return "unknown";
 }
 
-/** `{name}` 占位替换（只做最朴素的整体替换，值来自本表或数据库错误码，无注入面）。 */
+/** Replace `{name}` placeholders with whole-string replacement; values come from this table or database error codes. */
 export function fmt(template: string, params: Record<string, string>): string {
   let out = template;
   for (const [key, value] of Object.entries(params)) {
@@ -136,9 +140,9 @@ export function fmt(template: string, params: Record<string, string>): string {
   return out;
 }
 
-/** 基准语言 = 键集的唯一事实源；其余语言由类型系统强制对齐。 */
+/** The base language is the sole source of truth for keys; the type system enforces the same set in other languages. */
 const ZH_CN = {
-  // 页面本体
+  // Page content
   title: "系统状态",
   sub: "Limooo 各项服务的实时可用性。",
   overall_all: "全部系统运行正常",
@@ -159,7 +163,7 @@ const ZH_CN = {
   card_d1: "Limooo D1 健康检查",
   card_status: "边缘静态资源",
 
-  // 页面级故障（渲染失败 / 地址不存在）
+  // Page-level errors (render failure or missing route)
   err_title: "状态数据暂时不可用",
   err_text: "无法从数据库读取探针数据，请稍后重试。",
   err_retry: "重试",
@@ -168,7 +172,7 @@ const ZH_CN = {
   back_status: "状态页",
   back_home: "回到 limooo.cn",
 
-  // 页头 / 页脚（与 site/locales/*.json 同名键同值）
+  // Header and footer (matching keys and values in site/locales/*.json)
   nav_home: "主页",
   nav_services: "服务",
   nav_contact: "联系方式",
@@ -180,7 +184,7 @@ const ZH_CN = {
   footer_source: "AGPL-3.0",
   footer_source_link: "源码",
 
-  // 探针结果码
+  // Probe result codes
   err_ok: "探针正常",
   err_no_data: "暂无探测记录",
   err_unexpected_result: "探针返回了非预期结果",
@@ -448,7 +452,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
   },
 };
 
-/** 取文案；键一定存在（UiKey 是编译期联合类型），`{param}` 走 fmt()。 */
+/** Get copy for a key guaranteed by the `UiKey` union; `{param}` placeholders use `fmt()`. */
 export function t(lang: Lang, key: UiKey, params?: Record<string, string>): string {
   const table = UI[lang] ?? UI[DEFAULT_LANG];
   const text = table[key] ?? UI[DEFAULT_LANG][key];
@@ -456,12 +460,12 @@ export function t(lang: Lang, key: UiKey, params?: Record<string, string>): stri
 }
 
 /**
- * 错误码 → 该语言的说明。**公开页面唯一的错误文案入口**。
+ * Map an error code to a localized description. **The only error-copy entry point for the public page.**
  *
- * `http_<code>` 覆盖任意三位状态码：表里有的用表里的整句（例如 503 → 服务不可用），
- * 表里没有的（Cloudflare 的 1xxx 之外的怪码、上表未列的 4xx）落到 `http_other`
- * 模板，把码插进去——永远不会因为「出现了一个没见过的状态码」而露出英文原文。
- * 未知的非 http 码同理落到 `err_unknown_code`，并把码本身显示出来（便于排障）。
+ * `http_<code>` handles any three-digit status. Known codes use a complete table entry (for
+ * example, 503 maps to "Service Unavailable"); unknown codes use the `http_other` template with
+ * the code inserted, so an unfamiliar status never exposes its raw English text. Unknown
+ * non-HTTP codes use `err_unknown_code` and display the code for troubleshooting.
  */
 export function probeDetail(code: string, lang: Lang): string {
   const table = UI[lang] ?? UI[DEFAULT_LANG];
@@ -477,11 +481,12 @@ export function probeDetail(code: string, lang: Lang): string {
 }
 
 /**
- * 告警邮件/日志里的一行：翻译 + **保留原始异常文本**。
+ * One line for alert emails and logs: translate the message and **preserve raw exception text**.
  *
- * 与公开页面相反：邮件是发给运维的，`d1_error: Error: D1_ERROR: no such table: probes`
- * 这种原文正是排障要看的，不能只留一句「数据库查询失败」。所以只在原始串
- * 比错误码多带了信息（形如 `code: 细节`）时才追加，纯码（`http_503`）不重复。
+ * Unlike the public page, email goes to operators, who need details such as
+ * `d1_error: Error: D1_ERROR: no such table: probes` for troubleshooting. Append the raw text
+ * only when it adds information beyond the code (in the form `code: details`); do not repeat
+ * codes such as `http_503`.
  */
 export function alertDetail(msg: string | null | undefined, lang: Lang): string {
   const raw = (msg ?? "").trim();

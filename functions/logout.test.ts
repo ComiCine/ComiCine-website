@@ -18,19 +18,19 @@
  */
 
 /**
- * GET /logout 回跳目标校验（tasks/22 W9-3）。
+ * Tests the GET /logout redirect target validation (tasks/22 W9-3).
  *
- * 回归：`next` 以前被原样塞进 `Location` 头。Access team domain 为空时
- * `accessTeamDomain(env)` 为假，代码走 `target = next` 分支 —— 任意外站
- * 都能借本站做开放重定向；带 CR/LF 的非法头值还会让 workerd 抛异常变 500。
- * 与 `login.ts` 对齐后只允许站内相对路径或白名单主机的 https 地址。
+ * Regression: `next` used to be copied directly into the `Location` header. When the Access team domain
+ * is empty, `accessTeamDomain(env)` is false and the code takes the `target = next` branch, allowing
+ * arbitrary external open redirects. Invalid header values containing CR/LF also make workerd throw and return 500.
+ * After aligning with `login.ts`, only site-relative paths and HTTPS URLs on allowlisted hosts are accepted.
  */
 
 import { describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./logout";
 import type { Env } from "./_lib/env";
 
-// 登出会写审计行；这里只关心 Location，D1 不参与断言。
+  // Logout writes an audit row; this test checks only Location, so D1 is not asserted here.
 vi.mock("./_lib/logging", () => ({
   logEvent: async () => undefined,
 }));
@@ -79,7 +79,7 @@ describe("logout next validation", () => {
   });
 
   it("rejects control characters instead of throwing a 500", async () => {
-    // %0d%0a = CRLF：以前直接进 Location，workerd 构造响应头时抛 TypeError。
+  // %0d%0a encodes CRLF; these values used to reach Location directly and make workerd throw TypeError while building the response headers.
     const resp = await logout("?next=%2F%0d%0aX%3A%201");
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe("https://limooo.cn/");

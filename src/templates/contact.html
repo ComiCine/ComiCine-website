@@ -36,8 +36,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 <meta name="twitter:title" content="{{ _('page_title_contact') }} · Limooo">
 <meta name="twitter:description" content="{{ _('meta_description_contact') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
-    <!-- 二维码预加载：HTML 解析阶段即开始，悬停浮层无需等待 Worker 回源；
-         移动端不展示浮层，通过 media 条件跳过额外下载 -->
+    <!-- Preload QR codes during HTML parsing so the hover overlay does not wait for the Worker.
+         Mobile does not show the overlay, so media conditions skip the extra download. -->
     <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/bilibili.webp"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
     <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/qq.webp"
@@ -72,12 +72,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% endblock %}
 
 {% block content %}
-<!-- 主体：固定居中 -->
+<!-- Main content: fixed and centered. -->
 <main class="fixed inset-0 flex flex-col justify-center items-center text-center px-6">
     <h1 class="contact-title reveal-item text-4xl md:text-7xl mb-16 tracking-[calc(0.1em*var(--ls-scale))] uppercase" data-i18n="contact_title">{{ _('contact_title') }}</h1>
 
     <div class="flex flex-col items-center space-y-10 w-full max-w-lg">
-        <!-- 问卷 -->
+        <!-- Questionnaire. -->
         <a id="surveyBlock" href="{{ _('survey_link') }}" target="_blank" rel="noopener noreferrer"
             class="reveal-item copyable pressable qr-trigger text-inherit cursor-pointer relative block no-underline"
             data-qr="{{ _('survey_qr') }}"
@@ -88,7 +88,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <div class="hover-line"></div>
         </a>
 
-        <!-- B站 -->
+        <!-- Bilibili. -->
         <a href="https://space.bilibili.com/1234163143" target="_blank" rel="noopener noreferrer"
             class="reveal-item copyable pressable qr-trigger text-inherit cursor-pointer relative block no-underline"
             data-qr="{{ image_watermark_base }}/qr-codes/bilibili.webp">
@@ -98,7 +98,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <div class="hover-line"></div>
         </a>
 
-        <!-- QQ -->
+        <!-- QQ. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
             data-action="handleCopy" data-arg="264755512"
             data-qr="{{ image_watermark_base }}/qr-codes/qq.webp">
@@ -108,7 +108,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <div class="hover-line"></div>
         </div>
 
-        <!-- 微信 -->
+        <!-- WeChat. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
             data-action="handleCopy" data-arg="-Lime-official-"
             data-qr="{{ image_watermark_base }}/qr-codes/wechat.webp">
@@ -118,7 +118,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <div class="hover-line"></div>
         </div>
 
-        <!-- 邮箱 -->
+        <!-- Email. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer group relative" data-action="handleCopy" data-arg="services@limooo.cn"
             data-copy-tip="click_mailto_copy"
             data-qr="{{ _('email_qr') }}"
@@ -137,7 +137,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </div>
 </main>
 
-<!-- 二维码浮层（桌面端鼠标悬停时显示） -->
+<!-- QR overlay, shown on desktop hover. -->
 <div class="qr-display" id="qrDisplay">
     <img src="" alt="QR Code" id="qrImage">
 </div>

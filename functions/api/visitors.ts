@@ -20,14 +20,14 @@
 /**
  * GET /api/visitors
  *
- * 需要 admin 会话，D1 前向统计。为保护隐私，接口不返回完整 IP，只返回
- * ip_hash；要看某个访客的真实 IP，走同一目录下的单行端点
- * `GET /api/visitors/<ip_hash>/ip`（点击访客行时才会解密那一条）。
- * 前端状态筛选已本地化，因此主前端只调用不带 status 参数的端点；
- * `?status=<3位数字>` 保留给深链和外部调用。
+ * Requires an admin session and reads aggregate data from D1. To protect privacy, this endpoint
+ * returns only ip_hash, not full IP addresses. Use the single-record endpoint
+ * `GET /api/visitors/<ip_hash>/ip` to view a visitor's real IP; it decrypts only after the row is clicked.
+ * The frontend filters statuses locally, so the main frontend calls this endpoint without a status parameter.
+ * `?status=<3-digit number>` remains available for deep links and external callers.
  *
- * 查询范围：新 visitor_rollups 与迁移前 visitors_v2 明细共同统计最近 30 天。
- * rollups 把同一小时/IP/页面/状态压成一行，但 requests 仍是精确请求数。
+ * Query range: combine the new visitor_rollups with pre-migration visitors_v2 details to cover the last 30 days.
+ * Rollups condense each hour/IP/page/status group into one row while requests remains the exact request count.
  */
 
 import { queryAll } from "../_lib/d1";
@@ -39,11 +39,12 @@ const VISITOR_WINDOW_SECONDS = VISITOR_WINDOW_DAYS * 24 * 60 * 60;
 const MAX_VISITOR_MARKERS = 500;
 
 /**
- * 查询结果缓存 300 s（与 AGENTS.md「面向 D1 的页面轮询不得快于 5 分钟」同口径）。
+ * Cache query results for 300 seconds, matching the AGENTS.md rule that pages must not poll D1 more often than every five minutes.
  *
- * 前端按 600 s 轮询，理论上每 5 分钟就会回源一次，300 s 的缓存只吸收同一窗口
- * 内的重复请求（多标签页、手动刷新、外部抓取）。代价是管理员最坏多等 5 分钟
- * 才看到最新访客——这是用户已确认接受的取舍，换的是不再有单页打满每日读额度的风险。
+ * The frontend polls every 600 seconds, so the 300-second cache mainly absorbs duplicate requests
+ * within the same window (multiple tabs, manual refreshes, or external crawlers). The tradeoff is that
+ * admins may wait up to five minutes to see new visitors; the user has accepted this to avoid one page
+ * consuming the entire daily read quota.
  */
 const VISITOR_CACHE_CONTROL = "public, max-age=300";
 const VISITOR_CACHE_SECONDS = 300;
@@ -65,14 +66,14 @@ interface MarkerRow {
   country: string;
   status: number;
   n: number;
-  /** D1 取回的整数（visitors_v2.ts / visitor_rollups.last_ts 都是 INTEGER）。 */
+/** Integer returned by D1; visitors_v2.ts and visitor_rollups.last_ts are INTEGER columns. */
   last_ts: number;
 }
 
 interface MarkerAccumulator {
   country: string;
   count: number;
-  /** 最近一次访问的 Unix 秒；返回给前端前再转成带 Z 的 ISO 时间戳。 */
+/** Unix seconds for the most recent visit; convert to an ISO timestamp with Z before returning it to the frontend. */
   last_time: number;
   statuses: Record<string, number>;
 }
@@ -101,7 +102,7 @@ function buildMarkers(rows: MarkerRow[]): Array<{
   longitude: null;
   hosts: unknown[];
   count: number;
-  /** UTC ISO8601（`2026-01-02T00:00:00Z`）；展示时由前端换算到访问者（浏览器）时区。 */
+/** UTC ISO 8601 (`2026-01-02T00:00:00Z`); the frontend converts it to the visitor's browser time zone for display. */
   last_time: string;
   statuses: Record<string, number>;
 }> {
@@ -118,8 +119,8 @@ function buildMarkers(rows: MarkerRow[]): Array<{
       byHash.set(row.ip_hash, acc);
     }
     acc.count += row.n;
-    // 国家必须跟着**最近一次访问**走：只更新 last_time 会让展示的国家取决于
-    // D1 返回的行顺序（同一个 ip_hash 有多种 status、各自 last_ts 不同时更明显）。
+  // The country must follow the **most recent visit**. Updating only last_time would make the displayed
+  // country depend on D1 row order, especially when one ip_hash has multiple statuses with different last_ts values.
     if (row.last_ts > acc.last_time) {
       acc.last_time = row.last_ts;
       acc.country = row.country;
@@ -156,14 +157,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
   const statusNum = statusParam === null ? null : Number(statusParam);
 
-  // 进程内缓存（300 s）
-  // 一次查询实测 13.1 万行读取（见下方 SQL 注释）。管理页整天开着轮询 600 s
-  // 也有 ≈ 144 次/天 → 直接逼近 5,000,000 行/天的免费版上限，正是 2026-09-17
-  // 事故的形态。同一请求 URL（含 status 过滤）在 5 分钟内结果完全相同，缓存
-  // 只是把重复的同一份数据挡住，不改变口径。
+  // In-process cache (300 seconds).
+  // One query reads about 131,000 rows in production (see the SQL comment below). The admin page polls
+  // every 600 seconds, or about 144 times per day, approaching the Free plan's 5,000,000-row daily limit
+  // and repeating the pattern of the 2026-09-17 incident. Results for the same request URL (including
+  // status filters) are identical for five minutes, so caching only suppresses duplicate reads.
   //
-  // 鉴权在缓存之前，缓存键不含身份：这不是权限缓存，未通过 admin 校验的请求
-  // 根本走不到这里，也不会被写进缓存。
+  // Authentication runs before the cache, whose key does not include identity. This is not an authorization
+  // cache: requests that fail the admin check never reach this code and are never cached.
   const cacheKeyUrl = new URL(url.toString());
   cacheKeyUrl.searchParams.set("__cache", String(VISITOR_CACHE_SECONDS));
   const cache = typeof caches !== "undefined"
@@ -176,12 +177,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const cutoff = Math.floor(Date.now() / 1000) - VISITOR_WINDOW_SECONDS;
 
-  // 查询 1：全局统计 + 全量状态分布。用同一 30 天窗口，避免状态分布与
-  // 顶部统计口径不一致。
+  // Query 1: global statistics and the full status distribution. Use the same 30-day window so the
+  // status distribution matches the summary statistics.
   //
-  // 性能约束（D1 免费版 5M 行/天）：四个指标合并成「一次外层聚合 + 一次状态
-  // 分布」两趟扫描。旧写法把 COUNT(DISTINCT)/SUM/COUNT(DISTINCT) 各写成一个
-  // 子查询，等于把 30 天窗口扫了 5 遍——这正是 2026-09 撞到每日读取上限的主因。
+  // Performance constraint (D1 Free plan: 5M rows/day): combine four metrics into two scans,
+  // one outer aggregate and one status distribution. The previous version used separate subqueries
+  // for COUNT(DISTINCT), SUM, and COUNT(DISTINCT), scanning the 30-day window five times. This was
+  // the main cause of hitting the daily read limit in 2026-09.
   const statsRows = await queryAll<StatsRow>(
     context.env.DB,
     `WITH scoped AS (
@@ -205,22 +207,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     cutoff,
   );
 
-  // 查询 2：最近 500 个 IP 哈希的列表及每个 IP 的状态分布。
-  // 先取 top 500，再按 ip_hash+status 分组，一次拿到构建 markers 所需的全部行。
+  // Query 2: list the 500 most recent IP hashes and each IP's status distribution.
+  // Select the top 500 first, then group by ip_hash and status to fetch all rows needed to build markers.
   //
-  // 带不带 status 过滤只差 `AND status = ?` 这一处，因此用插值拼一份 SQL；
-  // statusFilter 由 statusNum 是否为空推导（非用户输入），与上面 `${MAX_VISITOR_MARKERS}`
-  // 同一套写法，不引入注入面。
+  // The filtered and unfiltered queries differ only by `AND status = ?`, so build one SQL string
+  // with interpolation. statusFilter is derived from whether statusNum is empty, not from user input,
+  // using the same pattern as `${MAX_VISITOR_MARKERS}` above without adding an injection vector.
   //
-  // 国家取**最近一次**访问的值。不能写 MAX(country)：那按字母序选，与
-  // 「最近」无关（CN/CH 混合的访客会恒显示 CN）。同 IP 跨国是常态——
-  // 代理/中转网段上 Cloudflare 在不同时间本就可能判出不同国家。
-  // 实现要点（都拿线上 D1 实测过，别凭直觉改）：
-  //   · top 已经带每 IP 的 last_ts，直接 JOIN 回 scoped 取那一行的国家，
-  //     实测 13.1 万行读取；
-  //   · 不要用相关子查询（SELECT s2.country ... ORDER BY ts DESC LIMIT 1）
-  //     ——1370 万行；不要用 NOT EXISTS ——753 万行；不要用
-  //     ROW_NUMBER() 全分区排序 ——17.5 万行。免费版上限 5M 行/天。
+  // Use the country from the **most recent** visit. Do not use MAX(country): it sorts alphabetically,
+  // not by time, so visitors with both CN and CH would always show CN. One IP appearing in multiple
+  // countries is normal because Cloudflare may report different locations for proxy or relay ranges.
+  // Implementation notes, measured on production D1:
+  //   - top already contains each IP's last_ts; join back to scoped to fetch that row's country (131,000 rows read).
+  //   - Do not use a correlated subquery (SELECT s2.country ... ORDER BY ts DESC LIMIT 1; 13.7M rows),
+  //     NOT EXISTS (7.53M rows), or ROW_NUMBER() over all partitions (175,000 rows). The Free plan limit is 5M rows/day.
   const statusFilter = statusNum === null ? "" : " AND status = ?";
   const markerSql = `WITH scoped AS (
          SELECT ip_hash, country, status, ts, 1 AS requests
@@ -272,11 +272,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     { headers: { "Cache-Control": VISITOR_CACHE_CONTROL } },
   );
   if (cache) {
-    // put 失败不能让请求变 500（缓存只是优化）。
+      // A failed put must not turn the request into a 500; caching is only an optimization.
     try {
       await cache.put(new Request(cacheKeyUrl), response.clone());
     } catch {
-      // 忽略：下次请求照常回源。
+      // Ignore the failure; the next request will query the source as usual.
     }
   }
   return response;

@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** Apple Account 更新/删除接口测试（mock 所有外部依赖）。 */
+/** Tests for the Apple Account update and delete endpoints; all external dependencies are mocked. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestDelete, onRequestPut } from "./[id]";
@@ -30,7 +30,7 @@ import type { Env } from "../../../_lib/env";
 
 vi.mock("../../../_lib/d1", () => ({ queryAll: vi.fn(), execute: vi.fn() }));
 vi.mock("../../../_lib/session", async () => {
-  // 共用桩（tasks/22 W5-15）：语义与位置说明见 tests/helpers/admin-session.ts。
+  // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
   const { createSessionModuleMock } = await import("../../../../tests/helpers/admin-session");
   return createSessionModuleMock();
 });
@@ -64,9 +64,9 @@ beforeEach(() => {
   );
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(fernetEncrypt).mockResolvedValue("encrypted");
-  // mockReset 而不是只 clear：clearAllMocks 不会清掉 "Once" 队列，
-  // 上一条用例遗留的 mockRejectedValueOnce 会串到下一条
-  // （表现为「本该 500 的用例拿到 404」）。
+  // Use mockReset rather than clear: clearAllMocks does not clear the "Once" queue,
+  // so a mockRejectedValueOnce left by the previous case can leak into the next one
+  // (for example, a case expecting 500 receives 404).
   vi.mocked(execute).mockReset();
   vi.mocked(execute).mockResolvedValue(true);
   vi.mocked(queryAll).mockReset();
@@ -97,10 +97,11 @@ describe("apple-account account id API", () => {
       })) as never,
     );
     expect(ok.status).toBe(200);
-    // W5-2：metadata-only 更新必须把库里已存的密文**原样写回**。此前这条用例预置了
-    // `old-cipher` 却从不断言回写——把生产代码的 `existing[0].password` 换成 `""`
-    // 会静默清空所有已存密码，而响应仍是 200、全量用例仍绿。
-    // `execute(db, sql, ...values)`：values = [email, password, notes, id]，口令是第 2 个绑定值。
+    // W5-2: metadata-only updates must write the stored ciphertext back **unchanged**. This case previously
+    // seeded `old-cipher` but did not assert that it was written back. Replacing `existing[0].password`
+    // with `""` in production would silently clear every stored password while still returning 200
+    // and passing the full test suite.
+    // `execute(db, sql, ...values)`: values = [email, password, notes, id]; password is the second bound value.
     const write = vi.mocked(execute).mock.calls.at(-1);
     expect(write?.[1]).toContain("UPDATE apple_accounts");
     expect(write?.[3]).toBe("old-cipher");
@@ -142,7 +143,7 @@ describe("apple-account account id API", () => {
     expect(badId.status).toBe(400);
   });
 
-  // W5-15：撤销表不可用时必须 fail-closed（503），且不得读库/落库。
+  // W5-15: fail closed with 503 when the revocation table is unavailable; do not read or write account data.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestPut(
@@ -170,8 +171,8 @@ describe("apple-account account id API", () => {
   });
 
   /**
-   * W9-4 / W9-6：改密与删除是最敏感的管理操作，必须留审计；D1 故障也不能
-   * 被说成「该邮箱已存在」。
+   * W9-4 / W9-6: password changes and deletions are sensitive admin operations and must be audited;
+   * D1 failures must not be reported as "this email already exists."
    */
   describe("audit and error classification", () => {
     const updateBody = {
@@ -199,11 +200,11 @@ describe("apple-account account id API", () => {
     });
 
     /**
-     * W5-2：这是「元数据更新不许动口令」的正面契约用例。
+     * W5-2: This is the positive contract case that metadata updates must not change passwords.
      *
-     * 用一个可辨识的密文，逐位钉住 `execute` 的全部绑定值（`values[1]` 就是口诀字段）：
-     * 生产代码若把 `existing[0].password` 写成 `""`、或把 SQL 的 email/password
-     * 位置调换，这条立刻变红。
+     * Use recognizable ciphertext and assert every bound value passed to `execute`
+     * (`values[1]` is the password field). This fails immediately if production code replaces
+     * `existing[0].password` with `""` or swaps the email and password positions in the SQL.
      */
     it("writes the stored password back verbatim on a metadata-only update", async () => {
       const stored = "old-cipher-W5-2";

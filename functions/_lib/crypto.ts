@@ -18,33 +18,34 @@
  */
 
 /**
- * Pages Functions 侧共用的密码学/编码原语。
+ * Shared cryptographic and encoding primitives for Pages Functions.
  *
- * 这些实现原先在 csrf.ts / gate.ts / logging.ts / session.ts 里各抄了一份
- * （toHex ×4、hmacSha256Hex ×4、timingSafeEqual ×3、toB64Url ×2），
- * 安全相关的常量时间比较与 HMAC 尤其不该有多份走样实现，故收敛到这里。
+ * These implementations were duplicated across csrf.ts, gate.ts, logging.ts,
+ * and session.ts (toHex ×4, hmacSha256Hex ×4, timingSafeEqual ×3, and
+ * toB64Url ×2). Security-sensitive constant-time comparisons and HMAC code
+ * should have one consistent implementation, so they are centralized here.
  *
- * 只放**无语义**的通用原语；带业务含义的逻辑（如 verifyPayload 的 token 结构
- * 校验）仍留在各自模块里。
+ * Keep only **semantics-free** primitives here. Business logic, such as
+ * verifyPayload's token structure validation, remains in its owning module.
  */
 
 const textEncoder = new TextEncoder();
 
-/** 字节数组 -> 小写十六进制串。 */
+/** Convert bytes to a lowercase hexadecimal string. */
 export function toHex(bytes: Uint8Array): string {
   let out = "";
   for (const b of bytes) out += b.toString(16).padStart(2, "0");
   return out;
 }
 
-/** 字节数组 -> 无填充的 base64url（Cookie/JWT 风格，可安全放进 cookie 值）。 */
+/** Convert bytes to unpadded base64url, safe for cookie values and JWTs. */
 export function toB64Url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** 无填充 base64url -> 字节数组。 */
+/** Decode unpadded base64url to bytes. */
 export function fromB64Url(input: string): Uint8Array {
   const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
@@ -55,41 +56,45 @@ export function fromB64Url(input: string): Uint8Array {
 }
 
 /**
- * `importKey` 结果的缓存上限（条目数）。
+ * Maximum number of cached `importKey` results.
  *
- * 取值依据：本仓库的 HMAC 密钥只有几把——`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`
- * 以及调用方传入的 IP 哈希密钥，同时存活的**不同密钥串**是个位数；8 条足够
- * 覆盖「当前 + 刚轮换掉的旧值 + 测试里交替使用的几把」。上限本身不为正确性
- * 服务（见下），只为「密钥串不可控时内存不无限涨」兜底。
+ * The repository uses only a few HMAC keys: `GATE_HMAC_KEY`,
+ * `SESSION_HMAC_KEY`, and caller-provided IP hashing keys. Fewer than eight
+ * distinct keys are active at once, so eight entries cover current and
+ * recently rotated keys plus test keys. The cap is not required for
+ * correctness; it prevents unbounded memory growth if key strings are
+ * uncontrolled.
  */
 const HMAC_KEY_CACHE_LIMIT = 8;
 
 /**
- * HMAC 签名密钥缓存：key 字符串 -> 已 import 的 CryptoKey。
+ * HMAC signing-key cache: key string -> imported CryptoKey.
  *
- * **键就是完整的 key 字符串**，不做前缀/长度分槽：轮换密钥时新值是另一个
- * 字符串，自然缓存不命中并走一次 `importKey`；旧值的条目只是不再被访问，
- * 不需要显式失效（会话/门禁 cookie 的验签本来就会用「旧 key」再算一遍，
- * 所以旧条目在轮换后的过渡期还真的会被用到）。用前缀分槽反而会把两把不同
- * 的密钥挤进同一槽，拿错 CryptoKey 就会算出错误签名——签名热路径上不值得
- * 为省几字节冒这个险。
+ * **The complete key string is the cache key**; do not bucket by prefix or
+ * length. A rotated key naturally misses and is imported once. The old entry
+ * remains useful during rotation because existing session and gate cookies
+ * are still verified with the old key. Prefix-based buckets could put
+ * different keys in one slot and return the wrong CryptoKey, producing an
+ * invalid signature.
  *
- * 有界策略：`Map` 的插入序即 LRU 序，命中时先 `delete` 再 `set` 把它挪到末尾，
- * 超上限就删 `keys().next().value`（最久未使用的一条）。选 LRU 而不是「清空
- * 全部」，是因为轮换期会同时活跃新旧两把密钥，整体清空会让每一次新旧交替
- * 都退化成重新 import；而条目数上限只有 8，逐条淘汰的代价可以忽略。
+ * Bounded policy: Map insertion order tracks LRU order. On a hit, delete and
+ * reinsert the entry to move it to the end; over the limit, remove
+ * `keys().next().value`, the least recently used entry. LRU is preferable to
+ * clearing everything because old and new keys are both active during
+ * rotation. The eight-entry limit makes individual eviction inexpensive.
  *
- * 进程/isolate 级缓存：每个 Worker isolate 一份，`importKey` 是可重入的纯
- * 操作，多 isolate 各自缓存一份等价且安全。失败（例如 key 无法导入）不会被
- * 缓存，异常照常抛出，下次调用会重新尝试。
+ * The cache is scoped to a process or Worker isolate. Each isolate keeps its
+ * own copy; `importKey` is a reentrant pure operation, so these copies are
+ * equivalent and safe. Failed imports are not cached: the exception propagates
+ * and the next call retries.
  */
 const hmacKeyCache = new Map<string, CryptoKey>();
 
-/** 取出（必要时导入）HMAC-SHA256 签名密钥；同 key 复用同一个 CryptoKey。 */
+/** Get or import an HMAC-SHA256 key; reuse the same CryptoKey for each key string. */
 async function hmacSigningKey(key: string): Promise<CryptoKey> {
   const cached = hmacKeyCache.get(key);
   if (cached !== undefined) {
-    // 命中即刷新 LRU 位置。
+// Refresh the LRU position on a cache hit.
     hmacKeyCache.delete(key);
     hmacKeyCache.set(key, cached);
     return cached;
@@ -110,19 +115,19 @@ async function hmacSigningKey(key: string): Promise<CryptoKey> {
   return imported;
 }
 
-/** HMAC-SHA256 -> 十六进制串（密钥用途由调用方决定，本函数不做域分隔）。 */
+/** Return an HMAC-SHA256 digest as hexadecimal; callers define key usage and domain separation. */
 export async function hmacSha256Hex(key: string, data: string): Promise<string> {
   const cryptoKey = await hmacSigningKey(key);
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, textEncoder.encode(data)));
   return toHex(sig);
 }
 
-/** 仅供测试：清空密钥缓存，让每个用例从冷缓存开始。 */
+/** Test helper: clear the key cache so each case starts cold. */
 export function resetHmacKeyCacheForTests(): void {
   hmacKeyCache.clear();
 }
 
-/** 常量时间字符串比较，避免签名校验泄漏时序信息。 */
+/** Compare strings in constant time to avoid timing leaks during signature validation. */
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

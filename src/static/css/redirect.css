@@ -1,5 +1,5 @@
-/* 颜色/圆角/缓动等令牌统一来自 tokens.css（全站单一事实源），
-   本页不再自带色板。 */
+/* Colors, radii, and easing come from tokens.css, the site-wide source of truth.
+   This page does not define its own palette. */
     html, body { height: 100%; margin: 0; }
     body {
         display: flex; align-items: center; justify-content: center;
@@ -19,4 +19,4 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .text { opacity: 0.55; letter-spacing: 0.04em; }
-    /* 底部版权样式复用 base.css 的 .global-footer（两处曾各写一份，已收敛） */
+    /* Reuse .global-footer from base.css; the duplicate definitions were consolidated. */

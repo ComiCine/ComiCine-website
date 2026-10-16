@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** PUT /api/apple-account/accounts/:id（更新） / DELETE（删除，需 admin + CSRF） */
+/** PUT /api/apple-account/accounts/:id (update) / DELETE (delete; requires admin access and CSRF). */
 
 import { queryAll, execute } from "../../../_lib/d1";
 import { fernetEncrypt } from "../../../_lib/fernet";
@@ -84,7 +84,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       id,
     );
   } catch (err) {
-    // 同 POST：只有真正的 UNIQUE 冲突才是 409（tasks/22 W9-6）。
+    // As with POST, return 409 only for an actual UNIQUE conflict (tasks/22 W9-6).
     const conflict = isUniqueConflict(err);
     await logEvent(context.env, "audit_event", context.request, {
       outcome: conflict ? "account_update_conflict" : "account_update_failed",
@@ -98,7 +98,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
     return Response.json({ error: "写入失败" }, { status: 500, headers: NO_STORE });
   }
-  // 审计里只记「改了什么口令状态」，绝不记口令本身或密文。
+  // The audit records only the password-state change, never the password or ciphertext itself.
   await logEvent(context.env, "audit_event", context.request, {
     outcome: ok ? "account_updated" : "account_update_missing",
     status: ok ? 200 : 404,

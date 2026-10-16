@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 共享配置模块冒烟测试：契约常量在两端可读取。 */
+/** Shared configuration smoke test: contract constants are available on both sides. */
 
 import { describe, expect, it } from "vitest";
 import {

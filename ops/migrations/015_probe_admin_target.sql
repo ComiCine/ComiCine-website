@@ -1,18 +1,20 @@
--- 015 · 修正探针 2 的失效目标（VPS 退租残留）
+-- 015: Fix the stale target for probe 2, left behind after the VPS retirement.
 --
--- 背景：id=2 的探针原指向 `https://admin.limooo.cn/_health`。该域名是 authentik +
--- Uptime Kuma 时代的运维入口，随 VPS 一起退租后已无 DNS 记录（解析失败 / http_530）。
--- 探针每分钟照跑，于是状态页长期显示一项 down——那是过时配置，不是真实故障。
+-- Background: probe id=2 targeted `https://admin.limooo.cn/_health`, an operations endpoint from
+-- the authentik + Uptime Kuma era. The domain has no DNS record since the VPS was retired, so it
+-- failed to resolve / returned http_530. The probe kept running every minute and the status page
+-- showed a service down indefinitely; this was stale configuration, not a real failure.
 --
--- 009_probes.sql 用的是 INSERT OR IGNORE，改种子不会影响已建库，故单独补一条
--- 幂等迁移；同时把三项的 label_key 补齐，让状态页卡片名跟随界面语言。
+-- 009_probes.sql uses INSERT OR IGNORE, so changing its seed data would not affect existing
+-- databases. Add a separate idempotent migration and fill in all three label_key values so the
+-- status-page card names follow the selected interface language.
 --
--- 只对「仍是旧值」的行生效，避免覆盖运维手工调整过的目标。
+-- Update only rows that still have the old value, preserving targets changed manually by operators.
 
--- 注：不能探 `status.limooo.cn/_health` 或 Workers 自带的 `*.workers.dev` 域名——
--- Worker 对「自己所在 zone / 自己的路由」发起的 subrequest 会被 Cloudflare 拦掉
--- （实测分别得到 http_522 / http_404，而外部 curl 同一 URL 是 200）。因此改探
--- 同区域的静态资源主机，既真实可达，又确实覆盖「边缘资产是否正常」。
+-- Note: Do not probe `status.limooo.cn/_health` or a Worker's `*.workers.dev` domain. Cloudflare
+-- blocks subrequests from a Worker to its own zone or route (observed http_522 / http_404 while an
+-- external curl to the same URL returned 200). Probe a static-asset host in the same region to
+-- test a genuinely reachable edge asset instead.
 UPDATE probes
    SET target = 'https://images.limooo.cn/_health',
        name   = 'Edge Assets'
@@ -20,7 +22,7 @@ UPDATE probes
    AND (target = 'https://admin.limooo.cn/_health' OR target IS NULL);
 
 UPDATE probes SET label_key = 'card_website' WHERE id = 1 AND label_key IS NULL;
--- `card_admin` 已从 status-worker 的文案表移除（管理入口随 VPS 消失），指向它的
--- 旧标签会退回显示英文 name，故一并改到新的 card_status。
+-- `card_admin` was removed from the status-worker copy because the management endpoint disappeared
+-- with the VPS. Its old label would fall back to the English name, so update it to card_status.
 UPDATE probes SET label_key = 'card_status'  WHERE id = 2 AND (label_key IS NULL OR label_key = 'card_admin');
 UPDATE probes SET label_key = 'card_d1'      WHERE id = 3 AND label_key IS NULL;

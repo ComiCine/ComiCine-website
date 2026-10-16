@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""构建脚本纯函数测试（不写 public/ 产物）。"""
+"""Pure-function tests for the build script; these do not write public/ artifacts."""
 
 import json
 import re
@@ -89,7 +89,7 @@ def test_contact_prerenders_all_qr_images():
 
 
 def test_contact_survey_block_uses_limooo_shortlink_and_qr():
-    """问卷块：href 指向 limooo.cn 短链、data-qr 指向本语言二维码，四种语言一致。"""
+    """The survey block uses the limooo.cn short link and the current language's QR code in all four locales."""
     for lang in ("zh-cn", "en-us", "ja-jp", "ko-kr"):
         html = build.render_page(RENDER_APP, "contact.html", "/contact", lang)
         block = html[html.index('id="surveyBlock"'):]
@@ -161,10 +161,10 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
 
 
 def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
-    """robots.txt / llms.txt 必须绕过 Functions，且 robots.txt 允许爬虫（2026-10-12）。
+    """robots.txt and llms.txt bypass Functions, and robots.txt allows crawlers (2026-10-12).
 
-    回归点：两份文件曾是 404（未验证访客还会被门禁换成 403 挑战页），
-    等于「对外宣布不可抓」。
+    Regression context: both files once returned 404 (unverified visitors instead saw
+    a 403 challenge page), effectively announcing that the site could not be crawled.
     """
     build.write_pages_edge_config(str(tmp_path))
     build.write_discovery_files(str(tmp_path))
@@ -176,8 +176,8 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
     assert headers.count("/robots.txt\n") == 1
     assert headers.count("/llms.txt\n") == 1
 
-    # 爬虫规则原样来自 docs/lists/robots.txt；构建器按 config-contract.json
-    # 追加 Sitemap，避免在名单源文件里重复维护域名。
+    # Crawler rules are copied from docs/lists/robots.txt; the builder uses config-contract.json
+    # to add the Sitemap line and avoid maintaining the domain in two places.
     source = Path(build.ROBOTS_SOURCE).read_text(encoding="utf-8")
     published = (tmp_path / "robots.txt").read_text(encoding="utf-8")
     assert published == f"{source.rstrip()}\n\nSitemap: https://{build.ROOT_DOMAIN}/sitemap.xml\n"
@@ -192,7 +192,7 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
 
 
 def test_robots_source_guard_rejects_a_broken_file(tmp_path, monkeypatch):
-    """源文件被清空/写坏时构建必须失败：它同时是门禁名单，静默发出去等于关掉爬虫放行。"""
+    """The build must fail if the source is empty or malformed because it also controls crawler exemptions."""
     broken = tmp_path / "robots.txt"
     broken.write_text("# nothing here\n", encoding="utf-8")
     monkeypatch.setattr(build, "ROBOTS_SOURCE", str(broken))
@@ -215,11 +215,11 @@ def test_remove_bad_artifacts(tmp_path):
     assert (root / "visitor.js").read_text(encoding="utf-8") == "new"
 
 
-# W1 · 契约未生效
+# W1: The contract is not active.
 
 
 def test_html_lang_is_rendered_by_the_template_for_every_language():
-    """W1-4：<html lang> 直接由模板渲染，四语都正确（不再靠字符串替换）。"""
+    """W1-4: The template renders <html lang> directly and correctly for all four locales."""
     for lang in build.LANGS:
         html = build.render_page(RENDER_APP, "index.html", "/", lang)
         assert f'<html lang="{lang}">' in html
@@ -229,19 +229,19 @@ def test_html_lang_is_rendered_by_the_template_for_every_language():
         assert f'<html lang="{lang}">' in gate
         assert f'data-lang="{lang}"' in gate
 
-    # 模板里不允许再写死 zh-cn（契约 default_lang 是 en-us）
+    # Templates must not hardcode zh-cn; the contract default_lang is en-us.
     for name in ("base.html", "auth.html", "redirect.html", "preview.html"):
         source = (Path(build.BASE_DIR) / "src/templates" / name).read_text(encoding="utf-8")
         assert '<html lang="zh-cn">' not in source, name
         assert '<html lang="{{ g.lang }}">' in source, name
 
-    # 构建脚本不再做 <html lang> 字符串替换
+    # The build script no longer replaces the <html lang> string.
     build_py = (Path(build.BASE_DIR) / "src/build.py").read_text(encoding="utf-8")
     assert '<html lang=\\"zh-cn\\">' not in build_py
 
 
 def test_require_locale_keys_fails_loudly_on_missing_key(monkeypatch):
-    """W1-2：跳转页文案缺键必须 RuntimeError，不能静默回退中文。"""
+    """W1-2: Missing redirect copy must raise RuntimeError instead of silently falling back to Chinese."""
     complete = build.load_translations()
     broken = {lang: dict(data) for lang, data in complete.items()}
     del broken["en-us"]["redirect_title"]
@@ -252,7 +252,7 @@ def test_require_locale_keys_fails_loudly_on_missing_key(monkeypatch):
     except RuntimeError as exc:
         assert "redirect_title" in str(exc)
         assert "en-us.json" in str(exc)
-    else:  # pragma: no cover - 只有契约破损时才会走到
+    else:  # pragma: no cover - Reached only when the contract is invalid.
         raise AssertionError("missing redirect_title must raise RuntimeError")
 
 
@@ -267,7 +267,7 @@ def test_require_locale_keys_accepts_complete_locales():
 
 
 def test_write_runtime_functions_refuses_to_fall_back_to_chinese(tmp_path, monkeypatch):
-    """W1-2：write_runtime_functions 缺键即失败，不产出带中文兜底的 runtime.ts。"""
+    """W1-2: write_runtime_functions fails on a missing key instead of generating runtime.ts with a Chinese fallback."""
     complete = build.load_translations()
     broken = {lang: dict(data) for lang, data in complete.items()}
     del broken["ja-jp"]["footer_source_link"]
@@ -284,7 +284,7 @@ def test_write_runtime_functions_refuses_to_fall_back_to_chinese(tmp_path, monke
 
 
 def test_validate_locale_completeness_catches_html_footer_drift():
-    """W1-2：_footer.html 走的 _() 会回退中文，所以缺键必须构建失败。"""
+    """W1-2: Because _() in _footer.html falls back to Chinese, missing keys must fail the build."""
     complete = build.load_translations()
     broken = {lang: dict(data) for lang, data in complete.items()}
     del broken["ko-kr"]["footer_rights"]
@@ -296,12 +296,12 @@ def test_validate_locale_completeness_catches_html_footer_drift():
     else:  # pragma: no cover
         raise AssertionError("missing footer_rights must raise RuntimeError")
 
-    # 当前仓库的四个 locale 必须完整（否则构建会失败）
+    # All four repository locales must be complete, or the build fails.
     build.validate_locale_completeness(complete)
 
 
 def test_frontend_reads_contract_facts_from_data_attributes():
-    """W1-3：语言列表 / cookie 名与 TTL / 根域名由构建注入，JS 只读。"""
+    """W1-3: The build injects the language list, cookie names and TTL, and root domain; JavaScript only reads them."""
     html = build.render_page(RENDER_APP, "index.html", "/", "en-us")
     body_open = html[html.index("<body"):html.index(">", html.index("<body")) + 1]
 
@@ -313,13 +313,13 @@ def test_frontend_reads_contract_facts_from_data_attributes():
     assert 'data-theme-cookie-max-age="31536000"' in body_open
     assert 'data-default-lang="en-us"' in body_open
 
-    # 门禁页（auth.html，不继承 base.html）也要有同一批属性
+    # The gate page (auth.html, which does not inherit base.html) must expose the same attributes.
     gate = build.render_gate(RENDER_APP, "en-us")
     gate_body = gate[gate.index("<body"):gate.index(">", gate.index("<body")) + 1]
     assert f'data-supported-langs="{" ".join(build.LANGS)}"' in gate_body
     assert 'data-lang-cookie="user_lang_preference"' in gate_body
 
-    # 语言浮层条目由契约生成：条目数 == supported_langs 数，且每门语言一项
+    # The contract generates the language-menu entries: one entry for each supported_langs item.
     for lang in build.LANGS:
         page = build.render_page(RENDER_APP, "index.html", "/", lang)
         menu = page[page.index('id="langMenu"'):page.index("</nav>")]
@@ -328,13 +328,13 @@ def test_frontend_reads_contract_facts_from_data_attributes():
             assert f'data-lang="{code}"' in menu
         assert f'class="theme-option selected" data-lang="{lang}"' in menu
 
-    # 门禁页浮层同样由契约生成
+    # The gate page language menu is generated from the contract too.
     gate_menu = gate[gate.index('id="langMenu"'):]
     assert gate_menu.count('data-action="setLang"') == len(build.LANGS)
 
 
 def test_frontend_js_has_no_hardcoded_language_list_or_cookie_ttl():
-    """W1-3：JS 只能读 data-*，不能再写死语言数组 / cookie 名 / TTL。"""
+    """W1-3: JavaScript must read data-* attributes instead of hard-coding languages, cookie names, or TTLs."""
     js_dir = Path(build.BASE_DIR) / "src/static/js"
     base_js = (js_dir / "base.js").read_text(encoding="utf-8")
     auth_js = (js_dir / "auth.js").read_text(encoding="utf-8")
@@ -348,12 +348,12 @@ def test_frontend_js_has_no_hardcoded_language_list_or_cookie_ttl():
         assert "max-age=31536000; SameSite=Lax" not in source, name
         assert "'user_lang_preference='" not in source, name
         assert "'limooo_theme='" not in source, name
-    # 语言列表（后台预取用）只有 base.js 需要，同样来自 data-*
+    # Only base.js needs the language list for prefetching; it also comes from data-*.
     assert "data-supported-langs" in base_js
 
 
 def test_preview_localization_uses_contract_domains(monkeypatch):
-    """W1-5：预览改写用契约常量构造，改域名会跟随（不是写死 limooo.cn）。"""
+    """W1-5: Preview rewrites use contract constants, so domain changes propagate instead of hard-coding limooo.cn."""
     patterns = build.preview_localization_patterns()
     sample = (
         '<img src="https://limooo.cn/static/icons/Limooo.svg">'
@@ -374,7 +374,7 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
     for host in pages:
         assert host.endswith("." + build.ROOT_DOMAIN)
 
-    # 换掉契约里的根域名后，同一段 HTML 不再被旧域名的规则改写
+    # After changing the contract root domain, the old-domain rule must no longer rewrite the same HTML.
     monkeypatch.setattr(build, "ROOT_DOMAIN", "example.com")
     monkeypatch.setattr(build, "SERVICES_HOST", "services.example.com")
     monkeypatch.setattr(build, "IMAGE_ASSET_HOST", "images.example.com")
@@ -387,10 +387,11 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
 
 
 def test_lang_options_follow_the_contract_at_call_time(monkeypatch):
-    """W1-3：语言列表在调用时现读契约，缓存按列表参数分桶（改了立刻生效）。
+    """W1-3: Read the language list from the contract at call time and key the cache by that list.
 
-    回归点：`_cached_lang_options` 曾经是 maxsize=1 的无参缓存 + import 时绑定的
-    `SUPPORTED_LANGS`，monkeypatch 契约后渲染仍拿旧列表（假绿）。
+    Regression context: `_cached_lang_options` used to be an argument-free maxsize=1
+    cache and captured `SUPPORTED_LANGS` at import time. Rendering then kept using the
+    old list after the contract was monkeypatched, producing a false pass.
     """
     import config
     import render_app
@@ -401,13 +402,13 @@ def test_lang_options_follow_the_contract_at_call_time(monkeypatch):
     assert 'data-supported-langs="aa-aa bb-bb"' in html
     assert html.count('data-action="setLang"') == 2
     assert 'data-lang="aa-aa"' in html and 'data-lang="bb-bb"' in html
-    # 旗帜由地区子标签推出，文案键取主语言子标签
+    # Derive the flag from the region subtag and use the primary-language subtag for the copy key.
     options = render_app._cached_lang_options(("aa-aa", "bb-bb"))
     assert [o["code"] for o in options] == ["aa-aa", "bb-bb"]
     assert [o["label_key"] for o in options] == ["lang_aa", "lang_bb"]
-    assert options[0]["flag"]  # 🇦🇦 之类的区域指示符，非空即可
+    assert options[0]["flag"]  # Any regional indicator, such as 🇦🇦, is sufficient.
 
-    # 换回契约原值时不会命中上一轮的缓存
+    # Restoring the contract value must not reuse the previous cache entry.
     monkeypatch.undo()
     options = render_app._cached_lang_options(tuple(config.SUPPORTED_LANGS))
     assert [o["code"] for o in options] == list(build.LANGS)

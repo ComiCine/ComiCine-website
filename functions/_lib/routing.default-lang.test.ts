@@ -18,10 +18,11 @@
  */
 
 /**
- * detectLang 的兜底值必须来自契约（DEFAULT_LANG），不能是写死的语言码。
+ * detectLang must use the contract DEFAULT_LANG as its fallback, not a hardcoded language code.
  *
- * 这里把 `config` 里的 DEFAULT_LANG 换成另一门受支持语言再断言：
- * 如果 detectLang 里还留着 `"en-us"` 这类字面量，本文件必然变红。
+ * Replace config.DEFAULT_LANG with another supported language and assert the
+ * result. This test fails if detectLang still contains a literal such as
+ * `"en-us"`.
  */
 
 import { describe, expect, it, vi } from "vitest";

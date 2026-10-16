@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/** 请求路由 / 语言 / 站内跳转工具（无浏览器 DOM 依赖，可被 vitest 直接 import）。 */
+/** Request routing, language, and internal redirect helpers with no browser DOM dependency; safe to import in vitest. */
 
 import type { Env } from "./env";
 import { contains, normalizeIp } from "./cidr";
@@ -41,15 +41,17 @@ export interface RequestContext {
 }
 
 /**
- * 每请求只解析一次的 URL。
+ * Parse the URL once per request.
  *
- * 同一条请求链路上 `new URL(request.url)` 会被调用 7 次以上（中间件编排、门禁页、
- * 跳转页、埋点、日志各一次），每次都重跑一遍 URL 解析器并分配一个 URL 对象。
- * 这里按 Request 对象记忆化（WeakMap，不持有强引用），全链路只解析一次；
- * 传 Request 对象而不是 URL 字符串，多主机/多环境也不会串味。
+ * `new URL(request.url)` was called more than seven times along one request
+ * path by middleware, gate and redirect pages, tracking, and logging. Each call
+ * reparsed the URL and allocated an object. Memoize by Request in a WeakMap so
+ * the full path parses once without retaining a strong reference. Keying by
+ * Request rather than URL text also isolates hosts and environments.
  *
- * 调用方一律**只读**：URL 是可变的（`url.searchParams` 是活引用，改它会改到本体），
- * 需要改写时必须自己克隆（如 `_middleware.ts` 的 pageCacheKey）。
+ * Callers must treat the URL as **read-only**. URL is mutable and
+ * `url.searchParams` is a live reference; clone it before rewriting, as in
+ * `_middleware.ts` pageCacheKey.
  */
 const requestUrlCache = new WeakMap<Request, URL>();
 
@@ -63,20 +65,22 @@ export function requestUrl(request: Request): URL {
 }
 
 /**
- * 门禁页/跳转页的**模板文本**缓存（缓存的是模板，不是最终 HTML）。
+ * Cache **gate and redirect template text**, not the final HTML.
  *
- * `renderGatePage` 与 `renderRedirectPage` 每渲染一次都要 `env.ASSETS.fetch()`
- * 取回 `/<lang>/auth.html`、`/<lang>/redirect.html` 的全文，而模板在 isolate
- * 生命周期内是不变的：Pages 的部署产物不可变，新构建会换一批 isolate——与
- * `_middleware.cachedPageAsset` 同一假设（只做进程内复用，不做跨版本持久化）。
- * 这里只缓存模板文本，占位符注入仍然逐请求执行。
+ * `renderGatePage` and `renderRedirectPage` fetch the full
+ * `/<lang>/auth.html` or `/<lang>/redirect.html` on every render, although the
+ * template is constant during an isolate's lifetime. Pages deployments are
+ * immutable and a new build gets new isolates, matching the assumption in
+ * `_middleware.cachedPageAsset`; reuse only within a process, not across
+ * versions. Cache template text only and inject placeholders per request.
  *
- * 键的外层是 **ASSETS 绑定对象本身**（WeakMap）：不同 isolate、以及测试里各自
- * 注入的 ASSETS 桩各存一份，绝不互相串味；内层键是资产路径，已含语言段
- * （`/<lang>/<file>`），所以不同语言的同名模板不会互相覆盖。请求主机不进键：
- * 取回用的是 BASE_URL 上的绝对路径，主机本来就不影响结果。
+ * The outer key is the **ASSETS binding object itself** in a WeakMap, keeping
+ * isolates and per-test stubs separate. The inner key is the asset path,
+ * including the language segment (`/<lang>/<file>`), so same-name templates
+ * in different languages cannot collide. The request host is not part of the
+ * key because fetch uses an absolute path from BASE_URL.
  *
- * 取回失败（无绑定 / 非 2xx）返回 null 且**不写缓存**，下次请求重试。
+ * On fetch failure (missing binding or non-2xx), return null and **do not cache** so the next request retries.
  */
 const templateTextCache = new WeakMap<object, Map<string, string>>();
 
@@ -102,26 +106,27 @@ export async function templateText(
   return text;
 }
 
-/** 不能被门禁拦截的路径（否则死循环）。 */
+/** Paths that must bypass the gate to avoid redirect loops. */
 export const SKIP_PATHS = new Set<string>([
   "/__gate/verify",
   "/__gate/diag",
   "/__gate/config",
   "/Limooo-xtext.svg",
   "/favicon.svg",
-  // 爬虫/AI 工具的入口文件（2026-10-12）：构建期生成在产物根路径，同时登记在
-  // _routes.json 的 exclude 里（正常情况下根本到不了 Functions）。这里再放一份是
-  // 纵深防御：exclude 名单若哪天被改错，未验证的爬虫也不能拿到一张 403 挑战页
-  // 当作 /robots.txt 的内容。
+// Crawler and AI entry files (2026-10-12) are generated at the output root and
+// listed in _routes.json excludes, so normally they never reach Functions.
+// Keep this second check as defense in depth: if the exclude list is wrong,
+// unverified crawlers must not receive a 403 challenge page as /robots.txt.
   "/robots.txt",
   "/llms.txt",
-  // 登录链路：Entra 回调是来自 login.microsoftonline.com 的顶层跳转，
-  // 不能因为 __gate cookie 恰好过期就被门禁页接管（否则登录直接断掉）。
+// Login flow: the Entra callback is a top-level redirect from
+// login.microsoftonline.com. Do not send it to the gate because a __gate
+// cookie expired, or login will fail.
   "/login/entra",
   "/login/callback",
 ]);
 
-/** 门禁/封禁白名单：只认 docs/lists/whitelist.txt 生成的门禁信任配置。 */
+/** Gate and blocklist allowlist; use only trust settings generated from docs/lists/whitelist.txt. */
 export function isGateTrustedIp(ip: string): boolean {
   const normalized = normalizeIp(ip);
   if (!normalized) return false;
@@ -141,7 +146,7 @@ export function getCookie(name: string, header: string | null): string | undefin
       try {
         return decodeURIComponent(value);
       } catch {
-        // Cookie 由客户端提供；畸形百分号编码不能让整个请求变成 500。
+// Cookies are client-supplied; malformed percent-encoding must not turn the whole request into a 500.
         return value;
       }
     }
@@ -150,15 +155,16 @@ export function getCookie(name: string, header: string | null): string | undefin
 }
 
 /**
- * 请求方可控的回跳值里绝不允许出现的字符。
+ * Characters forbidden in a request-controlled redirect value.
  *
- * C0 控制字符（含 CR/LF）与 DEL 一旦进入 `Location`，workerd 构造响应头时
- * 会抛 `TypeError` → 未捕获 500（门禁验证刚通过却拿不到 cookie）。同时
- * CR/LF 也是经典的响应头注入载荷，必须在唯一的收口处直接拒绝。
+ * If C0 control characters (including CR/LF) or DEL reach `Location`, workerd
+ * throws `TypeError` while constructing the response header, producing an
+ * uncaught 500 after gate verification. CR/LF are also standard response
+ * header-injection payloads, so reject them at the shared validation point.
  */
 const UNSAFE_NEXT_CHARS = /[\u0000-\u001f\u007f]/;
 
-/** 只允许站内相对路径：以 / 开头、拒绝 //、反斜杠和任何协议前缀。 */
+/** Allow only internal relative paths beginning with /; reject //, backslashes, and protocol prefixes. */
 export function safeNextPath(raw: string | null): string {
   if (!raw) return "/";
   if (!raw.startsWith("/")) return "/";
@@ -169,7 +175,7 @@ export function safeNextPath(raw: string | null): string {
   return raw.slice(0, 2048);
 }
 
-/** 登录/登出回跳：站内相对路径，或仅允许 https + 白名单主机。 */
+/** Login/logout redirect targets: internal relative paths or HTTPS URLs on allowlisted hosts. */
 export function safeNextUrl(raw: string | null): string {
   const fallback = `${BASE_URL}/`;
   if (!raw || raw.length > 2048) return fallback;
@@ -179,12 +185,12 @@ export function safeNextUrl(raw: string | null): string {
     const value = new URL(raw);
     if (value.protocol === "https:" && isPublicHost(value.hostname)) return raw;
   } catch {
-    // 非 URL 一律回主站。
+// Fall back to the main site for non-URL values.
   }
   return fallback;
 }
 
-/** 门禁/登录回跳白名单：精确主机名，或配置里 *.limooo.cn 形式的通配子域。 */
+/** Gate and login redirect allowlist: exact hostnames or configured *.limooo.cn subdomains. */
 export function isPublicHost(host: string): boolean {
   if (!host) return false;
   if (PUBLIC_HOSTS.has(host)) return true;
@@ -194,16 +200,17 @@ export function isPublicHost(host: string): boolean {
   return false;
 }
 
-/** 门禁回跳目标主机只允许公开白名单，其余一律回主站。 */
+/** Gate redirect targets may use only public allowlisted hosts; all others go to the main site. */
 export function sanitizeHost(raw: string | null | undefined): string {
   return raw && isPublicHost(raw) ? raw : ROOT_DOMAIN;
 }
 
 /**
- * 把要注入生成 HTML 的值转义（gate 页注入 host/next、redirect 页注入 to）。
+ * Escape values injected into generated HTML: host/next on the gate page and to on the redirect page.
  *
- * 原先 gate.ts 与 redirect.ts 各有一份逐字符相同的实现，收敛到这里；
- * 两处注入的都是**请求方可控**的值，漏转义即 XSS，因此只留一份。
+ * gate.ts and redirect.ts previously had identical copies. Both inject
+ * **request-controlled** values, so a missed escape could cause XSS; keep one
+ * shared implementation.
  */
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (ch) => {

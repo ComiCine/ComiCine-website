@@ -1,8 +1,8 @@
 /*
-   首页专用样式：页面层叠切换、闪光灯动画、作品展示网格
+   Home page styles: stacked-page transitions, flash animation, and portfolio grid.
    */
 
-/* 页面层叠容器（home / portfolio 两个页面叠加，通过 transform 切换） */
+/* Stack the home and portfolio pages and switch between them with transform. */
 .page-layer {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: var(--bg) !important;
@@ -14,7 +14,7 @@
     z-index: 10; opacity: 0; visibility: hidden; overflow-y: auto;
 }
 
-/* 入场 / 出场动画状态（配合 JS 控制） */
+/* Entrance and exit animation states controlled by JavaScript. */
 .reveal-item.exit-up {
     opacity: 0 !important; transform: translateY(-60px) !important;
 }
@@ -25,11 +25,11 @@
     transform: translateY(30px); opacity: 0 !important;
 }
 
-/* 作品展示卡片（两行三列 + 相框包边） */
+/* Portfolio cards: two rows of three with a frame border. */
 .work-box {
     background-color: var(--panel-bg);
     border: 1px solid var(--line); border-radius: var(--radius-lg);
-    padding: 10px; /* 包边：图片四周留白，卡片边框包裹 */
+    padding: 10px; /* Frame the image with padding inside the card border. */
     opacity: 0; transform: translateY(20px);
     transition: transform 0.6s var(--ease-out), opacity 0.6s var(--ease-out);
     will-change: transform, opacity; backface-visibility: hidden;
@@ -41,10 +41,10 @@
 .work-box-label {
     font-size: 10px; font-weight: 600; letter-spacing: calc(0.2em*var(--ls-scale)); opacity: 0.2;
 }
-/* hover 提示：底部 15% 区域渐变 + 文字，覆盖在图片之上（包边之内） */
+/* On hover, overlay a gradient and text across the bottom 15% of the image, inside the frame. */
 .work-box-hint {
     position: absolute; left: 10px; right: 10px; bottom: 10px;
-    height: 15%; /* 占卡片高度 15% */
+    height: 15%; /* Use 15% of the card height. */
     display: flex; align-items: center; justify-content: center;
     font-size: 10px; font-weight: 600;
     letter-spacing: calc(0.3em*var(--ls-scale)); text-transform: uppercase;
@@ -56,45 +56,45 @@
 @media (hover: hover) and (pointer: fine) {
     .work-box:hover .work-box-hint { opacity: 1; color: var(--hover-highlight); }
 }
-/* 裁剪层：固定圆角（外层 16 − 内边距 10），不随 hover 变化。
-   画幅由模板按图片真实比例写入内联 aspect-ratio（3:4 / 3:2 / 2:3…），
-   这里的 3 / 4 只是没有内联值时的兜底。 */
+/* Keep the clipping layer radius fixed (outer 16px minus 10px padding), independent of hover.
+   The template sets aspect-ratio from each image's dimensions (3:4, 3:2, 2:3, etc.);
+   3 / 4 here is only the fallback when no inline value is present. */
 .work-frame {
     width: 100%; height: 100%;
     aspect-ratio: 3 / 4;
     border-radius: calc(var(--radius-lg) - 10px);
     overflow: hidden;
 }
-/* 横幅（3:2 等）：卡片改为整行铺满，保持作品图的横向构图 */
+/* Landscape images such as 3:2 span the full row to preserve their composition. */
 .work-box[data-orientation="landscape"] { grid-column: 1 / -1; }
 @media (min-width: 640px) {
     .work-box[data-orientation="landscape"] .work-frame { max-width: 840px; margin: 0 auto; }
 }
-/* 网格默认 align-items: stretch：同排的竖幅卡片会被最高的那张拉长。
-   卡片按内容高度对齐，各自的包边才能紧贴自己的画幅。 */
+/* The grid defaults to align-items: stretch, which would make portrait cards as tall as the
+   tallest card in their row. Align cards by content height so each frame fits its own image. */
 .work-box { align-self: start; }
 .work-img {
     display: block; width: 100%; height: 100%;
     object-fit: cover;
 }
-/* 作品图在 load 后才赋 src：无 src 时先隐藏，避免占位区显示 alt 文本 */
+/* Set portfolio image src only after load; hide the empty placeholder to avoid showing alt text. */
 .work-img:not([src]) { opacity: 0; }
-/* 标题字重 */
+/* Heading weight. */
 h1 { font-weight: 600 !important; }
 
-/* 首页主标题 */
+/* Home page title. */
 .hero-title {
     color: var(--text);
     font-family: 'Baloo 2 Brackets', 'Baloo 2', ui-rounded, system-ui, sans-serif;
 }
 
-/* 导航 logo 按页面状态显示/隐藏（瞬间切换，不用 transition） */
+/* Show or hide the navigation logo based on page state, without a transition. */
 #nav-logo.is-hidden { opacity: 0; pointer-events: none; }
 
-/* 英雄标题 */
+/* Hero title. */
 #hero-title {
     position: fixed; top: 50%; left: 50%;
-    z-index: 150; /* 高于导航栏(100)，飞行动画不被 nav 背景遮挡 */
+    z-index: 150; /* Above the 100px navigation bar so its background does not cover the flight animation. */
     opacity: 0;
     transform: translate(-50%, -40px);
     transition: opacity 200ms ease-out, transform 267ms var(--ease-out);
@@ -113,7 +113,7 @@ h1 { font-weight: 600 !important; }
     transition: transform 233ms var(--ease-out), opacity 167ms ease-out;
 }
 
-/* 滚动指示器 */
+/* Scroll indicator. */
 .scroll-hint {
     position: absolute; bottom: 80px; left: 0; right: 0; margin: 0 auto; width: fit-content;
     display: flex; flex-direction: column; align-items: center; gap: 6px;

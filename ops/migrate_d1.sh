@@ -17,18 +17,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Limooo D1 迁移入口。
+# Limooo D1 migration entry point.
 #
-# 用法：
-#   bash ops/migrate_d1.sh --dry-run                 # 只打印计划；完全离线
-#   bash ops/migrate_d1.sh --remote                  # 对生产 D1 执行尚未记账的迁移
-#   bash ops/migrate_d1.sh --check-schema --remote   # 只读校验表是否齐全
+# Usage:
+#   bash ops/migrate_d1.sh --dry-run                 # print the plan only; fully offline
+#   bash ops/migrate_d1.sh --remote                  # apply unapplied migrations to production D1
+#   bash ops/migrate_d1.sh --check-schema --remote   # read-only check that all tables exist
 #
-# 「已应用」以 D1 的 schema_version 为唯一事实源。仓库内 .d1-migrations/applied
-# 只是离线计划的缓存：旧版本在缺 --remote 时会打到本地 .wrangler sqlite 却照样
-# 记账，那份缓存不可信，故不再参与跳过判断。
+# D1's schema_version table is the sole source of truth for whether a migration was applied.
+# The repository's .d1-migrations/applied file is only a cache for offline plans. Older versions
+# of this script could run against local .wrangler SQLite without --remote and still record the
+# migration, so that cache is not trusted and is no longer used to decide whether to skip.
 #
-# 迁移前请先备份 D1（见 docs/parallel-actions.md）。
+# Back up D1 before migrating (see docs/parallel-actions.md).
 
 set -euo pipefail
 
@@ -37,7 +38,7 @@ MIGRATIONS_DIR="$ROOT/ops/migrations"
 STATE_FILE="${D1_STATE_FILE:-$ROOT/.d1-migrations/applied}"
 LEGACY_STATE_FILE="/tmp/limooo-d1-schema-state"
 D1_DATABASE_NAME="${D1_DATABASE_NAME:-limooo}"
-# 预先保存的 wrangler --json 载荷：设置后 --check-schema 完全离线（调试与测试用）
+# A saved wrangler --json payload makes --check-schema fully offline (for debugging and tests).
 SCHEMA_JSON_FILE="${LIMOOO_D1_SCHEMA_JSON:-}"
 WRANGLER_BIN="${WRANGLER_BIN:-}"
 if [ -n "$WRANGLER_BIN" ]; then
@@ -90,14 +91,16 @@ if [ ! -d "$MIGRATIONS_DIR" ]; then
     exit 1
 fi
 
-# 模式校验（W3-4 / W3-5）：
-#   * apply 缺 --remote 会打到本地 sqlite 却记成已应用 → 直接拒绝；
-#   * --check-schema 缺 --remote 只读本地库、且在 bash < 4.4 上会崩在空数组展开
-#     → 同样要求显式声明目标；要用离线校验请给 LIMOOO_D1_SCHEMA_JSON。
-#   * --dry-run 完全离线，不受此限。
+# Mode validation (W3-4 / W3-5):
+#   * Applying without --remote would run against local SQLite but record the migration as
+#     applied, so reject it.
+#   * --check-schema without --remote would inspect only the local database and can fail on
+#     empty array expansion in bash versions earlier than 4.4, so require an explicit target.
+#     For an offline check, set LIMOOO_D1_SCHEMA_JSON.
+#   * --dry-run is fully offline and is not affected by this restriction.
 if [ "$DRY_RUN" = 0 ] && [ "$REMOTE" = 0 ]; then
     if [ "$CHECK_SCHEMA" = 1 ] && [ -n "$SCHEMA_JSON_FILE" ]; then
-        : # 离线校验保存好的 sqlite_master 载荷，不连 D1
+        : # Validate a saved sqlite_master payload offline without contacting D1.
     else
         echo "FATAL: --remote is required for --check-schema and for applying migrations" >&2
         echo "       use --dry-run for an offline plan, or set LIMOOO_D1_SCHEMA_JSON=<file>" >&2
@@ -106,8 +109,8 @@ if [ "$DRY_RUN" = 0 ] && [ "$REMOTE" = 0 ]; then
     fi
 fi
 
-# 兼容旧版临时状态文件：迁移到仓库内持久化位置。它只是离线计划的缓存，
-# 不参与「已应用」判断（那份以 D1 schema_version 为准）。
+# Migrate the legacy temporary state file to the persistent repository location. It is only an
+# offline plan cache and does not determine whether a migration was applied; D1 schema_version does.
 if [ -f "$LEGACY_STATE_FILE" ] && [ ! -f "$STATE_FILE" ]; then
     mkdir -p "$(dirname "$STATE_FILE")"
     cp "$LEGACY_STATE_FILE" "$STATE_FILE"
@@ -124,8 +127,9 @@ while IFS= read -r file; do
     MIGRATION_NAMES+=("$name")
 done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
 
-# 重号检测（W3-8）：004 被三个文件共用，旧的纯版本号（version=4）无法区分它们。
-# 只告警不阻断（历史文件名不能改）；新迁移必须用下一个空闲编号。
+# Detect duplicate migration numbers (W3-8): three files use 004, and the legacy plain version
+# number (version=4) cannot distinguish them. Warn without blocking because historical filenames
+# cannot be changed; new migrations must use the next available number.
 duplicate_seen=0
 max_prefix=0
 warned_prefixes=" "
@@ -156,7 +160,8 @@ if [ "$duplicate_seen" = 1 ]; then
     echo "[d1] warning: a legacy version row cannot tell duplicate numbers apart; new migrations must use the next free number ($next_free)"
 fi
 
-# 迁移键：version * 1000 + 同号文件中的次序（1 起）。同号文件因此互不覆盖。
+# Migration key: version * 1000 + the file's 1-based sequence among files with the same number.
+# This gives files with duplicate numbers distinct keys.
 migration_key() {
     local name="$1" prefix seq=0 other
     prefix="${name%%_*}"
@@ -174,7 +179,7 @@ migration_prefix() {
     echo "$((10#${name%%_*}))"
 }
 
-# 本地缓存（离线计划用）：命中即为 0
+# Local cache for offline plans: a match means status 0.
 is_cached() {
     local name="$1"
     if [ -f "$STATE_FILE" ]; then
@@ -184,7 +189,7 @@ is_cached() {
     fi
 }
 
-# 字符串里是否含有某个整行（换行分隔）；避免 grep -q 早退触发 SIGPIPE
+# Check whether newline-separated text contains an exact line; avoid SIGPIPE from grep -q exiting early.
 line_has() {
     local value="$1" lines="$2"
     if [ -z "$lines" ]; then
@@ -193,7 +198,7 @@ line_has() {
     grep -Fxq -- "$value" <<< "$lines"
 }
 
-# 从 wrangler --json 载荷里取出某个整数键的全部取值（一行一个）
+# Extract all values for an integer key from a wrangler --json payload, one per line.
 json_int_values() {
     local payload="$1" key="$2"
     printf '%s' "$payload" \
@@ -201,8 +206,8 @@ json_int_values() {
         | sed -E 's/^[^0-9]*([0-9]+)$/\1/' || true
 }
 
-# 从 wrangler --json 载荷里取出精确的表名集合（一行一个、已排序去重）。
-# 精确比较，不做子串匹配：visitors 不能被 visitors_v2 顶替（W3-7）。
+# Extract the exact set of table names from a wrangler --json payload, sorted and deduplicated,
+# with one name per line. Compare exact names, not substrings: visitors must not match visitors_v2 (W3-7).
 json_table_names() {
     local payload="$1"
     printf '%s' "$payload" \
@@ -211,7 +216,7 @@ json_table_names() {
         | sort -u || true
 }
 
-# 对远程 D1 执行一条 SQL；失败时打印 wrangler 的完整输出
+# Execute one SQL statement against remote D1; print Wrangler's full output on failure.
 d1_execute_sql() {
     local sql="$1" log
     log="$(mktemp -t limooo-d1-sql-XXXXXX.log)"
@@ -299,7 +304,7 @@ fi
 
 echo "[d1] apply: database=$D1_DATABASE_NAME target=remote files=${#MIGRATION_NAMES[@]}"
 
-# 状态表先建好：它是唯一事实源，读写的都必须是它。
+# Create the state table first; it is the sole source of truth for migration state.
 d1_execute_sql "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));" || exit 1
 
 versions_log="$(mktemp -t limooo-d1-versions-XXXXXX.log)"
@@ -343,8 +348,9 @@ for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
     if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --file "$MIGRATIONS_DIR/$name" >"$apply_log" 2>&1; then
         rm -f "$apply_log"
     elif grep -Eq 'duplicate column name|already exists' "$apply_log"; then
-        # 没记账但 schema 已在（例如 SQL 被手工执行过、或本地状态丢失后重跑）：
-        # 明确报「已应用」并补记账，而不是炸在中途（W3-6）。
+        # The migration is not recorded, but its schema already exists (for example, the SQL was
+        # run manually or rerun after local state was lost). Report it as applied and record it
+        # instead of failing midway (W3-6).
         echo "[d1] already applied (schema already present, record was missing): $name"
         rm -f "$apply_log"
     else
@@ -363,7 +369,8 @@ for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
     applied_names+=("$name")
 done
 
-# 只有远程执行全部成功之后才刷新本地缓存，且整体覆盖：清掉旧的误记（W3-5）。
+# Refresh the local cache only after every remote migration succeeds, replacing it entirely to
+# remove stale entries (W3-5).
 mkdir -p "$(dirname "$STATE_FILE")"
 cache_tmp="$(mktemp -t limooo-d1-cache-XXXXXX)"
 printf '%s\n' "${applied_names[@]+"${applied_names[@]}"}" > "$cache_tmp"

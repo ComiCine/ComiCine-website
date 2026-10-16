@@ -18,12 +18,13 @@
  */
 
 /**
- * SMTP 发信测试（tasks/22 W5-9）。
+ * SMTP delivery tests (tasks/22 W5-9).
  *
- * `sendViaSmtp` 是告警链路的最后一段（webhook → Email → SMTP），186 行里
- * 手写了 MIME 组装与 RFC 2045 的 76 列折行，却一行测试都没有。这里把
- * `cloudflare:sockets` 的 `connect` 换成脚本化的内存 socket：读侧预置服务端
- * 应答，写侧记录客户端发出的全部字节，因此断言的是**真实发出的协议流**。
+ * `sendViaSmtp` is the final step in the alert chain (webhook → Email → SMTP). Its 186
+ * lines hand-build MIME and RFC 2045's 76-column folding, but previously had no tests.
+ * Replace `cloudflare:sockets`'s `connect` with a scripted in-memory socket: the read side
+ * supplies server replies and the write side records every client byte, so assertions
+ * cover the **actual emitted protocol stream**.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,7 +43,7 @@ const CONFIG: SmtpConfig = {
   from: "alert@example.com",
 };
 
-/** 服务端应答：多行续行（250-）与逐步 334 都在这里覆盖。 */
+/** Server replies; this covers multiline continuations (250-) and sequential 334 replies. */
 const HAPPY_REPLIES = [
   "220 smtp.example.com ESMTP ready",
   "250-smtp.example.com greets you",
@@ -64,7 +65,7 @@ interface Scripted {
     opened: Promise<unknown>;
     close(): Promise<void>;
   };
-  /** 客户端写出的全部文本（按写入顺序拼接）。 */
+  /** All client text writes concatenated in write order. */
   written: () => string;
 }
 
@@ -93,7 +94,7 @@ function base64(value: string): string {
   return Buffer.from(value, "utf8").toString("base64");
 }
 
-/** MIME 头块（第一个空行之前）。 */
+/** MIME header block, before the first blank line. */
 function headerBlock(stream: string): string {
   const data = stream.slice(stream.indexOf("DATA" + CRLF) + ("DATA" + CRLF).length);
   return data.slice(0, data.indexOf(CRLF + CRLF));
@@ -185,7 +186,8 @@ describe("sendViaSmtp", () => {
     expect(header).not.toContain(CRLF + "X-Injected:");
     expect(header).toContain("To: ops@example.com Bcc: attacker@example.com");
     expect(header).toContain("Subject: =?UTF-8?B?");
-    // 头块里不允许出现未编码的注入载荷（B-word 之外不得有原始 CRLF）。
+    // The headers must not contain an unencoded injection payload (no raw CRLF outside
+    // the B-word encoding).
     expect(header.split(CRLF).every((line) => !line.startsWith("Bcc:"))).toBe(true);
   });
 
@@ -235,7 +237,7 @@ describe("sendViaSmtp", () => {
     expect(stream).toContain(`--${boundary![1]}${CRLF}Content-Type: text/plain`);
     expect(stream).toContain(`--${boundary![1]}${CRLF}Content-Type: text/html`);
     expect(stream).toContain(`--${boundary![1]}--`);
-    // 两个 part 的正文都是 base64：解回来必须就是原文。
+    // Both part bodies are base64; decoding them must reproduce the original text.
     const parts = [...stream.matchAll(/Content-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/g)].map(
       (match) => Buffer.from(match[1].replace(/\r\n/g, ""), "base64").toString("utf8"),
     );

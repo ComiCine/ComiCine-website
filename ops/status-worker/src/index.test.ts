@@ -34,7 +34,7 @@ import worker, {
   type Env,
 } from "./index";
 
-/** 极简 D1 stub：按 SQL 关键字返回预设结果，并记录写入。 */
+/** Minimal D1 stub: returns preset results based on SQL keywords and records writes. */
 function fakeDb(handlers: {
   first?: (sql: string) => unknown;
   all?: (sql: string) => unknown;
@@ -236,10 +236,12 @@ describe("statusPayload", () => {
 
 describe("status page edge cache", () => {
   it("HTML is edge-cacheable with a TTL aligned to the probe cadence", () => {
-    // 状态页 SSR 每次都要读 D1；退回 no-store 会让每次刷新/抓取都打库。
+    // Status page SSR reads D1 on every request; reverting to no-store would hit the
+    // database on every refresh or crawl.
     expect(STATUS_HTML_CACHE_CONTROL).not.toContain("no-store");
     expect(STATUS_HTML_CACHE_CONTROL).toContain("s-maxage=60");
-    // 允许短暂陈旧，避免上游抖动时全站回源。
+    // Allow brief staleness to avoid sending all requests to the origin during upstream
+    // instability.
     expect(STATUS_HTML_CACHE_CONTROL).toContain("stale-while-revalidate");
   });
 
@@ -341,7 +343,7 @@ describe("status page rendering", () => {
     });
     const html = await renderStatusPage({ DB: db } as Env, "zh-cn");
     expect(html).toContain("系统状态");
-    expect(html).toContain("Limooo 网站"); // label_key 命中 locales 同名 key
+    expect(html).toContain("Limooo 网站"); // label_key matches the same key in locales
     expect(html).toContain("运行正常");
     expect(html).toContain('href="/status.css"');
     expect(html).toContain('src="/status.js"');
@@ -354,14 +356,16 @@ describe("alert email", () => {
   it("down uses red, up uses the brand teal, both name the probe in the body", () => {
     const down = buildAlertEmail("zh-cn", "down", "Website", "http_503", 1700000000);
     const up = buildAlertEmail("zh-cn", "up", "Website", "http_200", 1700000000);
-    // 探针名**不在 subject 里**（2026-10-11 用户定：subject 为 `Health check alert · Limooo`），
-    // 它由正文的条目行给出 —— 标题只说「出了什么事」。
+    // The probe name is **not in the subject** (user decision on 2026-10-11: subject is
+    // `Health check alert · Limooo`); it appears in the body row. The title only reports
+    // what happened.
     expect(down.subject).toBe("Health check alert · Limooo");
     expect(down.subject).not.toContain("Website");
     expect(down.text).toContain("Website");
     expect(down.html).toContain("#dc2626");
     expect(up.html).toContain("#05A5A6");
-    // 正文里的错误码现在翻成人话；原始机器码只在真实异常文本时追加在后面。
+    // Error codes in the body are now human-readable; append the raw machine code only
+    // when it is part of the actual exception text.
     expect(down.text).toContain("服务不可用（HTTP 503）");
   });
 
@@ -411,10 +415,11 @@ describe("alert email", () => {
 });
 
 /**
- * 告警通道优先级（AGENTS.md：ALERT_WEBHOOK_URL 优先，Email binding 为后备）。
+ * Alert channel priority (AGENTS.md: ALERT_WEBHOOK_URL first, with the Email binding as fallback).
  *
- * 回归：webhook 排在最贵的 SMTP 之后，而且**任一通道失败都直接 return**，
- * 于是「webhook 配了、SMTP 挂了」= 告警静默丢失。
+ * Regression: webhook used to come after the more expensive SMTP path, and **any channel
+ * failure returned immediately**, so a configured webhook plus a failing SMTP silently
+ * lost the alert.
  */
 describe("alert channel priority", () => {
   const mail = buildAlertEmail("zh-cn", "down", "Website", "http_503", 1_700_000_000);
@@ -472,7 +477,8 @@ describe("alert channel priority", () => {
       {
         ...emailEnv(captured),
         ALERT_WEBHOOK_URL: "https://open.feishu.cn/hook",
-        // SMTP 配置齐全但必然失败（保留地址）：以前会走 SMTP 分支并直接 return 失败。
+        // SMTP is fully configured but guaranteed to fail (reserved address); previously
+        // this entered the SMTP branch and returned failure immediately.
         SMTP_HOST: "127.0.0.1",
         SMTP_PORT: "1",
         SMTP_USER: "u",
@@ -492,18 +498,19 @@ describe("alert channel priority", () => {
   });
 });
 
-// /run 与 /alert-test 是写接口：前者写 D1（3 探针 × 3 表），后者真的发信。
-// 这个 Worker 挂在公网（status.limooo.cn），没有这条鉴权，任何第三方页面
-// 都能用空 body 的简单 POST 打爆告警通道、烧掉 D1 每日写入额度。
+// /run and /alert-test are write endpoints: the former writes to D1 (3 probes × 3 tables),
+// while the latter sends real email. This Worker is public (status.limooo.cn); without
+// this authentication, any third-party page could use a simple POST with an empty body
+// to flood the alert channel and consume the daily D1 write quota.
 describe("ops endpoint auth", () => {
   const TOKEN = "ops-token-0123456789abcdef";
   const URL_BASE = "https://status.limooo.cn";
 
-  /** 全副武装的 env：告警通道可用，因此「没发信」是真的没发信。 */
+  /** Fully configured environment with an available alert channel, so "no message sent" is real. */
   function opsEnv(extra: Partial<Env> = {}) {
     const send = vi.fn(async (_msg: unknown) => ({}));
     const env = {
-      // 空探针表：/run 里的 runAll 不真的跑探针，只验证分发与鉴权。
+      // Empty probe table: runAll in /run does not run probes; this tests routing and authentication only.
       DB: fakeDb({ all: () => ({ results: [] }) }).db,
       STATUS_TOKEN: TOKEN,
       ALERT_TO: "ops@example.com",
@@ -528,7 +535,8 @@ describe("ops endpoint auth", () => {
   });
 
   it("fails closed on POST /run when the token is not configured", async () => {
-    // 忘了 secret put STATUS_TOKEN 时必须拒绝，而不是「没配就等于开放」。
+    // If STATUS_TOKEN was not set with secret put, reject the request; missing config
+    // must not mean open access.
     const { env } = opsEnv({ STATUS_TOKEN: undefined });
     const res = await worker.fetch(
       opsRequest("/run", { method: "POST", headers: bearer(TOKEN) }),
@@ -550,11 +558,11 @@ describe("ops endpoint auth", () => {
   it("rejects a wrong or truncated token", async () => {
     const { env, send } = opsEnv();
     const headers = [
-      `Bearer ${TOKEN.slice(0, 8)}`, // 截断
-      `Bearer ${TOKEN}x`, // 多一个字符
-      `Bearer ${TOKEN.slice(0, -1)}z`, // 等长但内容不同
-      TOKEN, // 少了 Bearer 前缀
-      `Basic ${TOKEN}`, // 换了 scheme
+      `Bearer ${TOKEN.slice(0, 8)}`, // Truncated
+      `Bearer ${TOKEN}x`, // One extra character
+      `Bearer ${TOKEN.slice(0, -1)}z`, // Same length, different content
+      TOKEN, // Missing the Bearer prefix
+      `Basic ${TOKEN}`, // Different scheme
       "",
     ];
     for (const header of headers) {
@@ -588,7 +596,7 @@ describe("ops endpoint auth", () => {
         env,
       );
     expect((await call()).status).toBe(200);
-    // 60 s 内第二次：节流拦截，且不再发信。
+    // The second request within 60 seconds is throttled and sends no additional message.
     expect((await call()).status).toBe(429);
     expect(send).toHaveBeenCalledTimes(1);
   });
@@ -611,14 +619,15 @@ describe("ops endpoint auth", () => {
 });
 
 /**
- * 路由层：语言变体、缓存/CSP 头、故障兜底与 404。
+ * Routing layer: language variants, cache/CSP headers, failure fallback, and 404.
  *
- * 这些是「状态页自己不能成为另一个故障点」的护栏：D1 读不出来要给自己的
- * 503 页（而不是 Cloudflare 的通用错误页），错误码要归一化后再出网。
+ * These safeguards keep the status page from becoming another failure point: if D1
+ * cannot be read, return its own 503 page (rather than Cloudflare's generic error page),
+ * and normalize error codes before sending them to clients.
  */
 describe("status page routing", () => {
   const URL_BASE = "https://status.limooo.cn";
-  /** 一行探针，msg 里带原始异常文本（page/api 都不该把它带出去）。 */
+  /** One probe row whose msg contains raw exception text (neither page nor API should expose it). */
   const probeRow = {
     id: 1,
     name: "Website",

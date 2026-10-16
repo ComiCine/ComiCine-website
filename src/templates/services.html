@@ -63,13 +63,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
 {% block content %}
 <main class="services-main flex-grow flex flex-col justify-center items-center px-6 pt-[120px] pb-40">
-    <!-- 页面标题 -->
+    <!-- Page title. -->
     <header class="mb-16 text-center">
         <h1 class="service-title reveal-item text-4xl md:text-6xl tracking-[calc(0.15em*var(--ls-scale))] uppercase" data-i18n="services_title">{{ _('services_title') }}</h1>
         <div class="reveal-item w-16 h-px bg-[var(--text)] mx-auto mt-6 opacity-40"></div>
     </header>
 
-    <!-- 服务卡片网格 -->
+    <!-- Service card grid. -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
         <div class="reveal-item service-card group relative p-12 md:p-20 flex flex-col items-center justify-center text-center"
             data-action="openServiceDetail" data-arg="convention" role="button" tabindex="0" aria-haspopup="dialog">
@@ -90,7 +90,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </div>
 </main>
 
-<!-- 详情弹层 01 / 场照拍摄 -->
+<!-- Detail dialog 01: studio portrait session. -->
 <div class="service-modal" id="modal-convention" role="dialog" aria-modal="true" aria-labelledby="modal-convention-title" aria-label="{{ _('service_convention') }}" data-i18n-attr="aria-label:service_convention">
     <div class="modal-frost"></div>
     <div class="modal-backdrop" data-action="closeServiceDetail"></div>
@@ -103,7 +103,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <h3 class="modal-title" id="modal-convention-title" data-i18n="service_convention">{{ _('service_convention') }}</h3>
         </div>
         <div class="modal-body">
-        {# 价目表来自 docs/services/convention.csv，构建时读取（见 src/services_pricing.py） #}
+        {# Prices come from docs/services/convention.csv, read at build time (see src/services_pricing.py). #}
         <div class="plan-grid plan-grid-quad">
             {% for plan in pricing.convention %}
             <div class="plan">
@@ -138,7 +138,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
     </div>
 </div>
 
-<!-- 详情弹层 02 / 正片拍摄 -->
+<!-- Detail dialog 02: outdoor portrait session. -->
 <div class="service-modal" id="modal-outdoor" role="dialog" aria-modal="true" aria-labelledby="modal-outdoor-title" aria-label="{{ _('service_outdoor') }}" data-i18n-attr="aria-label:service_outdoor">
     <div class="modal-frost"></div>
     <div class="modal-backdrop" data-action="closeServiceDetail"></div>
@@ -151,7 +151,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
             <h3 class="modal-title" id="modal-outdoor-title" data-i18n="service_outdoor">{{ _('service_outdoor') }}</h3>
         </div>
         <div class="modal-body">
-        {# 价目表来自 docs/services/outdoor.csv，构建时读取（见 src/services_pricing.py） #}
+        {# Prices come from docs/services/outdoor.csv, read at build time (see src/services_pricing.py). #}
         <div class="plan-grid plan-grid-quad">
             {% for plan in pricing.outdoor %}
             <div class="plan">
@@ -170,7 +170,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
         <div class="extras">
             <p class="extras-title" data-i18n="notes_label">{{ _('notes_label') }}</p>
-            {# 这一行跟着 outdoor.csv 的 `bookable` 走：整类都不接就显示暂停文案 #}
+            {# This row follows outdoor.csv's `bookable` values; show the paused message when no tier is bookable. #}
             <div class="extra-row"><span data-i18n="{{ pricing.outdoor_note.title_key }}">{{ _(pricing.outdoor_note.title_key) }}</span><span data-i18n="{{ pricing.outdoor_note.value_key }}">{{ _(pricing.outdoor_note.value_key) }}</span></div>
             <div class="extra-row"><span data-i18n="extra_deposit">{{ _('extra_deposit') }}</span><span data-i18n="deposit_mixed">{{ _('deposit_mixed') }}</span></div>
             <div class="extra-row"><span data-i18n="extra_negatives">{{ _('extra_negatives') }}</span><span data-i18n="negatives_all">{{ _('negatives_all') }}</span></div>

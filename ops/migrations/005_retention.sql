@@ -1,7 +1,7 @@
--- Limooo D1 数据保留与隐私（docs/11）
+-- Limooo D1 data retention and privacy (docs/11).
 --
--- 该迁移创建不保存完整 IP / UA / query 的 v2 表；旧 visitors / ray_log
--- 作为历史只读数据保留，后续由 ops/prune_d1.py 按保留期独立处理。
+-- Create v2 tables that do not store full IPs, user agents, or query strings. Keep the old
+-- visitors and ray_log tables as read-only history; ops/prune_d1.py applies their retention later.
 
 CREATE TABLE IF NOT EXISTS visitors_v2 (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS ray_log_v2 (
 CREATE INDEX IF NOT EXISTS idx_ray_log_v2_ts ON ray_log_v2 (ts);
 CREATE INDEX IF NOT EXISTS idx_ray_log_v2_host_ts ON ray_log_v2 (host, ts);
 
--- 长期聚合表：保留期永久；唯一键按 UTC 天 + 维度。
+-- Long-term aggregate table: permanent retention; unique key is UTC day plus dimensions.
 CREATE TABLE IF NOT EXISTS visitors_daily (
     day         TEXT NOT NULL,
     country     TEXT NOT NULL DEFAULT '',
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS visitors_daily (
 
 CREATE INDEX IF NOT EXISTS idx_visitors_daily_day ON visitors_daily (day);
 
--- 清理/聚合任务状态：用于告警与失败追踪，不保存任何敏感值。
+-- Prune/aggregation job state for alerts and failure tracking; stores no sensitive values.
 CREATE TABLE IF NOT EXISTS retention_state (
     name             TEXT PRIMARY KEY,
     last_run_at      INTEGER NOT NULL DEFAULT 0,
@@ -53,5 +53,5 @@ CREATE TABLE IF NOT EXISTS retention_state (
     last_error       TEXT NOT NULL DEFAULT ''
 );
 
--- events 增加按 ip_hash + ts 的聚合索引（同 003 的字段，不改字段契约）。
+-- Add an events aggregation index on ip_hash + ts (same fields as 003; the schema contract is unchanged).
 CREATE INDEX IF NOT EXISTS idx_events_ip_hash_ts ON events (ip_hash, ts);

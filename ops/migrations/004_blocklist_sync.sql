@@ -1,6 +1,6 @@
--- Limooo docs/10：封禁链路单一权威（D1 -> Cloudflare IP List）
--- 由 wrangler d1 execute limooo --file=./migrations/004_blocklist_sync.sql 执行。
--- 执行前务必先备份 D1：本迁移会把旧 blocked_ips 表重建为新结构。
+-- Limooo docs/10: single source of truth for blocking (D1 -> Cloudflare IP List).
+-- Apply with: wrangler d1 execute limooo --file=./migrations/004_blocklist_sync.sql
+-- Back up D1 before applying: this migration rebuilds the old blocked_ips table with a new schema.
 
 DROP TABLE IF EXISTS blocked_ips_new;
 
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS blocked_ips_new (
     active      INTEGER NOT NULL DEFAULT 1
 );
 
--- 迁移旧数据：字段补全，旧记录统一视为 auto_block 来源。
+-- Migrate old data: fill the new fields and treat all legacy rows as originating from auto_block.
 INSERT OR IGNORE INTO blocked_ips_new
     (cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active)
 SELECT
@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_blocked_ips_network_prefix
 CREATE INDEX IF NOT EXISTS idx_blocked_ips_active
     ON blocked_ips (active, updated_at);
 
--- 管理 API 的审计表：解封/加封都保留操作人、时间与变更前后值。
+-- Admin API audit table: preserve the actor, time, and before/after values for blocks and unblocks.
 CREATE TABLE IF NOT EXISTS blocklist_audit (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     cidr               TEXT NOT NULL,

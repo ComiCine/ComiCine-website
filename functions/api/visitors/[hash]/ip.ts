@@ -20,15 +20,15 @@
 /**
  * GET /api/visitors/<ip_hash>/ip
  *
- * admin-only：解密**单个**访客行的完整 IP，供前端点击访客行后跳 ipinfo.io。
+ * Admin-only: decrypt the full IP for **one** visitor record when the user clicks a row and opens ipinfo.io.
  *
- * 为什么单独开一个端点而不是塞进 /api/visitors 列表：
- * - 列表每次轮询最多 500 行，把 500 个密文全解一遍纯属浪费（还容易顶到
- *   Workers 免费版 10ms CPU 上限）；
- * - 完整 IP 只在用户明确要看某一行时才离开 Worker，列表响应里始终只有哈希。
+ * Why this is a separate endpoint instead of being part of the /api/visitors list:
+ * - The list can return up to 500 rows per poll, so decrypting all 500 ciphertexts would waste work
+ *   and could approach the Workers Free plan's 10 ms CPU limit.
+ * - A full IP leaves the Worker only when the user explicitly requests a specific row; list responses contain hashes only.
  *
- * 索引：visitor_rollups 的 (ip_hash, last_ts) 索引让这次查询只读 1 行
- * （见 ops/migrations/014_visitor_ip_enc.sql）。
+ * Index: the (ip_hash, last_ts) index on visitor_rollups makes this query read only one row
+ * (see ops/migrations/014_visitor_ip_enc.sql).
  */
 
 import { queryAll } from "../../../_lib/d1";
@@ -37,7 +37,7 @@ import { decryptVisitorIp, visitorIpKey } from "../../../_lib/visitor-ip";
 import { logEvent } from "../../../_lib/logging";
 import type { Env } from "../../../_lib/env";
 
-/** ip_hash 是 HMAC-SHA256 的前 16 位十六进制（见 _lib/logging.ts ipHash）。 */
+/** ip_hash is the first 16 hexadecimal characters of HMAC-SHA256 (see ipHash in _lib/logging.ts). */
 const IP_HASH_RE = /^[0-9a-f]{16}$/;
 
 function json(body: unknown, status = 200): Response {
@@ -53,11 +53,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (!IP_HASH_RE.test(hash)) return json({ error: "无效的访客标识" }, 400);
 
   /**
-   * 每一次「把某个访客的明文 IP 拿出来」都留一行审计（tasks/22 W9-4）。
+   * Write an audit row every time a visitor's plaintext IP is retrieved (tasks/22 W9-4).
    *
-   * 同类的密码查看（`apple-account/accounts/[id]/reveal.ts`）一直有审计行，
-   * 这里此前一条都没有：谁在什么时候看了哪个访客的真实 IP 无从追溯。
-   * 审计里只放哈希与 actor，**绝不放明文 IP**——否则等于把明文又抄一份进 events。
+   * Password reveals (`apple-account/accounts/[id]/reveal.ts`) have always been audited, but this endpoint
+   * previously had no audit trail, so there was no way to determine who viewed a visitor's real IP or when.
+   * Store only the hash and actor in the audit event; **never store the plaintext IP**, which would create another copy in events.
    */
   const audit = (outcome: string, status: number, message: string): Promise<void> =>
     logEvent(context.env, "audit_event", context.request, {

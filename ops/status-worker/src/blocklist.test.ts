@@ -18,15 +18,17 @@
  */
 
 /**
- * 每日检查 · 步骤 2：Cloudflare IP List == D1 `blocked_ips` (active=1)。
+ * Daily check, step 2: Cloudflare IP List == D1 `blocked_ips` (active=1).
  *
- * 这条不变量此前只有手工入口（`ops/check_blocklist_sync.py`，实测被自动化调用
- * 0 处）：同步部分失败或有人在 Dashboard 手改 List，边缘就不封了，而 D1 侧
- * 看起来一切正常。这批用例钉住自动化版本的行为：
- *   - 一致 → **不**告警（每天一条「一切正常」是噪音）；
- *   - to_add / to_remove 任一非 0 → 告警，且文案带得上数字与差异条目；
- *   - 凭据缺失 / D1 读失败 / API 失败 → fail-open：只记日志、不报警、不抛；
- *   - 每天只读一次 D1、只调有限的两次只读 API（spy 计数）。
+ * This invariant previously had only a manual entry point (`ops/check_blocklist_sync.py`,
+ * observed to have zero automated callers): a partial sync failure or a manual List edit
+ * in the Dashboard could stop edge blocking while D1 still looked healthy. These tests
+ * pin down the automated behavior:
+ *   - Matching lists do not alert; a daily "everything is fine" message is noise.
+ *   - Any non-zero `to_add` or `to_remove` count alerts with counts and differing items.
+ *   - Missing credentials, D1 read failures, and API failures fail open: log only, with no
+ *     alert or thrown error.
+ *   - Read D1 once per day and make only two bounded read-only API calls (spy-counted).
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -40,7 +42,7 @@ interface Call {
   values: unknown[];
 }
 
-/** 只回答 blocked_ips 的 D1 桩；记录 SQL 以便断言「每天只读一次」。 */
+/** D1 stub that answers only for `blocked_ips`; records SQL to assert one read per day. */
 function fakeDb(options: { active?: string[]; failOn?: (sql: string) => boolean } = {}) {
   const calls: Call[] = [];
   const db = {
@@ -68,7 +70,7 @@ function fakeDb(options: { active?: string[]; failOn?: (sql: string) => boolean 
   return { db: db as unknown as D1Database, calls };
 }
 
-/** Cloudflare 只读 API 的桩：按 URL 分派，500 用 `"fail"` 表示。 */
+/** Cloudflare read-only API stub: dispatches by URL; `"fail"` represents a 500 response. */
 function cfFetch(routes: { lists: unknown; items?: unknown }) {
   const urls: string[] = [];
   const fn = vi.fn(async (input: unknown) => {
@@ -126,13 +128,14 @@ describe("blocklist invariant (daily check step 2)", () => {
 
     expect(step).toEqual({ ok: true, issues: 0, alerted: false });
     expect(sent).toHaveLength(0);
-    // 一致时也只读一次 D1（不额外做校验查询）。
+    // Matching lists still read D1 only once, with no extra validation query.
     expect(calls.filter((c) => /blocked_ips/i.test(c.sql))).toHaveLength(1);
   });
 
   it("treats an IPv4 /32 and its bare form as the same entry", async () => {
-    // Cloudflare 会把 /32 归一化成裸 IP（写 203.0.113.7/32、读回 203.0.113.7）。
-    // 不归一化就会出现「同一条既该加又该删」，每天一条假告警。
+    // Cloudflare normalizes /32 to a bare IP (write 203.0.113.7/32, read back 203.0.113.7).
+    // Without normalization, the same item would appear in both add and remove diffs,
+    // causing a false alert every day.
     const { db } = fakeDb({ active: ["58.222.33.0/24", "203.0.113.7/32"] });
     cfFetch({ lists: listsWith([]), items: itemsWith(["58.222.33.0/24", "203.0.113.7"]) });
     const { env, sent } = checkEnv(db);
@@ -159,7 +162,8 @@ describe("blocklist invariant (daily check step 2)", () => {
     const text = String(sent[0].text);
     expect(text).toContain("desired=2 actual=1 to_add=1 to_remove=0");
     expect(text).toContain("203.0.113.7");
-    // subject 固定为 `Blocklist drift · Limooo`（2026-10-11 用户定），差异计数只在正文。
+    // The subject is fixed as `Blocklist drift · Limooo` (user decision on 2026-10-11);
+    // diff counts appear only in the body.
     expect(String(sent[0].subject)).toBe("Blocklist drift · Limooo");
     expect(String(sent[0].text)).toContain("to_add=1 to_remove=0");
   });
@@ -189,7 +193,7 @@ describe("blocklist invariant (daily check step 2)", () => {
 
     expect(step.issues).toBe(1);
     expect(String(sent[0].text)).toContain(`list ${LIST_NAME} not found`);
-    // 找不到 List 就不该去读 items（只读检查也不创建 List）。
+    // If the List is missing, do not read its items; even a read-only check must not create it.
     expect(urls.filter((u) => /items/.test(u))).toHaveLength(0);
   });
 
@@ -228,7 +232,8 @@ describe("blocklist invariant (daily check step 2)", () => {
     expect(step.ok).toBe(false);
     expect(step.reason).toContain("d1_error");
     expect(sent).toHaveLength(0);
-    // D1 读失败就不该再去问 Cloudflare（省一次 API 调用，也不做半个判断）。
+    // After a D1 read failure, do not query Cloudflare; avoid a needless API call and a
+    // partial comparison.
     expect(urls).toHaveLength(0);
   });
 
@@ -242,7 +247,8 @@ describe("blocklist invariant (daily check step 2)", () => {
 
     const step = await checkBlocklistRuns(env);
 
-    // 「没配 secret」= 没检查，不是失败，更不能报警（别人 clone 后不该收到误报）。
+    // A missing secret means "not checked," not failure, and must not alert; cloned repos
+    // should not generate false alarms.
     expect(step).toEqual({ ok: false, issues: 0, alerted: false, reason: "missing_credentials" });
     expect(calls).toHaveLength(0);
     expect(fn).not.toHaveBeenCalled();
@@ -258,13 +264,14 @@ describe("blocklist invariant (daily check step 2)", () => {
 
     const d1 = calls.filter((c) => /blocked_ips/i.test(c.sql));
     expect(d1).toHaveLength(1);
-    // 唯一允许的形状：只读 active 行，走 idx_blocked_ips_active。
+    // The only allowed query shape reads active rows through idx_blocked_ips_active.
     expect(d1[0].sql).toBe("SELECT cidr FROM blocked_ips WHERE active = 1");
-    // 两次只读 API：按名字找 List（拿 id）+ 读一页 items（列表 id 不写死）。
+    // Two read-only API calls: find the List by name to get its ID, then read one page of
+    // items. The List ID is not hard-coded.
     expect(urls).toHaveLength(2);
     expect(urls[0]).toContain("/rules/lists?per_page=100");
     expect(urls[1]).toContain("/items?per_page=500");
-    // 不碰同步 Worker 的写路径。
+    // Do not touch the sync Worker's write path.
     expect(urls.some((u) => /bulk_operations|POST/.test(u))).toBe(false);
   });
 
