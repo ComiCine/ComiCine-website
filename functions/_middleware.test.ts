@@ -355,18 +355,27 @@ describe("legacy HTML redirects", () => {
     expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
   });
 
-  it("does not turn unknown html paths into redirects to the current host root", async () => {
-    const resp = await handleOnRequest(
-      context(
-        new Request("https://limooo.cn/not-a-page.html", {
-          headers: { "CF-Connecting-IP": "97.64.18.11" },
-        }),
-      ),
-    );
+  it("routes unknown html targets to the custom not-found page", async () => {
+    const aliases = [
+      ["https://limooo.cn/not-a-page.html", "https://limooo.cn/404"],
+      [
+        "https://services.limooo.cn/fail.html?from=legacy",
+        "https://limooo.cn/404?from=legacy",
+      ],
+    ] as const;
 
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("Location")).toBeNull();
-    await expect(resp.text()).resolves.toBe("next");
+    for (const [url, location] of aliases) {
+      const resp = await handleOnRequest(
+        context(
+          new Request(url, {
+            headers: { "CF-Connecting-IP": "97.64.18.11" },
+          }),
+        ),
+      );
+
+      expect(resp.status).toBe(302);
+      expect(resp.headers.get("Location")).toBe(location);
+    }
   });
 
   it("does not apply legacy aliases to unlisted subdomains", async () => {

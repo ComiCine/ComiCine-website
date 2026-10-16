@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 {% block title %}{{ _('not_found_title') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/404.css?v=1">
+<link rel="stylesheet" href="/static/css/404.css?v=2">
 {% endblock %}
 
 {% block content %}
@@ -36,8 +36,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
         <span class="not-found-divider" aria-hidden="true"></span>
         <h1 id="not-found-heading" data-i18n="not_found_heading">{{ _('not_found_heading') }}</h1>
         <p class="not-found-message" data-i18n="not_found_message">{{ _('not_found_message') }}</p>
-        <p class="not-found-redirect" data-i18n="not_found_redirect">{{ _('not_found_redirect') }}</p>
+        <p class="not-found-redirect" id="not-found-countdown" data-i18n="not_found_redirect;seconds=3">{{ _('not_found_redirect', seconds=3) }}</p>
         <a class="not-found-home" href="https://{{ root_domain }}/" data-i18n="nav_home">{{ _('nav_home') }}</a>
     </section>
 </main>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="/static/js/404.js?v=2" defer></script>
 {% endblock %}
