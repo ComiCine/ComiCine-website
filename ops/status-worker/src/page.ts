@@ -100,7 +100,7 @@ export function navHtml(lang: Lang): string {
     `<button class="lang-btn" id="lang-btn" type="button" aria-label="${esc(t(lang, "lang_aria"))}" aria-haspopup="true" aria-expanded="false">${SVG_LANG}${SVG_CHEVRON}</button>` +
     `<div id="langMenu" class="theme-menu" role="menu">${options}</div>` +
     "</div>" +
-    '<span class="nav-divider nav-divider-mobile"></span>' +
+    '<span class="nav-divider nav-divider-lang-theme"></span>' +
     `<button class="appearance-switch" id="theme-switch" type="button" role="switch" aria-checked="false" aria-label="${esc(t(lang, "theme_aria"))}">` +
     `<span class="appearance-check"><span class="appearance-icon">${SVG_SUN}${SVG_MOON}</span></span>` +
     "</button>" +
@@ -169,6 +169,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-external{display:inline-block;margin-left:4px;width:11px;height:11px;flex-shrink:0;opacity:.45}
 .nav-divider{display:none;width:1px;height:24px;background:var(--line);margin:0 12px;flex-shrink:0}
 @media(min-width:768px){.nav-divider{display:block}}
+.nav-divider-lang-theme{display:block}
 .nav-divider-mobile{display:none}
 @media(max-width:767px){.nav-divider-mobile{display:block}}
 .icon-btn,.theme-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--text);opacity:.75;transition:transform 200ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
