@@ -201,7 +201,7 @@ function legacyHtmlRedirectTarget(
 
   const subdomain = match[1].toLowerCase();
   if (subdomain === "index") return hostRoot;
-  return LEGACY_HTML_PATH_TARGETS.get(subdomain) ?? null;
+  return LEGACY_HTML_PATH_TARGETS.get(subdomain) ?? `${BASE_URL}/404`;
 }
 
 type CacheLike = {
