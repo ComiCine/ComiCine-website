@@ -479,8 +479,8 @@ def render_page(appmod, template: str, path: str, lang: str, extra=None) -> str:
 
 
 def write_not_found_fallback(appmod, out_dir: str) -> None:
-    """Route all static 404 requests on Pages to the main site's branded 404 page."""
-    html = render_page(appmod, "404-fallback.html", "/404", KEY_FALLBACK_LANG)
+    """Build the Pages fallback with the branded 404 page and its client-side redirect."""
+    html = render_page(appmod, "404.html", "/404", KEY_FALLBACK_LANG)
     with open(os.path.join(out_dir, "404.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
