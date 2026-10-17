@@ -108,14 +108,30 @@ async function servePublicFile(
   });
 }
 
-function redirectMissingDocument(request: Request, response: Response): Response {
-  if (response.status !== 404 || !isHtmlNavigation(request)) return response;
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `${BASE_URL}/404`,
-      "Cache-Control": "no-store",
-    },
+function withNotFoundStatus(response: Response, request: Request): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", "no-store");
+  return new Response(request.method === "HEAD" ? null : response.body, {
+    status: 404,
+    headers,
+  });
+}
+
+async function brandedNotFoundResponse(
+  context: RequestContext,
+  response: Response,
+): Promise<Response> {
+  const { request, env } = context;
+  if (response.status !== 404 || !isHtmlNavigation(request) || !env.ASSETS) return response;
+
+  const page = await env.ASSETS.fetch(new URL("/404.html", BASE_URL));
+  if (!page.ok) return response;
+
+  const headers = new Headers(page.headers);
+  headers.set("Cache-Control", "no-store");
+  return new Response(request.method === "HEAD" ? null : page.body, {
+    status: 404,
+    headers,
   });
 }
 
@@ -452,7 +468,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // output. It is public and bypasses the gate, including on images.limooo.cn.
     if (pathname.startsWith(PUBLIC_FILES_PREFIX)) {
       const response = await servePublicFile(context, pathname);
-      return redirectMissingDocument(request, response);
+      return brandedNotFoundResponse(context, response);
     }
 // `/api/*` must still pass the blocklist check (W9-1). Only static assets,
 // /files/, and APIs from exempt paths or trusted sources return directly.
@@ -557,10 +573,10 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 
   const legacyHtmlAlias = resolveLegacyHtmlAlias(hostname, pathname);
   if (legacyHtmlAlias?.kind === "not_found") {
-    return new Response("Not Found", {
+    return brandedNotFoundResponse(context, new Response("Not Found", {
       status: 404,
       headers: { "Cache-Control": "no-store" },
-    });
+    }));
   }
   if (legacyHtmlAlias?.kind === "redirect") {
     return new Response(null, {
@@ -589,7 +605,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         });
       }
     }
-    return redirectMissingDocument(request, new Response("Not Found", { status: 404 }));
+    return brandedNotFoundResponse(context, new Response("Not Found", { status: 404 }));
   }
 
 // Preserve the former nginx behavior for www: redirect to the root domain with 301 and keep the path.
@@ -643,9 +659,12 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
       const resp = await cachedPageAsset(context, asset, lang, hostname);
       if (resp?.ok) {
 // Renew the session on the response near expiry so visitors are not sent back to the gate mid-session.
+        const pageResponse = pathname.replace(/\/+$/, "") === "/404"
+          ? withNotFoundStatus(resp, request)
+          : resp;
         return withLangCookie(
           request,
-          await renewGateCookie(context, resp, trust.shouldRenew),
+          await renewGateCookie(context, pageResponse, trust.shouldRenew),
           lang,
         );
       }
@@ -660,7 +679,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         lang,
       });
     }
-    const nextResponse = redirectMissingDocument(request, await next());
+    const nextResponse = await brandedNotFoundResponse(context, await next());
     return withLangCookie(
       request,
       await renewGateCookie(context, nextResponse, trust.shouldRenew),
