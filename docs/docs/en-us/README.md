@@ -15,7 +15,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 - **Visitor panel** (`visitor.limooo.cn`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
-- **Auth & roles**: one `Limooo-Identity` Access application protects `identity.limooo.cn/login`; the identity Worker verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
+- **Auth & roles**: one `Limooo-Identity` Access application protects `identity.limooo.cn/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
@@ -31,7 +31,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 | Public pages, gate, visitor panel, Apple Account manager, status page | Pages Functions (`functions/`) + pre-rendered static HTML | Cloudflare edge |
 | Data | D1 (visitor analytics, blocklist, Apple Account accounts, auth sessions, probes/heartbeats) | Cloudflare |
 | Human verification | Cloudflare Turnstile, gate page rendered in place | Cloudflare + browser |
-| Auth | Cloudflare Access (Zero Trust JWT, self-verified by the Worker) | Cloudflare |
+| Auth | Cloudflare Access (Zero Trust JWT, verified by a Pages Function) | Cloudflare |
 | Monitoring & retention | `ops/status-worker` (Cron Triggers + Durable Object alarms) | Cloudflare Workers |
 | D1 archive | `ops/d1-archive` (daily cron) | Cloudflare Workers |
 | Blocklist sync | `ops/sync-worker` (daily cron → Cloudflare IP List) | Cloudflare Workers |
@@ -295,7 +295,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   issuing unsigned cookies.
 - The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   `Domain=.limooo.cn`), minted and validated entirely at the edge.
-- Identity comes from the single `Limooo-Identity` application at `identity.limooo.cn/login`, which redirects through `limooo.cloudflareaccess.com`. The identity Worker verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+- Identity comes from the single `Limooo-Identity` application at `identity.limooo.cn/login`, which redirects through `limooo.cloudflareaccess.com`. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `limooo_blocklist` in step with the
@@ -479,10 +479,10 @@ published to docs.limooo.cn.
 The shape of the live deployment, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: project `limooo` (`limooo.pages.dev`) serves `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `images`, `image` and `redirect`; the docs site is the separate `limooo-docs` project behind `docs.limooo.cn`, and `fonts.limooo.cn` is backed by R2
+1. **Pages**: project `limooo` (`limooo.pages.dev`) serves `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; the docs site is the separate `limooo-docs` project behind `docs.limooo.cn`, and `fonts.limooo.cn` is backed by R2
 2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; the schema from `ops/migrations/` is present and `schema_version` tracks the applied versions; `apple_accounts` holds the Apple Account rows, and `blocked_ips` is the blocking authority (83 rows, 1 active — soft-deleted rows stay for audit)
-3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY` and the `ACCESS_*` bindings; `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries are leftovers that no runtime reads
-4. **Access** fronts `visitor.limooo.cn`, `account.limooo.cn` and `admin.limooo.cn` as self-hosted applications; there is no self-hosted IdP and no custom login form
+3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
+4. **Access**: `Limooo-Identity` protects only `identity.limooo.cn/login`; `visitor.limooo.cn` and `account.limooo.cn` use the shared identity handoff and their own host-only Pages sessions. The unused `Limooo-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.limooo.cn` and `sink.limooo.cn` are Worker custom domains
 6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the dynamic-redirect phase is empty, and `ops/waf/rules.snapshot.json` is a refresh-time mirror of that empty phase (removed rules live only in git history)
 7. **Smoke checks**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → 302 to `https://limooo.cn`, `https://status.limooo.cn/` → 200

@@ -15,7 +15,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 - **访客面板**（`visitor.limooo.cn`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
-- **认证与角色**：单一 `Limooo-Identity` Access 应用保护 `identity.limooo.cn/login`；身份 Worker 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
+- **认证与角色**：单一 `Limooo-Identity` Access 应用保护 `identity.limooo.cn/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
@@ -31,7 +31,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 | 公开页面、门禁、访客面板、Apple Account 管理器、状态页 | Pages Functions（`functions/`）+ 预渲染静态 HTML | Cloudflare 边缘 |
 | 数据 | D1（访客分析、黑名单、Apple Account 账号、认证会话、探针/心跳） | Cloudflare |
 | 人类验证 | Cloudflare Turnstile，门禁页原地渲染 | Cloudflare + 浏览器 |
-| 认证 | Cloudflare Access（Zero Trust JWT，由 Worker 自行验证） | Cloudflare |
+| 认证 | Cloudflare Access（Zero Trust JWT，由 Pages Function 自行验证） | Cloudflare |
 | 监控与数据保留 | `ops/status-worker`（Cron Triggers + Durable Object alarms） | Cloudflare Workers |
 | D1 归档 | `ops/d1-archive`（每日 cron） | Cloudflare Workers |
 | 黑名单同步 | `ops/sync-worker`（每日 cron → Cloudflare IP List） | Cloudflare Workers |
@@ -289,7 +289,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<unix-expiry>.<HMAC-SHA256 hex>`（1 小时 TTL，
   `HttpOnly`，`Domain=.limooo.cn`），完全在边缘签发与校验。
-- 身份由 `identity.limooo.cn/login` 上唯一的 `Limooo-Identity` 应用提供，并经由 `limooo.cloudflareaccess.com` 登录。身份 Worker 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
+- 身份由 `identity.limooo.cn/login` 上唯一的 `Limooo-Identity` 应用提供，并经由 `limooo.cloudflareaccess.com` 登录。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
   Cloudflare IP List `limooo_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）
@@ -465,10 +465,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：项目 `limooo`（`limooo.pages.dev`）承载 `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`images`、`image` 与 `redirect`；文档站是独立的 `limooo-docs` 项目（`docs.limooo.cn`），`fonts.limooo.cn` 由 R2 提供
+1. **Pages**：项目 `limooo`（`limooo.pages.dev`）承载 `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档站是独立的 `limooo-docs` 项目（`docs.limooo.cn`），`fonts.limooo.cn` 由 R2 提供
 2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到该项目；`ops/migrations/` 的 schema 已就位，已应用版本记录在 `schema_version`；`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威（83 行、1 行生效 —— 软删除行保留用于审计）
-3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY` 与 `ACCESS_*` 绑定；`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 是没有任何运行时代码读取的历史遗留
-4. **Access** 以前置自建应用（self-hosted）保护 `visitor.limooo.cn`、`account.limooo.cn` 与 `admin.limooo.cn`；没有自建 IdP，也没有自定义登录页
+3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
+4. **Access**：`Limooo-Identity` 只保护 `identity.limooo.cn/login`；`visitor.limooo.cn` 与 `account.limooo.cn` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `Limooo-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
 5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.limooo.cn` 与 `sink.limooo.cn` 是 Worker 自定义域名
 6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；动态重定向阶段为空，`ops/waf/rules.snapshot.json` 是刷新时刻对该空阶段的镜像（删掉的规则只存在于 git 历史里）
 7. **冒烟检查**：`https://limooo.cn/_health` → 200，`https://limooo.cn/?challenge=1` → 403，`https://docs.limooo.cn/` → 302 到 `https://limooo.cn`，`https://status.limooo.cn/` → 200
