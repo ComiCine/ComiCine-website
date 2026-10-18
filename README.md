@@ -9,7 +9,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 - **Visitor panel** (`visitor.limooo.cn`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
-- **Auth & roles**: Cloudflare Access is the sole identity source; the Worker self-verifies the Access JWT and maps AUD → admin (read-write) / viewer (read-only)
+- **Auth & roles**: one `Limooo-Identity` Access application protects `identity.limooo.cn/login`; the identity Worker verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
@@ -222,7 +222,7 @@ windows and every path in the tree below:
 | Schedule | Worker | Job |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | HTTP/D1 probes every minute; a Durable Object alarm re-checks every 10s while a probe is down, and alerts on state change |
-| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d) and `auth_sessions` (60d) |
+| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d) |
 | `30 3 * * *` | `ops/sync-worker` | Mirrors active D1 `blocked_ips` rows to the Cloudflare IP List `limooo_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 snapshot/archive run |
 
@@ -290,7 +290,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Security design
 
-- Session cookies use `Secure` + `HttpOnly` + `SameSite=Lax`, bound to `.limooo.cn`;
+- Session cookies use `Secure` + `HttpOnly` + `SameSite=Lax` and are host-only, so a session cookie cannot be reused by another site;
   every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
   rejects revoked/expired sessions. Missing runtime HMAC keys or an unavailable
   `auth_sessions` table fail closed with 503.
@@ -299,9 +299,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   issuing unsigned cookies.
 - The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   `Domain=.limooo.cn`), minted and validated entirely at the edge.
-- Identity comes from Cloudflare Access: the Worker self-verifies
-  `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and maps AUD → role, so Access is
-  the only login surface.
+- Identity comes from the single `Limooo-Identity` application at `identity.limooo.cn/login`, which redirects through `limooo.cloudflareaccess.com`. The identity Worker verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `limooo_blocklist` in step with the
@@ -389,7 +387,7 @@ Configured under **Pages project settings → Environment variables → Encrypt 
 | `TURNSTILE_SECRET` | Server-side siteverify secret |
 | `GATE_HMAC_KEY` | HMAC-SHA256 signing key for the `__gate` cookie (`openssl rand -hex 32`) |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access team domain; also the JWT `iss` used for verification |
-| `ACCESS_ADMIN_AUDS` / `ACCESS_VIEWER_AUDS` | Comma-separated Access application AUD tags mapped to the admin / viewer role (admin wins) |
+| `ACCESS_IDENTITY_AUD` | AUD for the single `Limooo-Identity` Access application; source-host roles are applied by each site callback from `config-contract.json` |
 | `VISITOR_IP_KEY` | Fernet key for the encrypted full visitor IP column (`visitor_rollups.ip_enc`) |
 | `OBSERVABILITY_HMAC_KEY` | HMAC key for the privacy-minimized visitor IP hash (`functions/_lib/tracking.ts`); the gate fails closed without it |
 | `SESSION_HMAC_KEY` | Pages session-cookie signing key (separate from `GATE_HMAC_KEY`) |

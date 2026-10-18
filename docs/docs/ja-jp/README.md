@@ -15,7 +15,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 - **ビジターパネル（visitor panel）**（`visitor.limooo.cn`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
 - **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
-- **認証とロール**：Cloudflare Access が唯一のアイデンティティ源です。Worker が Access JWT を自ら検証し、AUD → admin（読み書き）/ viewer（読み取り専用）にマッピングします
+- **認証とロール**：単一の `Limooo-Identity` Access アプリが `identity.limooo.cn/login` を保護します。Identity Worker は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
 - **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
@@ -217,7 +217,7 @@ npm test
 | スケジュール | Worker | ジョブ |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 毎分の HTTP/D1 プローブ。プローブがダウンしている間は Durable Object のアラームが 10 秒ごとに再確認し、状態変化時にアラートします |
-| `47 3 * * *` | `ops/status-worker` | D1 のデータ保持（`src/retention.ts`）：`ray_log_v2`（7 日）、`visitors_v2`（30 日）、`visitor_rollups`（30 日）、`heartbeats`（30 日）、`events`（90 日）、`probe_uptime_daily`（90 日）、`auth_sessions`（60 日）を削除します |
+| `47 3 * * *` | `ops/status-worker` | D1 のデータ保持（`src/retention.ts`）：`ray_log_v2`（7 日）、`visitors_v2`（30 日）、`visitor_rollups`（30 日）、`heartbeats`（30 日）、`events`（90 日）、`probe_uptime_daily`（90 日）、`auth_sessions`（60 日）、`identity_handoffs`（1 日）を削除します |
 | `30 3 * * *` | `ops/sync-worker` | 有効な D1 `blocked_ips` の行を Cloudflare IP List `limooo_blocklist` に反映します |
 | `0 0 * * *` | `ops/d1-archive` | D1 のスナップショット／アーカイブ |
 
@@ -284,7 +284,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## セキュリティ設計
 
-- セッション cookie は `Secure` + `HttpOnly` + `SameSite=Lax` を使用し、`.limooo.cn` にバインドされます。
+- セッション cookie は `Secure` + `HttpOnly` + `SameSite=Lax` を使用し、現在のホストのみに限定されます。これによりセッション cookie を他のサイトで再利用できません。
   すべてのセッションは D1 `auth_sessions` に記録されたランダムな `sid` を持ち、`requireAuth` は
   失効・期限切れのセッションを拒否します。実行時に HMAC 鍵がない場合や `auth_sessions` テーブルが利用できない場合は、
   503 でフェイルクローズ（fail closed）します。
@@ -293,9 +293,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
    cookie を発行したりせず、503 を返します。
 - `__gate` cookie は `<unix-expiry>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
   `Domain=.limooo.cn`）。発行と検証はすべてエッジで行います。
-- アイデンティティは Cloudflare Access から得ます。Worker が
-   `Cf-Access-Jwt-Assertion` を自ら検証し（RS256、JWKS は 1 時間キャッシュ）、AUD → ロールにマッピングするため、
-  Access が唯一のログイン窓口です。
+- アイデンティティは `identity.limooo.cn/login` を保護する単一の `Limooo-Identity` アプリから得ます。ブラウザーは `limooo.cloudflareaccess.com` を経由してログインします。Identity Worker は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `limooo_blocklist` に追随させます（WAF ルールが使う想定ですが、
@@ -358,7 +356,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | サーバー側 siteverify のシークレット |
 | `GATE_HMAC_KEY` | `__gate` cookie 用の HMAC-SHA256 署名鍵（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access のチームドメイン。検証に使う JWT の `iss` でもあります |
-| `ACCESS_ADMIN_AUDS` / `ACCESS_VIEWER_AUDS` | admin / viewer ロールにマッピングする Access アプリケーションの AUD タグ（カンマ区切り、admin が優先） |
+| `ACCESS_IDENTITY_AUD` | 単一 `Limooo-Identity` Access アプリの AUD。ロールは `config-contract.json` の送信元ホストマップで決まります |
 | `VISITOR_IP_KEY` | 暗号化された訪問者 IP 完全版カラム（`visitor_rollups.ip_enc`）用の Fernet 鍵 |
 | `OBSERVABILITY_HMAC_KEY` | プライバシー最小化された訪問者 IP ハッシュの HMAC 鍵（`functions/_lib/tracking.ts`）。未設定だとゲートがフェイルクローズします |
 | `SESSION_HMAC_KEY` | Pages のセッション cookie 署名鍵（`GATE_HMAC_KEY` とは別） |

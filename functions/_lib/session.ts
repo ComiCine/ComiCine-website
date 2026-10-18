@@ -31,7 +31,6 @@ import {
 import { fromB64Url, hmacSha256Hex, timingSafeEqual, toB64Url } from "./crypto";
 
 const textEncoder = new TextEncoder();
-const COOKIE_DOMAIN = `.${ROOT_DOMAIN}`;
 const AUTH_SESSION_TABLE = "auth_sessions";
 const MAX_SIGNED_TOKEN_LENGTH = 8192;
 const MAX_SESSION_FIELD_LENGTH = 512;
@@ -114,11 +113,12 @@ async function verifyPayload<T>(key: string, token: string | undefined): Promise
 }
 
 function cookieHeader(name: string, value: string, maxAge: number): string {
-  return `${name}=${value}; Domain=${COOKIE_DOMAIN}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
-function clearCookieHeader(name: string): string {
-  return `${name}=; Domain=${COOKIE_DOMAIN}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+function clearCookieHeader(name: string, sharedDomain = true): string {
+  const domain = sharedDomain ? ` Domain=.${ROOT_DOMAIN};` : "";
+  return `${name}=;${domain} Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 export function randomToken(bytes = 32): string {
@@ -133,7 +133,11 @@ export async function createSessionCookie(env: Env, data: SessionData): Promise<
 }
 
 export function clearSessionCookie(): string {
-  return clearCookieHeader(SESSION_COOKIE);
+  return clearCookieHeader(SESSION_COOKIE, false);
+}
+
+export function clearLegacySharedSessionCookie(): string {
+  return clearCookieHeader("limooo_session_v2");
 }
 
 export async function readSession(
