@@ -344,7 +344,7 @@ function shell(lang: Lang, title: string, body: string): string {
     `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8">` +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="dark light">' +
-    `<title>${esc(title)} · limooo.cn</title><meta name="robots" content="noindex">` +
+    `<title>${esc(title)}</title><meta name="robots" content="noindex">` +
     `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/Limooo.svg?v=2" type="image/svg+xml">` +
     '<script src="/status-theme.js"></script>' +
     '<link rel="stylesheet" href="/status.css">' +
