@@ -342,7 +342,7 @@ describe("status page rendering", () => {
       }),
     });
     const html = await renderStatusPage({ DB: db } as Env, "zh-cn");
-    expect(html).toContain("系统状态");
+    expect(html).toContain("服务状态");
     expect(html).toContain("Limooo 网站"); // label_key matches the same key in locales
     expect(html).toContain("运行正常");
     expect(html).toContain('href="/status.css"');
@@ -663,7 +663,7 @@ describe("status page routing", () => {
     expect(res.headers.get("Cache-Control")).toBe(STATUS_HTML_CACHE_CONTROL);
     const html = await res.text();
     expect(html).toContain('<html lang="ja-jp">');
-    expect(html).toContain("システムステータス");
+    expect(html).toContain("サービスステータス");
   });
 
   it("serves the theme preload script that the head blocks on", async () => {

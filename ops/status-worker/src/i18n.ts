@@ -143,7 +143,7 @@ export function fmt(template: string, params: Record<string, string>): string {
 /** The base language is the sole source of truth for keys; the type system enforces the same set in other languages. */
 const ZH_CN = {
   // Page content
-  title: "系统状态",
+  title: "服务状态",
   sub: "Limooo 各项服务的实时可用性。",
   overall_all: "全部系统运行正常",
   overall_partial: "部分系统异常",
@@ -226,7 +226,7 @@ export type UiKey = keyof typeof ZH_CN;
 export const UI: Record<Lang, Record<UiKey, string>> = {
   "zh-cn": ZH_CN,
   "en-us": {
-    title: "System Status",
+    title: "Service Status",
     sub: "Live availability for Limooo services.",
     overall_all: "All Systems Operational",
     overall_partial: "Partially Operational",
@@ -301,7 +301,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     http_other: "Service returned HTTP {code}",
   },
   "ja-jp": {
-    title: "システムステータス",
+    title: "サービスステータス",
     sub: "Limooo 各サービスのリアルタイム稼働状況。",
     overall_all: "すべてのシステム正常稼働",
     overall_partial: "一部システムに問題",
@@ -376,7 +376,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     http_other: "サービスが HTTP {code} を返しました",
   },
   "ko-kr": {
-    title: "시스템 상태",
+    title: "서비스 상태",
     sub: "Limooo 서비스의 실시간 가용성.",
     overall_all: "모든 시스템 정상 작동",
     overall_partial: "일부 시스템 문제",
