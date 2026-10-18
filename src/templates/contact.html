@@ -17,14 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 
 {% extends "base.html" %}
 
-{% block title %}{{ _('page_title_contact') }} · Limooo{% endblock %}
+{% block title %}{{ _('page_title_contact') }}{% endblock %}
 
 {% block head_links %}
 <link rel="canonical" href="https://{{ contact_host }}/">
 <meta name="description" itemprop="description" content="{{ _('meta_description_contact') }}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Limooo">
-<meta property="og:title" itemprop="name" content="{{ _('page_title_contact') }} · Limooo">
+<meta property="og:title" itemprop="name" content="{{ _('page_title_contact') }}">
 <meta property="og:description" content="{{ _('meta_description_contact') }}">
 <meta property="og:url" content="https://{{ contact_host }}/">
 <meta property="og:image" itemprop="image" content="{{ image_asset_base }}/static/icons/social-preview.png">
@@ -33,7 +33,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. #}
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="Limooo Studio preview">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ _('page_title_contact') }} · Limooo">
+<meta name="twitter:title" content="{{ _('page_title_contact') }}">
 <meta name="twitter:description" content="{{ _('meta_description_contact') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
     <!-- Preload QR codes during HTML parsing so the hover overlay does not wait for the Worker.

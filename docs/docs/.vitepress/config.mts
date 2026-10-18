@@ -100,7 +100,7 @@ interface Labels {
 
 const labels: Record<string, Labels> = {
   'zh-cn': {
-    title: 'Limooo 文档',
+    title: '文档',
     description: 'Limooo 的公开文档：平台清单、隐私与合规参考。',
     navHome: '主页',
     navServices: '服务',
@@ -122,7 +122,7 @@ const labels: Record<string, Labels> = {
     footerSource: '源码'
   },
   'en-us': {
-    title: 'Limooo Docs',
+    title: 'Docs',
     description: 'Public Limooo documentation: platform inventories, privacy and compliance references.',
     navHome: 'Home',
     navServices: 'Services',
@@ -144,7 +144,7 @@ const labels: Record<string, Labels> = {
     footerSource: 'Source'
   },
   'ja-jp': {
-    title: 'Limooo ドキュメント',
+    title: 'ドキュメント',
     description: 'Limooo の公開ドキュメント：プラットフォーム一覧、プライバシーとコンプライアンスの参考資料。',
     navHome: 'ホーム',
     navServices: 'サービス',
@@ -166,7 +166,7 @@ const labels: Record<string, Labels> = {
     footerSource: 'ソース'
   },
   'ko-kr': {
-    title: 'Limooo 문서',
+    title: '문서',
     description: 'Limooo 공개 문서: 플랫폼 목록, 개인정보 및 컴플라이언스 참고 자료.',
     navHome: '홈',
     navServices: '서비스',
