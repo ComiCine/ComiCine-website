@@ -15,7 +15,7 @@ description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버�
 - **방문자 패널**(`visitor.limooo.cn`): Pages Function + D1 분석. 해시 처리된 방문자 식별자(목록 API에 원본 IP가 없음), 국가, 가능한 경우 ISP/ASN, 상태 코드 분포를 보여 주며 로그인으로 보호됩니다
 - 최초 로드 후 방문자 상태 칩은 새 `/api/visitors` 요청 없이 로컬에서 필터링합니다. 딥 링크를 위해 API는 여전히 `?status=<3-digit>`을 받습니다.
 - **Apple Account 관리자**(`account.limooo.cn/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
-- **인증 및 역할**: Cloudflare Access가 유일한 신원 소스이며, Worker가 Access JWT를 자체 검증하고 AUD → admin(읽기·쓰기) / viewer(읽기 전용)로 매핑합니다
+- **인증 및 역할**: 하나의 `Limooo-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. Identity Worker는 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
 - **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
 - **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
 - **자동 IP 차단**:
@@ -217,7 +217,7 @@ Worker Cron Triggers로 동작합니다:
 | 스케줄 | Worker | 작업 |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 매분 HTTP/D1 프로브; 프로브가 다운된 동안 Durable Object 알람이 10초마다 다시 확인하고 상태가 바뀌면 알립니다 |
-| `47 3 * * *` | `ops/status-worker` | D1 보존(`src/retention.ts`): `ray_log_v2`(7일), `visitors_v2`(30일), `visitor_rollups`(30일), `heartbeats`(30일), `events`(90일), `probe_uptime_daily`(90일), `auth_sessions`(60일) 정리 |
+| `47 3 * * *` | `ops/status-worker` | D1 보존(`src/retention.ts`): `ray_log_v2`(7일), `visitors_v2`(30일), `visitor_rollups`(30일), `heartbeats`(30일), `events`(90일), `probe_uptime_daily`(90일), `auth_sessions`(60일), `identity_handoffs`(1일) 정리 |
 | `30 3 * * *` | `ops/sync-worker` | 활성 D1 `blocked_ips` 행을 Cloudflare IP List `limooo_blocklist`로 미러링 |
 | `0 0 * * *` | `ops/d1-archive` | D1 스냅샷/아카이브 |
 
@@ -283,8 +283,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## 보안 설계
 
-- 세션 쿠키는 `Secure` + `HttpOnly` + `SameSite=Lax`를 사용하고 `.limooo.cn`에
-  바인딩됩니다. 모든 세션은 D1 `auth_sessions`에 기록된 무작위 `sid`를 가지며,
+- 세션 쿠키는 `Secure` + `HttpOnly` + `SameSite=Lax`를 사용하고 현재 호스트에만
+  제한됩니다. 따라서 세션 쿠키를 다른 사이트에서 재사용할 수 없습니다. 모든 세션은 D1 `auth_sessions`에 기록된 무작위 `sid`를 가지며,
   `requireAuth`는 폐기되거나 만료된 세션을 거부합니다. 런타임 HMAC 키가 없거나
   `auth_sessions` 테이블을 사용할 수 없으면 503으로 fail closed 합니다.
 - 게이트도 fail closed입니다: `TURNSTILE_SECRET`, `GATE_HMAC_KEY`,
@@ -292,9 +292,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   발급하는 대신 503을 응답합니다.
 - `__gate` 쿠키는 `<unix-expiry>.<HMAC-SHA256 hex>`(TTL 1시간, `HttpOnly`,
   `Domain=.limooo.cn`)이며 전적으로 엣지에서 발급하고 검증합니다.
-- 신원은 Cloudflare Access에서 옵니다: Worker가
-  `Cf-Access-Jwt-Assertion`을 자체 검증하고(RS256, JWKS 1시간 캐시) AUD → 역할로
-  매핑하므로 Access가 유일한 로그인 창구입니다.
+- 신원은 `identity.limooo.cn/login`만 보호하는 단일 `Limooo-Identity` 앱에서 옵니다. 브라우저는 `limooo.cloudflareaccess.com`을 통해 로그인합니다. Identity Worker가 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
 - 키와 암호문은 분리해 보관하며 저장소에 절대 커밋하지 않습니다
 - 차단 계층: 애플리케이션 계층의 D1 차단 목록이 엣지에서 403을 반환하고,
   `ops/sync-worker`가 활성 행을 Cloudflare IP List `limooo_blocklist`에 맞춰 둡니다
@@ -357,7 +355,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | 서버 측 siteverify 시크릿 |
 | `GATE_HMAC_KEY` | `__gate` 쿠키용 HMAC-SHA256 서명 키 (`openssl rand -hex 32`) |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access 팀 도메인이며, 검증에 쓰는 JWT `iss`이기도 합니다 |
-| `ACCESS_ADMIN_AUDS` / `ACCESS_VIEWER_AUDS` | admin / viewer 역할에 매핑되는 쉼표 구분 Access 애플리케이션 AUD 태그 (admin 우선) |
+| `ACCESS_IDENTITY_AUD` | 단일 `Limooo-Identity` Access 앱의 AUD. 역할은 `config-contract.json`의 원본 호스트 매핑으로 결정됩니다 |
 | `VISITOR_IP_KEY` | 암호화된 방문자 전체 IP 컬럼(`visitor_rollups.ip_enc`)용 Fernet 키 |
 | `OBSERVABILITY_HMAC_KEY` | 프라이버시 최소화 방문자 IP 해시용 HMAC 키(`functions/_lib/tracking.ts`); 없으면 게이트가 fail-closed 합니다 |
 | `SESSION_HMAC_KEY` | Pages 세션 쿠키 서명 키 (`GATE_HMAC_KEY`와 별개) |

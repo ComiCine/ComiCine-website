@@ -27,13 +27,11 @@ export interface Env {
 // Observability: IP hashing key separate from GATE_HMAC_KEY; log an empty
 // string if missing instead of reusing another key.
   OBSERVABILITY_HMAC_KEY?: string;
-// Login (Cloudflare Access is the only identity source; tasks/17 §11.10)
+// Login (Cloudflare Access identity broker)
 /** Zero Trust team domain, such as https://limooo.cloudflareaccess.com. */
   ACCESS_TEAM_DOMAIN?: string;
-/** Comma-separated AUD list; matches receive the admin role. */
-  ACCESS_ADMIN_AUDS?: string;
-/** Comma-separated AUD list; matches receive the viewer role unless admin takes precedence. */
-  ACCESS_VIEWER_AUDS?: string;
+/** AUD of the single Access application protecting identity.limooo.cn/login. */
+  ACCESS_IDENTITY_AUD?: string;
   SESSION_HMAC_KEY?: string;
 // Local development only: set to "1" to allow localhost or 127.0.0.1 CSRF
 // Origins. Disabled by default in production; set only in local .dev.vars,

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -57,6 +58,8 @@ PYTHON_FIELD_MAP = {
     "managed_hosts": "MANAGED_HOSTS",
     "shared_lang_hosts": "SHARED_LANG_HOSTS",
     "page_routes": "PAGE_ROUTES",
+    "identity_host": "IDENTITY_HOST",
+    "identity_sites": "IDENTITY_SITE_ROLES",
     "image_asset_host": "IMAGE_ASSET_HOST",
     "image_watermark_host": "IMAGE_WATERMARK_HOST",
     "gate_trust": "GATE_TRUST",
@@ -162,6 +165,7 @@ def check_managed_hosts(contract: dict) -> None:
     root = contract.get("root_domain", "")
     expected = [
         f"auth.{root}",
+        f"identity.{root}",
         f"redirect.{root}",
         f"images.{root}",
         f"image.{root}",
@@ -170,6 +174,33 @@ def check_managed_hosts(contract: dict) -> None:
     missing = [host for host in expected if host not in managed]
     if missing:
         fail(f"managed_hosts is missing managed subdomains: {', '.join(missing)}")
+        raise SystemExit(1)
+    identity_host = contract.get("identity_host")
+    identity_sites = contract.get("identity_sites")
+    if identity_host not in managed:
+        fail("managed_hosts must include identity_host")
+        raise SystemExit(1)
+    if not isinstance(identity_sites, dict) or not identity_sites:
+        fail("identity_sites must map source hosts to local admin or viewer roles")
+        raise SystemExit(1)
+    hostname_pattern = re.compile(
+        r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+        r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$"
+    )
+    invalid_sites = [
+        host for host, role in identity_sites.items()
+        if (
+            not isinstance(host, str)
+            or not hostname_pattern.fullmatch(host)
+            or host not in managed
+            or not host.endswith(f".{root}")
+            or not isinstance(role, str)
+            or role not in ("admin", "viewer")
+            or host == identity_host
+        )
+    ]
+    if invalid_sites:
+        fail(f"identity_sites contains invalid hosts or roles: {', '.join(map(str, invalid_sites))}")
         raise SystemExit(1)
 
 

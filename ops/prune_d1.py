@@ -30,12 +30,13 @@ Examples below perform production actions and must be recorded in docs/parallel-
 The authoritative retention policy is owned by `ops/status-worker/src/retention.ts`, scheduled
 daily at 03:47 by the Worker cron; readme_facts.py also reads only that file. This module compares
 its values with the owner on import and fails on any difference. Before 2026-10-11, this file had
-a separate four-table policy that drifted from the owner's seven tables (tasks/22 W7-8). The two
+a separate four-table policy that drifted from the owner's eight tables (tasks/22 W7-8). The two
 copies are no longer allowed to coexist:
 
     ray_log_v2  7 days
     visitors_v2 / visitor_rollups / heartbeats 30 days
     auth_sessions 60 days
+    identity_handoffs 1 day
     events / probe_uptime_daily 90 days
     visitors_daily permanent (daily aggregation over complete UTC days only)
 """
@@ -74,11 +75,13 @@ BUCKETS: dict[str, int] = {
     "heartbeats": 30 * DAY_SECONDS,
     "probe_uptime_daily": 90 * DAY_SECONDS,
     "auth_sessions": 60 * DAY_SECONDS,
+    "identity_handoffs": DAY_SECONDS,
 }
 RETENTION_TIMESTAMP_COLUMNS: dict[str, str] = {
     "visitor_rollups": "last_ts",
     "probe_uptime_daily": "day",
     "auth_sessions": "exp",
+    "identity_handoffs": "expires_at",
 }
 
 

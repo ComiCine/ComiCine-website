@@ -362,9 +362,7 @@ PAGES = (
     ("apple-account.html", "apple-account.html", "/apple-account", None),
     # Shared redirect page (redirect.limooo.cn): prerender the default target (the main home page); middleware adds the actual redirect parameters.
     ("redirect.html", "redirect.html", "/r", "redirect"),
-    # The custom login page was retired when Cloudflare Access took over (tasks/17 §11.10).
-    # Keep its template and styles in src/templates/login.html and src/static/css/login.css as
-    # a backup. They are not built or published; restore this entry if custom login is needed again.
+    # Login is handled by Pages Functions; no static login page is generated.
 )
 
 GATE_I18N_KEYS = (
@@ -563,6 +561,8 @@ def write_config_functions() -> None:
         # cidr.test.ts; it is referenced and must remain.
         "export const VISITOR_HOSTNAME = `visitor.${ROOT_DOMAIN}`;",
         "export const APPLE_ACCOUNT_HOSTNAME = `account.${ROOT_DOMAIN}`;",
+        "export const IDENTITY_HOSTNAME = CONTRACT.identity_host;",
+        "export const IDENTITY_SITE_ROLES: Record<string, \"admin\" | \"viewer\"> = CONTRACT.identity_sites;",
         "export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;",
         "export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;",
         "export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;",

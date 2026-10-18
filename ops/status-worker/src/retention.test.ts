@@ -76,11 +76,12 @@ afterEach(() => {
 });
 
 describe("retention buckets", () => {
-  it("covers the seven documented tables with whole-day windows", () => {
+  it("covers the documented tables with whole-day windows", () => {
     expect(Object.keys(BUCKETS).sort()).toEqual([
       "auth_sessions",
       "events",
       "heartbeats",
+      "identity_handoffs",
       "probe_uptime_daily",
       "ray_log_v2",
       "visitor_rollups",
@@ -90,11 +91,12 @@ describe("retention buckets", () => {
       expect(seconds, `${table} window`).toBeGreaterThan(0);
       expect(seconds % DAY_SECONDS, `${table} window must be whole days`).toBe(0);
     }
-    // Only these three tables use a timestamp column other than the default `ts`.
+    // These tables use a timestamp column other than the default `ts`.
     expect(TIMESTAMP_COLUMNS).toEqual({
       visitor_rollups: "last_ts",
       probe_uptime_daily: "day",
       auth_sessions: "exp",
+      identity_handoffs: "expires_at",
     });
   });
 

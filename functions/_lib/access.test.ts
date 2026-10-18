@@ -32,15 +32,13 @@ import {
   accessJwksUrl,
   accessLogoutUrl,
   accessTeamDomain,
-  roleForAud,
   verifyAccessJwt,
 } from "./access";
 import type { Env } from "./env";
 
 const TEAM = "https://limooo.cloudflareaccess.com";
 const KID = "access-kid";
-const ADMIN_AUD = "0e7b7592c7b571b80a27228a4317d7e599d1c6470e7ed303047659b46c68e0dc";
-const VIEWER_AUD = "viewer-aud-0000";
+const IDENTITY_AUD = "identity-aud-0000";
 
 const baseEnv: Env = {
   TURNSTILE_SITEKEY: "site",
@@ -48,8 +46,7 @@ const baseEnv: Env = {
   GATE_HMAC_KEY: "gate",
   SESSION_HMAC_KEY: "session",
   ACCESS_TEAM_DOMAIN: TEAM,
-  ACCESS_ADMIN_AUDS: ADMIN_AUD,
-  ACCESS_VIEWER_AUDS: VIEWER_AUD,
+  ACCESS_IDENTITY_AUD: IDENTITY_AUD,
 };
 
 let privateKey: CryptoKey;
@@ -87,7 +84,7 @@ function baseClaims(overrides: Record<string, unknown> = {}): Record<string, unk
     sub: "user-sub-1",
     email: "lime@limooo.cn",
     iss: TEAM,
-    aud: [ADMIN_AUD],
+    aud: [IDENTITY_AUD],
     exp: now + 600,
     iat: now - 10,
     nbf: now - 10,
@@ -148,8 +145,8 @@ describe("access helpers", () => {
     expect(accessConfigError({ ...baseEnv, ACCESS_TEAM_DOMAIN: "" })).toBe(
       "missing_ACCESS_TEAM_DOMAIN",
     );
-    expect(accessConfigError({ ...baseEnv, ACCESS_ADMIN_AUDS: "", ACCESS_VIEWER_AUDS: "" })).toBe(
-      "missing_ACCESS_AUDS",
+    expect(accessConfigError({ ...baseEnv, ACCESS_IDENTITY_AUD: "" })).toBe(
+      "missing_ACCESS_IDENTITY_AUD",
     );
     expect(accessConfigError(baseEnv)).toBeNull();
   });
@@ -163,32 +160,12 @@ describe("access helpers", () => {
   });
 });
 
-describe("roleForAud", () => {
-  it("admin AUD takes precedence over viewer AUD", () => {
-    expect(roleForAud(baseEnv, [ADMIN_AUD])).toBe("admin");
-    expect(roleForAud(baseEnv, [VIEWER_AUD])).toBe("viewer");
-    expect(roleForAud(baseEnv, [VIEWER_AUD, ADMIN_AUD])).toBe("admin");
-  });
-
-  it("unregistered AUD / empty value returns null", () => {
-    expect(roleForAud(baseEnv, ["someone-else"])).toBeNull();
-    expect(roleForAud(baseEnv, [])).toBeNull();
-    expect(roleForAud(baseEnv, undefined)).toBeNull();
-  });
-});
-
 describe("verifyAccessJwt", () => {
-  it("a valid token passes and maps to admin", async () => {
+  it("a valid identity-app token returns its verified identity", async () => {
     const identity = await verifyAccessJwt(baseEnv, await signToken(baseClaims()));
     expect(identity).not.toBeNull();
-    expect(identity?.role).toBe("admin");
     expect(identity?.email).toBe("lime@limooo.cn");
     expect(identity?.sub).toBe("access:user-sub-1");
-  });
-
-  it("a viewer AUD maps to viewer", async () => {
-    const identity = await verifyAccessJwt(baseEnv, await signToken(baseClaims({ aud: [VIEWER_AUD] })));
-    expect(identity?.role).toBe("viewer");
   });
 
   it("rejects a mismatched iss", async () => {
@@ -196,8 +173,8 @@ describe("verifyAccessJwt", () => {
     expect(await verifyAccessJwt(baseEnv, token)).toBeNull();
   });
 
-  it("rejects an unregistered aud", async () => {
-    const token = await signToken(baseClaims({ aud: ["unregistered-aud"] }));
+  it("rejects a token from another Access application", async () => {
+    const token = await signToken(baseClaims({ aud: ["another-app-aud"] }));
     expect(await verifyAccessJwt(baseEnv, token)).toBeNull();
   });
 

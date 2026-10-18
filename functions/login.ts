@@ -17,20 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * GET /login → Cloudflare Access identity handoff (tasks/17 §11.6 / §11.10)
- *
- * Access sits in front of `visitor.limooo.cn` and `account.limooo.cn/apple`.
- * Authenticated users arrive with a `Cf-Access-Jwt-Assertion` request header. This endpoint:
- *
- *   1. verifies the Access JWT (**verification is mandatory**; otherwise a forged header could impersonate an admin);
- *   2. uses AUD to distinguish admin from viewer;
- *   3. writes to D1 `auth_sessions` and issues a cross-subdomain session cookie;
- *   4. redirects to `next` with 302.
- *
- * The session layer follows tasks/09: requireAuth checks both the signed cookie and the revocation table.
- * Sensitive endpoints return 503 when the table is unavailable; the cookie alone never grants access.
- */
+/** Shared Access login entry and source-site handoff (tasks/17 §11.6 / §11.10). */
 
 import {
   accessAssertion,
@@ -39,21 +26,92 @@ import {
 } from "./_lib/access";
 import {
   configErrorResponse,
-  createAuthSession,
-  createSessionCookie,
+  clearLegacySharedSessionCookie,
   randomToken,
   runtimeConfigError,
 } from "./_lib/session";
+import {
+  createIdentityHandoff,
+  isIdentitySite,
+  parseIdentityCallback,
+  safeIdentityTarget,
+} from "./_lib/identity";
 import type { Env } from "./_lib/env";
+import { IDENTITY_HOSTNAME } from "./_lib/config";
 import { logEvent } from "./_lib/logging";
-import { safeNextUrl } from "./_lib/routing";
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const { env, request } = context;
-  const configError = runtimeConfigError(env) || accessConfigError(env);
-  if (configError) return configErrorResponse(configError);
+const IDENTITY_STATE_COOKIE = "limooo_identity_state";
+const IDENTITY_STATE_MAX_AGE_SECONDS = 600;
 
-  const next = safeNextUrl(new URL(request.url).searchParams.get("next"));
+function noStoreRedirect(target: string, cookies: string[] = []): Response {
+  const headers = new Headers({
+    Location: target,
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+  });
+  for (const cookie of cookies) headers.append("Set-Cookie", cookie);
+  return new Response(null, { status: 302, headers });
+}
+
+function errorResponse(status: number, message: string): Response {
+  return new Response(`${message}\n`, {
+    status,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+}
+
+function sourceTargetPath(raw: string | null, source: URL): string | null {
+  if (!raw) return "/";
+  if (raw.startsWith("/")) return safeIdentityTarget(raw);
+  try {
+    const value = new URL(raw);
+    if (
+      value.protocol !== "https:" ||
+      value.origin !== source.origin ||
+      value.username !== "" ||
+      value.password !== "" ||
+      value.port !== ""
+    ) return null;
+    return safeIdentityTarget(`${value.pathname}${value.search}${value.hash}`);
+  } catch {
+    return null;
+  }
+}
+
+async function startIdentityLogin(env: Env, request: Request, url: URL): Promise<Response> {
+  if (!isIdentitySite(url.hostname)) return errorResponse(404, "Not Found");
+  const targetPath = sourceTargetPath(url.searchParams.get("next"), url);
+  if (targetPath === null) return errorResponse(400, "Invalid return path");
+
+  const state = randomToken(32);
+  const callback = new URL("/identity/callback", url.origin);
+  callback.searchParams.set("state", state);
+  callback.searchParams.set("next", targetPath);
+
+  const identityLogin = new URL("/login", `https://${IDENTITY_HOSTNAME}`);
+  identityLogin.searchParams.set("next", callback.toString());
+
+  await logEvent(env, "login_attempt", request, {
+    outcome: "pending",
+    status: 302,
+    message: "identity_start",
+  });
+
+  const stateCookie = `${IDENTITY_STATE_COOKIE}=${state}; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=${IDENTITY_STATE_MAX_AGE_SECONDS}`;
+  return noStoreRedirect(identityLogin.toString(), [
+    stateCookie,
+    clearLegacySharedSessionCookie(),
+  ]);
+}
+
+async function completeIdentityLogin(env: Env, request: Request, url: URL): Promise<Response> {
+  const callback = parseIdentityCallback(url.searchParams.get("next"));
+  if (!callback) return errorResponse(400, "Invalid identity callback");
+
   const identity = await verifyAccessJwt(env, accessAssertion(request));
   if (!identity) {
     await logEvent(env, "login_attempt", request, {
@@ -61,42 +119,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       status: 401,
       message: "access_jwt_invalid",
     });
-    // Reaching this point means Access did not take effect (the hostname is not protected or the JWT was modified).
-    // Return 401 instead of creating a local login page; Access is the sole identity provider.
-    return new Response("Unauthorized: no valid Cloudflare Access token\n", {
-      status: 401,
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-    });
+    return errorResponse(401, "Unauthorized: no valid Cloudflare Access token");
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  const session = {
-    sid: randomToken(24),
-    sub: identity.sub,
-    user: { email: identity.email, name: identity.email },
-    role: identity.role,
-    authAt: now,
-  };
-  if (!(await createAuthSession(env, session))) {
+  const code = randomToken(32);
+  if (!(await createIdentityHandoff(env, code, identity, callback))) {
     await logEvent(env, "login_attempt", request, {
       outcome: "failed",
       status: 503,
-      message: "auth_sessions_unavailable",
+      message: "identity_handoff_unavailable",
     });
-    return configErrorResponse("auth_sessions_unavailable");
+    return configErrorResponse("identity_handoff_unavailable");
   }
+
+  const target = new URL("/identity/callback", `https://${callback.sourceHost}`);
+  target.searchParams.set("state", callback.state);
+  target.searchParams.set("next", callback.targetPath);
+  target.searchParams.set("code", code);
 
   await logEvent(env, "login_attempt", request, {
     outcome: "ok",
     status: 302,
-    message: `role=${session.role}`,
+    message: "identity_handoff",
   });
 
-  // Resolve a relative next against the **current request host** so login returns to the subdomain where Access was used.
-  // Resolving against the main-site BASE_URL would send `account.limooo.cn/apple` to
-  // `limooo.cn/apple` (which has no route and returns 404). Use allowlisted absolute URLs as-is.
-  const target = next.startsWith("/") ? new URL(next, request.url).toString() : next;
-  const resp = new Response(null, { status: 302, headers: { Location: target } });
-  resp.headers.append("Set-Cookie", await createSessionCookie(env, session));
-  return resp;
+  return noStoreRedirect(target.toString());
+}
+
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env, request } = context;
+  const configError = runtimeConfigError(env);
+  if (configError) return configErrorResponse(configError);
+
+  const url = new URL(request.url);
+  if (url.hostname === IDENTITY_HOSTNAME) {
+    const accessError = accessConfigError(env);
+    if (accessError) return configErrorResponse(accessError);
+    return completeIdentityLogin(env, request, url);
+  }
+  return startIdentityLogin(env, request, url);
 };

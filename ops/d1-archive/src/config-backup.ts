@@ -263,6 +263,10 @@ export const EXCLUDED_TABLES: readonly ExcludedTable[] = [
     why: "Revocable Cloudflare Access sessions; logging in again is the recovery path and the table self-prunes by exp.",
   },
   {
+    name: "identity_handoffs",
+    why: "Short-lived, single-use identity codes; never archive authentication handoff records.",
+  },
+  {
     name: "_cf_KV",
     why: "Cloudflare-managed internal table; D1 rejects reads and writes with SQLITE_AUTH (code 7500), so no row copy is possible.",
   },

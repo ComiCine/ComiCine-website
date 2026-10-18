@@ -136,13 +136,30 @@ Configured in the Pages project under `Environment variables -> Encrypt (Secret)
 
 - `TURNSTILE_SITEKEY` / `TURNSTILE_SECRET`
 - `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`
-- `ACCESS_TEAM_DOMAIN`, `ACCESS_ADMIN_AUDS`, `ACCESS_VIEWER_AUDS`
+- `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`
 - `APPLE_ACCOUNT_ENCRYPTION_KEY`, `VISITOR_IP_KEY`
 - `OBSERVABILITY_HMAC_KEY`
 
 Local development copies `.dev.vars.example`; production values are read from the
 local `secrets/webauthn.env` and the Pages project secrets (never committed, never
 echoed). There is no server-side credential source any more.
+
+## Shared Access identity application
+
+`Limooo-Identity` protects only `identity.limooo.cn/login`. Cloudflare Access sends
+the browser through the `limooo.cloudflareaccess.com` team domain and back to that
+route with its signed JWT. The Pages Function verifies the single application AUD
+and returns a short-lived, one-use code containing the verified user identity and
+registered source host. The source host consumes that code server-to-server, applies
+its local role from `identity_sites`, and sets its own host-only session cookie. Both
+current protected hosts use the admin role because their APIs require administrator
+sessions. This registration path supports `.limooo.cn` subdomains in the main Pages
+project: add the host to `managed_hosts`, `page_routes`, and `identity_sites` in
+`config-contract.json`, make its pages and APIs enforce the local role, and add its DNS
+and Pages custom domain. The host must use the shared Pages Functions bundle, D1
+database, and Secrets so its callback can create a host-only session. Other root domains
+or separate Pages projects need additional callback, session, and contract support.
+Adding a supported host does not require another Access application.
 
 ## Blocklist chain
 
@@ -318,7 +335,7 @@ Deliberately **not** read, with the reason recorded in `manifest.json` next to t
   `ops/prune_d1.py --mode aggregate` from `visitors_v2` + `visitor_rollups`.
 - `visitor_rollups`, `visitors_v2`, `ray_log_v2`, `events` -- already archived daily into
   `analytics/` by this same Worker.
-- `heartbeats`, `probe_uptime_daily`, `ray_log`, `gate_failures`, `auth_sessions`,
+- `heartbeats`, `probe_uptime_daily`, `ray_log`, `gate_failures`, `auth_sessions`, `identity_handoffs`,
   `_cf_KV` -- bulk telemetry, superseded tables, self-healing counters, re-loginable
   sessions, and a platform-internal table.
 
@@ -488,6 +505,7 @@ reads the same windows from that file (it fails loudly if the two ever disagree)
 | `visitor_rollups` | 30 days | `last_ts` | Hourly rollups (HMAC `ip_hash` + Fernet `ip_enc`) |
 | `heartbeats` | 30 days | `ts` | Probe heartbeats, 3 rows per minute |
 | `auth_sessions` | 60 days | `exp` | Must stay **longer** than `session_ttl_seconds` (30 days), otherwise live sessions are deleted |
+| `identity_handoffs` | 1 day | `expires_at` | Single-use login codes expire after two minutes; unused records are pruned |
 | `events` | 90 days | `ts` | Audit and operational events |
 | `probe_uptime_daily` | 90 days | `day` | Daily uptime rollups (the status page reads at most 7 days) |
 | `visitors_daily` | permanent | - | Daily aggregate; written by `ops/prune_d1.py --mode aggregate --apply` |

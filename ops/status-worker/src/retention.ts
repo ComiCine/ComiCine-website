@@ -43,10 +43,12 @@ export const BUCKETS: Record<string, number> = {
   heartbeats: 30 * DAY_SECONDS,
   // Keep daily uptime summaries for 90 days; the status page shows at most 7 days.
   probe_uptime_daily: 90 * DAY_SECONDS,
-  // Each login creates one row (`createAuthSession` in `functions/login.ts`), and there was no
+  // Each login creates one row (`createAuthSession` in `functions/identity/callback.ts`), and there was no
   // cleanup path. Keep rows for 60 days, **longer than** `session_ttl_seconds` (30 days in
   // `config-contract.json`), or a still-valid signed session could be deleted and logged out.
   auth_sessions: 60 * DAY_SECONDS,
+  // Identity codes are valid for two minutes; keep only a day of unconsumed handoffs.
+  identity_handoffs: 1 * DAY_SECONDS,
 };
 
 /** Timestamp columns that differ from the default. */
@@ -54,6 +56,7 @@ export const TIMESTAMP_COLUMNS: Record<string, string> = {
   visitor_rollups: "last_ts",
   probe_uptime_daily: "day",
   auth_sessions: "exp",
+  identity_handoffs: "expires_at",
 };
 
 export interface PruneResult {

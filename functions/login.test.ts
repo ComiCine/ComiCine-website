@@ -17,22 +17,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Tests for GET /login (tasks/22 W5-7): Access identity handoff and the guarantee that failures never issue cookies.
- *
- * This endpoint is risky without tests: it is the only place that issues session cookies, and a
- * `createAuthSession` failure **must** return 503. If the code issues a cookie despite a failed D1 write,
- * it becomes a credential that `requireAuth` can never find or revoke.
- *
- * `verifyAccessJwt` is stubbed because real verification requires an RS256 key and JWKS endpoint.
- * Other branches (missing configuration, missing assertion header, unavailable D1, and next fallback)
- * use the real implementation.
- */
+/** Login entry and central Access identity handoff. */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./login";
 import { verifyAccessJwt } from "./_lib/access";
-import { SESSION_COOKIE } from "./_lib/config";
 import type { Env } from "./_lib/env";
 
 vi.mock("./_lib/access", async (importOriginal) => {
@@ -45,7 +34,7 @@ const CONFIG = {
   GATE_HMAC_KEY: "a".repeat(64),
   SESSION_HMAC_KEY: "b".repeat(64),
   ACCESS_TEAM_DOMAIN: "https://limooo.cloudflareaccess.com",
-  ACCESS_ADMIN_AUDS: "admin-aud",
+  ACCESS_IDENTITY_AUD: "identity-aud",
 };
 
 /** Minimal D1 stub implementing only the methods used by login.ts. */
@@ -81,114 +70,107 @@ function context(request: Request, env: Env) {
   };
 }
 
-const loginRequest = (url = "https://account.limooo.cn/login?next=/apple") => new Request(url);
+const state = "A".repeat(43);
+const callbackUrl = (target = "/apple") => {
+  const callback = new URL("https://account.limooo.cn/identity/callback");
+  callback.searchParams.set("state", state);
+  callback.searchParams.set("next", target);
+  return callback.toString();
+};
+
+const identityLoginRequest = (callback = callbackUrl()) => {
+  const url = new URL("https://identity.limooo.cn/login");
+  url.searchParams.set("next", callback);
+  return new Request(url, { headers: { "Cf-Access-Jwt-Assertion": "signed-access-jwt" } });
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("GET /login", () => {
-  it("503s when the runtime config is incomplete, without issuing a cookie", async () => {
-    for (const env of [
-      { ...CONFIG, TURNSTILE_SECRET: "" },
-      { ...CONFIG, GATE_HMAC_KEY: "" },
-      { ...CONFIG, SESSION_HMAC_KEY: "" },
-      { ...CONFIG, ACCESS_TEAM_DOMAIN: "" },
-      { ...CONFIG, ACCESS_ADMIN_AUDS: "", ACCESS_VIEWER_AUDS: "" },
-    ] as Env[]) {
-      const resp = await onRequestGet(context(loginRequest(), env) as never);
-      expect(resp.status).toBe(503);
-      expect(resp.headers.get("Set-Cookie")).toBeNull();
-      expect(resp.headers.get("Cache-Control")).toBe("no-store");
-    }
-    // Do not attempt JWT verification when configuration is incomplete.
+  it("starts a host-bound handoff through identity.limooo.cn", async () => {
+    const resp = await onRequestGet(
+      context(new Request("https://account.limooo.cn/login?next=%2Fapple"), CONFIG as Env) as never,
+    );
+    expect(resp.status).toBe(302);
+    const destination = new URL(resp.headers.get("Location") ?? "");
+    expect(destination.origin).toBe("https://identity.limooo.cn");
+    expect(destination.pathname).toBe("/login");
+    const callback = new URL(destination.searchParams.get("next") ?? "");
+    expect(callback.origin).toBe("https://account.limooo.cn");
+    expect(callback.pathname).toBe("/identity/callback");
+    expect(callback.searchParams.get("next")).toBe("/apple");
+    expect(callback.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(resp.headers.get("Set-Cookie")).toContain("Path=/identity/callback");
+    expect(resp.headers.get("Set-Cookie")).toContain("HttpOnly");
+    expect(resp.headers.get("Set-Cookie")).toContain("Secure");
     expect(vi.mocked(verifyAccessJwt)).not.toHaveBeenCalled();
   });
 
-  it("401s without a valid Access assertion and issues no cookie", async () => {
-    for (const headers of [{}, { "Cf-Access-Jwt-Assertion": "not-a-jwt" }]) {
-      const resp = await onRequestGet(
-        context(
-          new Request("https://account.limooo.cn/login", { headers }),
-          CONFIG as Env,
-        ) as never,
-      );
-      expect(resp.status).toBe(401);
-      expect(resp.headers.get("Set-Cookie")).toBeNull();
-      expect(resp.headers.get("Cache-Control")).toBe("no-store");
-    }
+  it("rejects unregistered hosts and off-site return URLs", async () => {
+    const unregistered = await onRequestGet(
+      context(new Request("https://unknown.limooo.cn/login"), CONFIG as Env) as never,
+    );
+    expect(unregistered.status).toBe(404);
+
+    const unsafe = await onRequestGet(
+      context(new Request("https://account.limooo.cn/login?next=https%3A%2F%2Fevil.example"), CONFIG as Env) as never,
+    );
+    expect(unsafe.status).toBe(400);
   });
 
-  it("302s to next and persists the session before issuing the cookie", async () => {
+  it("requires the single identity AUD only on the identity login host", async () => {
+    const source = await onRequestGet(
+      context(new Request("https://account.limooo.cn/login"), { ...CONFIG, ACCESS_IDENTITY_AUD: "" } as Env) as never,
+    );
+    expect(source.status).toBe(302);
+
+    const identity = await onRequestGet(
+      context(identityLoginRequest(), { ...CONFIG, ACCESS_IDENTITY_AUD: "" } as Env) as never,
+    );
+    expect(identity.status).toBe(503);
+    expect(vi.mocked(verifyAccessJwt)).not.toHaveBeenCalled();
+  });
+
+  it("verifies Access and stores a one-time source-bound handoff", async () => {
     vi.mocked(verifyAccessJwt).mockResolvedValue({
       sub: "access:user-1",
       email: "admin@example.com",
-      role: "admin",
       expiresAt: Math.floor(Date.now() / 1000) + 600,
     });
     const { db, statements } = fakeDb("ok");
     const resp = await onRequestGet(
-      context(loginRequest(), { ...CONFIG, DB: db } as Env) as never,
+      context(identityLoginRequest(), { ...CONFIG, DB: db } as Env) as never,
     );
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://account.limooo.cn/apple");
-    const cookies = resp.headers.getSetCookie();
-    expect(cookies).toHaveLength(1);
-    expect(cookies[0]).toContain(`${SESSION_COOKIE}=`);
-    expect(cookies[0]).toContain("HttpOnly");
-    expect(cookies[0]).toContain("Secure");
-
-    // The session must be written to the D1 revocation table before signing a cookie, or the cookie cannot be revoked.
-    const insert = statements.find((s) => s.sql.includes("INSERT INTO auth_sessions"));
+    const destination = new URL(resp.headers.get("Location") ?? "");
+    expect(destination.origin).toBe("https://account.limooo.cn");
+    expect(destination.pathname).toBe("/identity/callback");
+    expect(destination.searchParams.get("state")).toBe(state);
+    expect(destination.searchParams.get("next")).toBe("/apple");
+    expect(destination.searchParams.get("code")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(resp.headers.get("Set-Cookie")).toBeNull();
+    const insert = statements.find((statement) => statement.sql.includes("INSERT INTO identity_handoffs"));
     expect(insert).toBeDefined();
-    expect(insert!.values).toHaveLength(5);
-    expect(String(insert!.values[0]).length).toBeGreaterThan(0);
+    expect(insert!.values).toHaveLength(8);
+    expect(insert!.values).toContain("account.limooo.cn");
+    expect(insert!.values).not.toContain("admin");
   });
 
-  it("503s and issues no cookie when the revocation table cannot be written", async () => {
+  it("fails closed if the handoff record cannot be written", async () => {
     vi.mocked(verifyAccessJwt).mockResolvedValue({
       sub: "access:user-1",
       email: "admin@example.com",
-      role: "admin",
       expiresAt: Math.floor(Date.now() / 1000) + 600,
     });
     const { db } = fakeDb("throw");
     const resp = await onRequestGet(
-      context(loginRequest(), { ...CONFIG, DB: db } as Env) as never,
+      context(identityLoginRequest(), { ...CONFIG, DB: db } as Env) as never,
     );
-
     expect(resp.status).toBe(503);
-    // Critical: a failed D1 write must never issue a session cookie that cannot be found or revoked.
+    expect(resp.headers.get("Location")).toBeNull();
     expect(resp.headers.get("Set-Cookie")).toBeNull();
-    expect(resp.headers.get("Cache-Control")).toBe("no-store");
-  });
-
-  it("never lets next point off-site, and keeps relative next on the requesting host", async () => {
-    vi.mocked(verifyAccessJwt).mockResolvedValue({
-      sub: "access:user-1",
-      email: "admin@example.com",
-      role: "admin",
-      expiresAt: Math.floor(Date.now() / 1000) + 600,
-    });
-    const cases: Array<[string, string]> = [
-      ["/login?next=/apple", "https://account.limooo.cn/apple"],
-      ["/login", "https://limooo.cn/"],
-      ["/login?next=https://evil.example.com/", "https://limooo.cn/"],
-      ["/login?next=//evil.example.com/", "https://limooo.cn/"],
-    ];
-    for (const [path, expected] of cases) {
-      const { db } = fakeDb("ok");
-      const resp = await onRequestGet(
-        context(
-          new Request(`https://account.limooo.cn${path}`),
-          { ...CONFIG, DB: db } as Env,
-        ) as never,
-      );
-      expect(resp.status).toBe(302);
-      const location = resp.headers.get("Location") ?? "";
-      expect(location).toBe(expected);
-      expect(location.startsWith("https://evil.example.com")).toBe(false);
-    }
   });
 });

@@ -124,6 +124,7 @@ export const SKIP_PATHS = new Set<string>([
 // cookie expired, or login will fail.
   "/login/entra",
   "/login/callback",
+  "/identity/callback",
 ]);
 
 /** Gate and blocklist allowlist; use only trust settings generated from docs/lists/whitelist.txt. */
@@ -395,8 +396,13 @@ export const EXEMPT_PATH_PREFIXES = [
   "/api/currency-rates",
 ] as const;
 
+const EXEMPT_EXACT_PATHS = new Set([
+  "/identity/callback",
+  "/api/identity/exchange",
+]);
+
 export function isExemptPath(pathname: string): boolean {
-  return EXEMPT_PATH_PREFIXES.some(
+  return EXEMPT_EXACT_PATHS.has(pathname) || EXEMPT_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }

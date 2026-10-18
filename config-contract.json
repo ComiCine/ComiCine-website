@@ -22,7 +22,7 @@
   "theme_cookie": "limooo_theme",
   "theme_cookie_max_age": 31536000,
   "gate_cookie": "__gate",
-  "session_cookie": "limooo_session_v2",
+  "session_cookie": "limooo_session_v3",
   "pending_cookie": "limooo_pending_v2",
   "csrf_cookie": "limooo_csrf",
   "gate_ttl_seconds": 3600,
@@ -36,6 +36,7 @@
     "contact.limooo.cn",
     "visitor.limooo.cn",
     "account.limooo.cn",
+    "identity.limooo.cn",
     "auth.limooo.cn",
     "redirect.limooo.cn",
     "image.limooo.cn",
@@ -50,6 +51,7 @@
     "contact.limooo.cn",
     "visitor.limooo.cn",
     "account.limooo.cn",
+    "identity.limooo.cn",
     "auth.limooo.cn",
     "redirect.limooo.cn",
     "images.limooo.cn",
@@ -93,6 +95,7 @@
       "/index.html": "apple-account.html",
       "/apple": "apple-account.html"
     },
+    "identity.limooo.cn": {},
     "auth.limooo.cn": {
       "/__gate": "auth.html"
     },
@@ -100,6 +103,11 @@
       "/": "redirect.html",
       "/r": "redirect.html"
     }
+  },
+  "identity_host": "identity.limooo.cn",
+  "identity_sites": {
+    "visitor.limooo.cn": "admin",
+    "account.limooo.cn": "admin"
   },
   "image_asset_host": "images.limooo.cn",
   "image_watermark_host": "image.limooo.cn",

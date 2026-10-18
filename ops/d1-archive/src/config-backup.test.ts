@@ -68,6 +68,7 @@ const FORBIDDEN_TABLES = [
   "heartbeats",
   "gate_failures",
   "auth_sessions",
+  "identity_handoffs",
   "_cf_KV",
 ] as const;
 
@@ -435,6 +436,7 @@ describe("config backup snapshot", () => {
     const excluded = manifest.excluded_tables.map((table: { name: string }) => table.name);
     expect(excluded).toContain("visitors");
     expect(excluded).toContain("visitors_daily");
+    expect(excluded).toContain("identity_handoffs");
     // probe_uptime_daily moved from the exclusion list to the allowlist on 2026-10-11. It is the only table that cannot be rebuilt:
     // heartbeats are retained for 30 days while this table keeps 90, so a missed worker run permanently loses that day's uptime.
     // It has only 75 measured rows, about 270 at the upper bound, raising the budget from 428 to roughly 503 rows/day.

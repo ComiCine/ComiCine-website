@@ -118,6 +118,10 @@ describe("exempt paths match exactly or as a subpath", () => {
     expect(isExemptPath("/visitors")).toBe(false);
     expect(isExemptPath("/api/apple-accountant")).toBe(false);
     expect(isExemptPath("/api/raytrace")).toBe(false);
+    expect(isExemptPath("/identity/callback")).toBe(true);
+    expect(isExemptPath("/identity/callback/child")).toBe(false);
+    expect(isExemptPath("/api/identity/exchange")).toBe(true);
+    expect(isExemptPath("/api/identity/exchange/child")).toBe(false);
   });
 });
 
