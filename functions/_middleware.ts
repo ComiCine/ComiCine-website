@@ -46,6 +46,8 @@ import {
   APPLE_ACCOUNT_HOSTNAME,
   BASE_URL,
   GATE_HOSTNAME,
+  IDENTITY_HOSTNAME,
+  IDENTITY_SITE_ROLES,
   IMAGES_HOSTNAME,
   LANG_COOKIE,
   REDIRECT_HOSTNAME,
@@ -348,13 +350,9 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
 }
 
 /**
- * Send unauthenticated users on protected subdomains to the local /login to establish a session (tasks/17 §11.10).
- *
- * Access has already authenticated the user before this subdomain and added
- * `Cf-Access-Jwt-Assertion`. This step converts that identity into our signed
- * session cookie. Return to `/login` on the **same host** rather than sending
- * the user to a separate identity host: the session cookie is scoped to
- * `.limooo.cn`, so a same-host round trip saves a hop and avoids Safari cookie issues.
+ * Send unauthenticated users on registered sites to their local /login route.
+ * That route starts a short-lived handoff through the shared identity host,
+ * which is the only hostname protected by the Cloudflare Access application.
  */
 async function adminAuthRedirect(
   env: RequestContext["env"],
@@ -362,7 +360,7 @@ async function adminAuthRedirect(
   hostname: string,
   url?: URL,
 ): Promise<Response | null> {
-  if (hostname !== VISITOR_HOSTNAME && hostname !== APPLE_ACCOUNT_HOSTNAME) return null;
+  if (!Object.prototype.hasOwnProperty.call(IDENTITY_SITE_ROLES, hostname)) return null;
   try {
     if (await requireAuth(env, request)) return null;
     const current = url ?? requestUrl(request);
@@ -431,6 +429,17 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-store",
       },
+    });
+  }
+
+  if (
+    hostname === IDENTITY_HOSTNAME &&
+    pathname !== "/login" &&
+    pathname !== "/api/identity/exchange"
+  ) {
+    return new Response("Not Found\n", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });
   }
 

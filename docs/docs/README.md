@@ -15,7 +15,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 - **访客面板**（`visitor.limooo.cn`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
-- **认证与角色**：Cloudflare Access 是唯一的身份来源；Worker 自行验证 Access JWT，并把 AUD 映射为 admin（读写）/ viewer（只读）
+- **认证与角色**：单一 `Limooo-Identity` Access 应用保护 `identity.limooo.cn/login`；身份 Worker 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
@@ -215,7 +215,7 @@ Worker Cron Triggers 形式存在：
 | 调度 | Worker | 任务 |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 每分钟执行 HTTP/D1 探针；探针故障期间由 Durable Object alarm 每 10 秒复查一次，并在状态变化时告警 |
-| `47 3 * * *` | `ops/status-worker` | D1 数据保留（`src/retention.ts`）：清理 `ray_log_v2`（7 天）、`visitors_v2`（30 天）、`visitor_rollups`（30 天）、`heartbeats`（30 天）、`events`（90 天）、`probe_uptime_daily`（90 天）与 `auth_sessions`（60 天） |
+| `47 3 * * *` | `ops/status-worker` | D1 数据保留（`src/retention.ts`）：清理 `ray_log_v2`（7 天）、`visitors_v2`（30 天）、`visitor_rollups`（30 天）、`heartbeats`（30 天）、`events`（90 天）、`probe_uptime_daily`（90 天）、`auth_sessions`（60 天）与 `identity_handoffs`（1 天） |
 | `30 3 * * *` | `ops/sync-worker` | 把生效的 D1 `blocked_ips` 行同步到 Cloudflare IP List `limooo_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 快照 / 归档 |
 
@@ -280,7 +280,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## 安全设计
 
-- 会话 cookie 使用 `Secure` + `HttpOnly` + `SameSite=Lax`，绑定到 `.limooo.cn`；
+- 会话 cookie 使用 `Secure` + `HttpOnly` + `SameSite=Lax`，并限定在当前主机，避免会话 cookie 被其他站点复用；
   每个会话都有一个随机 `sid` 记录在 D1 `auth_sessions` 中，`requireAuth`
   会拒绝已撤销/已过期的会话。运行时 HMAC 密钥缺失或 `auth_sessions` 表
   不可用时，以 503 快速失败。
@@ -289,9 +289,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<unix-expiry>.<HMAC-SHA256 hex>`（1 小时 TTL，
   `HttpOnly`，`Domain=.limooo.cn`），完全在边缘签发与校验。
-- 身份来自 Cloudflare Access：Worker 自行验证 `Cf-Access-Jwt-Assertion`
-  （RS256，JWKS 缓存 1 小时），并把 AUD 映射为角色，
-  Access 因此是唯一的登录入口。
+- 身份由 `identity.limooo.cn/login` 上唯一的 `Limooo-Identity` 应用提供，并经由 `limooo.cloudflareaccess.com` 登录。身份 Worker 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
   Cloudflare IP List `limooo_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）
@@ -353,7 +351,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | 服务端 siteverify 密钥 |
 | `GATE_HMAC_KEY` | `__gate` cookie 的 HMAC-SHA256 签名密钥（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access 团队域名；同时也是用于验证的 JWT `iss` |
-| `ACCESS_ADMIN_AUDS` / `ACCESS_VIEWER_AUDS` | 逗号分隔的 Access 应用 AUD 标签，映射到 admin / viewer 角色（admin 优先） |
+| `ACCESS_IDENTITY_AUD` | 单一 `Limooo-Identity` Access 应用的 AUD；角色由 `config-contract.json` 的来源主机映射决定 |
 | `VISITOR_IP_KEY` | 用于加密完整访客 IP 字段（`visitor_rollups.ip_enc`）的 Fernet 密钥 |
 | `OBSERVABILITY_HMAC_KEY` | 隐私最小化访客 IP 哈希的 HMAC 密钥（`functions/_lib/tracking.ts`）；缺失时门禁 fail-closed |
 | `SESSION_HMAC_KEY` | Pages 会话 cookie 签名密钥（与 `GATE_HMAC_KEY` 分开） |
