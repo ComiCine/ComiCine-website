@@ -42,7 +42,7 @@ export const CONTRACT = {
   "theme_cookie": "limooo_theme",
   "theme_cookie_max_age": 31536000,
   "gate_cookie": "__gate",
-  "session_cookie": "limooo_session_v2",
+  "session_cookie": "limooo_session_v3",
   "pending_cookie": "limooo_pending_v2",
   "csrf_cookie": "limooo_csrf",
   "gate_ttl_seconds": 3600,
@@ -56,6 +56,7 @@ export const CONTRACT = {
     "contact.limooo.cn",
     "visitor.limooo.cn",
     "account.limooo.cn",
+    "identity.limooo.cn",
     "auth.limooo.cn",
     "redirect.limooo.cn",
     "image.limooo.cn",
@@ -70,6 +71,7 @@ export const CONTRACT = {
     "contact.limooo.cn",
     "visitor.limooo.cn",
     "account.limooo.cn",
+    "identity.limooo.cn",
     "auth.limooo.cn",
     "redirect.limooo.cn",
     "images.limooo.cn",
@@ -113,6 +115,7 @@ export const CONTRACT = {
       "/index.html": "apple-account.html",
       "/apple": "apple-account.html"
     },
+    "identity.limooo.cn": {},
     "auth.limooo.cn": {
       "/__gate": "auth.html"
     },
@@ -120,6 +123,11 @@ export const CONTRACT = {
       "/": "redirect.html",
       "/r": "redirect.html"
     }
+  },
+  "identity_host": "identity.limooo.cn",
+  "identity_sites": {
+    "visitor.limooo.cn": "admin",
+    "account.limooo.cn": "admin"
   },
   "image_asset_host": "images.limooo.cn",
   "image_watermark_host": "image.limooo.cn",
@@ -136,6 +144,8 @@ export const BASE_URL = `https://${ROOT_DOMAIN}`;
 export const WWW_HOSTNAME = `www.${ROOT_DOMAIN}`;
 export const VISITOR_HOSTNAME = `visitor.${ROOT_DOMAIN}`;
 export const APPLE_ACCOUNT_HOSTNAME = `account.${ROOT_DOMAIN}`;
+export const IDENTITY_HOSTNAME = CONTRACT.identity_host;
+export const IDENTITY_SITE_ROLES: Record<string, "admin" | "viewer"> = CONTRACT.identity_sites;
 export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;
 export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;
 export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;

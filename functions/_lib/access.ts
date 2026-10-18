@@ -27,15 +27,12 @@
  * an administrator.
  *
  * Design decisions:
- * - This module maps Access identities to application identities. Session
- *   cookies, the D1 `auth_sessions` revocation table, and requireAuth's
- *   fail-closed behavior remain as defined in tasks/09.
- * - **AUD determines the role**: each Application has a unique AUD that does
- *   not change unless the Application is deleted and recreated. This is the
- *   most reliable authorization basis and requires no custom claims.
- * - Store the team domain and AUD in Pages environment variables, not in
- *   `config-contract.json`. Access is an edge-only capability, so these
- *   constants should not appear in build output.
+ * - This module verifies the single Access application for the identity host.
+ *   The source-site host determines the local role after the verified identity
+ *   is returned through a short-lived, one-time handoff.
+ * - Store the team domain and application AUD in Pages environment variables,
+ *   not in `config-contract.json`. Access is an edge-only capability, so these
+ *   values should not appear in build output.
  */
 
 import type { Env } from "./env";
@@ -43,7 +40,6 @@ import type { Env } from "./env";
 export interface AccessIdentity {
   sub: string;
   email: string;
-  role: "admin" | "viewer";
   expiresAt: number;
 }
 
@@ -101,18 +97,10 @@ export function accessLogoutUrl(env: Env, redirectUrl: string): string {
   return `${base}/cdn-cgi/access/logout?redirect_url=${encodeURIComponent(redirectUrl)}`;
 }
 
-function parseAudList(value: string | undefined): string[] {
-  return (value ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 /** Report only the field name for configuration errors; never expose secret values. */
 export function accessConfigError(env: Env): string | null {
   if (!accessTeamDomain(env)) return "missing_ACCESS_TEAM_DOMAIN";
-  const auds = [...parseAudList(env.ACCESS_ADMIN_AUDS), ...parseAudList(env.ACCESS_VIEWER_AUDS)];
-  if (!auds.length) return "missing_ACCESS_AUDS";
+  if (!(env.ACCESS_IDENTITY_AUD ?? "").trim()) return "missing_ACCESS_IDENTITY_AUD";
   return null;
 }
 
@@ -137,21 +125,6 @@ function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
 
 function decodeJson<T>(input: string): T {
   return JSON.parse(new TextDecoder().decode(b64urlDecode(input))) as T;
-}
-
-/** Map an AUD to a role; return null when no configuration matches so callers fail closed. */
-export function roleForAud(env: Env, aud: string | string[] | undefined): "admin" | "viewer" | null {
-  const auds = Array.isArray(aud) ? aud : aud ? [aud] : [];
-  if (!auds.length) return null;
-  const admin = new Set(parseAudList(env.ACCESS_ADMIN_AUDS));
-  const viewer = new Set(parseAudList(env.ACCESS_VIEWER_AUDS));
-  for (const a of auds) {
-    if (admin.has(a)) return "admin";
-  }
-  for (const a of auds) {
-    if (viewer.has(a)) return "viewer";
-  }
-  return null;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -297,8 +270,9 @@ export async function verifyAccessJwt(
   if (typeof claims.nbf === "number" && claims.nbf > now + CLOCK_SKEW_SECONDS) return null;
   if (typeof claims.iat === "number" && claims.iat > now + CLOCK_SKEW_SECONDS) return null;
 
-  const role = roleForAud(env, claims.aud);
-  if (!role) return null;
+  const expectedAud = (env.ACCESS_IDENTITY_AUD ?? "").trim();
+  const auds = Array.isArray(claims.aud) ? claims.aud : claims.aud ? [claims.aud] : [];
+  if (!expectedAud || !auds.includes(expectedAud)) return null;
 
   const sub = String(claims.sub ?? "").trim();
   if (!sub) return null;
@@ -307,7 +281,6 @@ export async function verifyAccessJwt(
   return {
     sub: `access:${sub}`,
     email: email || sub,
-    role,
     expiresAt: claims.exp,
   };
 }

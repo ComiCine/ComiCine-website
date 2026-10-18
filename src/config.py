@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 
 # Path constants
@@ -104,6 +105,36 @@ def _contract_page_routes() -> dict[str, dict[str, str]]:
     return routes
 
 
+def _contract_identity_site_roles() -> dict[str, str]:
+    """Read and validate the exact source hosts allowed to use the identity broker."""
+    value = CONTRACT.get("identity_sites")
+    if not isinstance(value, dict) or not value:
+        raise RuntimeError("配置契约缺少 identity_sites 字段（应为来源主机到本地角色的 JSON 对象）")
+    identity_host = CONTRACT.get("identity_host")
+    managed_hosts = CONTRACT.get("managed_hosts")
+    root_domain = CONTRACT.get("root_domain")
+    hostname_pattern = re.compile(
+        r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+        r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$"
+    )
+    roles: dict[str, str] = {}
+    for host, role in value.items():
+        if (
+            not isinstance(host, str)
+            or not hostname_pattern.fullmatch(host)
+            or host == identity_host
+            or not isinstance(managed_hosts, list)
+            or host not in managed_hosts
+            or not isinstance(root_domain, str)
+            or not host.endswith(f".{root_domain}")
+            or not isinstance(role, str)
+            or role not in {"admin", "viewer"}
+        ):
+            raise RuntimeError(f"配置契约 identity_sites 条目格式错误: {host!r}")
+        roles[host] = role
+    return roles
+
+
 # On a fresh deployment, data/ may not exist yet; importing this module ensures
 # the directory is ready. Build mode (LIMOOO_BUILD=1) only renders output and
 # does not create the runtime database directory. The Python service creates it
@@ -142,6 +173,7 @@ SERVICES_HOST = f"services.{ROOT_DOMAIN}"
 CONTACT_HOST = f"contact.{ROOT_DOMAIN}"
 VISITOR_HOST = f"visitor.{ROOT_DOMAIN}"
 APPLE_ACCOUNT_HOST = f"account.{ROOT_DOMAIN}"
+IDENTITY_HOST = _contract_str("identity_host")
 REDIRECT_HOST = f"redirect.{ROOT_DOMAIN}"
 REDIRECT_URL = f"https://{REDIRECT_HOST}/"
 GATE_HOST = f"auth.{ROOT_DOMAIN}"
@@ -156,11 +188,11 @@ PUBLIC_HOSTS = tuple(_contract_str_list("public_hosts"))
 MANAGED_HOSTS = tuple(_contract_str_list("managed_hosts"))
 SHARED_LANG_HOSTS = tuple(_contract_str_list("shared_lang_hosts"))
 PAGE_ROUTES = _contract_page_routes()
+IDENTITY_SITE_ROLES = _contract_identity_site_roles()
 IMAGE_ASSET_HOSTNAME = IMAGE_ASSET_HOST
 IMAGE_WATERMARK_HOSTNAME = IMAGE_WATERMARK_HOST
 GATE_TRUST = CONTRACT.get("gate_trust", {})
 OBSERVABILITY_HMAC_ENV = _contract_str("observability_hmac_env")
-SESSION_COOKIE_DOMAIN = f".{ROOT_DOMAIN}"
 
 # Open-source repository
 # Repository linked by the AGPL-3.0 "Source code" links in the header and footer.

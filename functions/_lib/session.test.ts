@@ -70,9 +70,9 @@ beforeEach(() => {
 });
 
 describe("session cookie", () => {
-  it("round-trips a valid session with sid and cross-subdomain domain", async () => {
+  it("round-trips a valid host-only session with sid", async () => {
     const header = await createSessionCookie(env, sessionData());
-    expect(header).toContain("Domain=.limooo.cn");
+    expect(header).not.toContain("Domain=");
     expect(header).toContain("Path=/");
     expect(header).toContain("Secure");
     expect(header).toContain("SameSite=Lax");
