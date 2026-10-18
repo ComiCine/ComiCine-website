@@ -15,7 +15,7 @@ description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버�
 - **방문자 패널**(`visitor.limooo.cn`): Pages Function + D1 분석. 해시 처리된 방문자 식별자(목록 API에 원본 IP가 없음), 국가, 가능한 경우 ISP/ASN, 상태 코드 분포를 보여 주며 로그인으로 보호됩니다
 - 최초 로드 후 방문자 상태 칩은 새 `/api/visitors` 요청 없이 로컬에서 필터링합니다. 딥 링크를 위해 API는 여전히 `?status=<3-digit>`을 받습니다.
 - **Apple Account 관리자**(`account.limooo.cn/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
-- **인증 및 역할**: 하나의 `Limooo-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. Identity Worker는 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
+- **인증 및 역할**: 하나의 `Limooo-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. identity 호스트의 Pages Function은 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
 - **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
 - **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
 - **자동 IP 차단**:
@@ -31,7 +31,7 @@ description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버�
 | 공개 페이지, 게이트, 방문자 패널, Apple Account 관리자, 상태 페이지 | Pages Functions (`functions/`) + 사전 렌더링된 정적 HTML | Cloudflare 엣지 |
 | 데이터 | D1 (방문자 분석, 차단 목록, Apple Account 계정, 인증 세션, 프로브/하트비트) | Cloudflare |
 | 사람 확인 | Cloudflare Turnstile, 게이트 페이지를 그 자리에서 렌더링 | Cloudflare + 브라우저 |
-| 인증 | Cloudflare Access (Zero Trust JWT, Worker가 자체 검증) | Cloudflare |
+| 인증 | Cloudflare Access (Zero Trust JWT, Pages Function이 자체 검증) | Cloudflare |
 | 모니터링 및 보존 | `ops/status-worker` (Cron Triggers + Durable Object 알람) | Cloudflare Workers |
 | D1 아카이브 | `ops/d1-archive`(매일 cron) | Cloudflare Workers |
 | 차단 목록 동기화 | `ops/sync-worker` (일일 cron → Cloudflare IP List) | Cloudflare Workers |
@@ -292,7 +292,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   발급하는 대신 503을 응답합니다.
 - `__gate` 쿠키는 `<unix-expiry>.<HMAC-SHA256 hex>`(TTL 1시간, `HttpOnly`,
   `Domain=.limooo.cn`)이며 전적으로 엣지에서 발급하고 검증합니다.
-- 신원은 `identity.limooo.cn/login`만 보호하는 단일 `Limooo-Identity` 앱에서 옵니다. 브라우저는 `limooo.cloudflareaccess.com`을 통해 로그인합니다. Identity Worker가 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
+- 신원은 `identity.limooo.cn/login`만 보호하는 단일 `Limooo-Identity` 앱에서 옵니다. 브라우저는 `limooo.cloudflareaccess.com`을 통해 로그인합니다. identity 호스트의 Pages Function이 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
 - 키와 암호문은 분리해 보관하며 저장소에 절대 커밋하지 않습니다
 - 차단 계층: 애플리케이션 계층의 D1 차단 목록이 엣지에서 403을 반환하고,
   `ops/sync-worker`가 활성 행을 Cloudflare IP List `limooo_blocklist`에 맞춰 둡니다
@@ -462,10 +462,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 배포된 구성입니다. `python3 ops/readme_facts.py --live`로 언제든 다시 읽을 수 있습니다:
 
-1. **Pages**: 프로젝트 `limooo`(`limooo.pages.dev`)가 `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `images`, `image`, `redirect`를 제공합니다. 문서 사이트는 별도 프로젝트 `limooo-docs`(`docs.limooo.cn`)이고, `fonts.limooo.cn`은 R2가 받칩니다
+1. **Pages**: 프로젝트 `limooo`(`limooo.pages.dev`)가 `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image`, `redirect`를 제공합니다. 문서 사이트는 별도 프로젝트 `limooo-docs`(`docs.limooo.cn`)이고, `fonts.limooo.cn`은 R2가 받칩니다
 2. **D1**: 데이터베이스 `limooo`(APAC)가 `DB`로 프로젝트에 연결되어 있습니다. `ops/migrations/`의 스키마가 적용되어 있고 적용 버전은 `schema_version`이 기록합니다. `apple_accounts`가 Apple Account 행을 보관하고 `blocked_ips`가 차단의 권위입니다(83행, 활성 1행. 소프트 삭제된 행은 감사용으로 남습니다)
-3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_*` 바인딩. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`는 어떤 런타임도 읽지 않는 잔재입니다
-4. **Access**가 `visitor.limooo.cn`, `account.limooo.cn`, `admin.limooo.cn`를 self-hosted 애플리케이션으로 앞단에서 보호합니다. 자체 IdP도, 사용자 지정 로그인 폼도 없습니다
+3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
+4. **Access**: `Limooo-Identity`는 `identity.limooo.cn/login`만 보호합니다. `visitor.limooo.cn`과 `account.limooo.cn`은 공유 identity handoff 후 각 Pages 호스트 전용 세션을 사용합니다. Dashboard에 사용되지 않는 `Limooo-Admin` 앱이 남아 있지만 `admin.limooo.cn`에는 DNS 레코드나 Pages 사용자 지정 도메인이 없습니다. 자체 IdP나 사용자 지정 로그인 폼은 없습니다
 5. **Worker**는 독립적으로 실행됩니다: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive`, `image-watermark`. `status.limooo.cn`과 `sink.limooo.cn`은 Worker 사용자 지정 도메인입니다
 6. **Cloudflare 규칙**: 사용자 지정 방화벽 단계는 비어 있습니다(`limooo_blocklist` IP List가 규칙을 기다리는 상태). 캐시 단계는 정적 자산, 레거시 이미지 경로, 워터마크 Worker 응답을 1년간 캐시하고 두 개의 HTML 페이지 캐시 규칙은 비활성입니다. 동적 리다이렉트 단계는 비어 있고, `ops/waf/rules.snapshot.json`은 그 빈 단계를 갱신 시점에 그대로 반영합니다(삭제된 규칙은 git 기록에만 남습니다)
 7. **스모크 검사**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → `https://limooo.cn`으로 302, `https://status.limooo.cn/` → 200

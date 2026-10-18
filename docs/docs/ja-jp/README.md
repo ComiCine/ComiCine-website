@@ -15,7 +15,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 - **ビジターパネル（visitor panel）**（`visitor.limooo.cn`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
 - **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
-- **認証とロール**：単一の `Limooo-Identity` Access アプリが `identity.limooo.cn/login` を保護します。Identity Worker は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
+- **認証とロール**：単一の `Limooo-Identity` Access アプリが `identity.limooo.cn/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
 - **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
@@ -31,7 +31,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 | 公開ページ、ゲート、ビジターパネル、Apple Account マネージャー、ステータスページ | Pages Functions（`functions/`）+ 事前レンダリングされた静的 HTML | Cloudflare エッジ |
 | データ | D1（訪問者分析、ブロックリスト、Apple Account アカウント、認証セッション、プローブ／ハートビート） | Cloudflare |
 | 人間検証 | Cloudflare Turnstile、ゲートページをその場でレンダリング | Cloudflare + ブラウザ |
-| 認証 | Cloudflare Access（Zero Trust JWT、Worker が自ら検証） | Cloudflare |
+| 認証 | Cloudflare Access（Zero Trust JWT、Pages Function が自ら検証） | Cloudflare |
 | 監視とデータ保持 | `ops/status-worker`（Cron Triggers + Durable Object alarms） | Cloudflare Workers |
 | D1 アーカイブ | `ops/d1-archive`（毎日の cron） | Cloudflare Workers |
 | ブロックリスト同期 | `ops/sync-worker`（日次 cron → Cloudflare IP List） | Cloudflare Workers |
@@ -293,7 +293,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
    cookie を発行したりせず、503 を返します。
 - `__gate` cookie は `<unix-expiry>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
   `Domain=.limooo.cn`）。発行と検証はすべてエッジで行います。
-- アイデンティティは `identity.limooo.cn/login` を保護する単一の `Limooo-Identity` アプリから得ます。ブラウザーは `limooo.cloudflareaccess.com` を経由してログインします。Identity Worker は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
+- アイデンティティは `identity.limooo.cn/login` を保護する単一の `Limooo-Identity` アプリから得ます。ブラウザーは `limooo.cloudflareaccess.com` を経由してログインします。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `limooo_blocklist` に追随させます（WAF ルールが使う想定ですが、
@@ -475,10 +475,10 @@ docs.limooo.cn に公開されることはありません。
 
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：プロジェクト `limooo`（`limooo.pages.dev`）が `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `limooo-docs`（`docs.limooo.cn`）で、`fonts.limooo.cn` は R2 が支えます
+1. **Pages**：プロジェクト `limooo`（`limooo.pages.dev`）が `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `limooo-docs`（`docs.limooo.cn`）で、`fonts.limooo.cn` は R2 が支えます
 2. **D1**：データベース `limooo`（APAC）が `DB` としてプロジェクトに接続されています。`ops/migrations/` のスキーマは適用済みで、適用バージョンは `schema_version` が記録します。`apple_accounts` が Apple Account の行を保持し、`blocked_ips` がブロックの権威です（83 行、有効 1 行。ソフト削除した行は監査用に残ります）
-3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_*` バインディング。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` はどのランタイムも読まない残骸です
-4. **Access** が `visitor.limooo.cn`、`account.limooo.cn`、`admin.limooo.cn` を self-hosted アプリとして前段で保護します。自前の IdP も独自のログインフォームもありません
+3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
+4. **Access**：`Limooo-Identity` が `identity.limooo.cn/login` のみを保護します。`visitor.limooo.cn` と `account.limooo.cn` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `Limooo-Admin` アプリが残っていますが、`admin.limooo.cn` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
 5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.limooo.cn` と `sink.limooo.cn` は Worker のカスタムドメインです
 6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります）
 7. **スモークチェック**：`https://limooo.cn/_health` → 200、`https://limooo.cn/?challenge=1` → 403、`https://docs.limooo.cn/` → `https://limooo.cn` へ 302、`https://status.limooo.cn/` → 200

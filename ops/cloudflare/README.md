@@ -160,6 +160,9 @@ and Pages custom domain. The host must use the shared Pages Functions bundle, D1
 database, and Secrets so its callback can create a host-only session. Other root domains
 or separate Pages projects need additional callback, session, and contract support.
 Adding a supported host does not require another Access application.
+Manage the Access application and its policy in Cloudflare Zero Trust → Access controls →
+Applications. Source-host role mappings stay in `site/config-contract.json`; there is no
+Limooo-hosted administration page for this identity flow.
 
 ## Blocklist chain
 
@@ -580,3 +583,9 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   and the zone DNS (proxied `CNAME` to `limooo.pages.dev`). It returned 404 and nothing in
   the repository, the contract or the docs referenced it (authentik-era leftover). The
   other ten hostnames were re-checked and still answer.
+- **Configured 2026-10-18: shared Access identity**. The former `Limooo-Visitor` app was
+  repurposed as `Limooo-Identity` for `identity.limooo.cn/login`, retaining its admin policy
+  and AUD. The old `Limooo-Apple` app for `account.limooo.cn` was deleted; visitor and account
+  now start the shared Pages identity handoff and receive host-only sessions. The unrelated
+  legacy `Limooo-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
+  or Pages custom domain.
