@@ -585,7 +585,9 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   other ten hostnames were re-checked and still answer.
 - **Configured 2026-10-18: shared Access identity**. The former `Limooo-Visitor` app was
   repurposed as `Limooo-Identity` for `identity.limooo.cn/login`, retaining its admin policy
-  and AUD. The old `Limooo-Apple` app for `account.limooo.cn` was deleted; visitor and account
+  and AUD. Its `Limooo-Admins` policy now also allows the `account.limooo.cn` email domain,
+  preserving the existing includes and exclusions. The old `Limooo-Apple` app for
+  `account.limooo.cn` was deleted; visitor and account
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
   legacy `Limooo-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.
