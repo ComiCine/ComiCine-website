@@ -189,6 +189,14 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
     llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
     assert llms.startswith("# Limooo\n")
     assert "https://docs.limooo.cn/sitemap.xml" in llms
+    sitemap = (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
+    for host in (
+        build.ROOT_DOMAIN,
+        build.SERVICES_HOST,
+        build.CONTACT_HOST,
+        build.IMAGE_ASSET_HOST,
+    ):
+        assert f"https://{host}/" in sitemap
 
 
 def test_robots_source_guard_rejects_a_broken_file(tmp_path, monkeypatch):

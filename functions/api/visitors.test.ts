@@ -144,15 +144,9 @@ describe("visitors API", () => {
   // Assert behavior and feed the same two rows in **reverse order** as well. The implementation once depended
   // on mock row order, so a forward-only case would let an incorrect "take the first row" implementation pass.
   //
-  // Known unresolved issue (observed 2026-10-11; see the open item W5-5 in the tasks/22 execution log):
-  // buildMarkers takes the country from the **first row for an ip_hash** instead of updating it alongside
-  // `row.last_ts > acc.last_time`. When a visitor has multiple statuses with different last_ts values,
-  // reversed input can therefore select the older country (this case returns CN in reverse order).
-  // Fix it by also setting `acc.country = row.country` in the accumulator in functions/api/visitors.ts
-  // (owned by the W9 agent). After the fix, upgrade the assertions so both orders produce CH.
   it("accumulates markers independently of row order", async () => {
     const rows = [
-  // Same visitor: the latest visit is a 404 from CH, and the earlier visit is a 200 from CN.
+      // Same visitor: the latest visit is a 404 from CH, and the earlier visit is a 200 from CN.
       { ip_hash: "cnch0001", country: "CH", status: 404, n: 1, last_ts: 1767312000 },
       { ip_hash: "cnch0001", country: "CN", status: 200, n: 2, last_ts: 1767225600 },
     ];
@@ -171,16 +165,15 @@ describe("visitors API", () => {
       markers.push(data.markers[0]);
     }
 
-  // These values do not depend on row order: request count, latest time, and status distribution.
+      // These values do not depend on row order: request count, latest time, and status distribution.
     expect(markers[0].count).toBe(3);
     expect(markers[1].count).toBe(3);
     expect(markers[0].last_time).toBe("2026-01-02T00:00:00.000Z");
     expect(markers[1].last_time).toBe("2026-01-02T00:00:00.000Z");
     expect(markers[0].statuses).toEqual({ "404": 1, "200": 2 });
     expect(markers[1].statuses).toEqual({ "404": 1, "200": 2 });
-  // The country from the latest row must be CH in both forward and reverse order.
-  // The old implementation took the country only when it first saw an ip_hash (the first row returned by D1),
-  // which yielded CN in reverse order. The displayed country must not depend on D1 row order.
+      // The country from the latest row must be CH in both forward and reverse order.
+      // The displayed country must not depend on D1 row order.
     expect(markers[0].country).toBe("CH");
     expect(markers[1].country).toBe("CH");
 
@@ -206,7 +199,7 @@ describe("visitors API", () => {
    */
   describe("edge cache", () => {
     it("serves a repeated poll from cache without touching D1 again", async () => {
-      const { cache, puts } = fakeCache();
+      const { cache, puts, store } = fakeCache();
       vi.stubGlobal("caches", { default: cache });
       vi.mocked(queryAll)
         .mockResolvedValueOnce(singleRowStats)
@@ -217,14 +210,18 @@ describe("visitors API", () => {
       );
       expect(first.status).toBe(200);
       expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
-      expect(first.headers.get("Cache-Control")).toContain("max-age=300");
+      expect(first.headers.get("Cache-Control")).toBe("private, no-store");
       expect(puts).toHaveLength(1);
+      expect(store.values().next().value?.headers.get("Cache-Control")).toBe(
+        "public, max-age=300",
+      );
 
       const second = await onRequestGet(
         context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
       );
       const data = await second.json();
-  // A cache hit must not query D1 again.
+      expect(second.headers.get("Cache-Control")).toBe("private, no-store");
+      // A cache hit must not query D1 again.
       expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
       expect(data.markers[0].ip_hash).toBe("cached01");
       vi.unstubAllGlobals();

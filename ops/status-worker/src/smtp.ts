@@ -126,8 +126,19 @@ class SmtpSession {
         if (line.length > 3 && line[3] === "-") continue;
         return line;
       }
-      if (Date.now() > deadline) throw new Error("smtp_timeout");
-      const { value, done } = await this.reader.read();
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error("smtp_timeout");
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("smtp_timeout")), remaining);
+      });
+      let result: ReadableStreamReadResult<Uint8Array>;
+      try {
+        result = await Promise.race([this.reader.read(), timeout]);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
+      const { value, done } = result;
       if (done) throw new Error("smtp_closed");
       this.buffer += this.decoder.decode(value, { stream: true });
     }
@@ -147,6 +158,11 @@ class SmtpSession {
   }
 
   async close(): Promise<void> {
+    try {
+      await this.reader.cancel();
+    } catch {
+      // Ignore errors while cancelling a pending read.
+    }
     try {
       await this.writer.close();
     } catch {
@@ -199,7 +215,7 @@ export async function sendViaSmtp(
   } catch (err) {
     return { sent: false, reason: `smtp_error: ${String(err).slice(0, 160)}` };
   } finally {
-    if (session) await session.close();
     if (socket) await socket.close().catch(() => undefined);
+    if (session) await session.close();
   }
 }

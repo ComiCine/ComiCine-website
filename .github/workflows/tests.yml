@@ -3,7 +3,7 @@ name: tests
 # Step set must stay identical to ops/ci_check.sh (the local replica of this file).
 # Coverage steps only report; they never fail the build (no thresholds yet).
 # ruff / mypy come from ops/requirements.txt and are real gates here; the local
-# script probes for them (an older build venv may predate them) and prints SKIP.
+# script installs missing gate tools and reports NOT VERIFIED if installation fails.
 
 on:
   push:
@@ -40,3 +40,4 @@ jobs:
       - run: bash ops/migrate_d1.sh --dry-run
       - run: npm test
       - run: npm run test:coverage
+        continue-on-error: true

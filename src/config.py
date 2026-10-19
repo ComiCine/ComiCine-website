@@ -24,6 +24,7 @@ by the Flask backend and Pages build scripts. The Pages-side counterpart is
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -261,11 +262,11 @@ def is_private_ip(ip: str) -> bool:
     """Check whether an IP is private or loopback; these addresses need no GeoIP lookup."""
     if ip in ("127.0.0.1", "localhost", "::1", "-"):
         return True
-    if ip.startswith(("192.168.", "10.")):
-        return True
-    if ip.startswith(tuple(f"172.{n}." for n in range(16, 32))):
-        return True
-    return False
+    try:
+        address = ipaddress.ip_address(ip)
+        return address.is_private or address.is_loopback
+    except ValueError:
+        return False
 
 
 # Geolocation cache database operations
