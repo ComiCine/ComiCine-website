@@ -231,7 +231,7 @@ d1_execute_sql() {
 }
 
 if [ "$CHECK_SCHEMA" = 1 ]; then
-    expected=(apple_accounts blocked_ips visitors ray_log events visitors_v2 visitor_rollups ray_log_v2 visitors_daily retention_state schema_version blocklist_audit gate_failures identity_handoffs)
+    expected=(apple_accounts blocked_ips visitors ray_log events visitors_v2 visitor_rollups ray_log_v2 visitors_daily retention_state schema_version blocklist_audit gate_failures identity_handoffs auth_credentials probes heartbeats probe_state probe_uptime_daily worker_runs)
     if [ -f "$MIGRATIONS_DIR/008_auth_sessions.sql" ] || [ -f "$MIGRATIONS_DIR/004_auth_sessions.sql" ]; then
         expected+=(auth_sessions)
     fi

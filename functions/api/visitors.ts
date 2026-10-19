@@ -47,6 +47,7 @@ const MAX_VISITOR_MARKERS = 500;
  * consuming the entire daily read quota.
  */
 const VISITOR_CACHE_CONTROL = "public, max-age=300";
+const VISITOR_RESPONSE_CACHE_CONTROL = "private, no-store";
 const VISITOR_CACHE_SECONDS = 300;
 
 type VisitorCacheLike = {
@@ -172,7 +173,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     : undefined;
   if (cache) {
     const hit = await cache.match(new Request(cacheKeyUrl));
-    if (hit) return hit;
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("Cache-Control", VISITOR_RESPONSE_CACHE_CONTROL);
+      return new Response(hit.body, {
+        status: hit.status,
+        statusText: hit.statusText,
+        headers,
+      });
+    }
   }
 
   const cutoff = Math.floor(Date.now() / 1000) - VISITOR_WINDOW_SECONDS;
@@ -269,12 +278,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       max_markers: MAX_VISITOR_MARKERS,
       markers: buildMarkers(markerRows),
     },
-    { headers: { "Cache-Control": VISITOR_CACHE_CONTROL } },
+    { headers: { "Cache-Control": VISITOR_RESPONSE_CACHE_CONTROL } },
   );
   if (cache) {
       // A failed put must not turn the request into a 500; caching is only an optimization.
     try {
-      await cache.put(new Request(cacheKeyUrl), response.clone());
+      const cached = response.clone();
+      cached.headers.set("Cache-Control", VISITOR_CACHE_CONTROL);
+      await cache.put(new Request(cacheKeyUrl), cached);
     } catch {
       // Ignore the failure; the next request will query the source as usual.
     }

@@ -26,6 +26,7 @@ export default defineConfig({
     silent: true,
     include: [
       "functions/**/*.test.ts",
+      "docs/docs/.vitepress/theme/**/*.test.ts",
       "ops/sync-worker/src/**/*.test.ts",
       "ops/d1-archive/src/**/*.test.ts",
       "ops/status-worker/src/**/*.test.ts",

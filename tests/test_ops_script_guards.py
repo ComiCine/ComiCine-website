@@ -36,6 +36,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BASH = "/bin/bash"
 DEPLOY = ROOT / "ops" / "deploy.sh"
+WORKERS_DEPLOY = ROOT / "ops" / "workers_deploy.sh"
 MIGRATE = ROOT / "ops" / "migrate_d1.sh"
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
@@ -77,6 +78,7 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
         ("docs_deploy.sh", '#!/bin/bash\necho "STUB docs_deploy ran"\n'),
+        ("workers_deploy.sh", '#!/bin/bash\necho "STUB workers_deploy ran (args: $*)"\n'),
         # Allowlist generation: deploy.sh builds it from own-ips.txt before running the gates.
         ("sync_whitelist.py", '#!/usr/bin/env python3\nprint("STUB sync_whitelist ran (args: $*)")\n'),
         # Blocklist reconciliation (added 2026-10-11) reads D1; stub it in tests.
@@ -174,6 +176,14 @@ def test_deploy_dry_run_on_feature_branch_is_fatal(tmp_path):
     assert "tmp/w3-check" in result.stderr
     # No deployment actually started.
     assert "Deploy: start (dry-run)" not in result.stdout
+
+
+@pytest.mark.parametrize("release_arg", ["--pages", "--docs", "--workers", "--worker=status-worker"])
+def test_deploy_rejects_production_release_from_feature_branch(tmp_path, release_arg):
+    repo = make_repo(tmp_path, branch="tmp/release-check")
+    result = run([BASH, "ops/deploy.sh", release_arg, "--dry-run"], cwd=repo)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "FATAL: production deploy must run on branch main" in result.stderr
 
 
 def test_deploy_dry_run_on_detached_head_is_fatal(tmp_path):
@@ -353,6 +363,45 @@ def test_deploy_workers_only_does_not_touch_pages_or_docs(tmp_path):
     assert "bash ops/workers_deploy.sh" in result.stdout, result.stdout
     assert "ops/pages_deploy.sh" not in result.stdout, result.stdout
     assert "ops/docs_deploy.sh" not in result.stdout, result.stdout
+    assert "ops/ci_check.sh" in result.stdout, result.stdout
+
+
+def test_deploy_workers_only_runs_ci_before_worker_and_rejects_dirty_tree(tmp_path):
+    repo = make_repo(tmp_path)
+    result = run([BASH, "ops/deploy.sh", "--workers", "--full"], cwd=repo)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.index("ops/ci_check.sh") < result.stdout.index("ops/workers_deploy.sh")
+
+    (repo / "dirty.txt").write_text("uncommitted\n")
+    dirty = run([BASH, "ops/deploy.sh", "--workers"], cwd=repo)
+    assert dirty.returncode == 1, dirty.stdout + dirty.stderr
+    assert "FATAL: working tree has uncommitted changes" in dirty.stderr
+
+
+def test_workers_helper_rejects_empty_worker_argument():
+    result = run([BASH, "ops/workers_deploy.sh", "--worker=", "--dry-run"])
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "FATAL: --worker= needs a Worker name" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("branch", "dirty"),
+    [("release-check", False), ("main", True)],
+)
+def test_direct_workers_helper_rejects_unchecked_release_tree(tmp_path, branch, dirty):
+    repo = make_repo(tmp_path, branch=branch)
+    shutil.copy2(WORKERS_DEPLOY, repo / "ops" / "workers_deploy.sh")
+    if dirty:
+        (repo / "dirty.txt").write_text("uncommitted\n")
+
+    result = run([BASH, "ops/workers_deploy.sh", "--worker=status-worker"], cwd=repo)
+
+    assert result.returncode in {1, 2}, result.stdout + result.stderr
+    assert "[workers] running local CI gate" not in result.stdout
+    if dirty:
+        assert "FATAL: working tree has uncommitted changes" in result.stderr
+    else:
+        assert "FATAL: Worker production deploy must run on branch main" in result.stderr
 
 
 def test_deploy_rejects_workers_together_with_a_single_worker(tmp_path):
@@ -429,6 +478,56 @@ def test_check_schema_passes_when_every_table_is_present(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "schema check: OK" in result.stdout
+
+
+def test_check_schema_includes_tables_used_by_deployed_workers():
+    tables = set(expected_tables())
+    assert {
+        "auth_credentials",
+        "probes",
+        "heartbeats",
+        "probe_state",
+        "probe_uptime_daily",
+        "worker_runs",
+    } <= tables
+
+
+def test_waf_whitelist_dry_run_needs_no_cloudflare_token():
+    result = run(
+        [BASH, "ops/waf_whitelist.sh", "--dry-run"],
+        env={"SECRETS_FILE": "/no/such/secrets.env", "CLOUDFLARE_API_TOKEN": ""},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "DRY-RUN (offline plan)" in result.stdout
+
+
+def test_waf_rules_plan_deletes_a_migrated_enabled_skip_rule(tmp_path):
+    snapshot = tmp_path / "rules.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "captured_at": "2026-10-19T00:00:00Z",
+                "zone": "limooo.cn",
+                "phase": "http_request_firewall_custom",
+                "ruleset": {
+                    "id": "ruleset-1",
+                    "rules": [
+                        {
+                            "id": "skip-rule-1",
+                            "action": "skip",
+                            "expression": "ip.src eq 203.0.113.7",
+                            "enabled": True,
+                        }
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = run([BASH, "ops/waf_rules.sh", "--dry-run", f"--from={snapshot}"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "IP Access Rules: 1" in result.stdout
+    assert "delete migrated custom skip rule" in result.stdout
 
 
 # W3-5 / W3-6 / W3-8: D1 schema_version is the only source of truth.

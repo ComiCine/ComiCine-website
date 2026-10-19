@@ -114,7 +114,17 @@ api() {
     if [ -n "$body" ]; then
         args+=(--data-binary "$body")
     fi
-    curl "${args[@]}" "$API_BASE$path"
+    local payload
+    payload="$(curl "${args[@]}" "$API_BASE$path")"
+    case "$method" in
+        POST|PUT|PATCH|DELETE)
+            if ! printf '%s' "$payload" | jsonq 'if d.get("success") is not True: raise SystemExit(json.dumps(d.get("errors"))[:300])'; then
+                echo "FATAL: Cloudflare API rejected $method $path" >&2
+                return 1
+            fi
+            ;;
+    esac
+    printf '%s' "$payload"
 }
 
 ZID=""
@@ -249,7 +259,12 @@ for rule in ruleset.get("rules") or []:
     expression = (rule.get("expression") or "").strip()
     match = single_ip.fullmatch(expression)
     if rule.get("action") == "skip" and match:
+        rule_id = rule.get("id")
+        if rule.get("enabled") is not False and not rule_id:
+            raise SystemExit("enabled single-IP skip rule is missing its id")
         print(f"access-rule\t{match.group(1)}\tskip(single IP) -> IP Access Rule whitelist")
+        if rule.get("enabled") is not False:
+            print(f"delete\t{rule_id}\tdelete migrated custom skip rule")
     elif drop_disabled and rule.get("enabled") is False:
         print(f"delete\t{rule.get('id') or ''}\tdelete (disabled rule)")
 PY

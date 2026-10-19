@@ -130,7 +130,8 @@ npm ci
 npm run build
 ```
 
-`npm run build`는 `ops/build.sh`입니다. 빌드용 가상 환경 `.venv-build`를 만들고,
+`npm run build`는 `ops/build.sh`입니다. 저장소 외부에 빌드용 가상 환경
+`/tmp/limooo-build-venv`를 만들고,
 계약 검증을 실행하며, 렌더링 전에
 `DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib`를 내보내므로 수동 준비가 필요 없습니다.
 `python3 src/build.py`를 직접 실행하면 이 세 가지를 모두 건너뛰며,
@@ -157,7 +158,7 @@ npm run build
 `functions/_data/i18n.ts`, `functions/_data/runtime.ts`와 `preview/`를 다시 생성합니다.
 이 결과물을 직접 수정하지 말고, `locales/*.json`이나 템플릿, 정적 소스를 바꾼 뒤
 다시 빌드하세요. `src/static/tailwind.css`는 저장소에 커밋된 Tailwind 사전 빌드
-결과물입니다. `npm run build`는 `ops/build.sh`를 사용하며, 이 스크립트가 `.venv-build`를
+결과물입니다. `npm run build`는 `ops/build.sh`를 사용하며, 이 스크립트가 `/tmp/limooo-build-venv`를
 만들고 `public/manifest.json`(빌드 산출물 해시 증거)을 생성합니다.
 
 Pages 결과물만 배포하려면:
@@ -190,8 +191,8 @@ Pages + docs를 실행하고, `--worker=<name>`으로 단일 Worker도 배포합
 자동화된 테스트 진입점이 마련되어 있습니다:
 
 ```bash
-# Python tests (the build virtualenv is created by ops/build.sh)
-.venv-build/bin/python -m pytest
+# Python 테스트
+python3 -m pytest
 
 # Pages Functions, Workers and image-watermark tests
 npm test

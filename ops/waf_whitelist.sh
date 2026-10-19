@@ -67,14 +67,19 @@ if [ ! -f "$WHITELIST" ]; then
     exit 1
 fi
 
-if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] && [ -f "$SECRETS_FILE" ]; then
-    CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
+if [ "$MODE" != dry-run ]; then
+    if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] && [ -f "$SECRETS_FILE" ]; then
+        CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
+    fi
+    if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+        echo "FATAL: CLOUDFLARE_API_TOKEN not set and not found in $SECRETS_FILE" >&2
+        exit 1
+    fi
 fi
-if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    echo "FATAL: CLOUDFLARE_API_TOKEN not set and not found in $SECRETS_FILE" >&2
-    exit 1
+export ZONE_ID WHITELIST API NOTES MODE
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+    export CLOUDFLARE_API_TOKEN
 fi
-export CLOUDFLARE_API_TOKEN ZONE_ID WHITELIST API NOTES MODE
 
 # Python's macOS framework build does not always install a default CA bundle.
 # urllib honors SSL_CERT_FILE, so use certifi when available and common OpenSSL
@@ -106,7 +111,7 @@ API = os.environ["API"]
 ZONE = os.environ["ZONE_ID"]
 NOTES = os.environ["NOTES"]
 MODE = os.environ["MODE"]
-TOKEN = os.environ["CLOUDFLARE_API_TOKEN"]
+TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
 WHITELIST = os.environ["WHITELIST"]
 
 RULES_URL = f"{API}/zones/{ZONE}/firewall/access_rules/rules"
@@ -115,6 +120,10 @@ RULES_URL = f"{API}/zones/{ZONE}/firewall/access_rules/rules"
 # be truncated (`IncompleteRead` / partial JSON). At 25 entries, responses were about 7.5 KB and
 # stable, with a reasonable number of requests even when there are many rules.
 PER_PAGE = 25
+
+
+class CloudflareApiError(RuntimeError):
+    pass
 
 
 def read_full(resp) -> bytes:
@@ -148,10 +157,17 @@ def call(method: str, url: str, body=None, attempts: int = 12) -> dict:
             headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                return json.loads(read_full(r))
+                payload = json.loads(read_full(r))
+                if payload.get("success") is not True:
+                    raise CloudflareApiError(
+                        f"Cloudflare API rejected request: {payload.get('errors')}"
+                    )
+                return payload
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:200]
             raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
+        except CloudflareApiError:
+            raise
         except Exception as exc:  # noqa: BLE001
             # Transport failures (IncompleteRead, partial JSON, or timeout): back off and retry.
             last = exc

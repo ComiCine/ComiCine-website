@@ -19,7 +19,7 @@
 
 """Build the OFL gate subset; original outlines remain unchanged in the KR source.
 
-Run with .venv-build/bin/python ops/fonts/build_gate_font.py SOURCE.ttf OUTPUT_DIR.
+Run with /tmp/limooo-build-venv/bin/python ops/fonts/build_gate_font.py SOURCE.ttf OUTPUT_DIR.
 Only 위 and 치 are added; this is not a full Korean typeface.
 """
 import argparse

@@ -14,7 +14,7 @@ htmlcov/
 
 # Local development files
 chrome.txt
-node_modules/
+node_modules
 
 # Claude Code configuration
 .claude/

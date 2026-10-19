@@ -27,7 +27,7 @@
  * cover the **actual emitted protocol stream**.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connect } from "cloudflare:sockets";
 import { sendViaSmtp, type SmtpConfig, type SmtpMessage } from "./smtp";
 
@@ -102,6 +102,10 @@ function headerBlock(stream: string): string {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("sendViaSmtp", () => {
@@ -284,5 +288,24 @@ describe("sendViaSmtp", () => {
     const result = await sendViaSmtp(CONFIG, { to: "ops@example.com", subject: "s", text: "t" });
     expect(result.sent).toBe(false);
     expect(result.reason).toContain("smtp_closed");
+  });
+
+  it("times out when the SMTP server leaves a read pending", async () => {
+    vi.useFakeTimers();
+    const socket = {
+      readable: new ReadableStream<Uint8Array>({}),
+      writable: new WritableStream<Uint8Array>(),
+      opened: Promise.resolve(),
+      close: vi.fn(async () => undefined),
+    };
+    vi.mocked(connect).mockReturnValue(socket as never);
+
+    const pending = sendViaSmtp(CONFIG, { to: "ops@example.com", subject: "s", text: "t" });
+    await vi.advanceTimersByTimeAsync(15_001);
+    const result = await pending;
+
+    expect(result.sent).toBe(false);
+    expect(result.reason).toContain("smtp_timeout");
+    expect(socket.close).toHaveBeenCalled();
   });
 });

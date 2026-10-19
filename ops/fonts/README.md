@@ -10,7 +10,7 @@ committed to Git and not shipped with Pages. The source and the derivative are
 covered by `OFL.txt` in this directory.
 
 ```sh
-.venv-build/bin/python ops/fonts/build_gate_font.py \
+/tmp/limooo-build-venv/bin/python ops/fonts/build_gate_font.py \
   /Users/lime/Documents/Project/Fonts/MapleMono-NF-CN/MapleMono-NF-CN-Regular.ttf \
   /Users/lime/Documents/Project/Fonts/MapleMono-Gate-KR
 ```

@@ -39,9 +39,8 @@
 #                                never consumed fails here, and build does not complain)
 #   the inline check below    -- after build, no generated file differs from git (drift)
 #
-# ruff and mypy are probed, not required (same treatment as pytest-cov):
-# installed -> run and fail the gate; missing -> one [ci] SKIP line, no failure.
-# Why probe: they live in ops/requirements.txt but the build venv may predate them.
+# ruff, mypy, and pytest-cov are installed by ensure_gate_tools when missing.
+# If installation fails, the affected check reports NOT VERIFIED locally.
 #
 # Build output isolation: LIMOOO_PUBLIC_DIR / LIMOOO_PREVIEW_DIR point the build at a
 # scratch dir instead of the iCloud-synced tree. Export them to pin the location: the
@@ -122,11 +121,16 @@ if [ -n "$CI_TMP_PUBLIC" ] || [ -n "$CI_TMP_PREVIEW" ]; then
     echo "[ci] scratch dirs: public=$LIMOOO_PUBLIC_DIR preview=$LIMOOO_PREVIEW_DIR (temporary, removed on exit)"
 fi
 
-# Prefer the build venv, which has all dependencies, then fall back to python3.
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-if [ -x "$ROOT/.venv-build/bin/python" ]; then
-    PYTHON_BIN="$ROOT/.venv-build/bin/python"
+# Prefer an existing external build venv, then fall back to python3.
+if [ -z "${PYTHON_BIN:-}" ]; then
+    for candidate in /tmp/limooo-venv312/bin/python /tmp/limooo-venv/bin/python; do
+        if [ -x "$candidate" ]; then
+            PYTHON_BIN="$candidate"
+            break
+        fi
+    done
 fi
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 # Install missing gate tools instead of silently skipping them (changed 2026-10-12).
 # Previously, ruff, mypy, and pytest-cov were only probed: if missing, a SKIP line still counted
@@ -176,7 +180,6 @@ if [ -n "$REF" ]; then
     git worktree add --detach "$WORKTREE" "$REF" >/dev/null
     # Reuse the main repository's dependencies instead of reinstalling them in the temporary tree.
     [ -d "$ROOT/node_modules" ] && ln -s "$ROOT/node_modules" "$WORKTREE/node_modules"
-    [ -d "$ROOT/.venv-build" ] && ln -s "$ROOT/.venv-build" "$WORKTREE/.venv-build"
     TARGET="$WORKTREE"
     echo "[ci] checking ref $REF (tree at $TARGET)"
 else
@@ -260,9 +263,38 @@ if [ "$RUN_TS" = 1 ]; then
         exit 1
     fi
 
+    echo "[ci] verify npm direct dependencies match package-lock"
+    (cd "$TARGET" && node <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const root = process.cwd();
+const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
+const dependencies = { ...pkg.dependencies, ...pkg.devDependencies };
+const mismatches = [];
+for (const name of Object.keys(dependencies)) {
+  const locked = lock.packages?.[`node_modules/${name}`]?.version;
+  const packagePath = path.join(root, "node_modules", name, "package.json");
+  let installed;
+  try {
+    installed = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
+  } catch {
+    installed = "missing";
+  }
+  if (installed !== locked) mismatches.push(`${name}: installed=${installed} locked=${locked ?? "missing"}`);
+}
+if (mismatches.length) {
+  console.error("[ci] FAIL: npm dependencies do not match package-lock.json");
+  for (const mismatch of mismatches) console.error(`       ${mismatch}`);
+  console.error("       run npm ci with node_modules stored outside the iCloud-synced repository");
+  process.exit(1);
+}
+NODE
+    )
+
     if [ "$DO_BUILD" = 1 ]; then
         echo "[ci] npm run build"
-        (cd "$TARGET" && npm run build)
+        (cd "$TARGET" && LIMOOO_VENV_PYTHON="$PYTHON_BIN" npm run build)
     fi
 
     if [ -n "$REF" ]; then

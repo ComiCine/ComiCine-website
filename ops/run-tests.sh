@@ -23,10 +23,15 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "Python tests"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-if [ -x "$PWD/.venv-build/bin/python" ]; then
-    PYTHON_BIN="$PWD/.venv-build/bin/python"
+if [ -z "${PYTHON_BIN:-}" ]; then
+    for candidate in /tmp/limooo-venv312/bin/python /tmp/limooo-venv/bin/python; do
+        if [ -x "$candidate" ]; then
+            PYTHON_BIN="$candidate"
+            break
+        fi
+    done
 fi
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 "$PYTHON_BIN" -m pytest
 
 echo "TypeScript tests"

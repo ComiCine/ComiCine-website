@@ -42,11 +42,11 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 
-# Pick an interpreter that can actually import the module. Prefer the build venv
-# (it is what ci_check.sh uses), then whatever `python3` resolves to.
+# Pick an interpreter that can actually import the module. Prefer the external
+# build venv, then whatever `python3` resolves to.
 candidates=(
     "${LIMOOO_PYTHON:-}"
-    "$ROOT/.venv-build/bin/python"
+    "${LIMOOO_VENV_PYTHON:-/tmp/limooo-venv312/bin/python}"
     "/opt/homebrew/bin/python3"
     "$(command -v python3 2>/dev/null || true)"
 )
@@ -66,7 +66,7 @@ PY
 done
 
 if [ -z "$PYTHON" ]; then
-    echo "FATAL: no Python >= 3.10 with src/ importable was found (tried LIMOOO_PYTHON, .venv-build, /opt/homebrew/bin/python3, python3)" >&2
+    echo "FATAL: no Python >= 3.10 with src/ importable was found (tried LIMOOO_PYTHON, LIMOOO_VENV_PYTHON, /opt/homebrew/bin/python3, python3)" >&2
     exit 1
 fi
 

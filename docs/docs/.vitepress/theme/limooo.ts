@@ -55,7 +55,12 @@ export function readCookie(name: string): string | null {
   const match = document.cookie.match(
     new RegExp('(?:^|;\\s*)' + name + '=([^;]*)')
   )
-  return match ? decodeURIComponent(match[1]) : null
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
 }
 
 export function writeCookie(name: string, value: string): void {

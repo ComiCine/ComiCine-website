@@ -101,7 +101,7 @@
 #   LIMOOO_DEPLOY_VERBOSE=1   same as --full
 #   LIMOOO_SKIP_DOCS=1        drop the docs.limooo.cn step
 #   LIMOOO_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
-#   LIMOOO_ALLOW_DIRTY=1      deploy --pages / --docs with a dirty working tree
+#   LIMOOO_ALLOW_DIRTY=1      deploy release artifacts with a dirty working tree
 #   LIMOOO_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
 # Credentials are read from local secrets/webauthn.env; never written to disk or echoed.
 # END-USAGE
@@ -222,11 +222,13 @@ if [ "$IN_GIT_TREE" = 1 ] && { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; }; th
     fi
 fi
 
-# Pages, docs, and Workers also build from the current branch's working tree. On a non-main branch,
-# explain the consequence without blocking the deploy.
+# Pages, docs, and Workers publish the current working tree to production. Require main for every
+# release path so a feature branch cannot deploy to the production branch accidentally.
 if [ "$IN_GIT_TREE" = 1 ] && [ "$CURRENT_BRANCH" != "main" ] \
-    && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ]; }; then
-    echo "Warning: not on branch main (current: $BRANCH_LABEL); this deploys a tree GitHub does not have yet"
+    && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; }; then
+    echo "FATAL: production deploy must run on branch main (current: $BRANCH_LABEL)" >&2
+    echo "       switch to main first (git switch main) and rerun" >&2
+    exit 2
 fi
 
 # Run one substep in either of two modes:
@@ -276,12 +278,12 @@ if [ "$DRY_RUN" = 1 ]; then
     [ "$DO_COMMIT" = 1 ] && echo "  would-run: git add -A && git commit"
     [ "$DO_PUSH" = 1 ] && echo "  would-run: git push origin main"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; } && echo "  requires: branch main (FATAL exit 2 on any other branch)"
-    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with LIMOOO_SKIP_CHECKS=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with LIMOOO_SKIP_CHECKS=1)"
     [ "$DO_PAGES" = 1 ] && echo "  would-run: bash ops/pages_deploy.sh"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: python3 ops/sync_whitelist.py"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
-    { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
+    { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
     [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
     echo "Deploy: dry-run done"
@@ -373,13 +375,18 @@ STAGED_TREE_BEFORE=""
 # The checked tree must be the same one that will be released (W3-3):
 #   --commit         -> staged content (all non-ignored changes were staged in Stage 0a)
 #   --push without commit -> HEAD that will be pushed
-#   --pages / --docs -> working tree built directly by pages_deploy.sh / docs_deploy.sh
+#   --pages / --docs / Workers -> current working tree released by the deploy helper
 NEED_CHECKS=0
-if [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; then
+if [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; then
     NEED_CHECKS=1
 fi
 
-# Dirty-tree gate (W3-3): Pages and docs build the working tree directly. If it differs from every
+NEED_PREPARATION=0
+if [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; then
+    NEED_PREPARATION=1
+fi
+
+# Dirty-tree gate (W3-3): release helpers use the working tree directly. If it differs from every
 # commit, deployment would publish content that CI did not check and GitHub does not have. Block
 # before checks when not committing; when committing, check after the commit because Stage 0a's
 # staged changes have been committed by then. Use the same pathspec as Stage 0a; ignored files do
@@ -387,7 +394,7 @@ fi
 dirty_tree_gate() {
     local dirty_paths
     if [ "$IN_GIT_TREE" = 0 ]; then
-        echo "Warning: not a git work tree; cannot verify that Pages matches a commit" >&2
+        echo "Warning: not a git work tree; cannot verify that release artifacts match a commit" >&2
         return 0
     fi
     dirty_paths="$(git status --porcelain -- . ':!limooo.cn.png')"
@@ -398,13 +405,13 @@ dirty_tree_gate() {
         echo "Warning: deploying a dirty working tree (LIMOOO_ALLOW_DIRTY=1)"
         return 0
     fi
-    echo "FATAL: working tree has uncommitted changes; Pages/docs build the working tree" >&2
+    echo "FATAL: working tree has uncommitted changes; release helpers use the working tree" >&2
     printf '%s\n' "$dirty_paths" | sed 's/^/       /' >&2
     echo "       commit them first, or set LIMOOO_ALLOW_DIRTY=1 to deploy them on purpose" >&2
     exit 1
 }
 
-if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
+if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; }; then
     dirty_tree_gate
 fi
 
@@ -412,7 +419,7 @@ fi
 # Generate whitelist.txt locally from own-ips.txt without accessing external list sources.
 # Successful preparation steps (Lists / Bans / Check) are combined into `Prepare: done`.
 DEFERRED_LABEL="Prepare"
-if [ "$NEED_CHECKS" = 1 ]; then
+if [ "$NEED_PREPARATION" = 1 ]; then
     run_step "Lists" python3 ops/sync_whitelist.py
 fi
 
@@ -426,7 +433,7 @@ fi
 # a code release. Set LIMOOO_STRICT_BLOCKLIST=1 to make failures fatal, or
 # LIMOOO_SKIP_BLOCKLIST_RECONCILE=1 to skip the step. This needs D1 access and reads credentials
 # from secrets/webauthn.env, like the other scripts.
-if [ "$NEED_CHECKS" = 1 ]; then
+if [ "$NEED_PREPARATION" = 1 ]; then
     if [ "${LIMOOO_SKIP_BLOCKLIST_RECONCILE:-0}" = 1 ]; then
         echo "Bans: skipped D1 reconcile (LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
     elif [ "${LIMOOO_STRICT_BLOCKLIST:-0}" = 1 ]; then
@@ -555,7 +562,7 @@ fi
 # Stage 2b: check for a dirty working tree after commit.
 # With --commit, Stage 0a's git add commits all pending changes, so check afterward for anything
 # still dirty. Standalone --pages / --docs runs were already checked before Stage 0b.
-if [ "$DO_COMMIT" = 1 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; }; then
+if [ "$DO_COMMIT" = 1 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; }; then
     dirty_tree_gate
 fi
 
@@ -575,14 +582,14 @@ fi
 
 # Stage 4: deploy an individual Worker (optional; independent of Pages).
 if [ -n "$WORKER" ]; then
-    run_step "Worker: $WORKER" bash ops/workers_deploy.sh "--worker=$WORKER"
+    run_step "Worker: $WORKER" env LIMOOO_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh "--worker=$WORKER"
 fi
 
 if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     # Deploy every Worker in the list; workers_deploy.sh without arguments deploys all listed Workers.
     # The label `Workers` was chosen on 2026-10-11 to match `Pages` and `Docs`; all three are
     # combined into one `Pages+Docs+Workers: done` line.
-    run_step "Workers" bash ops/workers_deploy.sh
+    run_step "Workers" env LIMOOO_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh
 fi
 
 # End of release phase: print `Release: done` (also used when only Pages is deployed).
