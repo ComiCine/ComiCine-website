@@ -71,6 +71,7 @@ MAX_PAGES = 20
 CHECK_JOB = "blocklist_sync_check"
 # Maximum rows printed per table; this affects output only, not the result.
 SAMPLE_LIMIT = 10
+STALE_RUNNING_SECONDS = 2 * 60 * 60
 
 
 def install_ca_bundle() -> None:
@@ -290,12 +291,14 @@ def main() -> int:
         runs, run_error = query_last_runs(cfg, jobs)
         list_meta = find_list(cfg)
         actual = list_items(cfg, str(list_meta.get("id")))
+        if run_error:
+            error = run_error
     except Exception as exc:  # noqa: BLE001 - Use the common error handling for operations scripts.
         error = str(exc)
 
     if error:
         if args.json:
-            print(json.dumps({"ok": False, "error": error}, ensure_ascii=False))
+            print(json.dumps({"ok": False, "error": error, "run_history_error": run_error}, ensure_ascii=False))
         else:
             print("desired=-  actual=-  to_add=-  to_remove=-  status=error")
             print(f"  error: {error}")
@@ -303,9 +306,19 @@ def main() -> int:
         return 2
 
     to_add, to_remove = compute_diff(desired, actual)
-    failed_jobs = [
-        job for job, row in runs.items() if row is not None and str(row.get("outcome")) == "failed"
-    ]
+    now = int(dt.datetime.now(dt.UTC).timestamp())
+    failed_jobs = []
+    for job, row in runs.items():
+        if row is None:
+            continue
+        outcome = str(row.get("outcome") or "").strip().lower()
+        if outcome in {"ok", "skipped"}:
+            continue
+        if outcome == "running":
+            started_at = row.get("started_at")
+            if isinstance(started_at, (int, float)) and now - started_at < STALE_RUNNING_SECONDS:
+                continue
+        failed_jobs.append(job)
     drift = bool(to_add) or bool(to_remove)
     status = "drift" if drift else ("failed_run" if failed_jobs else "ok")
 

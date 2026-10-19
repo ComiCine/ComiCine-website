@@ -26,7 +26,12 @@ def test_ip_ranges():
     assert is_private_ip("127.0.0.1") is True
     assert is_private_ip("192.168.1.1") is True
     assert is_private_ip("10.0.0.1") is True
+    assert is_private_ip("::1") is True
+    assert is_private_ip("fc00::1") is True
+    assert is_private_ip("fe80::1") is True
     assert is_private_ip("8.8.8.8") is False
+    assert is_private_ip("2001:4860:4860::8888") is False
+    assert is_private_ip("not-an-ip") is False
 
 
 def test_ensure_geo_cache_and_read(tmp_path):

@@ -134,7 +134,8 @@ npm ci
 npm run build
 ```
 
-`npm run build` is `ops/build.sh`: it creates the build virtualenv `.venv-build`,
+`npm run build` is `ops/build.sh`: it creates the external build virtualenv
+`/tmp/limooo-build-venv`,
 runs the contract checks and exports
 `DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib` before rendering, so no manual
 setup is needed. Running `python3 src/build.py` directly skips all three — it fails
@@ -161,7 +162,7 @@ npm run build
 `functions/_data/i18n.ts`, `functions/_data/runtime.ts` and `preview/`.
 Do not hand-edit those outputs; change `locales/*.json`, templates or static
 sources and rebuild. `src/static/tailwind.css` is the checked-in prebuilt
-Tailwind output. `npm run build` uses `ops/build.sh`, which creates `.venv-build`
+Tailwind output. `npm run build` uses `ops/build.sh`, which creates `/tmp/limooo-build-venv`
 and generates `public/manifest.json` (build-artifact hash evidence).
 
 Deploy only the Pages output with:
@@ -194,8 +195,8 @@ echoed); there are no ssh / rsync / remote systemd steps.
 Automated test entry points are provided:
 
 ```bash
-# Python tests (the build virtualenv is created by ops/build.sh)
-.venv-build/bin/python -m pytest
+# Python tests
+python3 -m pytest
 
 # Pages Functions, Workers and image-watermark tests
 npm test

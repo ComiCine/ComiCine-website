@@ -291,7 +291,7 @@ def write_discovery_files(out_dir: str) -> None:
     with open(os.path.join(out_dir, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(f"{robots.rstrip()}\n\nSitemap: https://{ROOT_DOMAIN}/sitemap.xml\n")
 
-    sitemap_hosts = (ROOT_DOMAIN, SERVICES_HOST, CONTACT_HOST)
+    sitemap_hosts = (ROOT_DOMAIN, SERVICES_HOST, CONTACT_HOST, IMAGE_ASSET_HOST)
     sitemap = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
