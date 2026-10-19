@@ -24,7 +24,7 @@
 #   npm run build
 #
 # This script installs and isolates the Python dependencies used by npm's build command:
-# 1. Create the local, untracked .venv-build and install locked dependencies.
+# 1. Create an external build venv and install locked dependencies.
 # 2. Validate the cross-runtime configuration contract.
 # 3. Run a render-only build with LIMOOO_BUILD=1 (no database initialization or production secrets).
 # 4. Generate public/manifest.json.
@@ -43,12 +43,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PYTHON="${PYTHON:-python3}"
-VENV="$ROOT/.venv-build"
-VENV_PY="$VENV/bin/python"
+VENV="${LIMOOO_BUILD_VENV:-/tmp/limooo-build-venv}"
 
-if [ ! -x "$VENV_PY" ]; then
-    echo "[build] creating $VENV"
-    "$PYTHON" -m venv "$VENV"
+if [ -n "${LIMOOO_VENV_PYTHON:-}" ]; then
+    VENV_PY="$LIMOOO_VENV_PYTHON"
+    if [ ! -x "$VENV_PY" ]; then
+        echo "FATAL: configured Python is not executable: $VENV_PY" >&2
+        exit 1
+    fi
+else
+    VENV_PY="$VENV/bin/python"
+    if [ ! -x "$VENV_PY" ]; then
+        echo "[build] creating $VENV"
+        "$PYTHON" -m venv "$VENV"
+    fi
 fi
 
 echo "[build] installing Python dependencies"

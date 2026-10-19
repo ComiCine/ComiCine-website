@@ -47,6 +47,7 @@ WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 DRY_RUN=0
 SELECTED=""
+SELECTED_SET=0
 
 usage() {
     # Print the leading comment block, starting at line 3 and ending at the first non-comment
@@ -57,7 +58,7 @@ usage() {
 while [ $# -gt 0 ]; do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
-        --worker=*) SELECTED="${1#--worker=}" ;;
+        --worker=*) SELECTED="${1#--worker=}"; SELECTED_SET=1 ;;
         -h|--help) usage; exit 0 ;;
         *)
             echo "FATAL: unknown argument $1 (supported: --dry-run / --worker=<name>)" >&2
@@ -67,6 +68,11 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+if [ "$SELECTED_SET" = 1 ] && [ -z "$SELECTED" ]; then
+    echo "FATAL: --worker= needs a Worker name" >&2
+    exit 2
+fi
 
 if ! command -v git >/dev/null 2>&1; then
     echo "FATAL: git is required to record the current commit" >&2
@@ -82,6 +88,28 @@ if [ -n "$SELECTED" ]; then
             exit 2
             ;;
     esac
+fi
+
+if [ "$DRY_RUN" = 0 ] && [ "${LIMOOO_DEPLOY_GATE_PASSED:-0}" != 1 ]; then
+    if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        branch="$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null || git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+        if [ "$branch" != main ]; then
+            echo "FATAL: Worker production deploy must run on branch main (current: ${branch:-unknown})" >&2
+            exit 2
+        fi
+        dirty_paths="$(git -C "$ROOT" status --porcelain)"
+        if [ -n "$dirty_paths" ] && [ "${LIMOOO_ALLOW_DIRTY:-0}" != 1 ]; then
+            echo "FATAL: working tree has uncommitted changes; Worker deploy uses the working tree" >&2
+            printf '%s\n' "$dirty_paths" | sed 's/^/       /' >&2
+            exit 1
+        fi
+    fi
+    if [ "${LIMOOO_SKIP_CHECKS:-0}" = 1 ]; then
+        echo "[workers] checks skipped (LIMOOO_SKIP_CHECKS=1)"
+    else
+        echo "[workers] running local CI gate"
+        bash "$ROOT/ops/ci_check.sh"
+    fi
 fi
 
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"

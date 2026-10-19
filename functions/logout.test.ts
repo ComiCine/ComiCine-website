@@ -26,14 +26,27 @@
  * After aligning with `login.ts`, only site-relative paths and HTTPS URLs on allowlisted hosts are accepted.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./logout";
 import type { Env } from "./_lib/env";
+import { revokeAuthSession, readSession } from "./_lib/session";
 
   // Logout writes an audit row; this test checks only Location, so D1 is not asserted here.
 vi.mock("./_lib/logging", () => ({
   logEvent: async () => undefined,
 }));
+vi.mock("./_lib/session", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./_lib/session")>();
+  return {
+    ...original,
+    readSession: vi.fn(),
+    revokeAuthSession: vi.fn(),
+  };
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 const keys = {
   TURNSTILE_SECRET: "turnstile-secret",
@@ -60,6 +73,23 @@ const logout = (query: string, extra: Partial<Env> = {}) =>
   );
 
 describe("logout next validation", () => {
+  it("clears cookies and redirects when the session was already revoked", async () => {
+    vi.mocked(readSession).mockResolvedValue({
+      sid: "sid-already-revoked",
+      sub: "admin",
+      user: { email: "admin@example.com", name: "Admin" },
+      role: "admin",
+      authAt: 1,
+    });
+    vi.mocked(revokeAuthSession).mockResolvedValue(true);
+
+    const resp = await logout("");
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.getSetCookie()).toHaveLength(3);
+  });
+
   it("falls back to the site root for an off-site next when Access is unconfigured", async () => {
     const resp = await logout("?next=https://evil.example/phish");
     expect(resp.status).toBe(302);

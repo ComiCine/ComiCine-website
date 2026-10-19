@@ -130,7 +130,8 @@ npm ci
 npm run build
 ```
 
-`npm run build` は `ops/build.sh` です。ビルド用仮想環境 `.venv-build` を作成し、
+`npm run build` は `ops/build.sh` です。リポジトリ外にビルド用仮想環境
+`/tmp/limooo-build-venv` を作成し、
 コントラクト検証を実行し、レンダリング前に
 `DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib` をエクスポートするため、
 手動での準備は不要です。`python3 src/build.py` を直接実行するとこの 3 つがすべて
@@ -157,7 +158,7 @@ npm run build
 `functions/_data/i18n.ts`、`functions/_data/runtime.ts`、`preview/` を再生成します。
 これらの出力を手で編集しないでください。`locales/*.json`、テンプレート、静的ソースを変更して再ビルドします。
 `src/static/tailwind.css` はリポジトリにコミット済みの Tailwind ビルド済み出力です。
-`npm run build` は `ops/build.sh` を使用し、これが `.venv-build` を作成して
+`npm run build` は `ops/build.sh` を使用し、これが `/tmp/limooo-build-venv` を作成して
  `public/manifest.json`（ビルド成果物のハッシュ証跡）を生成します。
 
 Pages の出力だけをデプロイするには：
@@ -190,8 +191,8 @@ Pages + docs を実行し、`--worker=<name>` で単一の Worker も配布で�
 自動テストの入口を用意しています：
 
 ```bash
-# Python tests (the build virtualenv is created by ops/build.sh)
-.venv-build/bin/python -m pytest
+# Python テスト
+python3 -m pytest
 
 # Pages Functions, Workers and image-watermark tests
 npm test

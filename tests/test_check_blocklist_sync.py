@@ -124,7 +124,7 @@ def test_compute_diff_is_order_independent():
 CFG = {"token": "t", "account_id": "acct", "database_id": "db"}
 
 
-def _stub(monkeypatch, *, d1_rows, list_items, runs=None, d1_fails=False):
+def _stub(monkeypatch, *, d1_rows, list_items, runs=None, d1_fails=False, run_history_fails=False):
     """Replace d1_query_retry and cf_get_json with in-memory implementations."""
     calls: dict[str, list] = {"d1": [], "cf": [], "writes": []}
     rows = list(d1_rows)
@@ -136,6 +136,8 @@ def _stub(monkeypatch, *, d1_rows, list_items, runs=None, d1_fails=False):
         if "FROM blocked_ips" in sql:
             return [{"cidr": cidr} for cidr in rows]
         if "FROM worker_runs" in sql:
+            if run_history_fails:
+                return None
             job = sql.split("job = '", 1)[1].split("'", 1)[0]
             return [runs[job]] if runs and runs.get(job) else []
         raise AssertionError(f"unexpected SQL: {sql}")
@@ -231,6 +233,43 @@ def test_main_exits_one_when_the_last_run_failed(monkeypatch, capsys):
     assert "outcome=failed" in out
     assert "CF API 403" in out
     assert "result: FAILED RUN" in out
+
+
+@pytest.mark.parametrize("outcome", ["running", "unexpected"])
+def test_main_exits_one_for_stale_or_unknown_run_outcomes(monkeypatch, capsys, outcome):
+    _, code = _run(
+        monkeypatch,
+        [],
+        d1_rows=["1.2.3.0/24"],
+        list_items=["1.2.3.0/24"],
+        runs={
+            "blocklist_sync": {
+                "job": "blocklist_sync",
+                "started_at": 1791000000,
+                "finished_at": None,
+                "outcome": outcome,
+                "added": None,
+                "removed": None,
+            }
+        },
+    )
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "result: FAILED RUN" in out
+
+
+def test_main_exits_two_when_worker_run_history_is_unavailable(monkeypatch, capsys):
+    _, code = _run(
+        monkeypatch,
+        ["--json"],
+        d1_rows=["1.2.3.0/24"],
+        list_items=["1.2.3.0/24"],
+        run_history_fails=True,
+    )
+    body = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert body["ok"] is False
+    assert body["run_history_error"]
 
 
 def test_main_exits_two_when_the_check_cannot_complete(monkeypatch, capsys):

@@ -230,13 +230,12 @@ export async function createAuthSession(env: Env, session: SessionData): Promise
 export async function revokeAuthSession(env: Env, sid: string): Promise<boolean> {
   if (!env.DB || !sid) return false;
   try {
-    return await execute(
-      env.DB,
+    const result = await env.DB.prepare(
       `UPDATE ${AUTH_SESSION_TABLE}
        SET revoked_at = unixepoch()
        WHERE sid = ? AND revoked_at IS NULL`,
-      sid,
-    );
+    ).bind(sid).run();
+    return result.success === true;
   } catch {
     return false;
   }

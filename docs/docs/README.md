@@ -130,7 +130,8 @@ npm ci
 npm run build
 ```
 
-`npm run build` 就是 `ops/build.sh`：它会创建构建虚拟环境 `.venv-build`、
+`npm run build` 就是 `ops/build.sh`：它会在仓库外创建构建虚拟环境
+`/tmp/limooo-build-venv`、
 运行契约校验，并在渲染前导出 `DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib`，
 因此不需要任何手工准备。直接跑 `python3 src/build.py` 会跳过这三步 ——
 除非你自己导出那个 Homebrew cairo 路径，否则会以
@@ -156,7 +157,7 @@ npm run build
 `functions/_data/i18n.ts`、`functions/_data/runtime.ts` 与 `preview/`。
 不要手动编辑这些产物；应修改 `locales/*.json`、模板或静态源文件后重新构建。
 `src/static/tailwind.css` 是已入库的 Tailwind 预构建产物。
-`npm run build` 使用 `ops/build.sh`，它会创建 `.venv-build`
+`npm run build` 使用 `ops/build.sh`，它会创建 `/tmp/limooo-build-venv`
 并生成 `public/manifest.json`（构建产物哈希凭据）。
 
 只部署 Pages 产物时使用：
@@ -188,8 +189,8 @@ bash ops/deploy.sh --all
 已提供自动化测试入口：
 
 ```bash
-# Python tests (the build virtualenv is created by ops/build.sh)
-.venv-build/bin/python -m pytest
+# Python 测试
+python3 -m pytest
 
 # Pages Functions, Workers and image-watermark tests
 npm test

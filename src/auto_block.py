@@ -139,7 +139,7 @@ def read_blocklist(path: str) -> list[str]:
 def _ensure_ca_bundle() -> None:
     """Ensure a CA certificate is available for HTTPS (2026-10-11).
 
-    The repository's build venv (python.org Python 3.14 in `.venv-build`) has no CA
+    The local Python 3.14 build environment has no CA
     certificate. `ssl.get_default_verify_paths()` returns `None` for `cafile`, and its
     expected `/Library/Frameworks/Python.framework/Versions/3.14/etc/openssl/cert.pem`
     does not exist. All HTTPS calls then fail with `CERTIFICATE_VERIFY_FAILED`, so this

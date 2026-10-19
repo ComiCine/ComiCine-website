@@ -143,13 +143,31 @@ describe("auth_sessions revoke table", () => {
       .rejects.toBeInstanceOf(AuthSessionUnavailableError);
   });
 
-  it("creates and revokes sessions", async () => {
+  it("creates sessions and treats an already-revoked row as a successful revoke", async () => {
     expect(await createAuthSession(env, sessionData())).toBe(true);
     expect(vi.mocked(execute).mock.calls[0][1]).toContain("INSERT INTO auth_sessions");
 
     vi.mocked(execute).mockClear();
-    expect(await revokeAuthSession(env, "sid-1")).toBe(true);
-    expect(vi.mocked(execute).mock.calls[0][1]).toContain("SET revoked_at = unixepoch()");
+    const run = vi.fn().mockResolvedValue({ success: true, meta: { changes: 0 } });
+    const bind = vi.fn().mockReturnValue({ run });
+    const prepare = vi.fn().mockReturnValue({ bind });
+    const revokeEnv = { ...env, DB: { prepare } } as unknown as Env;
+
+    expect(await revokeAuthSession(revokeEnv, "sid-1")).toBe(true);
+    expect(prepare.mock.calls[0][0]).toContain("SET revoked_at = unixepoch()");
+    expect(bind).toHaveBeenCalledWith("sid-1");
+    expect(vi.mocked(execute).mock.calls).toHaveLength(0);
+  });
+
+  it("reports a failed D1 revocation as unavailable", async () => {
+    const run = vi.fn().mockResolvedValue({ success: false });
+    const bind = vi.fn().mockReturnValue({ run });
+    const revokeEnv = {
+      ...env,
+      DB: { prepare: vi.fn().mockReturnValue({ bind }) },
+    } as unknown as Env;
+
+    expect(await revokeAuthSession(revokeEnv, "sid-1")).toBe(false);
   });
 });
 
