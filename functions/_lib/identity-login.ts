@@ -25,7 +25,7 @@ import { isIdentitySite, safeIdentityTarget } from "./identity";
 import { logEvent } from "./logging";
 import { clearLegacySharedSessionCookie, randomToken } from "./session";
 
-const IDENTITY_STATE_COOKIE = "limooo_identity_state";
+const IDENTITY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
 const IDENTITY_STATE_MAX_AGE_SECONDS = 600;
 
 export interface IdentityLoginStart {
@@ -63,7 +63,7 @@ export async function buildIdentityLoginStart(
     message: "identity_start",
   });
 
-  const stateCookie = `${IDENTITY_STATE_COOKIE}=${state}; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=${IDENTITY_STATE_MAX_AGE_SECONDS}`;
+  const stateCookie = `${IDENTITY_STATE_COOKIE_PREFIX}${state}=${state}; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=${IDENTITY_STATE_MAX_AGE_SECONDS}`;
   return {
     identityUrl: identityLogin.toString(),
     cookies: [stateCookie, clearLegacySharedSessionCookie()],

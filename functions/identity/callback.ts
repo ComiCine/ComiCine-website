@@ -36,22 +36,34 @@ import type { Env } from "../_lib/env";
 import { getCookie } from "../_lib/routing";
 import { logEvent } from "../_lib/logging";
 
-const IDENTITY_STATE_COOKIE = "limooo_identity_state";
+const IDENTITY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
+const LEGACY_IDENTITY_STATE_COOKIE = "limooo_identity_state";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-function clearStateCookie(): string {
-  return `${IDENTITY_STATE_COOKIE}=; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+function clearStateCookie(name: string): string {
+  return `${name}=; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
-function response(status: number, body: string): Response {
+function withClearedStateCookie(response: Response, name: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Set-Cookie", clearStateCookie(name));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function response(status: number, body: string, clearCookieName?: string): Response {
+  const headers = new Headers({
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+  });
+  if (clearCookieName) headers.set("Set-Cookie", clearStateCookie(clearCookieName));
   return new Response(`${body}\n`, {
     status,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-      "Set-Cookie": clearStateCookie(),
-    },
+    headers,
   });
 }
 
@@ -70,14 +82,28 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     targets.length !== 1 ||
     [...url.searchParams.keys()].length !== 3 ||
     !TOKEN_PATTERN.test(codes[0]) ||
-    !TOKEN_PATTERN.test(states[0]) ||
-    !timingSafeEqual(states[0], getCookie(IDENTITY_STATE_COOKIE, request.headers.get("Cookie")) ?? "")
+    !TOKEN_PATTERN.test(states[0])
   ) return response(401, "Invalid identity callback");
 
+  const stateCookieName = `${IDENTITY_STATE_COOKIE_PREFIX}${states[0]}`;
+  const cookieHeader = request.headers.get("Cookie");
+  const stateCookie = getCookie(stateCookieName, cookieHeader);
+  const legacyStateCookie = getCookie(LEGACY_IDENTITY_STATE_COOKIE, cookieHeader);
+  const matchingCookieName = stateCookie && timingSafeEqual(states[0], stateCookie)
+    ? stateCookieName
+    : legacyStateCookie && timingSafeEqual(states[0], legacyStateCookie)
+      ? LEGACY_IDENTITY_STATE_COOKIE
+      : null;
+  if (!matchingCookieName) return response(401, "Invalid identity callback");
+
+  const callbackResponse = (status: number, body: string) =>
+    response(status, body, matchingCookieName);
   const targetPath = safeIdentityTarget(targets[0]);
-  if (targetPath === null) return response(400, "Invalid return path");
+  if (targetPath === null) return callbackResponse(400, "Invalid return path");
   const configError = runtimeConfigError(env);
-  if (configError) return configErrorResponse(configError);
+  if (configError) {
+    return withClearedStateCookie(configErrorResponse(configError), matchingCookieName);
+  }
 
   let exchange: Response;
   try {
@@ -87,10 +113,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       body: JSON.stringify({ code: codes[0], sourceHost, state: states[0] }),
     });
   } catch {
-    return response(503, "Identity service unavailable");
+    return callbackResponse(503, "Identity service unavailable");
   }
   if (!exchange.ok) {
-    return response(exchange.status >= 500 ? 503 : 401, "Identity handoff rejected");
+    return callbackResponse(exchange.status >= 500 ? 503 : 401, "Identity handoff rejected");
   }
 
   let handoff: {
@@ -103,7 +129,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     handoff = await exchange.json() as typeof handoff;
   } catch {
-    return response(503, "Invalid identity response");
+    return callbackResponse(503, "Invalid identity response");
   }
   if (
     handoff.sourceHost !== sourceHost ||
@@ -111,7 +137,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     typeof handoff.sub !== "string" || !handoff.sub || handoff.sub.length > 512 ||
     typeof handoff.email !== "string" || !handoff.email || handoff.email.length > 254 ||
     typeof handoff.authAt !== "number" || !Number.isSafeInteger(handoff.authAt) || handoff.authAt < 0
-  ) return response(401, "Invalid identity response");
+  ) return callbackResponse(401, "Invalid identity response");
 
   const session = {
     sid: randomToken(24),
@@ -126,7 +152,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       status: 503,
       message: "auth_sessions_unavailable",
     });
-    return configErrorResponse("auth_sessions_unavailable");
+    return withClearedStateCookie(
+      configErrorResponse("auth_sessions_unavailable"),
+      matchingCookieName,
+    );
   }
 
   await logEvent(env, "login_attempt", request, {
@@ -139,7 +168,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     Location: new URL(targetPath, url.origin).toString(),
     "Cache-Control": "no-store",
     "Referrer-Policy": "no-referrer",
-    "Set-Cookie": clearStateCookie(),
+    "Set-Cookie": clearStateCookie(matchingCookieName),
   });
   headers.append("Set-Cookie", await createSessionCookie(env, session));
   return new Response(null, { status: 302, headers });

@@ -101,11 +101,25 @@ describe("GET /login", () => {
     expect(callback.origin).toBe("https://account.limooo.cn");
     expect(callback.pathname).toBe("/identity/callback");
     expect(callback.searchParams.get("next")).toBe("/apple");
-    expect(callback.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const state = callback.searchParams.get("state");
+    expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(resp.headers.get("Set-Cookie")).toContain(`limooo_identity_state_${state}=${state};`);
     expect(resp.headers.get("Set-Cookie")).toContain("Path=/identity/callback");
     expect(resp.headers.get("Set-Cookie")).toContain("HttpOnly");
     expect(resp.headers.get("Set-Cookie")).toContain("Secure");
     expect(vi.mocked(verifyAccessJwt)).not.toHaveBeenCalled();
+
+    const secondResponse = await onRequestGet(
+      context(new Request("https://account.limooo.cn/login?next=%2Fapple"), CONFIG as Env) as never,
+    );
+    const secondDestination = new URL(secondResponse.headers.get("Location") ?? "");
+    const secondCallback = new URL(secondDestination.searchParams.get("next") ?? "");
+    const secondState = secondCallback.searchParams.get("state");
+
+    expect(secondState).not.toBe(state);
+    expect(secondResponse.headers.get("Set-Cookie")).toContain(
+      `limooo_identity_state_${secondState}=${secondState};`,
+    );
   });
 
   it("rejects unregistered hosts and off-site return URLs", async () => {
