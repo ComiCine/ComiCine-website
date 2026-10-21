@@ -16,6 +16,7 @@ description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버�
 - 최초 로드 후 방문자 상태 칩은 새 `/api/visitors` 요청 없이 로컬에서 필터링합니다. 딥 링크를 위해 API는 여전히 `?status=<3-digit>`을 받습니다.
 - **Apple Account 관리자**(`account.limooo.cn/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
 - **인증 및 역할**: 하나의 `Limooo-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. identity 호스트의 Pages Function은 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
+- **공유 로그인 이동**: 인증되지 않은 브라우저 페이지 요청은 HTTP 401 HTML을 반환하고, 같은 출처의 외부 스크립트가 `identity.limooo.cn/login`으로 이동합니다. 이후 Cloudflare Access가 브라우저를 `limooo.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다.
 - **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
 - **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
 - **자동 IP 차단**:
@@ -293,7 +294,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   발급하는 대신 503을 응답합니다.
 - `__gate` 쿠키는 `<unix-expiry>.<HMAC-SHA256 hex>`(TTL 1시간, `HttpOnly`,
   `Domain=.limooo.cn`)이며 전적으로 엣지에서 발급하고 검증합니다.
-- 신원은 `identity.limooo.cn/login`만 보호하는 단일 `Limooo-Identity` 앱에서 옵니다. 브라우저는 `limooo.cloudflareaccess.com`을 통해 로그인합니다. identity 호스트의 Pages Function이 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
+- 인증되지 않은 브라우저가 보호 페이지를 열면 원본 사이트가 짧은 state 쿠키를 설정한 HTTP 401 HTML을 반환합니다. 같은 출처의 외부 스크립트가 `identity.limooo.cn/login`으로 이동하고, Cloudflare Access가 브라우저를 `limooo.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다. identity 호스트의 Pages Function이 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
 - 키와 암호문은 분리해 보관하며 저장소에 절대 커밋하지 않습니다
 - 차단 계층: 애플리케이션 계층의 D1 차단 목록이 엣지에서 403을 반환하고,
   `ops/sync-worker`가 활성 행을 Cloudflare IP List `limooo_blocklist`에 맞춰 둡니다

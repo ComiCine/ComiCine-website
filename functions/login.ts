@@ -26,7 +26,6 @@ import {
 } from "./_lib/access";
 import {
   configErrorResponse,
-  clearLegacySharedSessionCookie,
   randomToken,
   runtimeConfigError,
 } from "./_lib/session";
@@ -38,10 +37,8 @@ import {
 } from "./_lib/identity";
 import type { Env } from "./_lib/env";
 import { IDENTITY_HOSTNAME } from "./_lib/config";
+import { buildIdentityLoginStart } from "./_lib/identity-login";
 import { logEvent } from "./_lib/logging";
-
-const IDENTITY_STATE_COOKIE = "limooo_identity_state";
-const IDENTITY_STATE_MAX_AGE_SECONDS = 600;
 
 function noStoreRedirect(target: string, cookies: string[] = []): Response {
   const headers = new Headers({
@@ -86,26 +83,9 @@ async function startIdentityLogin(env: Env, request: Request, url: URL): Promise
   if (!isIdentitySite(url.hostname)) return errorResponse(404, "Not Found");
   const targetPath = sourceTargetPath(url.searchParams.get("next"), url);
   if (targetPath === null) return errorResponse(400, "Invalid return path");
-
-  const state = randomToken(32);
-  const callback = new URL("/identity/callback", url.origin);
-  callback.searchParams.set("state", state);
-  callback.searchParams.set("next", targetPath);
-
-  const identityLogin = new URL("/login", `https://${IDENTITY_HOSTNAME}`);
-  identityLogin.searchParams.set("next", callback.toString());
-
-  await logEvent(env, "login_attempt", request, {
-    outcome: "pending",
-    status: 302,
-    message: "identity_start",
-  });
-
-  const stateCookie = `${IDENTITY_STATE_COOKIE}=${state}; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=${IDENTITY_STATE_MAX_AGE_SECONDS}`;
-  return noStoreRedirect(identityLogin.toString(), [
-    stateCookie,
-    clearLegacySharedSessionCookie(),
-  ]);
+  const start = await buildIdentityLoginStart(env, request, url, targetPath);
+  if (!start) return errorResponse(400, "Invalid return path");
+  return noStoreRedirect(start.identityUrl, start.cookies);
 }
 
 async function completeIdentityLogin(env: Env, request: Request, url: URL): Promise<Response> {

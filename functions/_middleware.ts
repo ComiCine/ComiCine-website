@@ -26,6 +26,7 @@
  */
 
 import { logEvent } from "./_lib/logging";
+import { buildIdentityLoginStart } from "./_lib/identity-login";
 import { configErrorResponse, requireAuth, runtimeConfigError } from "./_lib/session";
 import { SECURITY_HEADERS } from "./_lib/security";
 import {
@@ -151,6 +152,34 @@ function isHtmlNavigation(request: Request): boolean {
       const [mediaType = ""] = value.trim().split(";", 1);
       return mediaType.toLowerCase() === "text/html";
     });
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function identityRequiredResponse(
+  request: Request,
+  identityUrl: string,
+  cookies: string[],
+): Response {
+  const target = escapeHtmlAttribute(identityUrl);
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Sign in required</title></head><body><p>Authentication required.</p><a href="${target}">Continue to sign in</a><script src="/static/js/auth-redirect.js?v=1" data-target="${target}" defer></script></body></html>`;
+  const headers = new Headers({
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+  });
+  for (const cookie of cookies) headers.append("Set-Cookie", cookie);
+  return new Response(request.method === "HEAD" ? null : body, {
+    status: 401,
+    headers,
+  });
 }
 
 /** Non-business logs must be written after the response so they do not block pages or redirects. */
@@ -340,6 +369,7 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
   const isApi = (url ?? requestUrl(request)).pathname.startsWith("/api/");
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     if (isApi && name !== "X-Content-Type-Options") continue;
+    if (name === "Referrer-Policy" && headers.get(name) === "no-referrer") continue;
     headers.set(name, value);
   }
   return new Response(resp.body, {
@@ -350,9 +380,8 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
 }
 
 /**
- * Send unauthenticated users on registered sites to their local /login route.
- * That route starts a short-lived handoff through the shared identity host,
- * which is the only hostname protected by the Cloudflare Access application.
+ * Send unauthenticated browser page navigations to the shared identity host
+ * through a 401 document; non-navigation requests retain the local /login route.
  */
 async function adminAuthRedirect(
   env: RequestContext["env"],
@@ -365,6 +394,16 @@ async function adminAuthRedirect(
     if (await requireAuth(env, request)) return null;
     const current = url ?? requestUrl(request);
     const next = `${current.pathname}${current.search}`;
+    if (isHtmlNavigation(request)) {
+      const start = await buildIdentityLoginStart(env, request, current, next, 401);
+      if (!start) {
+        return new Response("Invalid identity return path\n", {
+          status: 400,
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+        });
+      }
+      return identityRequiredResponse(request, start.identityUrl, start.cookies);
+    }
     return new Response(null, {
       status: 302,
       headers: {
