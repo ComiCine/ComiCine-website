@@ -79,7 +79,7 @@
     transition: border-color 200ms var(--ease-out), background-color 200ms var(--ease-out);
   }
   @media (hover: hover) and (pointer: fine) {
-    .appearance-switch:hover { border-color: var(--accent); }
+    .appearance-switch:hover .appearance-icon svg { color: var(--accent); }
   }
   .appearance-check {
     position: absolute; top: 1px; left: 1px;

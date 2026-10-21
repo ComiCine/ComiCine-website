@@ -185,5 +185,6 @@
   "currency_no_results": "검색 결과가 없습니다.",
   "currency_api_unavailable": "참고 환율을 사용할 수 없습니다. 가격은 CNY로 표시됩니다.",
   "currency_rate_date": "참고 환율 기준일: {date}. 금액은 참고용입니다.",
-  "currency_rate_unavailable": "이 통화의 CNY 참고 환율이 없습니다."
+  "currency_rate_unavailable": "이 통화의 CNY 참고 환율이 없습니다.",
+  "currency_reference_label": "약 {code} {amount}, 참고 환율 기준일 {date}."
 }
