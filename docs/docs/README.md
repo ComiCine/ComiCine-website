@@ -16,6 +16,7 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
 - **认证与角色**：单一 `Limooo-Identity` Access 应用保护 `identity.limooo.cn/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
+- **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.limooo.cn/login`；Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
@@ -290,7 +291,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<unix-expiry>.<HMAC-SHA256 hex>`（1 小时 TTL，
   `HttpOnly`，`Domain=.limooo.cn`），完全在边缘签发与校验。
-- 身份由 `identity.limooo.cn/login` 上唯一的 `Limooo-Identity` 应用提供，并经由 `limooo.cloudflareaccess.com` 登录。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
+- 未登录浏览器访问受保护页面时，来源站点先返回 HTTP 401 HTML，并设置短时 state cookie；同源外置脚本再跳转到 `identity.limooo.cn/login`，Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
   Cloudflare IP List `limooo_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）

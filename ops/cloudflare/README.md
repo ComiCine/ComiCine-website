@@ -160,6 +160,10 @@ and Pages custom domain. The host must use the shared Pages Functions bundle, D1
 database, and Secrets so its callback can create a host-only session. Other root domains
 or separate Pages projects need additional callback, session, and contract support.
 Adding a supported host does not require another Access application.
+An unauthenticated browser navigation to a protected page receives HTTP 401 HTML,
+sets the host-bound state cookie, and loads a same-origin external script that
+navigates to the shared identity URL. Cloudflare Access then redirects the browser
+through its team-domain login. API authentication failures remain JSON 401 responses.
 Manage the Access application and its policy in Cloudflare Zero Trust → Access controls →
 Applications. Source-host role mappings stay in `site/config-contract.json`; there is no
 Limooo-hosted administration page for this identity flow.
