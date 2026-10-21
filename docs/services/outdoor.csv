@@ -1,5 +1,5 @@
 type,people,price,bookable
 studio,solo,100,no
 studio,duo,150,no
-outdoor,solo,120,yes
-outdoor,duo,180,yes
+outdoor,solo,120,no
+outdoor,duo,180,no
