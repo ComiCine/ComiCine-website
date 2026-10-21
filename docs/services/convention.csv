@@ -1,5 +1,5 @@
 shots,price,bookable
-1,20,yes
-3,55,yes
-6,100,yes
-9,150,yes
+1,20,no
+3,55,no
+6,100,no
+9,150,no
