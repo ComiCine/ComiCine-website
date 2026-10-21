@@ -6,7 +6,7 @@
 .services-main { min-height: 100vh; }
 .service-card {
     position: relative;
-    border: 1px solid var(--line);
+    border: 1px solid transparent;
     background: var(--panel-bg);
     border-radius: var(--radius-lg);
     transition: transform 250ms var(--ease-out), border-color 250ms var(--ease-out);
@@ -20,8 +20,9 @@
 }
 @media (hover: hover) and (pointer: fine) {
     .service-card:hover::before { opacity: 1; }
-    .service-card:hover { transform: translateY(-2px); border-color: var(--hover-highlight); }
+    .service-card:hover { transform: translateY(-2px); }
 }
+.service-card:focus:not(:focus-visible) { outline: none; }
 .service-card:active { transform: scale(0.97); }
 
 /* Card prompt to view details. */
@@ -103,7 +104,7 @@
 }
 .modal-close:active { transform: scale(0.9); }
 @media (hover: hover) and (pointer: fine) {
-    .modal-close:hover { background: var(--hover-highlight-soft); border-color: var(--hover-highlight-border); color: var(--hover-highlight); }
+    .modal-close:hover { background: var(--hover-highlight-soft); color: var(--hover-highlight); }
 }
 .modal-title { font-size: 22px; font-weight: 600; letter-spacing: calc(0.25em*var(--ls-scale)); }
 
@@ -158,29 +159,30 @@
 }
 .currency-prompt:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {
-    .currency-prompt:hover { transform: translateY(-2px); border-color: var(--hover-highlight); color: var(--hover-highlight); background: var(--hover-highlight-soft); }
+    .currency-prompt:hover { transform: translateY(-2px); color: var(--hover-highlight); background: var(--hover-highlight-soft); }
 }
 .currency-prompt:active { transform: scale(0.97); border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 .currency-prompt-row + .extras { margin-top: 12px; }
 .currency-reference {
     position: absolute;
-    left: 16px; right: 16px; top: 18px;
+    left: 0; right: 0; top: calc(25% - 8.5px);
     min-height: 24px;
     margin: 0;
+    transform: translateY(-50%);
     color: var(--text-secondary);
     font-size: 10px; font-weight: 500; line-height: 1.25;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
+    text-align: center;
 }
 .currency-reference:empty { visibility: hidden; }
-.plan:has(.plan-tag) .currency-reference { top: 43px; }
 /* Reduce price size in the mobile two-column layout to avoid overlap with the unit. */
 @media (max-width: 639px) {
     .plan { padding-bottom: 45px; }
     .plan-price { font-size: 24px; height: 50px; }
     .plan-price .plan-unit { margin-left: 4px; }
     .currency-reference { font-size: 9px; min-height: 23px; }
-    .plan:has(.plan-tag) .currency-reference { top: 43px; }
+    .currency-reference { top: calc(25% - 6px); }
 }
 /* For unavailable tiers, strike through the price with 2px extensions; leave the unit unstruck. */
 .plan-price.strikethrough { opacity: 0.35; }
@@ -220,7 +222,7 @@
     transition: opacity 250ms var(--ease-out), border-color 250ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-    .cta-link:hover { opacity: 1; border-color: var(--hover-highlight); color: var(--hover-highlight); }
+    .cta-link:hover { opacity: 1; color: var(--hover-highlight); }
 }
 
 /* Keep service item text on one line. */
@@ -245,13 +247,13 @@ h1, h3 { font-weight: 600 !important; }
 .currency-picker-close { width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; }
 .currency-picker-close:focus-visible, .currency-option:focus-visible, .currency-search:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) {
-    .currency-picker-close:hover, .currency-option:not(:disabled):hover { color: var(--hover-highlight); border-color: var(--hover-highlight-border); background: var(--hover-highlight-soft); }
+    .currency-picker-close:hover, .currency-option:not(:disabled):hover { color: var(--hover-highlight); background: var(--hover-highlight-soft); }
 }
 .currency-search-label { margin: 16px 0 6px; font-size: 11px; opacity: 0.65; }
 .currency-search { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
 .currency-picker-status { margin: 10px 0 7px; min-height: 1.25em; font-size: 11px; line-height: 1.4; opacity: 0.62; }
-.currency-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.currency-option { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.currency-options { min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.currency-option { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .currency-option[aria-selected="true"] { background: var(--accent-soft); }
 .currency-option:active { background: var(--highlight); }
 .currency-option:disabled { opacity: 0.42; cursor: not-allowed; }
