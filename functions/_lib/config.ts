@@ -111,8 +111,6 @@ export const CONTRACT = {
       "/visitor": "visitor.html"
     },
     "account.limooo.cn": {
-      "/": "apple-account.html",
-      "/index.html": "apple-account.html",
       "/apple": "apple-account.html"
     },
     "identity.limooo.cn": {},

@@ -18,7 +18,7 @@
 }
 .copyable:hover .bubble-tip {
     opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
-    color: var(--hover-highlight); border-color: var(--hover-highlight-border);
+    color: var(--hover-highlight);
 }
 
 /* Bottom hover line styled like a link underline. */

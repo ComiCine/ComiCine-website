@@ -183,11 +183,11 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 @media(hover:hover) and (pointer:fine){.lang-btn:hover{color:var(--accent)}}
 .lang-btn .lang-icon{width:16px;height:16px}
 .lang-btn .lang-chevron{width:14px;height:14px;margin-left:4px;opacity:.6}
-.appearance-switch{position:relative;border-radius:11px;display:block;width:40px;height:22px;flex-shrink:0;border:1px solid var(--line);background:var(--highlight);cursor:pointer;padding:0;transition:border-color 200ms var(--ease-out),background-color 200ms var(--ease-out)}
-@media(hover:hover) and (pointer:fine){.appearance-switch:hover{border-color:var(--accent)}}
+.appearance-switch{position:relative;border-radius:11px;display:block;width:40px;height:22px;flex-shrink:0;border:1px solid var(--line);background:var(--highlight);cursor:pointer;padding:0;transition:background-color 200ms var(--ease-out)}
+@media(hover:hover) and (pointer:fine){.appearance-switch:hover .appearance-icon svg{color:var(--accent)}}
 .appearance-check{position:absolute;top:1px;left:1px;width:18px;height:18px;border-radius:50%;background:var(--bg);box-shadow:var(--switch-shadow);transform:translateX(18px);transition:transform 250ms var(--ease-out)}
 .appearance-icon{position:relative;display:block;width:18px;height:18px;border-radius:50%;overflow:hidden}
-.appearance-icon svg{position:absolute;top:3px;left:3px;width:12px;height:12px;color:var(--switch-icon);transition:opacity 250ms var(--ease-out)}
+.appearance-icon svg{position:absolute;top:3px;left:3px;width:12px;height:12px;color:var(--switch-icon);transition:opacity 250ms var(--ease-out),color 200ms var(--ease-out)}
 .appearance-icon .sun{opacity:0}
 .appearance-icon .moon{opacity:1}
 .light-mode .appearance-icon .sun{opacity:1}
@@ -252,7 +252,7 @@ section{margin-top:32px}
 .err-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .btn{display:inline-flex;align-items:center;height:38px;padding:0 18px;border-radius:var(--radius-full);border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:14px;font-weight:600;transition:border-color 200ms var(--ease-out),color 200ms var(--ease-out)}
 .btn.primary{border-color:var(--accent);color:var(--accent)}
-@media(hover:hover) and (pointer:fine){.btn:hover{border-color:var(--hover-highlight);color:var(--hover-highlight);background:var(--hover-highlight-soft)}}`;
+@media(hover:hover) and (pointer:fine){.btn:hover{color:var(--hover-highlight);background:var(--hover-highlight-soft)}}`;
 
 /**
  * Theme preload script: **must run synchronously before the first render**, or light-theme users

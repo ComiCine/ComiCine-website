@@ -185,5 +185,6 @@
   "currency_no_results": "一致する通貨がありません。",
   "currency_api_unavailable": "参考為替レートを利用できません。価格は CNY で表示されます。",
   "currency_rate_date": "参考レートの日付：{date}。金額は目安です。",
-  "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。"
+  "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。",
+  "currency_reference_label": "約 {code} {amount}、参考レート日 {date}。"
 }
