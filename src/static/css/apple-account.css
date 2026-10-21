@@ -25,7 +25,9 @@
             cursor:grab;transition:border-color 0.2s,opacity 0.2s;
         }
         .account-card:active { cursor:grabbing; }
-        .account-card:hover { border-color:var(--hover-highlight); }
+        .account-card:hover .account-email,
+        .account-card:hover .drag-handle { color:var(--hover-highlight); }
+        .account-card:hover .drag-handle { opacity:0.7; }
         .account-card.dragging { opacity:0.4; }
         .account-card.drag-over { border-color:var(--accent); }
         .drag-handle { opacity:0.2;cursor:grab;flex-shrink:0;display:flex;padding:4px; }
@@ -46,7 +48,7 @@
         .btn-primary { background:var(--accent);color:var(--text-inverse); }
         .btn-primary:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-outline { background:transparent;border:1px solid var(--line);color:var(--text); }
-        .btn-outline:hover { background:var(--hover-highlight-soft);border-color:var(--hover-highlight);color:var(--hover-highlight); }
+        .btn-outline:hover { background:var(--hover-highlight-soft);color:var(--hover-highlight); }
         .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
         .btn-danger:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-sm { padding:4px 12px;font-size:11px; }

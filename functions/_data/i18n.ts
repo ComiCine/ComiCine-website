@@ -206,7 +206,8 @@ export const translations: Record<string, Record<string, string>> = {
     "currency_no_results": "没有符合搜索条件的货币。",
     "currency_api_unavailable": "参考汇率暂不可用，价格仍以 CNY 显示。",
     "currency_rate_date": "参考汇率日期：{date}。金额仅供参考。",
-    "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。"
+    "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。",
+    "currency_reference_label": "约 {code} {amount}，参考汇率日期 {date}。"
   },
   "en-us": {
     "redirect_title": "Redirecting…",
@@ -241,8 +242,8 @@ export const translations: Record<string, Record<string, string>> = {
     "nav_services": "Services",
     "nav_contact": "Contact",
     "nav_admin": "Status",
-    "nav_visitor": "Visitor Management",
-    "nav_apple_account": "Apple Account Management",
+    "nav_visitor": "Visitor",
+    "nav_apple_account": "Apple Account",
     "footer_rights": "All rights reserved",
     "footer_source": "AGPL-3.0",
     "footer_source_link": "Source",
@@ -380,8 +381,8 @@ export const translations: Record<string, Record<string, string>> = {
     "meta_description_contact": "Contact Limooo Studio by questionnaire, QQ, WeChat, or email about bookings and collaborations.",
     "meta_description_images": "Browse Limooo Studio’s photography portfolio, watermarked samples, QR codes, and icons.",
     "meta_title_images": "Portfolio",
-    "page_title_apple_account": "Apple Account Management",
-    "page_title_visitor": "Visitor Management",
+    "page_title_apple_account": "Apple Account",
+    "page_title_visitor": "Visitor",
     "time_just_now": "just now",
     "time_minutes_ago": "{n} min ago",
     "time_hours_ago": "{n} h ago",
@@ -395,7 +396,8 @@ export const translations: Record<string, Record<string, string>> = {
     "currency_no_results": "No currencies match your search.",
     "currency_api_unavailable": "Reference rates are unavailable. Prices remain in CNY.",
     "currency_rate_date": "Reference rates dated {date}. Rates are indicative only.",
-    "currency_rate_unavailable": "No CNY reference rate is available for this currency."
+    "currency_rate_unavailable": "No CNY reference rate is available for this currency.",
+    "currency_reference_label": "Approximately {code} {amount}, reference rate date {date}."
   },
   "ja-jp": {
     "redirect_title": "リダイレクト中…",
@@ -584,7 +586,8 @@ export const translations: Record<string, Record<string, string>> = {
     "currency_no_results": "一致する通貨がありません。",
     "currency_api_unavailable": "参考為替レートを利用できません。価格は CNY で表示されます。",
     "currency_rate_date": "参考レートの日付：{date}。金額は目安です。",
-    "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。"
+    "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。",
+    "currency_reference_label": "約 {code} {amount}、参考レート日 {date}。"
   },
   "ko-kr": {
     "redirect_title": "리디렉션 중…",
@@ -773,6 +776,7 @@ export const translations: Record<string, Record<string, string>> = {
     "currency_no_results": "검색 결과가 없습니다.",
     "currency_api_unavailable": "참고 환율을 사용할 수 없습니다. 가격은 CNY로 표시됩니다.",
     "currency_rate_date": "참고 환율 기준일: {date}. 금액은 참고용입니다.",
-    "currency_rate_unavailable": "이 통화의 CNY 참고 환율이 없습니다."
+    "currency_rate_unavailable": "이 통화의 CNY 참고 환율이 없습니다.",
+    "currency_reference_label": "약 {code} {amount}, 참고 환율 기준일 {date}."
   }
 };

@@ -243,6 +243,14 @@ type LegacyHtmlResolution =
   | { kind: "redirect"; target: string }
   | { kind: "not_found" };
 
+const FEISHU_STUDIO_BASE_URL = "https://limooo-studio.feishu.cn";
+
+function resolveFeishuPathAlias(pathname: string): string | null {
+  const match = pathname.match(/^\/(?:feishu|lark)(\/.*)?$/);
+  if (!match) return null;
+  return `${FEISHU_STUDIO_BASE_URL}${match[1] || "/"}`;
+}
+
 function resolveLegacyHtmlAlias(
   hostname: string,
   pathname: string,
@@ -619,6 +627,29 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
+  if (hostname === ROOT_DOMAIN) {
+    const feishuTarget = resolveFeishuPathAlias(pathname);
+    if (feishuTarget) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `${feishuTarget}${url.search}`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
+
+  if (hostname !== ROOT_DOMAIN && hostname.endsWith(`.${ROOT_DOMAIN}`) && pathname === "/index.html") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${url.origin}/${url.search}`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
   const legacyHtmlAlias = resolveLegacyHtmlAlias(hostname, pathname);
   if (legacyHtmlAlias?.kind === "not_found") {
     return brandedNotFoundResponse(context, new Response("Not Found", {
@@ -700,6 +731,19 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     }
 
     const lang = detectLang(request);
+    if (
+      hostname === APPLE_ACCOUNT_HOSTNAME &&
+      (pathname === "/" || pathname === "/index.html")
+    ) {
+      return brandedNotFoundResponse(
+        context,
+        new Response("Not Found", {
+          status: 404,
+          headers: { "Cache-Control": "no-store" },
+        }),
+      );
+    }
+
     const asset = pageAsset(hostname, pathname, lang);
     if (asset) {
       const authRedirect = await adminAuthRedirect(env, request, hostname, url);

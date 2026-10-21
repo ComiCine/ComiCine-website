@@ -185,5 +185,6 @@
   "currency_no_results": "没有符合搜索条件的货币。",
   "currency_api_unavailable": "参考汇率暂不可用，价格仍以 CNY 显示。",
   "currency_rate_date": "参考汇率日期：{date}。金额仅供参考。",
-  "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。"
+  "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。",
+  "currency_reference_label": "约 {code} {amount}，参考汇率日期 {date}。"
 }

@@ -12,6 +12,6 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
     a {
         display: block; padding: 10px 14px; background: var(--panel-bg); border: 1px solid var(--line);
         border-radius: 8px; color: var(--text); text-decoration: none; font-size: 13px;
-        transition: border-color 160ms ease, color 160ms ease;
+        transition: color 160ms ease, background-color 160ms ease;
     }
-    a:hover { border-color: var(--hover-highlight); color: var(--hover-highlight); background: var(--hover-highlight-soft); }
+    a:hover { color: var(--hover-highlight); background: var(--hover-highlight-soft); }

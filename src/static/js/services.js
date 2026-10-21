@@ -139,9 +139,11 @@ setTimeout(function() {
     var REGIONS_BY_CURRENCY = Object.create(null);
     var regionNames = null;
     var currencyNames = null;
+    var englishCurrencyNames = null;
     if (typeof Intl.DisplayNames === 'function') {
         try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (_) {}
-        try { currencyNames = new Intl.DisplayNames(['en'], { type: 'currency' }); } catch (_) {}
+        try { currencyNames = new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'currency' }); } catch (_) {}
+        try { englishCurrencyNames = new Intl.DisplayNames(['en'], { type: 'currency' }); } catch (_) {}
     }
 
     var picker = document.getElementById('currency-picker');
@@ -229,11 +231,16 @@ setTimeout(function() {
         var metadata = currencyMetadataCache[code];
         if (!metadata) {
             var name = '';
+            var englishName = '';
             if (currencyNames) {
                 try { name = currencyNames.of(code); } catch (_) {}
             }
-            if (!name || name === code) name = code;
-            metadata = { name: name };
+            if (englishCurrencyNames) {
+                try { englishName = englishCurrencyNames.of(code); } catch (_) {}
+            }
+            if (!englishName || englishName === code) englishName = code;
+            if (!name || name === code) name = englishName;
+            metadata = { name: name, englishName: englishName };
             currencyMetadataCache[code] = metadata;
         }
         if (includeSymbol && !Object.prototype.hasOwnProperty.call(metadata, 'symbol')) {
@@ -363,7 +370,7 @@ setTimeout(function() {
     function currencyMetadata(code, data, includeSymbol) {
         var apiMetadata = data && data.currencies[code];
         var fallback = localCurrencyMetadata(code, includeSymbol);
-        var name = apiMetadata && apiMetadata.name || fallback.name;
+        var name = fallback.name !== code ? fallback.name : apiMetadata && apiMetadata.name || fallback.name;
         var info = CURRENCY_META[code] || {};
         var regions = REGIONS_BY_CURRENCY[code] || [];
         var flag = info.flag || '';
@@ -372,7 +379,12 @@ setTimeout(function() {
                 return 0x1F1E6 + letter.charCodeAt(0) - 65;
             }));
         }
-        return { name: name, symbol: apiMetadata && apiMetadata.symbol || fallback.symbol || '', flag: flag };
+        return {
+            name: name,
+            englishName: fallback.englishName && fallback.englishName !== code ? fallback.englishName : apiMetadata && apiMetadata.name || name,
+            symbol: apiMetadata && apiMetadata.symbol || fallback.symbol || '',
+            flag: flag
+        };
     }
 
     function matchesSearch(haystack, query) {
@@ -384,7 +396,7 @@ setTimeout(function() {
     function makeOption(code, data) {
         var info = currencyMetadata(code, data);
         var row = document.createElement('button');
-        var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0) || (!data && !ratesFailed);
+        var available = code === 'CNY' || !!(data && Number.isFinite(data.rates[code]) && data.rates[code] > 0);
         row.type = 'button';
         row.className = 'currency-option';
         row.setAttribute('role', 'option');
@@ -455,8 +467,8 @@ setTimeout(function() {
                 var metadata = currencyMetadata(code, data, includeSymbols);
                 var info = CURRENCY_META[code] || {};
                 var countryAliases = COUNTRY_ALIASES_BY_CURRENCY[code] || [];
-                var haystack = normalize([code, metadata.name, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
-                var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.name));
+                var haystack = normalize([code, metadata.name, metadata.englishName, metadata.symbol, (info.aliases || []).join(' '), countryAliases.join(' '), code === 'CNY' ? '¥ 元' : ''].join(' '));
+                var dollarSymbolMatch = query === '$' && (String(metadata.symbol || '').includes('$') || /\bdollars?\b/i.test(metadata.englishName));
                 if (query && !matchesSearch(haystack, query) && !dollarSymbolMatch) continue;
                 fragment.appendChild(makeOption(code, data));
                 matchCount += 1;
@@ -509,8 +521,8 @@ setTimeout(function() {
                         try {
                             var formatted = amountFormatter(selected).format(amount);
                             var rateDate = currencyData.rateDates && currencyData.rateDates[selected] || currencyData.date;
-                            text = '≈ ' + formatted + ' ' + selected;
-                            label = 'Approximately ' + formatted + ' ' + selected + ', reference rate date ' + rateDate;
+                            text = '≈ ' + selected + ' ' + formatted;
+                            label = translate('currency_reference_label', { code: selected, amount: formatted, date: rateDate });
                         } catch (_) {}
                     }
                 }

@@ -36,7 +36,7 @@
         .btn-primary { background:var(--accent);color:var(--text-inverse); }
         .btn-primary:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-outline { background:transparent;border:1px solid var(--line);color:var(--text); }
-        .btn-outline:hover { background:var(--hover-highlight-soft);border-color:var(--hover-highlight);color:var(--hover-highlight); }
+        .btn-outline:hover { background:var(--hover-highlight-soft);color:var(--hover-highlight); }
         .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
         .btn-danger:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
         .btn-sm { padding:4px 12px;font-size:11px; }
@@ -49,7 +49,7 @@
         .chip:active { transform: scale(0.94); }
         .chip.active { opacity: 1; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
         .chip .cnt { opacity: 0.45; font-size: 10px; margin-left: 4px; font-weight: 600; }
-        @media (hover: hover) and (pointer: fine) { .chip:hover { opacity: 1;color:var(--hover-highlight);border-color:var(--hover-highlight);background:var(--hover-highlight-soft); } }
+        @media (hover: hover) and (pointer: fine) { .chip:hover { opacity: 1;color:var(--hover-highlight);background:var(--hover-highlight-soft); } }
 
         /* List header. */
         .list-header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 12px 0; flex-shrink: 0; }
@@ -64,8 +64,8 @@
         }
         .panel-btn:active { transform: scale(0.95); }
         @media (hover: hover) and (pointer: fine) {
-            .panel-btn:hover { opacity: 1; border-color: var(--hover-highlight); color:var(--hover-highlight); }
-            .panel-btn.danger:hover { border-color: var(--hover-highlight); color: var(--hover-highlight); background:var(--hover-highlight-soft); }
+            .panel-btn:hover { opacity: 1; color:var(--hover-highlight); }
+            .panel-btn.danger:hover { color: var(--hover-highlight); background:var(--hover-highlight-soft); }
         }
 
         /* IP list. */
