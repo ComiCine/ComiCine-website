@@ -225,7 +225,8 @@ REVEAL_MAX_AUTH_AGE = _contract_int("reveal_max_auth_age_seconds")
 WHITELIST_FILE = _contract_str("whitelist_file")
 
 # Apple Account
-APPLE_ACCOUNT_DOMAIN = f"@{APPLE_ACCOUNT_HOST}"
+APPLE_ACCOUNT_EMAIL_DOMAIN = _contract_str("apple_account_email_domain")
+APPLE_ACCOUNT_DOMAIN = f"@{APPLE_ACCOUNT_EMAIL_DOMAIN}"
 APPLE_ACCOUNT_KEY_ETC = "/etc/limooo/apple_account_encryption.key"
 APPLE_ACCOUNT_KEY_FILE = os.path.join(SECRET_DIR, "apple_account_encryption.key")
 
