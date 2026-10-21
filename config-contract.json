@@ -103,6 +103,7 @@
     }
   },
   "identity_host": "identity.limooo.cn",
+  "apple_account_email_domain": "apple.account.limooo.cn",
   "identity_sites": {
     "visitor.limooo.cn": "admin",
     "account.limooo.cn": "admin"

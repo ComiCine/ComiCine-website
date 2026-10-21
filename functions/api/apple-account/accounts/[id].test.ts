@@ -212,7 +212,7 @@ describe("apple-account account id API", () => {
       const resp = await onRequestPut(context(request("PUT", updateBody)) as never);
       expect(resp.status).toBe(200);
       const values = vi.mocked(execute).mock.calls.at(-1)?.slice(2);
-      expect(values).toEqual(["alice@account.limooo.cn", stored, "", 1]);
+      expect(values).toEqual(["alice@apple.account.limooo.cn", stored, "", 1]);
       expect(values?.[1]).not.toBe("");
     });
 
