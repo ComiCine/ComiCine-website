@@ -402,7 +402,8 @@ function closeModal() {
 }
 
 async function saveAccount() {
-    const email = document.getElementById('field-email').value.trim().split('@')[0] + '@apple.account.limooo.cn';
+    const emailDomain = document.querySelector('.email-domain').textContent.trim();
+    const email = document.getElementById('field-email').value.trim().split('@')[0] + emailDomain;
     const password = (document.getElementById('field-password').dataset.real || '').trim();
     const notes = document.getElementById('field-notes').value.trim();
     if (!password) { toast(t('toast_enter_pw')); return; }

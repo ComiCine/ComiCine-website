@@ -59,6 +59,7 @@ PYTHON_FIELD_MAP = {
     "shared_lang_hosts": "SHARED_LANG_HOSTS",
     "page_routes": "PAGE_ROUTES",
     "identity_host": "IDENTITY_HOST",
+    "apple_account_email_domain": "APPLE_ACCOUNT_EMAIL_DOMAIN",
     "identity_sites": "IDENTITY_SITE_ROLES",
     "image_asset_host": "IMAGE_ASSET_HOST",
     "image_watermark_host": "IMAGE_WATERMARK_HOST",

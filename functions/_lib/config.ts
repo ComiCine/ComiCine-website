@@ -123,6 +123,7 @@ export const CONTRACT = {
     }
   },
   "identity_host": "identity.limooo.cn",
+  "apple_account_email_domain": "apple.account.limooo.cn",
   "identity_sites": {
     "visitor.limooo.cn": "admin",
     "account.limooo.cn": "admin"
@@ -147,7 +148,7 @@ export const IDENTITY_SITE_ROLES: Record<string, "admin" | "viewer"> = CONTRACT.
 export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;
 export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;
 export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;
-export const APPLE_ACCOUNT_DOMAIN = `@${APPLE_ACCOUNT_HOSTNAME}`;
+export const APPLE_ACCOUNT_DOMAIN = `@${CONTRACT.apple_account_email_domain}`;
 export const PUBLIC_HOSTS: Set<string> = new Set(CONTRACT.public_hosts);
 export const PAGE_ROUTES: Record<string, Record<string, string>> = CONTRACT.page_routes;
 export const IMAGE_ASSET_HOSTNAME = CONTRACT.image_asset_host;

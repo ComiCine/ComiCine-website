@@ -566,7 +566,7 @@ def write_config_functions() -> None:
         "export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;",
         "export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;",
         "export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;",
-        "export const APPLE_ACCOUNT_DOMAIN = `@${APPLE_ACCOUNT_HOSTNAME}`;",
+        "export const APPLE_ACCOUNT_DOMAIN = `@${CONTRACT.apple_account_email_domain}`;",
         "export const PUBLIC_HOSTS: Set<string> = new Set(CONTRACT.public_hosts);",
         "export const PAGE_ROUTES: Record<string, Record<string, string>> = CONTRACT.page_routes;",
         "export const IMAGE_ASSET_HOSTNAME = CONTRACT.image_asset_host;",
