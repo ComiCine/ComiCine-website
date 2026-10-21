@@ -16,6 +16,7 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
 - **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
 - **認証とロール**：単一の `Limooo-Identity` Access アプリが `identity.limooo.cn/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
+- **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと HTTP 401 HTML を返し、同一オリジンの外部スクリプトが `identity.limooo.cn/login` へ遷移します。その後 Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
 - **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
@@ -294,7 +295,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
    cookie を発行したりせず、503 を返します。
 - `__gate` cookie は `<unix-expiry>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
   `Domain=.limooo.cn`）。発行と検証はすべてエッジで行います。
-- アイデンティティは `identity.limooo.cn/login` を保護する単一の `Limooo-Identity` アプリから得ます。ブラウザーは `limooo.cloudflareaccess.com` を経由してログインします。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
+- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定した HTTP 401 HTML を返します。同一オリジンの外部スクリプトが `identity.limooo.cn/login` へ遷移し、Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `limooo_blocklist` に追随させます（WAF ルールが使う想定ですが、
