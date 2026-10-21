@@ -98,7 +98,7 @@ describe("shared identity navigation", () => {
     expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const cookies = response.headers.getSetCookie?.() ?? [response.headers.get("Set-Cookie") ?? ""];
-    expect(cookies.join("; ")).toContain(`limooo_identity_state=${state};`);
+    expect(cookies.join("; ")).toContain(`limooo_identity_state_${state}=${state};`);
   });
 
   it("keeps API authentication failures as JSON 401 responses", async () => {
