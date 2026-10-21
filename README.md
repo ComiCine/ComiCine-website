@@ -10,6 +10,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
 - **Auth & roles**: one `Limooo-Identity` Access application protects `identity.limooo.cn/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
+- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 with a same-origin script that navigates to `identity.limooo.cn/login`; Cloudflare Access then sends the browser through `limooo.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
@@ -300,7 +301,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   issuing unsigned cookies.
 - The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   `Domain=.limooo.cn`), minted and validated entirely at the edge.
-- Identity comes from the single `Limooo-Identity` application at `identity.limooo.cn/login`, which redirects through `limooo.cloudflareaccess.com`. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML, with a same-origin external script that navigates to `identity.limooo.cn/login`. Cloudflare Access then sends the browser through `limooo.cloudflareaccess.com`; the source response has already set the short-lived state cookie. API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `limooo_blocklist` in step with the

@@ -26,7 +26,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handleOnRequest, onRequest, pageCacheKey } from "./_middleware";
+import { handleOnRequest, onRequest, pageCacheKey, withSecurityHeaders } from "./_middleware";
 import { GATE_TURNSTILE_ACTION, mintGateCookie } from "./_lib/gate";
 import { SECURITY_HEADERS } from "./_lib/security";
 import { recordRay, recordVisit, shouldTrackRay, shouldTrackVisit } from "./_lib/tracking";
@@ -58,6 +58,67 @@ function context(request: Request, env: Partial<Env> = {}): RequestContext {
     waitUntil: async () => undefined,
   };
 }
+
+describe("shared identity navigation", () => {
+  it("preserves no-referrer on the 401 navigation document", () => {
+    const request = new Request("https://visitor.limooo.cn/");
+    const response = withSecurityHeaders(
+      request,
+      new Response("sign in", { headers: { "Referrer-Policy": "no-referrer" } }),
+    );
+
+    expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
+  });
+
+  it("returns a 401 document with a host-bound identity handoff for browser page requests", async () => {
+    const request = new Request("https://visitor.limooo.cn/", {
+      headers: {
+        Accept: "text/html",
+        "CF-Connecting-IP": "97.64.18.11",
+      },
+    });
+    const response = await handleOnRequest(context(request));
+    const html = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("Location")).toBeNull();
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(html).toContain("/static/js/auth-redirect.js?v=1");
+
+    const targetAttribute = html.match(/data-target="([^"]+)"/)?.[1];
+    expect(targetAttribute).toBeDefined();
+    const identityUrl = new URL(targetAttribute!.replaceAll("&amp;", "&"));
+    expect(identityUrl.origin).toBe("https://identity.limooo.cn");
+    expect(identityUrl.pathname).toBe("/login");
+
+    const callback = new URL(identityUrl.searchParams.get("next") ?? "");
+    expect(callback.origin).toBe("https://visitor.limooo.cn");
+    expect(callback.pathname).toBe("/identity/callback");
+    const state = callback.searchParams.get("state");
+    expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    const cookies = response.headers.getSetCookie?.() ?? [response.headers.get("Set-Cookie") ?? ""];
+    expect(cookies.join("; ")).toContain(`limooo_identity_state=${state};`);
+  });
+
+  it("keeps API authentication failures as JSON 401 responses", async () => {
+    const request = new Request("https://visitor.limooo.cn/api/visitors", {
+      headers: {
+        Accept: "text/html",
+        "CF-Connecting-IP": "97.64.18.11",
+      },
+    });
+    const response = await handleOnRequest({
+      ...context(request),
+      next: async () => Response.json({ error: "unauthorized" }, { status: 401 }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("Content-Type")).toContain("application/json");
+    expect(response.headers.get("Location")).toBeNull();
+    expect(response.headers.get("Set-Cookie")).toBeNull();
+  });
+});
 
 describe("force theme challenge", () => {
   it("renders the gate at an unverified visitor's original URL", async () => {
