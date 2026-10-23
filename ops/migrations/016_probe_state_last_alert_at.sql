@@ -11,11 +11,9 @@
 -- Consequence: a new database built from ops/migrations/ lacks this column. The SELECT fails and
 -- maybeAlert() silently catches it, disabling alert cooldown and sending repeated mail during probe flaps.
 --
--- Existing databases, including production, already have the column; SQLite only appends columns.
 -- D1 schema_version determines whether a migration was applied (key = version*1000+sequence;
 -- this migration uses 16001). The local .d1-migrations/applied file is only an offline-plan cache
--- and does not determine whether to skip. On a database that already has this column,
--- migrate_d1.sh handles the duplicate column as "already applied" and records 16001 instead of
--- aborting. This follows the same pattern as migrations 012 and 014.
+-- and does not determine whether to skip. migrate_d1.sh applies statements individually, skips only
+-- a duplicate-column statement, and records the migration after every remaining statement succeeds.
 
 ALTER TABLE probe_state ADD COLUMN last_alert_at INTEGER;

@@ -183,7 +183,7 @@ def test_batches_large_tables_into_several_inserts(tmp_path):
     code, sql, _ = run_restore(tmp_path, directory)
 
     assert code == 0
-    assert sql.count("INSERT INTO apple_accounts") == 3
+    assert sql.count('INSERT INTO "apple_accounts"') == 3
     con = sqlite3.connect(":memory:")
     con.executescript(sql)
     assert con.execute("SELECT COUNT(*) FROM apple_accounts").fetchone()[0] == len(rows)
@@ -227,7 +227,7 @@ def test_data_only_omits_the_schema(tmp_path):
 
     assert code == 0
     assert "CREATE TABLE" not in sql
-    assert "INSERT INTO apple_accounts" in sql
+    assert 'INSERT INTO "apple_accounts"' in sql
 
 
 def test_replace_mode_is_rerunnable(tmp_path):
@@ -237,7 +237,7 @@ def test_replace_mode_is_rerunnable(tmp_path):
     code, sql, _ = run_restore(tmp_path, directory, "--data-only", "--replace")
 
     assert code == 0
-    assert "INSERT OR REPLACE INTO apple_accounts" in sql
+    assert 'INSERT OR REPLACE INTO "apple_accounts"' in sql
     con = sqlite3.connect(":memory:")
     con.executescript(DDL)
     con.executescript(sql)
@@ -248,7 +248,7 @@ def test_replace_mode_is_rerunnable(tmp_path):
     ]
 
 
-def test_missing_table_object_is_reported_but_the_rest_still_restores(tmp_path):
+def test_missing_table_object_fails_without_writing_partial_restore(tmp_path):
     directory = write_snapshot(
         tmp_path / "backup",
         {"apple_accounts": APPLE_ROWS},
@@ -257,9 +257,9 @@ def test_missing_table_object_is_reported_but_the_rest_still_restores(tmp_path):
 
     code, sql, stderr = run_restore(tmp_path, directory)
 
-    assert code == 0
-    assert "missing object: blocked_ips.jsonl.gz" in stderr
-    assert "INSERT INTO apple_accounts" in sql
+    assert code == 1
+    assert "FATAL: missing object: blocked_ips.jsonl.gz" in stderr
+    assert sql == ""
 
 
 def test_without_a_manifest_it_falls_back_to_scanning_the_directory(tmp_path):
@@ -268,7 +268,7 @@ def test_without_a_manifest_it_falls_back_to_scanning_the_directory(tmp_path):
     code, sql, _ = run_restore(tmp_path, directory)
 
     assert code == 0
-    assert "INSERT INTO apple_accounts" in sql
+    assert 'INSERT INTO "apple_accounts"' in sql
 
 
 def test_inconsistent_columns_fail_loudly(tmp_path):
