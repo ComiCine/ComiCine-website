@@ -19,10 +19,10 @@ let inFlight = false;
 let dataLoaded = false;
 let lastLoadedAt = 0;
 
-// base.js exposes global t() through a classic script, whose execution order relative to modules can vary by browser.
+// base.js exposes the translator through a classic script, whose execution order relative to modules can vary by browser.
 // This adapter falls back to the key until the translator is ready, without causing a ReferenceError.
 function t(key, params) {
-  const translator = typeof window !== 'undefined' ? window.t : undefined;
+  const translator = typeof window !== 'undefined' ? window.limoooTranslate : undefined;
   return typeof translator === 'function' ? translator(key, params) : key;
 }
 

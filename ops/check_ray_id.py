@@ -293,9 +293,11 @@ def main() -> int:
     # 1) Edge
     print("Cloudflare edge", flush=True)
     degraded = False
+    edge_error = False
     try:
         zone = zone_id(cfg)
         if not zone:
+            edge_error = True
             warn(f"  could not resolve zone: {ZONE_NAME}")
         else:
             rows, note = edge_lookup(cfg, zone, ray, colo, args.minutes)
@@ -316,7 +318,7 @@ def main() -> int:
                 found = found or bool(rows)
     except Exception as exc:  # noqa: BLE001 - Use the common error handling for operations scripts.
         warn(f"  edge query failed: {exc}")
-        degraded, edge_rows = False, []
+        edge_error, edge_rows = True, []
 
     # 2) D1 (additional source)
     print("D1 site logs", flush=True)
@@ -340,9 +342,12 @@ def main() -> int:
             print("  " + line)
 
     if not found:
-        if d1_error:
-            # A query failure does not mean the record is missing; distinguish them to avoid reporting a false miss.
-            warn(f"\nquery incomplete: {ray} (D1 query failed; please retry)")
+        if edge_error or d1_error:
+            # A query failure does not mean the record is missing; distinguish it from a complete miss.
+            failed_sources = ", ".join(
+                source for source, failed in (("Edge", edge_error), ("D1", d1_error)) if failed
+            )
+            warn(f"\nquery incomplete: {ray} ({failed_sources} query failed; please retry)")
             return 1
         hint = " (no permission for an exact edge match; candidates listed for comparison)" if degraded else ""
         warn(f"\nno records found: {ray}" + (f"-{colo}" if colo else "") + hint)

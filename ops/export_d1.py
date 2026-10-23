@@ -44,15 +44,16 @@ from cidr import normalize_cidr, parse_cidr  # noqa: E402
 
 
 def open_private(path: str) -> TextIO:
-    """Create a file with mode 0600 before writing.
-
-    Do not call `open(path, "w")` and chmod afterward: with the default umask 022, the file would
-    briefly be 0644 while containing Apple account email/password/notes. An interrupt could leave
-    it permanently at 0644. os.open applies mode only when creating, so keep chmod as a fallback
-    for an existing file with broader permissions.
-    """
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    return os.fdopen(fd, "w", encoding="utf-8")
+    """Set mode 0600 before truncating or writing sensitive export data."""
+    flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        os.ftruncate(fd, 0)
+        return os.fdopen(fd, "w", encoding="utf-8")
+    except BaseException:
+        os.close(fd)
+        raise
 
 
 def sql_str(value: object) -> str:
@@ -79,21 +80,21 @@ def export_apple_account(db_path: str) -> int:
     with open_private(json_path) as f:
         json.dump([dict(r) for r in rows], f, ensure_ascii=False, indent=2)
     with open_private(sql_path) as f:
-        f.write(
-            "INSERT OR IGNORE INTO apple_accounts "
-            "(id, email, password, notes, sort_order, created_at, updated_at) VALUES\n"
-        )
-        values = [
-            "("
-            f"{r['id']}, {sql_str(r['email'])}, {sql_str(r['password'])}, {sql_str(r['notes'])}, "
-            f"{int(r['sort_order'] or 0)}, {sql_str(r['created_at'])}, {sql_str(r['updated_at'])}"
-            ")"
-            for r in rows
-        ]
-        f.write(",\n".join(values) + ";\n")
-    # Fallback: tighten permissions if the file already exists with a broader mode, such as 0644 from a previous version.
-    os.chmod(json_path, 0o600)
-    os.chmod(sql_path, 0o600)
+        if rows:
+            f.write(
+                "INSERT OR IGNORE INTO apple_accounts "
+                "(id, email, password, notes, sort_order, created_at, updated_at) VALUES\n"
+            )
+            values = [
+                "("
+                f"{r['id']}, {sql_str(r['email'])}, {sql_str(r['password'])}, {sql_str(r['notes'])}, "
+                f"{int(r['sort_order'] or 0)}, {sql_str(r['created_at'])}, {sql_str(r['updated_at'])}"
+                ")"
+                for r in rows
+            ]
+            f.write(",\n".join(values) + ";\n")
+        else:
+            f.write("-- No apple_accounts rows to restore.\n")
     print(f"[export] {len(rows)} rows -> ops/out/apple-account.sql / apple-account.json", flush=True)
     return 0
 

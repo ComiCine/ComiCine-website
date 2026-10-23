@@ -12,8 +12,7 @@
 -- Existing rows written between migrations 018 and 019 default to 0 because they came from real
 -- syncs or archives.
 --
--- Use the same error handling as migrations 014 and 016: SQLite ADD COLUMN only appends, and if
--- the column already exists, migrate_d1.sh treats `duplicate column name` as "already applied",
--- records 19001, and continues the migration chain.
+-- If the column already exists but schema_version lacks this migration, migrate_d1.sh skips that
+-- duplicate-column statement and records the migration only after the remaining statements succeed.
 
 ALTER TABLE worker_runs ADD COLUMN dry_run INTEGER NOT NULL DEFAULT 0;
