@@ -121,26 +121,31 @@ def wrangler_payload(names: list[str]) -> str:
     )
 
 
-def write_fake_wrangler(path: Path, file_error: str, versions: list[int]) -> Path:
-    """Fake Wrangler: every `--file` call fails with `file_error`, and `SELECT version` returns `versions`."""
+def write_fake_wrangler(
+    path: Path, command_error: str, versions: list[int], failure_fragment: str | None = None
+) -> Path:
+    """Fake Wrangler: selected SQL commands fail, and SELECT version returns the supplied state."""
     rows = ",".join(f'{{"version":{v}}}' for v in versions)
     path.write_text(
         "#!/bin/bash\n"
-        'cmd=""; file=""\n'
+        'cmd=""\n'
         "while [ $# -gt 0 ]; do\n"
         '    case "$1" in\n'
         '        --command) cmd="$2"; shift ;;\n'
-        '        --file) file="$2"; shift ;;\n'
         "    esac\n"
         "    shift\n"
         "done\n"
-        'if [ -n "$file" ]; then\n'
-        f'    echo "{file_error}"\n'
-        "    exit 1\n"
-        "fi\n"
         'case "$cmd" in\n'
         f'    *"FROM schema_version"*) echo \'[{{"results":[{rows}],"success":true,"meta":{{"rows_read":{len(versions)}}}}}]\'; exit 0 ;;\n'
-        '    *) echo "ok"; exit 0 ;;\n'
+        '    *"CREATE TABLE IF NOT EXISTS schema_version"*|*"INSERT OR REPLACE INTO schema_version"*) echo "ok"; exit 0 ;;\n'
+        '    *)\n'
+        '        if [ -n "${FAKE_WRANGLER_LOG:-}" ]; then printf "%s\\n" "$cmd" >> "$FAKE_WRANGLER_LOG"; fi\n'
+        + (
+            f'        if [[ "$cmd" == *"{failure_fragment}"* ]]; then echo "{command_error}"; exit 1; fi\n'
+            if failure_fragment is not None
+            else f'        echo "{command_error}"; exit 1\n'
+        )
+        + '        echo "ok"; exit 0 ;;\n'
         "esac\n"
     )
     path.chmod(0o755)
@@ -530,34 +535,39 @@ def test_waf_rules_plan_deletes_a_migrated_enabled_skip_rule(tmp_path):
     assert "delete migrated custom skip rule" in result.stdout
 
 
-# W3-5 / W3-6 / W3-8: D1 schema_version is the only source of truth.
+# W3-5 / W3-8: D1 schema_version is the only source of truth; failed migrations are never recorded.
 
 
-def test_apply_ignores_the_local_cache_and_reads_d1_state(tmp_path):
+def test_duplicate_column_statement_does_not_skip_remaining_migration_statements(tmp_path):
     names = migration_names()
     prefixes = sorted({int(n.split("_")[0]) for n in names})
-    legacy = prefixes[:-1]  # Production state: legacy plain version numbers, missing the latest migration.
-    newest = [n for n in names if int(n.split("_")[0]) == prefixes[-1]][0]
+    legacy = [prefix for prefix in prefixes if prefix != 6]
+    migration = "006_audit_columns.sql"
 
     fake = write_fake_wrangler(
-        tmp_path / "wrangler", "D1_ERROR: duplicate column name: last_alert_at", legacy
+        tmp_path / "wrangler",
+        "D1_ERROR: duplicate column name: account_id",
+        legacy,
+        "ALTER TABLE events ADD COLUMN account_id",
     )
     cache = tmp_path / "applied"
-    # Deliberately seed a local cache that falsely claims the latest migration was applied.
-    cache.write_text(f"{newest}\n")
+    cache.write_text("POISON\n")
+    command_log = tmp_path / "commands.log"
 
     result = run(
         [BASH, "ops/migrate_d1.sh", "--remote"],
-        env={"WRANGLER_BIN": str(fake), "D1_STATE_FILE": str(cache)},
+        env={
+            "WRANGLER_BIN": str(fake),
+            "D1_STATE_FILE": str(cache),
+            "FAKE_WRANGLER_LOG": str(command_log),
+        },
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    # The local cache cannot cause a migration to be skipped; the latest migration must still run.
-    assert f"[d1] apply: {newest}" in result.stdout
+    assert f"[d1] apply: {migration}" in result.stdout
     assert "skip (recorded legacy version" in result.stdout
-    # Treat a duplicate ALTER error as already applied, not as FATAL.
-    assert f"already applied (schema already present, record was missing): {newest}" in result.stdout
-    assert f"[d1] recorded: {newest} key=" in result.stdout
-    # After the run, replace the cache with D1's authoritative migration set.
+    assert f"[d1] skip (column already exists): {migration}" in result.stdout
+    assert "ALTER TABLE events ADD COLUMN actor_sub" in command_log.read_text()
+    assert f"[d1] recorded: {migration} key=6001" in result.stdout
     assert cache.read_text().split() == names
 
 

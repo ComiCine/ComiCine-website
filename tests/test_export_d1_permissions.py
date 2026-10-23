@@ -47,10 +47,9 @@ def test_open_private_tightens_a_loose_existing_file(tmp_path: Path) -> None:
     target.write_text("old", encoding="utf-8")
     os.chmod(target, 0o644)
     with export_d1.open_private(str(target)) as handle:
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
         handle.write("new")
-    # os.open mode applies only at creation; export_apple_account uses chmod as a fallback to tighten permissions.
-    assert stat.S_IMODE(target.stat().st_mode) == 0o644  # Preserve the file until chmod runs.
-    os.chmod(target, 0o600)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
 
 
 def _apple_db(path: Path) -> None:

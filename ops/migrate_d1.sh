@@ -344,19 +344,53 @@ for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
     fi
 
     echo "[d1] apply: $name key=$key"
-    apply_log="$(mktemp -t limooo-d1-apply-XXXXXX.log)"
-    if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --file "$MIGRATIONS_DIR/$name" >"$apply_log" 2>&1; then
-        rm -f "$apply_log"
-    elif grep -Eq 'duplicate column name|already exists' "$apply_log"; then
-        # The migration is not recorded, but its schema already exists (for example, the SQL was
-        # run manually or rerun after local state was lost). Report it as applied and record it
-        # instead of failing midway (W3-6).
-        echo "[d1] already applied (schema already present, record was missing): $name"
-        rm -f "$apply_log"
-    else
-        echo "FATAL: migration failed: $name" >&2
-        cat "$apply_log" >&2
-        rm -f "$apply_log"
+    statements_file="$(mktemp -t limooo-d1-statements-XXXXXX)"
+    if ! python3 - "$MIGRATIONS_DIR/$name" >"$statements_file" <<'PY'
+import sqlite3
+import sys
+
+source = sys.argv[1]
+pending = ""
+with open(source, encoding="utf-8") as handle:
+    for line in handle:
+        pending += line
+        if sqlite3.complete_statement(pending):
+            statement = pending.strip()
+            if statement:
+                sys.stdout.write(statement + "\0")
+            pending = ""
+
+if pending.strip() and any(
+    line.strip() and not line.lstrip().startswith("--") for line in pending.splitlines()
+):
+    raise SystemExit(f"incomplete SQL statement at end of {source}")
+PY
+    then
+        echo "FATAL: could not split migration into complete SQL statements: $name" >&2
+        rm -f "$statements_file"
+        exit 1
+    fi
+
+    statement_count=0
+    while IFS= read -r -d '' statement; do
+        statement_count=$((statement_count + 1))
+        apply_log="$(mktemp -t limooo-d1-apply-XXXXXX.log)"
+        if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --command "$statement" >"$apply_log" 2>&1; then
+            rm -f "$apply_log"
+        elif grep -Eq 'duplicate column name:' "$apply_log"; then
+            echo "[d1] skip (column already exists): $name"
+            rm -f "$apply_log"
+        else
+            echo "FATAL: migration failed: $name" >&2
+            echo "       No schema_version row was written; inspect the schema and repair this migration before retrying." >&2
+            cat "$apply_log" >&2
+            rm -f "$apply_log" "$statements_file"
+            exit 1
+        fi
+    done < "$statements_file"
+    rm -f "$statements_file"
+    if [ "$statement_count" -eq 0 ]; then
+        echo "FATAL: migration contains no SQL statements: $name" >&2
         exit 1
     fi
 

@@ -530,9 +530,11 @@ fi
 PUSH_FAILED=0
 if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        echo "Warning: not a git work tree, skipped push" >&2
+        echo "FATAL: not a git work tree; refusing to deploy without GitHub synchronization" >&2
+        exit 1
     elif ! git fetch origin main >/dev/null 2>&1; then
-        echo "Warning: could not fetch GitHub state, skipped push" >&2
+        echo "FATAL: could not fetch GitHub state; refusing to deploy without GitHub synchronization" >&2
+        exit 1
     else
         LOCAL_HEAD="$(git rev-parse HEAD)"
         REMOTE_HEAD="$(git rev-parse origin/main)"
