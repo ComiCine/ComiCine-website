@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Self-managed password login credentials (docs/17, phase 1, alternative A).
 -- This table coexists with the auth_sessions revocation table from docs/09 and only identifies
 -- where an identity comes from; session revocation and requireAuth fail-closed behavior are unchanged.

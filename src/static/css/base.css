@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2026-Present Limooo Studio
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Additional terms under Section 7 apply.
+ * See ADDITIONAL_TERMS.md.
+ */
+
 /* Limooo site-wide base styles.
    Design tokens such as colors, radii, and easing live in tokens.css as the single source of truth.
    This file contains structural styles for typography, the header, and the footer. */

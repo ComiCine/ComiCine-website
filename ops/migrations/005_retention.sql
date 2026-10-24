@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Limooo D1 data retention and privacy (docs/11).
 --
 -- Create v2 tables that do not store full IPs, user agents, or query strings. Keep the old

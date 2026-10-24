@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Probes and heartbeats: replace Uptime Kuma (docs/17, phase 2).
 --
 -- The data model corresponds to Kuma's monitor / heartbeat tables, reduced to the minimum set:

@@ -3,6 +3,13 @@ aside: false
 title: プロジェクト README
 description: "Limooo のウェブサイトと管理システム（Cloudflare 完全サーバーレス構成）のプロジェクト README"
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # Limooo
 
@@ -54,7 +61,15 @@ description: "Limooo のウェブサイトと管理システム（Cloudflare 完
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
-├── LICENSE.md                                        # AGPL-3.0
+├── LICENSE.md                                        # GNU AGPL v3 公式英文本文
+├── ADDITIONAL_TERMS.md                               # Section 7 の追加条項
+├── ADDITIONAL_TERMS_zh_CN.md                         # 簡体字中国語訳
+├── ADDITIONAL_TERMS_ja_JP.md                         # 日本語訳
+├── ADDITIONAL_TERMS_ko_KR.md                         # 韓国語訳
+├── COPYRIGHT.md                                      # 著作権およびライセンス（英語）
+├── COPYRIGHT_zh_CN.md                                # 簡体字中国語訳
+├── COPYRIGHT_ja_JP.md                                # 日本語訳
+├── COPYRIGHT_ko_KR.md                                # 韓国語訳
 ├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.md                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
@@ -488,4 +503,8 @@ docs.limooo.cn に公開されることはありません。
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス
 
-[GNU AGPL v3.0](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md)|[GNU AGPL v3.0-簡体字中国語](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_zh_CN.md)|[GNU AGPL v3.0-日本語](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_ja_JP.md)|[GNU AGPL v3.0-韓国語](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_ko_KR.md)
+Limooo Studio が著作権を有し、ライセンスする権限を有するオリジナル資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS_ja_JP.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ja_JP.md) を、GNU AGPL v3 の本文は [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md) を参照してください。追加条項は GNU AGPL v3 を選択する場合に適用され、後続バージョンでの適用はそのバージョンの条件によります。
+
+Limooo Studio は、自らが著作権を有するオリジナル資料についてのみ、作者および著作権者です。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
+
+追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。

@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2026-Present Limooo Studio
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Additional terms under Section 7 apply.
+ * See ADDITIONAL_TERMS.md.
+ */
+
+/*
    Limooo site-wide color and interface tokens (single source of truth).
    base.html includes this file; the standalone gate, redirect, and preview pages share its palette.
    Component styles should use these semantic variables instead of duplicating color values.

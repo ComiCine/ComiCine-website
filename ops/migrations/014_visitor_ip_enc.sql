@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- 014: Store a decryptable IP for each visitor row (clicking a row decrypts it and opens ipinfo.io).
 --
 -- Privacy behavior is unchanged: /api/visitors still returns only ip_hash. Encrypt the full IP
