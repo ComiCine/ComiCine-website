@@ -25,7 +25,7 @@ Limooo Studio 是本项目使用的开发品牌及公开署名。版权归属于
 
 ## 许可
 
-Limooo Studio 拥有且有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL 第 3 版许可证正文见 [`LICENSE.md`](LICENSE.md)。本声明不修改许可证正文。
+Limooo Studio 拥有且有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL 第 3 版许可证正文见 [`LICENSE.txt`](LICENSE.txt)。本声明不修改许可证正文。
 
 在遵守 GNU AGPL 第 3 版条款的前提下，许可证允许使用、修改和再分发，包括商业使用。接收者必须遵守其适用条件，保留适用的版权及许可证声明，并按许可证要求标明修改。GNU AGPL 第 3 版关于网络服务提供源码的义务，在该许可证规定的条件下适用。本声明不取代或扩展许可证条款。
 
@@ -39,7 +39,7 @@ Limooo Studio 拥有且有权授权的原创软件材料依据 GNU Affero 通用
 
 第三方代码、依赖、媒体及其他作品的版权归各自权利人所有。第三方材料继续遵守各自适用的许可证和声明。Limooo Studio 不主张其不拥有的第三方版权。不得删除第三方版权声明或许可证信息。
 
-本仓库目前不包含 `THIRD_PARTY_NOTICES.md`。第三方材料的许可证及署名信息（如有提供）仍以相应材料及其适用声明为准。
+关于已确认的第三方字体、依赖及二维码图片中的平台标识，可参阅 [`THIRD_PARTY_NOTICES_zh_CN.md`](THIRD_PARTY_NOTICES_zh_CN.md) 清单。该清单并非穷尽性清单，也不替代各组件适用的许可证或声明。
 
 ## 商标与品牌
 
