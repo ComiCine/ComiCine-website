@@ -4,7 +4,7 @@
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
 Additional terms under Section 7 apply where legally applicable.
-See ADDITIONAL_TERMS_zh_CN.md.
+See ADDITIONAL_TERMS_zh_CN.txt.
 -->
 
 # 版权与许可
@@ -31,7 +31,7 @@ Limooo Studio 拥有且有权授权的原创软件材料依据 GNU Affero 通用
 
 ## 附加条款
 
-请参阅 [`ADDITIONAL_TERMS_zh_CN.md`](ADDITIONAL_TERMS_zh_CN.md)。对于适用 GNU AGPL 第 3 版且 Limooo Studio 有权授权的原创材料，可能依据该许可证第 7 条制定附加条款。相关条款涉及合理保留作者署名和来源说明、标识修改版本、宣传中使用作者名称、保留商标及品牌权利、免责声明及责任限制，以及特定合同责任的分配。
+请参阅 [`ADDITIONAL_TERMS_zh_CN.txt`](ADDITIONAL_TERMS_zh_CN.txt)。对于适用 GNU AGPL 第 3 版且 Limooo Studio 有权授权的原创材料，可能依据该许可证第 7 条制定附加条款。相关条款涉及合理保留作者署名和来源说明、标识修改版本、宣传中使用作者名称、保留商标及品牌权利、免责声明及责任限制，以及特定合同责任的分配。
 
 这些附加条款不禁止适用 AGPL 许可证所允许的商业使用。为 GNU AGPL 第 3 版制定的第 7 条附加条款不会自动适用于所有后续 AGPL 版本；其适用范围由相应许可证及有效授权决定。本说明不创设额外的许可证限制。
 
