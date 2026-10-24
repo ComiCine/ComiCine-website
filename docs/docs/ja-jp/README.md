@@ -71,7 +71,7 @@ See ADDITIONAL_TERMS.txt.
 ├── COPYRIGHT_ja_JP.md                                # 日本語訳
 ├── COPYRIGHT_ko_KR.md                                # 韓国語訳
 ├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
-├── LICENSE_ja_JP.md                                  # AGPL-3.0 (Japanese)
+├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
