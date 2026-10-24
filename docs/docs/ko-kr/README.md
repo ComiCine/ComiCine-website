@@ -61,7 +61,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
-├── LICENSE.md                                        # GNU AGPL v3 공식 영문 본문
+├── LICENSE.txt                                        # GNU AGPL v3 공식 영문 본문
 ├── ADDITIONAL_TERMS.txt                               # Section 7 추가 조건
 ├── ADDITIONAL_TERMS_zh_CN.txt                         # 중국어 간체 번역
 ├── ADDITIONAL_TERMS_ja_JP.txt                         # 일본어 번역
@@ -70,9 +70,9 @@ See ADDITIONAL_TERMS.txt.
 ├── COPYRIGHT_zh_CN.md                                # 중국어 간체 번역
 ├── COPYRIGHT_ja_JP.md                                # 일본어 번역
 ├── COPYRIGHT_ko_KR.md                                # 한국어 번역
-├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
+├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
-├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
+├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
 ├── package-lock.json                                 # locked Node dependency tree (npm ci)
@@ -485,7 +485,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
 ## 라이선스
 
-Limooo Studio가 저작권을 보유하고 라이선스할 권한이 있는 독창적 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL v3 제7조에 따른 추가 조건은 [ADDITIONAL_TERMS_ko_KR.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)에, GNU AGPL v3 전문은 [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md)에 있습니다. 추가 조건은 GNU AGPL v3를 적용하는 경우에 적용되며, 이후 버전에 적용되는지는 해당 버전의 조건에 따릅니다.
+Limooo Studio가 저작권을 보유하고 라이선스할 권한이 있는 독창적 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL v3 제7조에 따른 추가 조건은 [ADDITIONAL_TERMS_ko_KR.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)에, GNU AGPL v3 전문은 [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt)에 있습니다. 추가 조건은 GNU AGPL v3를 적용하는 경우에 적용되며, 이후 버전에 적용되는지는 해당 버전의 조건에 따릅니다.
 
 Limooo Studio는 자신이 저작권을 보유한 독창적 자료에 대해서만 저자이자 저작권자입니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
 

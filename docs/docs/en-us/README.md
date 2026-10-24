@@ -61,7 +61,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
-├── LICENSE.md                                        # Official GNU AGPL v3 text
+├── LICENSE.txt                                        # Official GNU AGPL v3 text
 ├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms
 ├── ADDITIONAL_TERMS_zh_CN.txt                         # Simplified Chinese translation
 ├── ADDITIONAL_TERMS_ja_JP.txt                         # Japanese translation
@@ -70,9 +70,9 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── COPYRIGHT_zh_CN.md                                # Simplified Chinese translation
 ├── COPYRIGHT_ja_JP.md                                # Japanese translation
 ├── COPYRIGHT_ko_KR.md                                # Korean translation
-├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
+├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
-├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
+├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
 ├── package-lock.json                                 # locked Node dependency tree (npm ci)
@@ -504,7 +504,7 @@ and logs, and Access remains the only identity source.
 
 ## License
 
-Original materials owned and licensed by Limooo Studio are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
+Original materials owned and licensed by Limooo Studio are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
 
 Limooo Studio is the author and copyright holder only of original materials it owns. Preserve applicable original author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
