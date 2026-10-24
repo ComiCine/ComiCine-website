@@ -323,6 +323,27 @@ show_cmd() {
     return 0
 }
 
+GIT_VERIFIED=0
+verify_head_signature() {
+    local signing_key signer_fingerprint
+    if ! git verify-commit HEAD >/dev/null 2>&1; then
+        echo "Git: unverified"
+        exit 1
+    fi
+
+    signing_key="$(git config --get user.signingkey || true)"
+    signer_fingerprint="$(git show -s --format=%GF HEAD)"
+    signing_key="$(printf '%s' "$signing_key" | tr '[:lower:]' '[:upper:]')"
+    signer_fingerprint="$(printf '%s' "$signer_fingerprint" | tr '[:lower:]' '[:upper:]')"
+    if [ -z "$signing_key" ] || [ "$signer_fingerprint" != "$signing_key" ]; then
+        echo "Git: unverified"
+        exit 1
+    fi
+
+    GIT_VERIFIED=1
+    echo "Git: verified"
+}
+
 # Stage 0a: stage first, then run checks against the exact tree to be committed.
 # Previously checks ran before `git add -A`, so any tool changing a file between the check and
 # commit could make the committed tree differ from the checked tree. Now stage first, capture a
@@ -482,6 +503,7 @@ if [ "$DO_COMMIT" = 1 ]; then
         echo "Warning: not a git work tree, skipped commit" >&2
     else
         if git diff --cached --quiet; then
+            verify_head_signature
             echo "Git: nothing to commit"
         else
             # Capture filenames and statuses first; the short SHA is available only after commit.
@@ -494,6 +516,7 @@ if [ "$DO_COMMIT" = 1 ]; then
             fi
             show_cmd git commit -m "$commit_subject"
             git commit -m "$commit_subject" >/dev/null
+            verify_head_signature
             # The revision label is the short SHA of the new commit.
             committed_sha="$(git rev-parse --short HEAD)"
             # Status letters come from git --name-status (A added / D deleted / M modified / R renamed).
@@ -526,6 +549,9 @@ if [ "$DO_PUSH" = 1 ]; then
         echo "FATAL: could not fetch GitHub state; refusing to deploy without GitHub synchronization" >&2
         exit 1
     else
+        if [ "$GIT_VERIFIED" = 0 ]; then
+            verify_head_signature
+        fi
         LOCAL_HEAD="$(git rev-parse HEAD)"
         REMOTE_HEAD="$(git rev-parse origin/main)"
         if [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ]; then

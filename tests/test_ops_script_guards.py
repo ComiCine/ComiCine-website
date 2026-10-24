@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,42 @@ MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 _GUARD_ENV = {"LIMOOO_SKIP_TOOL_BOOTSTRAP": "1"}
 
 
+@pytest.fixture(scope="session")
+def deploy_test_signing_key(request):
+    """Create an isolated throwaway key for tests that exercise deploy commit verification."""
+    gpg = shutil.which("gpg")
+    assert gpg, "gpg is required for deploy commit-signature tests"
+    home = Path(tempfile.mkdtemp(prefix="limooo-gpg-", dir="/tmp"))
+    request.addfinalizer(lambda: shutil.rmtree(home))
+    user_id = "Limooo Deploy Test <deploy-test@example.test>"
+    generated = subprocess.run(
+        [gpg, "--homedir", str(home), "--batch", "--pinentry-mode", "loopback",
+         "--passphrase", "", "--quick-generate-key", user_id, "ed25519", "sign", "0"],
+        capture_output=True,
+        text=True,
+    )
+    assert generated.returncode == 0, generated.stderr
+    listing = subprocess.run(
+        [gpg, "--homedir", str(home), "--batch", "--with-colons", "--list-secret-keys", user_id],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    fingerprint = next(
+        fields[9]
+        for line in listing.stdout.splitlines()
+        if (fields := line.split(":"))[0] == "fpr"
+    )
+    return {"GNUPGHOME": str(home)}, fingerprint
+
+
+def enable_test_signing(repo: Path, signing_key):
+    env, fingerprint = signing_key
+    git(["config", "user.signingkey", fingerprint], repo)
+    git(["config", "commit.gpgsign", "true"], repo)
+    return env
+
+
 def run(args, cwd=ROOT, env=None, timeout=60):
     full_env = dict(os.environ)
     full_env.update(_GUARD_ENV)
@@ -59,7 +96,7 @@ def git(args, cwd):
 def make_repo(tmp_path: Path, branch: str = "main") -> Path:
     """Create a clean temporary Git repository and add `deploy.sh` plus stub step scripts.
 
-    The identity must be written to this repository's config; `git -c` only applies to the command we invoke. `deploy.sh --commit` runs `git commit` internally, and CI runners have no `user.name` or `user.email`, so Git exits 128 with `Author identity unknown`. A global identity masked this locally until the GitHub failure on 2026-10-12. Also disable signing: if a global `commit.gpgsign` setting is enabled without an available key, the test fails spuriously.
+    The identity must be written to this repository's config; `git -c` only applies to the command we invoke. `deploy.sh --commit` runs `git commit` internally, and CI runners have no `user.name` or `user.email`, so Git exits 128 with `Author identity unknown`. A global identity masked this locally until the GitHub failure on 2026-10-12. Signing stays disabled unless a test explicitly enables the isolated throwaway key used for commit-verification cases.
     """
     repo = tmp_path / "repo"
     (repo / "ops").mkdir(parents=True)
@@ -261,7 +298,7 @@ def test_deploy_pages_runs_ci_first_on_a_clean_tree(tmp_path):
     assert full.stdout.index("ops/ci_check.sh") < full.stdout.index("ops/pages_deploy.sh")
 
 
-def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path):
+def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path, deploy_test_signing_key):
     """A deployment must succeed when list synchronization changes the working tree.
 
     Regression coverage: staging and taking the worktree snapshot must happen after Lists and Bans. Otherwise, list-sync changes trigger the `0c` check that the tree changed during validation, forcing the first deployment to be retried. The stub `sync_whitelist.py` edits a tracked file to reproduce this case.
@@ -278,29 +315,42 @@ def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path):
 
     # Exercise only the commit stage: Pages, docs, and Workers are absent from the stub repository and are not part of this regression.
     # Snapshot comparison (0c) is a gate unique to the commit path.
-    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+    env = enable_test_signing(repo, deploy_test_signing_key)
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo, env=env)
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "working tree changed during checks" not in result.stderr
+    assert "Git: verified" in result.stdout
     assert "Git: committed" in result.stdout
     # Verify that refreshed content is included in the commit, so the checked tree and committed tree are the same.
     assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
 
 
-def test_deploy_commit_output_lists_every_changed_file(tmp_path):
+def test_deploy_commit_output_lists_every_changed_file(tmp_path, deploy_test_signing_key):
     repo = make_repo(tmp_path)
+    env = enable_test_signing(repo, deploy_test_signing_key)
     names = [f"changed_{index:02}.txt" for index in range(25)]
     for name in names:
         (repo / name).write_text("changed\n")
     git(["add", *names], repo)
 
-    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo, env=env)
 
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "Git: verified" in result.stdout
     lines = result.stdout.splitlines()
     for name in names:
         assert f"   A {name}" in lines
     assert not any("... and " in line for line in lines)
+
+
+def test_deploy_commit_rejects_unsigned_head(tmp_path):
+    repo = make_repo(tmp_path)
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo)
+
+    assert result.returncode != 0
+    assert "Git: unverified" in result.stdout
+    assert "Git: committed" not in result.stdout
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
