@@ -58,7 +58,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
 │   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
-│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
+│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
 ├── LICENSE.txt                                        # GNU AGPL v3 官方英文正文
@@ -70,6 +70,10 @@ See ADDITIONAL_TERMS.txt.
 ├── COPYRIGHT_zh_CN.md                                # 简体中文译本
 ├── COPYRIGHT_ja_JP.md                                # 日语译本
 ├── COPYRIGHT_ko_KR.md                                # 韩语译本
+├── THIRD_PARTY_NOTICES.md                            # 第三方声明（英文）
+├── THIRD_PARTY_NOTICES_zh_CN.md                      # 简体中文译本
+├── THIRD_PARTY_NOTICES_ja_JP.md                      # 日语译本
+├── THIRD_PARTY_NOTICES_ko_KR.md                      # 韩语译本
 ├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
@@ -452,6 +456,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 - `public/_routes.json` 把 `/static/*` 与根级静态资源排除在 Pages Functions 之外，
   因此 CSS/JS/字体由 Pages 资源服务器直接提供。
+- `src/static/files/` 中的文件会镜像到构建产物 `/public/files/` 并保留子目录，因此 `src/static/files/<path>` 可通过 `https://limooo.cn/public/files/<path>` 访问。
+  `/public/files/*` 绕过 Pages Functions，并使用与其他静态资源相同的一天缓存策略；不存在的路径返回 404。
 - `public/_headers` 为带版本号的静态资源设置带 `stale-while-revalidate`
   的长浏览器缓存；`public/_routes.json` 与 `_headers`
   都由 `src/build.py` 生成。
@@ -490,6 +496,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 Limooo Studio 拥有并有权授权的原创材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）授权。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS_zh_CN.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)；该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。GNU AGPL v3 官方英文全文见 [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt)，简体中文参考译本见 [LICENSE_zh_CN.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_zh_CN.txt)。
 
-Limooo Studio 仅对其拥有版权的原创材料作为作者和版权持有人。再分发时必须保留适用的原作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
+Limooo Studio 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
 
 额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
+
+关于第三方字体、依赖及二维码图片中的平台标识，请参阅[第三方声明](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_zh_CN.md)；版权范围说明见[版权声明](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_zh_CN.md)。
