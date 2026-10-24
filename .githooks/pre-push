@@ -20,7 +20,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [ "${LIMOOO_SKIP_CI_CHECK:-0}" = 1 ]; then
-    echo "[pre-push] LIMOOO_SKIP_CI_CHECK=1，跳过本地 CI 复刻" >&2
+    echo "[pre-push] LIMOOO_SKIP_CI_CHECK=1; skipping the local CI check" >&2
     exit 0
 fi
 
@@ -33,12 +33,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         0000000000000000000000000000000000000000) continue ;;
     esac
     if [ "$local_sha" = "$CHECKED_SHA" ]; then
-        echo "[pre-push] $local_sha 已由 deploy.sh 检查过，跳过" >&2
+        echo "[pre-push] $local_sha was already checked by deploy.sh; skipping" >&2
         continue
     fi
-    echo "[pre-push] 校验 ${local_ref} -> ${remote_ref} (${local_sha})" >&2
+    echo "[pre-push] checking ${local_ref} -> ${remote_ref} (${local_sha})" >&2
     if ! bash ops/ci_check.sh --ref="$local_sha"; then
-        echo "[pre-push] 拒绝 push：上面这份代码在 CI 上会红。修好再推。" >&2
+        echo "[pre-push] push rejected: the commit failed the local CI check; fix it before pushing" >&2
         status=1
     fi
 done

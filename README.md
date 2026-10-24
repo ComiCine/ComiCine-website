@@ -82,7 +82,6 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │       └── tests.yml                                 # CI: build, then typecheck / migrations / vitest / pytest
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
-├── .vscode/                                          # editor settings and recommended extensions
 ├── data/                                             # runtime data (generated; git-ignored)
 │   ├── GeoLite2-ASN.mmdb                             # GeoIP databases (large; git-ignored)
 │   └── *.db                                          # local caches (git-ignored)
@@ -157,10 +156,6 @@ runs the contract checks and exports
 setup is needed. Running `python3 src/build.py` directly skips all three — it fails
 with `RuntimeError: SVG watermarking requires cairosvg` unless you export that
 Homebrew cairo path yourself.
-
-For a clean VS Code experience, install the recommended extensions (Jinja, Pylance)
-listed in `.vscode/extensions.json`; workspace settings associate Jinja templates so
-HTML/CSS/JS diagnostics do not misread template syntax.
 
 For a local preview of the generated site, build and open the output from `preview/`.
 
