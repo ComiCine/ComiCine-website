@@ -65,7 +65,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── COPYRIGHT_ja_JP.md                                # Japanese translation
 ├── COPYRIGHT_ko_KR.md                                # Korean translation
 ├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
-├── LICENSE_ja_JP.md                                  # AGPL-3.0 (Japanese)
+├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
@@ -570,7 +570,7 @@ and logs, and Access remains the only identity source.
 
 ## License
 
-Original software materials owned by Limooo Studio and licensed by it are available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 license text is in [LICENSE.md](LICENSE.md), with reference translations in [Simplified Chinese](LICENSE_zh_CN.md), [Japanese](LICENSE_ja_JP.md), and [Korean](LICENSE_ko_KR.md). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](ADDITIONAL_TERMS.txt), with reference translations in [Simplified Chinese](ADDITIONAL_TERMS_zh_CN.txt), [Japanese](ADDITIONAL_TERMS_ja_JP.txt), and [Korean](ADDITIONAL_TERMS_ko_KR.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later license version depends on that version's terms. The English additional terms are authoritative; translations are provided for reference.
+Original software materials owned by Limooo Studio and licensed by it are available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 license text is in [LICENSE.md](LICENSE.md), with reference translations in [Simplified Chinese](LICENSE_zh_CN.md), [Japanese](LICENSE_ja_JP.txt), and [Korean](LICENSE_ko_KR.md). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](ADDITIONAL_TERMS.txt), with reference translations in [Simplified Chinese](ADDITIONAL_TERMS_zh_CN.txt), [Japanese](ADDITIONAL_TERMS_ja_JP.txt), and [Korean](ADDITIONAL_TERMS_ko_KR.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later license version depends on that version's terms. The English additional terms are authoritative; translations are provided for reference.
 
 Limooo Studio is the author and copyright holder only of original materials it owns. Preserve applicable original author attributions and copyright notices, including reasonable source notices. See [COPYRIGHT.md](COPYRIGHT.md) for copyright scope and third-party material information. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
