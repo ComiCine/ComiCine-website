@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- 018: worker_runs records each Cron Worker run so failures are visible.
 --
 -- Background (observed 2026-10-11): the scheduled() handlers for limooo-blocklist-sync and

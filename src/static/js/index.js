@@ -1,4 +1,11 @@
 /*
+ * Copyright (C) 2026-Present Limooo Studio
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Additional terms under Section 7 apply.
+ * See ADDITIONAL_TERMS.md.
+ */
+
+/*
    Load portfolio images without affecting the initial view:
    Start loading thumbnails only when switching to the portfolio, so they do not compete for bandwidth.
    Once the portfolio is open, srcset selects the appropriate size.

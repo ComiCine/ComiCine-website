@@ -3,6 +3,13 @@ aside: false
 title: 项目说明
 description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）的项目 README"
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # Limooo
 
@@ -54,7 +61,15 @@ description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
-├── LICENSE.md                                        # AGPL-3.0
+├── LICENSE.md                                        # GNU AGPL v3 官方英文正文
+├── ADDITIONAL_TERMS.md                               # Section 7 附加条款
+├── ADDITIONAL_TERMS_zh_CN.md                         # Section 7 附加条款（简体中文）
+├── ADDITIONAL_TERMS_ja_JP.md                         # 日语译本
+├── ADDITIONAL_TERMS_ko_KR.md                         # 韩语译本
+├── COPYRIGHT.md                                      # 版权与许可说明（英文）
+├── COPYRIGHT_zh_CN.md                                # 简体中文译本
+├── COPYRIGHT_ja_JP.md                                # 日语译本
+├── COPYRIGHT_ko_KR.md                                # 韩语译本
 ├── LICENSE_zh_CN.md                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.md                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.md                                  # AGPL-3.0 (Korean)
@@ -478,4 +493,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证
 
-[GNU AGPL v3.0](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md)|[GNU AGPL v3.0-简体中文](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_zh_CN.md)|[GNU AGPL v3.0-日本語](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_ja_JP.md)|[GNU AGPL v3.0-한국어](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_ko_KR.md)
+Limooo Studio 拥有并有权授权的原创材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）授权。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS_zh_CN.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_zh_CN.md)；该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。GNU AGPL v3 官方英文全文见 [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md)，简体中文参考译本见 [LICENSE_zh_CN.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_zh_CN.md)。
+
+Limooo Studio 仅对其拥有版权的原创材料作为作者和版权持有人。再分发时必须保留适用的原作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
+
+额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。

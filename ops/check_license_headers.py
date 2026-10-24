@@ -2,20 +2,10 @@
 
 # Limooo - serverless personal website and admin system
 #
-# Copyright (C) 2026 Limooo <https://limooo.cn/>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as published
-# by the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Copyright (C) 2026-Present Limooo Studio
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Additional terms under Section 7 apply.
+# See ADDITIONAL_TERMS.md.
 
 """Require AGPL headers in first-party source files (GNU Affero or AGPL in the first 25 lines).
 
@@ -49,30 +39,16 @@ HEADER_MARKER = re.compile(r"GNU Affero|AGPL")
 # as happened when a previous count of 64 was mistakenly treated as complete. Filtering the full file list avoids this gap.
 RULES: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     ("functions", (".ts",), True),
-    ("ops", (".ts", ".js", ".py", ".sh"), True),
+    ("ops", (".ts", ".js", ".py", ".sh", ".html", ".sql"), True),
     ("src", (".py",), False),
     ("tests", (".py",), False),
+    ("src/static", (".css", ".js"), True),
+    ("src/templates", (".html",), True),
+    ("docs/docs/.vitepress", (".ts", ".mts", ".css"), True),
 )
 
-# Scope rationale: why only these directories are checked and why JS assets are **deliberately excluded**.
-#
-# Include files that are **tracked and source code**: functions/**/*.ts (including *.test.ts and
-# types.d.ts), ops/**/*.{ts,js,py,sh}, src/*.py, and tests/*.py. They define runtime behavior
-# or the checks themselves, and their headers are not sent to visitors.
-#
-# src/static/js/*.js (12 files, 92,996 B total) are **deliberately excluded**, not overlooked (decision made on 2026-10-11):
-#   - They are **browser assets**. src/build.py copies src/static/ into public/
-#     with shutil.copytree, without minifying or stripping comments, and Pages serves them directly.
-#   - A 17-line AGPL header adds about 9.6 KB, or **10%** of the uncompressed size, which every visitor would download
-#     (plus CDN transfer and browser parsing costs).
-#   - That increase is not worthwhile for comment metadata. The repository's
-#     LICENSE.md and LICENSE_zh_CN.md, along with the four docs-site copies,
-#     cover licensing without per-file headers.
-#   - Reconsider inclusion if these assets are later minified or stripped of comments so the header is not sent to browsers.
-#
-# tests/helpers/*.ts are also excluded because they are test helpers; whether the same policy should apply to tests/*.py remains undecided.
-# Keep this rationale in code rather than --help so maintainers can see why JS assets are excluded
-# instead of assuming the checker missed an entire file category.
+# Browser assets are included because the repository-wide licensing policy now requires per-file
+# notices even when comments are shipped to clients. Third-party data files remain excluded below.
 
 # Explicitly excluded: third-party files, generated output, and non-source files. These paths are already outside RULES;
 # this safeguard prevents false positives or casually adding headers if RULES is broadened later.
@@ -80,13 +56,12 @@ RULES: tuple[tuple[str, tuple[str, ...], bool], ...] = (
 NOT_REQUIRED = re.compile(
     r"^(?:"
     r"src/static/fonts/.+\.txt$"  # Third-party font licenses (OFL.txt / LICENSE.txt)
+    r"|src/static/js/currency-data\.js$"  # Unicode CLDR data retains its upstream notice and license
     r"|ops/fonts/.+\.txt$"
     r"|(?:.*/)?LICENSE[^/]*\.md$"  # The project's license text
-    r"|ops/migrations/.+\.sql$"
     r"|locales/.+\.json$"
     r"|.+\.(?:csv|toml|json)$"
-    r"|ops/email-templates/.+\.html$"
-    r"|docs/.*$"
+    r"|docs/(?!docs/\.vitepress/).*$"
     r")"
 )
 
@@ -94,14 +69,17 @@ USAGE = """License header gate: every first-party source file must carry the AGP
 
 Checked (the header must appear in the first 25 lines, as 'GNU Affero' or 'AGPL'):
   functions/**/*.ts
-  ops/**/*.ts, ops/**/*.js, ops/**/*.py, ops/**/*.sh
+  ops/**/*.ts, ops/**/*.js, ops/**/*.py, ops/**/*.sh, ops/**/*.html, ops/**/*.sql
   src/*.py
   tests/*.py
+  src/static/**/*.{css,js} except third-party currency data
+  src/templates/**/*.html
+  docs/docs/.vitepress/**/*.{ts,mts,css}
 
 Never checked (third-party or generated; adding a header there would be wrong):
   src/static/fonts/**.txt, ops/fonts/**.txt   (third-party OFL.txt / LICENSE.txt)
-  LICENSE*.md, ops/migrations/*.sql, locales/*.json
-  *.csv, *.toml, *.json, ops/email-templates/*.html, docs/**
+  LICENSE*.md, src/static/js/currency-data.js, locales/*.json
+  *.csv, *.toml, *.json, docs/** except docs/docs/.vitepress source
 
 Tracked files and untracked-but-not-ignored files are both checked, so a new file is
 caught before its first commit instead of by CI after the push.

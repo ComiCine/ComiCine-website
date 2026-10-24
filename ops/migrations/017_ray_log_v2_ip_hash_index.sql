@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- 017: Add an (ip_hash, ts) index to ray_log_v2 (implementation of docs/22 W7-9).
 --
 -- Background: ray_log_v2 is a seven-day detail table that previously had only

@@ -3,6 +3,13 @@ aside: false
 title: 게시 플랫폼 목록
 description: 《풍행미종》 허락 범위에 포함된 중국 본토 내·해외 플랫폼. 운영 주체, 소재지, 개인정보 처리방침, 그리고 해외 플랫폼의 연락처와 권리 행사 경로.
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # 게시 플랫폼 목록
 

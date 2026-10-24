@@ -3,6 +3,13 @@ aside: false
 title: 发布平台清单
 description: 《风行迷踪》授权范围内的境内、境外发布平台：运营主体、所在地、隐私政策，以及境外平台的联系方式与行使权利的途径。
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # 发布平台清单
 

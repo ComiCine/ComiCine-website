@@ -1,3 +1,8 @@
+# Copyright (C) 2026-Present Limooo Studio
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Additional terms under Section 7 apply.
+# See ADDITIONAL_TERMS.md.
+
 # Limooo status probes (docs/17, stage 2)
 # Replaces Uptime Kuma:
 #   - Cron Trigger runs HTTP/D1 probes every minute and writes to D1.

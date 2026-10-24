@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- 011: Reduce daily D1 row reads (fix for hitting the free-plan 5M rows/day limit on 2026-09-17).
 --
 -- Observed: rows_read_24h = 7,882,267 (limit 5,000,000), while rows_written was 24k and the DB

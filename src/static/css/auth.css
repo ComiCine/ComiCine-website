@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2026-Present Limooo Studio
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Additional terms under Section 7 apply.
+ * See ADDITIONAL_TERMS.md.
+ */
+
 /* The R2-hosted gate diagnostic font includes custom Korean glyphs 위 and 치. */
 @font-face {
   font-family: 'Maple Mono NF CN';

@@ -1,3 +1,10 @@
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 # Gate diagnostic font
 
 A gate-specific derivative of Maple Mono NF CN Regular that adds only `위` / `치`

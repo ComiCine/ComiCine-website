@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Initial Limooo Cloudflare Pages D1 schema.
 -- Apply with: wrangler d1 execute limooo --file=./migrations/001_init.sql
 

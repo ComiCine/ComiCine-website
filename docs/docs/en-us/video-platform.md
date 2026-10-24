@@ -3,6 +3,13 @@ aside: false
 title: Publishing platform list
 description: The mainland-China and overseas platforms covered by the Fengxing Mizong authorization — operating entity, address, privacy policy, and contact and rights channels for overseas platforms.
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # Publishing platform list
 

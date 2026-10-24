@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Limooo observability: shared event table (docs/06).
 -- Apply with: wrangler d1 execute limooo --file=./migrations/003_events.sql
 -- The health-check script also creates this table idempotently through the D1 API on first run.

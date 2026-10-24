@@ -1,3 +1,10 @@
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 # Limooo Cloudflare resource inventory
 
 This directory is the declarative description of Limooo's Cloudflare resources, used
