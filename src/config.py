@@ -43,9 +43,9 @@ def _load_contract() -> dict:
         with open(CONTRACT_PATH, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"无法读取配置契约 {CONTRACT_PATH}: {exc}") from exc
+        raise RuntimeError(f"cannot read config contract {CONTRACT_PATH}: {exc}") from exc
     if not isinstance(data, dict):
-        raise RuntimeError(f"配置契约格式错误（应为 JSON 对象）: {CONTRACT_PATH}")
+        raise RuntimeError(f"config contract must be a JSON object: {CONTRACT_PATH}")
     return data
 
 
@@ -55,21 +55,21 @@ CONTRACT = _load_contract()
 def _contract_str(key: str) -> str:
     value = CONTRACT.get(key)
     if not isinstance(value, str) or not value:
-        raise RuntimeError(f"配置契约缺少字符串字段: {key}")
+        raise RuntimeError(f"config contract is missing string field: {key}")
     return value
 
 
 def _contract_int(key: str) -> int:
     value = CONTRACT.get(key)
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise RuntimeError(f"配置契约字段必须为正整数: {key}")
+        raise RuntimeError(f"config contract field must be a positive integer: {key}")
     return value
 
 
 def _contract_str_list(key: str) -> list[str]:
     value = CONTRACT.get(key)
     if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
-        raise RuntimeError(f"配置契约字段必须为非空字符串列表: {key}")
+        raise RuntimeError(f"config contract field must be a non-empty string list: {key}")
     return value
 
 
@@ -77,11 +77,11 @@ def _contract_page_routes() -> dict[str, dict[str, str]]:
     """Read and validate the host-to-path-to-prerendered-page route mapping."""
     value = CONTRACT.get("page_routes")
     if not isinstance(value, dict):
-        raise RuntimeError("配置契约缺少 page_routes 字段（应为 JSON 对象）")
+        raise RuntimeError("config contract is missing the page_routes object")
     routes: dict[str, dict[str, str]] = {}
     for host, paths in value.items():
         if not isinstance(host, str) or not host or not isinstance(paths, dict):
-            raise RuntimeError(f"配置契约 page_routes 条目格式错误: {host!r}")
+            raise RuntimeError(f"invalid config contract page_routes entry: {host!r}")
         normalized: dict[str, str] = {}
         for path, filename in paths.items():
             if (
@@ -90,7 +90,7 @@ def _contract_page_routes() -> dict[str, dict[str, str]]:
                 or not isinstance(filename, str)
                 or not filename.endswith(".html")
             ):
-                raise RuntimeError(f"配置契约 page_routes 路由格式错误: {host!r} {path!r}")
+                raise RuntimeError(f"invalid config contract page_routes route: {host!r} {path!r}")
             normalized[path.rstrip("/") or "/"] = filename
         routes[host] = normalized
     return routes
@@ -100,7 +100,7 @@ def _contract_identity_site_roles() -> dict[str, str]:
     """Read and validate the exact source hosts allowed to use the identity broker."""
     value = CONTRACT.get("identity_sites")
     if not isinstance(value, dict) or not value:
-        raise RuntimeError("配置契约缺少 identity_sites 字段（应为来源主机到本地角色的 JSON 对象）")
+        raise RuntimeError("config contract is missing the identity_sites host-to-role object")
     identity_host = CONTRACT.get("identity_host")
     managed_hosts = CONTRACT.get("managed_hosts")
     root_domain = CONTRACT.get("root_domain")
@@ -121,7 +121,7 @@ def _contract_identity_site_roles() -> dict[str, str]:
             or not isinstance(role, str)
             or role not in {"admin", "viewer"}
         ):
-            raise RuntimeError(f"配置契约 identity_sites 条目格式错误: {host!r}")
+            raise RuntimeError(f"invalid config contract identity_sites entry: {host!r}")
         roles[host] = role
     return roles
 
@@ -195,7 +195,7 @@ SUPPORTED_LANGS = tuple(_contract_str_list("supported_langs"))
 DEFAULT_LANG = _contract_str("default_lang")  # Used when the language cannot be determined
 KEY_FALLBACK_LANG = _contract_str("key_fallback_lang")  # Used when a translation key is missing
 if DEFAULT_LANG not in SUPPORTED_LANGS or KEY_FALLBACK_LANG not in SUPPORTED_LANGS:
-    raise RuntimeError("配置契约中的 default_lang / key_fallback_lang 必须属于 supported_langs")
+    raise RuntimeError("default_lang and key_fallback_lang must be members of supported_langs")
 LANG_COOKIE = _contract_str("lang_cookie")
 LANG_COOKIE_MAX_AGE = _contract_int("lang_cookie_max_age")
 THEME_COOKIE = _contract_str("theme_cookie")
@@ -317,8 +317,8 @@ def load_translations() -> dict[str, dict[str, str]]:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"无法读取翻译文件 {path}: {exc}") from exc
+            raise RuntimeError(f"cannot read translation file {path}: {exc}") from exc
         if not isinstance(data, dict) or not all(isinstance(v, str) for v in data.values()):
-            raise RuntimeError(f"翻译文件格式错误（应为字符串字典）: {path}")
+            raise RuntimeError(f"translation file must be a string-to-string object: {path}")
         translations[lang] = data
     return translations
