@@ -1,6 +1,6 @@
 -- Copyright (C) 2026-Present Limooo Studio
 -- SPDX-License-Identifier: AGPL-3.0-or-later
--- Additional terms under Section 7 apply.
+-- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.md.
 
 -- 011: Reduce daily D1 row reads (fix for hitting the free-plan 5M rows/day limit on 2026-09-17).
