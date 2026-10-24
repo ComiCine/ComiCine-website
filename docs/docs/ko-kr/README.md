@@ -88,7 +88,6 @@ See ADDITIONAL_TERMS.txt.
 │       └── tests.yml                                 # CI: build, then typecheck / migrations / vitest / pytest
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
-├── .vscode/                                          # editor settings and recommended extensions
 ├── data/                                             # runtime databases and caches (generated; git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
@@ -153,10 +152,6 @@ npm run build
 `python3 src/build.py`를 직접 실행하면 이 세 가지를 모두 건너뛰며,
 Homebrew cairo 경로를 직접 내보내지 않는 한
 `RuntimeError: SVG watermarking requires cairosvg`로 실패합니다.
-
-깔끔한 VS Code 환경을 위해서는 `.vscode/extensions.json`에 나열된 권장 확장(Jinja, Pylance)을
-설치하세요. 워크스페이스 설정이 Jinja 템플릿을 연결해 주므로 HTML/CSS/JS 진단이
-템플릿 문법을 잘못 해석하지 않습니다.
 
 생성된 사이트를 로컬에서 미리 보려면 빌드한 뒤 `preview/`의 결과물을 여세요.
 
