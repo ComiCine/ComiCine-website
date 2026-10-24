@@ -5,7 +5,7 @@
 # Copyright (C) 2026-Present Limooo Studio
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
-# See ADDITIONAL_TERMS.md.
+# See ADDITIONAL_TERMS.txt.
 
 # Push the trusted ASNs from docs/lists/whitelist.txt to Cloudflare as zone-level
 # IP Access Rules (`mode=whitelist`, `target=asn`), so the list actually does

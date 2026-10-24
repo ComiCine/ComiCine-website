@@ -1,7 +1,7 @@
 -- Copyright (C) 2026-Present Limooo Studio
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
--- See ADDITIONAL_TERMS.md.
+-- See ADDITIONAL_TERMS.txt.
 
 -- Limooo Pages OIDC session revocation table (docs/09).
 -- A parallel agent already used the 004_* migration prefix; this file follows the established

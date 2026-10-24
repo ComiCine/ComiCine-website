@@ -2,7 +2,7 @@
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms may apply where authorized by the relevant rights holder and the applicable license.
-See ADDITIONAL_TERMS.md.
+See ADDITIONAL_TERMS.txt.
 -->
 
 # Copyright and Licensing
@@ -29,7 +29,7 @@ Subject to the GNU AGPL Version 3 terms, the license permits use, modification, 
 
 ## Additional Terms
 
-See [`ADDITIONAL_TERMS.md`](ADDITIONAL_TERMS.md). For original materials to which Limooo Studio is entitled to apply them, additional terms may be provided under Section 7 of the GNU AGPL Version 3. They address reasonable preservation of author attribution and source identification, marking modified versions, use of author names in publicity, reservation of trademark and brand rights, warranty disclaimers and liability limits, and allocation of certain contractual liabilities.
+See [`ADDITIONAL_TERMS.txt`](ADDITIONAL_TERMS.txt). For original materials to which Limooo Studio is entitled to apply them, additional terms may be provided under Section 7 of the GNU AGPL Version 3. They address reasonable preservation of author attribution and source identification, marking modified versions, use of author names in publicity, reservation of trademark and brand rights, warranty disclaimers and liability limits, and allocation of certain contractual liabilities.
 
 These additional terms do not prohibit commercial use permitted by the GNU AGPL Version 3. They apply only when authorized by the relevant rights holder and only within the scope permitted by Section 7 of GNU AGPL Version 3. They do not automatically apply to every later AGPL version; their scope depends on the applicable license and valid authorization. This notice creates no additional license restriction.
 
