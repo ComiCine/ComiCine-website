@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2026-Present Limooo Studio
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Additional terms under Section 7 apply.
+ * See ADDITIONAL_TERMS.md.
+ */
+
 /* Colors, radii, and easing come from tokens.css, the site-wide source of truth.
    This page does not define its own palette. */
     html, body { height: 100%; margin: 0; }

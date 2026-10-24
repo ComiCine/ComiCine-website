@@ -1,3 +1,8 @@
+# Copyright (C) 2026-Present Limooo Studio
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Additional terms under Section 7 apply.
+# See ADDITIONAL_TERMS.md.
+
 name: tests
 
 # Step set must stay identical to ops/ci_check.sh (the local replica of this file).

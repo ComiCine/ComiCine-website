@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Ray ID request log for Limooo Cloudflare Pages.
 -- Apply with: wrangler d1 execute limooo --file=./migrations/002_ray_log.sql
 -- The middleware writes each request's CF-Ray and request details here for lookup by check-ray-id.

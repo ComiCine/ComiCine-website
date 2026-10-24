@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- Gate failure counts: on the third failed verification from one source within 24 hours, a Pages
 -- Function blocks the source. Store only the HMAC of the IP; delete the row after a successful block.
 

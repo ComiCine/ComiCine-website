@@ -1,3 +1,8 @@
+-- Copyright (C) 2026-Present Limooo Studio
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+-- Additional terms under Section 7 apply.
+-- See ADDITIONAL_TERMS.md.
+
 -- 019: worker_runs.dry_run distinguishes a simulated run from a real push.
 --
 -- Migration 018 did not include this column, so `GET /?dry-run=1` recorded a row with

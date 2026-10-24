@@ -1,3 +1,8 @@
+# Copyright (C) 2026-Present Limooo Studio
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Additional terms under Section 7 apply.
+# See ADDITIONAL_TERMS.md.
+
 """cairosvg 的最小本地 stub（cairosvg 2.8.2 不带 py.typed，也不在 typeshed 里）。
 
 只声明仓库实际用到的那一个函数：`src/build.py` 的

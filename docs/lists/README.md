@@ -1,3 +1,10 @@
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 # 名单目录（白名单 / 黑名单）
 
 这里存放门禁与封禁链路使用的名单。本目录不进入 docs.limooo.cn 的部署产物。
