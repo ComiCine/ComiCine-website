@@ -4,7 +4,7 @@
  * Copyright (C) 2026-Present Limooo Studio (wrapper code only)
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Additional terms under Section 7 apply to Limooo Studio's wrapper code.
- * See ADDITIONAL_TERMS.md.
+ * See ADDITIONAL_TERMS.txt.
  *
  * The embedded Baloo 2 font subset is third-party material licensed under SIL OFL 1.1;
  * see site/src/static/fonts/baloo2/OFL.txt. It is not relicensed by this notice.

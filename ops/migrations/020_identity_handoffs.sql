@@ -1,7 +1,7 @@
 -- Copyright (C) 2026-Present Limooo Studio
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
--- See ADDITIONAL_TERMS.md.
+-- See ADDITIONAL_TERMS.txt.
 
 -- 020: single-use codes carry a verified Access identity and source host to a registered site.
 -- Codes are stored as SHA-256 hashes and expire within two minutes. Successful exchanges delete the row.

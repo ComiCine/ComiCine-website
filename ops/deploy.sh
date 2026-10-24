@@ -5,7 +5,7 @@
 # Copyright (C) 2026-Present Limooo Studio
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
-# See ADDITIONAL_TERMS.md.
+# See ADDITIONAL_TERMS.txt.
 
 # limooo.cn deploy entrypoint (tasks/17, zero-VPS) -- the SINGLE deploy script.
 #
@@ -37,6 +37,8 @@
 # Only success lines are collapsed; skips still print themselves and a failing step
 # dumps its full log. Pass --full (or LIMOOO_DEPLOY_VERBOSE=1) to get one line per
 # step plus every command.
+# Ctrl-C stops the active step, cleans temporary files, and exits 130. Staged changes remain staged;
+# completed commits, pushes, or deployments are not rolled back.
 #
 # With NO arguments this is exactly --all: commit + push + Pages + docs + Workers,
 # matching the "full deploy" contract in AGENTS.md. To ship only what is already
@@ -97,6 +99,24 @@
 # END-USAGE
 
 set -euo pipefail
+
+ACTIVE_LOG=""
+ACTIVE_TMP_INDEX=""
+
+cleanup_deploy_temp_files() {
+    [ -z "$ACTIVE_LOG" ] || rm -f "$ACTIVE_LOG"
+    [ -z "$ACTIVE_TMP_INDEX" ] || rm -f "$ACTIVE_TMP_INDEX"
+}
+
+handle_interrupt() {
+    trap '' INT
+    cleanup_deploy_temp_files
+    echo "Deploy: interrupted" >&2
+    exit 130
+}
+
+trap cleanup_deploy_temp_files EXIT
+trap handle_interrupt INT
 
 # Set the diagnostic message language for this entry point and its child processes, while
 # preserving the other locale settings.
@@ -250,14 +270,17 @@ run_step() {
     fi
     local log
     log="$(mktemp -t limooo-deploy-XXXXXX.log)"
+    ACTIVE_LOG="$log"
     if "$@" >"$log" 2>&1; then
         rm -f "$log"
+        ACTIVE_LOG=""
         DEFERRED_STEPS+=("$tag")
     else
         flush_steps
         echo "$tag: FAILED -- full log follows" >&2
         cat "$log" >&2
         rm -f "$log"
+        ACTIVE_LOG=""
         return 1
     fi
 }
@@ -360,16 +383,24 @@ verify_head_signature() {
 # The current approach uses a temporary index via GIT_INDEX_FILE, then runs read-tree HEAD,
 # add -A, and write-tree. It represents only working-tree content, independent of the real index,
 # and does not touch the user's index or working tree.
+WORKTREE_SNAPSHOT=""
 worktree_snapshot() {
     local tmp
     tmp="$(mktemp -t limooo-deploy-index-XXXXXX)"
+    ACTIVE_TMP_INDEX="$tmp"
     rm -f "$tmp"
     # Use HEAD as the baseline, then add all current working-tree files (including untracked but
     # excluding ignored files) to the temporary index.
-    GIT_INDEX_FILE="$tmp" git read-tree HEAD 2>/dev/null || { rm -f "$tmp"; echo "unavailable"; return 0; }
+    if ! GIT_INDEX_FILE="$tmp" git read-tree HEAD 2>/dev/null; then
+        rm -f "$tmp"
+        ACTIVE_TMP_INDEX=""
+        WORKTREE_SNAPSHOT="unavailable"
+        return 0
+    fi
     GIT_INDEX_FILE="$tmp" git add -A -- . >/dev/null 2>&1 || true
-    GIT_INDEX_FILE="$tmp" git write-tree 2>/dev/null || echo "unavailable"
+    WORKTREE_SNAPSHOT="$(GIT_INDEX_FILE="$tmp" git write-tree 2>/dev/null || echo "unavailable")"
     rm -f "$tmp"
+    ACTIVE_TMP_INDEX=""
 }
 
 STAGED_TREE_BEFORE=""
@@ -464,7 +495,8 @@ STAGED_TREE_BEFORE=""
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
     show_cmd git add -A -- . ':!limooo.cn.png'
     git add -A -- . ':!limooo.cn.png'
-    STAGED_TREE_BEFORE="$(worktree_snapshot)"
+    worktree_snapshot
+    STAGED_TREE_BEFORE="$WORKTREE_SNAPSHOT"
 fi
 
 if [ "$NEED_CHECKS" = 1 ]; then
@@ -488,7 +520,8 @@ flush_steps
 # instead of committing an unchecked tree. If snapshotting is unavailable (for example, read-tree
 # failed), both values will be "unavailable" and this gate will not block.
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
-    worktree_snapshot_after="$(worktree_snapshot)"
+    worktree_snapshot
+    worktree_snapshot_after="$WORKTREE_SNAPSHOT"
     if [ "$worktree_snapshot_after" != "$STAGED_TREE_BEFORE" ]; then
         echo "FATAL: working tree changed during checks; rerun deploy" >&2
         echo "       snapshot before checks $STAGED_TREE_BEFORE" >&2

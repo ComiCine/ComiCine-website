@@ -7,7 +7,7 @@ description: "The Limooo website and admin system (fully serverless on Cloudflar
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
-See ADDITIONAL_TERMS.md.
+See ADDITIONAL_TERMS.txt.
 -->
 
 
@@ -62,10 +62,10 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
 ├── LICENSE.md                                        # Official GNU AGPL v3 text
-├── ADDITIONAL_TERMS.md                               # Section 7 additional terms
-├── ADDITIONAL_TERMS_zh_CN.md                         # Simplified Chinese translation
-├── ADDITIONAL_TERMS_ja_JP.md                         # Japanese translation
-├── ADDITIONAL_TERMS_ko_KR.md                         # Korean translation
+├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms
+├── ADDITIONAL_TERMS_zh_CN.txt                         # Simplified Chinese translation
+├── ADDITIONAL_TERMS_ja_JP.txt                         # Japanese translation
+├── ADDITIONAL_TERMS_ko_KR.txt                         # Korean translation
 ├── COPYRIGHT.md                                      # Copyright and licensing information (English)
 ├── COPYRIGHT_zh_CN.md                                # Simplified Chinese translation
 ├── COPYRIGHT_ja_JP.md                                # Japanese translation
@@ -509,7 +509,7 @@ and logs, and Access remains the only identity source.
 
 ## License
 
-Original materials owned and licensed by Limooo Studio are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS.md). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
+Original materials owned and licensed by Limooo Studio are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.md](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.md). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
 
 Limooo Studio is the author and copyright holder only of original materials it owns. Preserve applicable original author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 

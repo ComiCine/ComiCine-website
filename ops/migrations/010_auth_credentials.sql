@@ -1,7 +1,7 @@
 -- Copyright (C) 2026-Present Limooo Studio
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
--- See ADDITIONAL_TERMS.md.
+-- See ADDITIONAL_TERMS.txt.
 
 -- Self-managed password login credentials (docs/17, phase 1, alternative A).
 -- This table coexists with the auth_sessions revocation table from docs/09 and only identifies

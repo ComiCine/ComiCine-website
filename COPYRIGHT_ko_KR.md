@@ -4,7 +4,7 @@
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
 Additional terms under Section 7 apply where legally applicable.
-See ADDITIONAL_TERMS_ko_KR.md.
+See ADDITIONAL_TERMS_ko_KR.txt.
 -->
 
 # 저작권 및 라이선스
@@ -31,7 +31,7 @@ GNU AGPL 제3판의 조건을 준수하는 경우 사용, 수정 및 재배포�
 
 ## 추가 조항
 
-[`ADDITIONAL_TERMS_ko_KR.md`](ADDITIONAL_TERMS_ko_KR.md)를 참조하세요. GNU AGPL 제3판이 적용되고 Limooo Studio가 라이선스할 권한을 가진 독창적 자료에는 해당 라이선스 제7조에 따른 추가 조항이 적용될 수 있습니다. 이 조항은 합리적인 저자 표시와 출처 표시의 보존, 수정 버전 표시, 홍보에서 저자 이름 사용, 상표 및 브랜드 권리의 유보, 보증 부인과 책임 제한, 특정 계약상 책임의 배분을 다룹니다.
+[`ADDITIONAL_TERMS_ko_KR.txt`](ADDITIONAL_TERMS_ko_KR.txt)를 참조하세요. GNU AGPL 제3판이 적용되고 Limooo Studio가 라이선스할 권한을 가진 독창적 자료에는 해당 라이선스 제7조에 따른 추가 조항이 적용될 수 있습니다. 이 조항은 합리적인 저자 표시와 출처 표시의 보존, 수정 버전 표시, 홍보에서 저자 이름 사용, 상표 및 브랜드 권리의 유보, 보증 부인과 책임 제한, 특정 계약상 책임의 배분을 다룹니다.
 
 이 추가 조항은 적용되는 AGPL 라이선스가 허용하는 상업적 이용을 금지하지 않습니다. GNU AGPL 제3판 제7조에 따른 추가 조항이 모든 향후 AGPL 버전에 자동으로 적용되는 것은 아닙니다. 적용 범위는 해당 라이선스와 유효한 권한 부여에 따라 결정됩니다. 이 안내는 새로운 라이선스 제한을 만들지 않습니다.
 

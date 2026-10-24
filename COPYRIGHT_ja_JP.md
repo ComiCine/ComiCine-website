@@ -4,7 +4,7 @@
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
 Additional terms under Section 7 apply where legally applicable.
-See ADDITIONAL_TERMS_ja_JP.md.
+See ADDITIONAL_TERMS_ja_JP.txt.
 -->
 
 # 著作権およびライセンス
@@ -31,7 +31,7 @@ GNU AGPL 第 3 版の条件に従う限り、ライセンスは使用、改変�
 
 ## 追加条項
 
-[`ADDITIONAL_TERMS_ja_JP.md`](ADDITIONAL_TERMS_ja_JP.md) を参照してください。GNU AGPL 第 3 版が適用され、かつ Limooo Studio がライセンスする権限を有するオリジナル資料には、同ライセンス第 7 条に基づく追加条項が適用される場合があります。これらの条項は、合理的な作者表示と出典表示の保持、改変版の明示、宣伝における作者名の使用、商標およびブランド権の留保、保証の否認と責任制限、特定の契約上の責任の分担を扱います。
+[`ADDITIONAL_TERMS_ja_JP.txt`](ADDITIONAL_TERMS_ja_JP.txt) を参照してください。GNU AGPL 第 3 版が適用され、かつ Limooo Studio がライセンスする権限を有するオリジナル資料には、同ライセンス第 7 条に基づく追加条項が適用される場合があります。これらの条項は、合理的な作者表示と出典表示の保持、改変版の明示、宣伝における作者名の使用、商標およびブランド権の留保、保証の否認と責任制限、特定の契約上の責任の分担を扱います。
 
 これらの追加条項は、適用される AGPL ライセンスが認める商用利用を禁止しません。GNU AGPL 第 3 版に基づく第 7 条の追加条項が、すべての将来の AGPL バージョンに自動的に適用されるわけではありません。適用範囲は、該当するライセンスと有効な許諾により決まります。本表示は新たなライセンス制限を設けません。
 

@@ -3,7 +3,7 @@
 # Copyright (C) 2026-Present Limooo Studio
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
-# See ADDITIONAL_TERMS.md.
+# See ADDITIONAL_TERMS.txt.
 
 """Safety guards for `ops/deploy.sh` and `ops/migrate_d1.sh` (tasks/22, W3).
 
@@ -17,9 +17,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -351,6 +353,61 @@ def test_deploy_commit_rejects_unsigned_head(tmp_path):
     assert result.returncode != 0
     assert "Git: unverified" in result.stdout
     assert "Git: committed" not in result.stdout
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_deploy_ctrl_c_stops_active_step_and_exits_cleanly(tmp_path, verbose):
+    repo = make_repo(tmp_path)
+    started = tmp_path / "step-started"
+    stopped = tmp_path / "step-stopped"
+    temp_dir = tmp_path / "deploy-tmp"
+    temp_dir.mkdir()
+    (repo / "ops" / "ci_check.sh").write_text(
+        "#!/bin/bash\nexec python3 ops/wait_for_interrupt.py\n"
+    )
+    (repo / "ops" / "wait_for_interrupt.py").write_text(
+        "import atexit, os, time\n"
+        "from pathlib import Path\n"
+        "Path(os.environ['DEPLOY_TEST_STARTED']).touch()\n"
+        "atexit.register(lambda: Path(os.environ['DEPLOY_TEST_STOPPED']).touch())\n"
+        "while True:\n"
+        "    time.sleep(0.1)\n"
+    )
+    env = dict(os.environ)
+    env.update(_GUARD_ENV)
+    env.update({
+        "DEPLOY_TEST_STARTED": str(started),
+        "DEPLOY_TEST_STOPPED": str(stopped),
+        "TMPDIR": str(temp_dir),
+    })
+    args = [BASH, "ops/deploy.sh", "--commit"]
+    if verbose:
+        args.append("--full")
+    process = subprocess.Popen(
+        args,
+        cwd=str(repo),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not started.exists() and process.poll() is None:
+            time.sleep(0.05)
+        assert started.exists(), "deploy did not reach the active CI step"
+        os.killpg(process.pid, signal.SIGINT)
+        stdout, stderr = process.communicate(timeout=5)
+        assert process.returncode == 130, stdout + stderr
+        assert "Deploy: interrupted" in stderr
+        assert stopped.exists(), "active step did not receive Ctrl-C"
+        assert "Git: committed" not in stdout
+        assert not list(temp_dir.glob("limooo-deploy-*")), "temporary deploy files were not cleaned"
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=5)
 
 
 def test_deploy_pages_refuses_a_dirty_tree(tmp_path):
