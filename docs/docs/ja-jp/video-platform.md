@@ -6,7 +6,7 @@ description: 『風行迷踪』の許諾範囲に含まれる中国本土内・�
 <!--
 Copyright (C) 2026-Present Limooo Studio
 SPDX-License-Identifier: AGPL-3.0-or-later
-Additional terms under Section 7 apply.
+Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.md.
 -->
 

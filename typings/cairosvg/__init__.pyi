@@ -1,6 +1,6 @@
 # Copyright (C) 2026-Present Limooo Studio
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Additional terms under Section 7 apply.
+# Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.md.
 
 """cairosvg 的最小本地 stub（cairosvg 2.8.2 不带 py.typed，也不在 typeshed 里）。
