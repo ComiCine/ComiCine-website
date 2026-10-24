@@ -3,6 +3,13 @@ aside: false
 title: 公開プラットフォーム一覧
 description: 『風行迷踪』の許諾範囲に含まれる中国本土内・海外のプラットフォーム。運営主体、所在地、プライバシーポリシー、および海外プラットフォームの連絡先と権利行使の窓口。
 ---
+<!--
+Copyright (C) 2026-Present Limooo Studio
+SPDX-License-Identifier: AGPL-3.0-or-later
+Additional terms under Section 7 apply.
+See ADDITIONAL_TERMS.md.
+-->
+
 
 # 公開プラットフォーム一覧
 
