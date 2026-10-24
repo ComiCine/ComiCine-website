@@ -23,7 +23,7 @@ Third-party contributors retain any copyright they hold in their contributions, 
 
 ## Licensing
 
-Original software materials that Limooo Studio owns and is entitled to license are made available under the GNU Affero General Public License Version 3 or any later version (AGPL-3.0-or-later). See [`LICENSE.md`](LICENSE.md) for the GNU AGPL Version 3 license text. The license text is not modified by this notice.
+Original software materials that Limooo Studio owns and is entitled to license are made available under the GNU Affero General Public License Version 3 or any later version (AGPL-3.0-or-later). See [`LICENSE.txt`](LICENSE.txt) for the GNU AGPL Version 3 license text. The license text is not modified by this notice.
 
 Subject to the GNU AGPL Version 3 terms, the license permits use, modification, and redistribution, including commercial use. Recipients must comply with its applicable conditions, preserve applicable copyright and license notices, and mark modified versions as required by that version. The GNU AGPL Version 3 network-source offer requirement applies when and as specified by that license. Nothing in this notice replaces or expands the license terms.
 
@@ -37,7 +37,7 @@ These additional terms do not prohibit commercial use permitted by the GNU AGPL 
 
 Copyright in third-party code, dependencies, media, and other works belongs to their respective rights holders. Third-party materials remain subject to their own applicable licenses and notices. Limooo Studio does not claim third-party copyright it does not own. Do not remove third-party copyright notices or license information.
 
-This repository does not currently contain a `THIRD_PARTY_NOTICES.md` file. Third-party license and attribution information, where provided, remains with the corresponding material and its applicable notices.
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for an inventory aid covering identified third-party fonts and dependencies and platform marks in QR-code images. It is not exhaustive and does not replace each component's applicable license or notice.
 
 ## Trademarks and Branding
 

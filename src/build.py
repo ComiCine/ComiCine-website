@@ -152,6 +152,10 @@ def _static_ignore(dirpath: str, names: list[str]) -> set[str]:
         os.path.abspath(STATIC_DIR)
     ) and "portfolio" in names:
         ignored.add("portfolio")
+    if os.path.normcase(os.path.abspath(dirpath)) == os.path.normcase(
+        os.path.abspath(STATIC_DIR)
+    ) and "files" in names:
+        ignored.add("files")
     ignored.update(
         name for name in names
         if name.endswith((".bak", ".orig", ".rej"))
@@ -187,6 +191,7 @@ def write_pages_edge_config(out_dir: str) -> None:
                 "include": ["/*"],
                 "exclude": [
                     "/static/*",
+                    "/public/files/*",
                     "/favicon.svg",
                     "/Limooo-xtext.svg",
                     # Crawler and AI entry files (2026-10-12): bypass Functions entirely.
@@ -205,6 +210,8 @@ def write_pages_edge_config(out_dir: str) -> None:
     with open(os.path.join(out_dir, "_headers"), "w", encoding="utf-8") as f:
         f.write(
             "/static/*\n"
+            "  Cache-Control: public, max-age=86400, stale-while-revalidate=86400\n"
+            "/public/files/*\n"
             "  Cache-Control: public, max-age=86400, stale-while-revalidate=86400\n"
             "/static/*.css\n"
             "  Cache-Control: public, max-age=31536000, immutable\n"
@@ -1080,6 +1087,15 @@ def main() -> int:
         dirs_exist_ok=True,
         ignore=_static_ignore,
     )
+    # Publish src/static/files/ at the stable URL prefix /public/files/.
+    public_files_source = os.path.join(STATIC_DIR, "files")
+    if os.path.isdir(public_files_source):
+        shutil.copytree(
+            public_files_source,
+            os.path.join(PUBLIC_DIR, "public", "files"),
+            dirs_exist_ok=True,
+            ignore=_static_ignore,
+        )
     # 3.0) A2: **Immediately** remove old portfolio files from the public bundle after copying static assets.
     #      The source directory is excluded; clean any original-image copies left in public/
     #      so a failure cannot leave full originals that a bare `wrangler pages deploy` could publish.

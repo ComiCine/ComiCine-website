@@ -58,7 +58,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
 │   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
-│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
+│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
 ├── LICENSE.txt                                        # GNU AGPL v3 공식 영문 본문
@@ -70,6 +70,10 @@ See ADDITIONAL_TERMS.txt.
 ├── COPYRIGHT_zh_CN.md                                # 중국어 간체 번역
 ├── COPYRIGHT_ja_JP.md                                # 일본어 번역
 ├── COPYRIGHT_ko_KR.md                                # 한국어 번역
+├── THIRD_PARTY_NOTICES.md                            # 제3자 고지(영어)
+├── THIRD_PARTY_NOTICES_zh_CN.md                      # 중국어 간체 번역
+├── THIRD_PARTY_NOTICES_ja_JP.md                      # 일본어 번역
+├── THIRD_PARTY_NOTICES_ko_KR.md                      # 한국어 번역
 ├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
@@ -448,6 +452,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 - `public/_routes.json`은 `/static/*`과 루트 정적 자산을 Pages
   Functions에서 제외하므로 CSS/JS/폰트는 Pages 자산 서버가 직접 제공합니다.
+- `src/static/files/`의 파일은 원래 하위 경로를 유지한 채 빌드 결과물의 `/public/files/`에 복사되므로 `src/static/files/<path>`는 `https://limooo.cn/public/files/<path>`에서 제공됩니다.
+  `/public/files/*`는 Pages Functions를 우회하고 정적 자산과 같은 1일 캐시 정책을 사용하며, 존재하지 않는 경로는 404를 반환합니다.
 - `public/_headers`는 버전이 지정된 정적 자산에
   `stale-while-revalidate`와 함께 긴 브라우저 캐시를 부여합니다.
   `public/_routes.json`과 `_headers`는 모두 `src/build.py`가 생성합니다.
@@ -487,6 +493,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 Limooo Studio가 저작권을 보유하고 라이선스할 권한이 있는 독창적 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL v3 제7조에 따른 추가 조건은 [ADDITIONAL_TERMS_ko_KR.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)에, GNU AGPL v3 전문은 [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt)에 있습니다. 추가 조건은 GNU AGPL v3를 적용하는 경우에 적용되며, 이후 버전에 적용되는지는 해당 버전의 조건에 따릅니다.
 
-Limooo Studio는 자신이 저작권을 보유한 독창적 자료에 대해서만 저자이자 저작권자입니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
+Limooo Studio는 프로젝트에서 사용하는 개발 브랜드이자 공개 표기입니다. 저작권은 법적으로 해당 권리를 보유한 실제 권리자에게 있습니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
 
 추가 승인 또는 상표 사용 허가 문의: [contact@limooo.cn](mailto:contact@limooo.cn). 적용되는 GNU AGPL 버전을 준수하는 상업적 이용에는 별도 승인이 필요하지 않습니다.
+
+제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 표장은 [제3자 고지](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_ko_KR.md)를, 저작권 범위는 [저작권 안내](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_ko_KR.md)를 참조하세요.

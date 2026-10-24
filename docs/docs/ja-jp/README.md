@@ -58,7 +58,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
 │   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
-│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes
+│   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
 ├── LICENSE.txt                                        # GNU AGPL v3 公式英文本文
@@ -70,6 +70,10 @@ See ADDITIONAL_TERMS.txt.
 ├── COPYRIGHT_zh_CN.md                                # 簡体字中国語訳
 ├── COPYRIGHT_ja_JP.md                                # 日本語訳
 ├── COPYRIGHT_ko_KR.md                                # 韓国語訳
+├── THIRD_PARTY_NOTICES.md                            # 第三者表示（英語）
+├── THIRD_PARTY_NOTICES_zh_CN.md                      # 簡体字中国語訳
+├── THIRD_PARTY_NOTICES_ja_JP.md                      # 日本語訳
+├── THIRD_PARTY_NOTICES_ko_KR.md                      # 韓国語訳
 ├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
 ├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
 ├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
@@ -460,6 +464,8 @@ docs.limooo.cn に公開されることはありません。
 
 - `public/_routes.json` は `/static/*` とルートの静的アセットを Pages
    Functions から除外するため、CSS/JS/フォントは Pages アセットサーバーが直接配信します。
+- `src/static/files/` 内のファイルはビルド出力の `/public/files/` に元の階層を保ってミラーされ、`src/static/files/<path>` は `https://limooo.cn/public/files/<path>` で配信されます。
+  `/public/files/*` は Pages Functions を迂回し、静的アセットと同じ1日キャッシュを使用し、存在しないパスは404を返します。
 - `public/_headers` はバージョン付きの静的アセットに
    `stale-while-revalidate` 付きの長いブラウザキャッシュを与えます。`public/_routes.json` と `_headers` は
   どちらも `src/build.py` が生成します。
@@ -500,6 +506,8 @@ docs.limooo.cn に公開されることはありません。
 
 Limooo Studio が著作権を有し、ライセンスする権限を有するオリジナル資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS_ja_JP.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ja_JP.txt) を、GNU AGPL v3 の本文は [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt) を参照してください。追加条項は GNU AGPL v3 を選択する場合に適用され、後続バージョンでの適用はそのバージョンの条件によります。
 
-Limooo Studio は、自らが著作権を有するオリジナル資料についてのみ、作者および著作権者です。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
+Limooo Studio は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
 追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
+
+第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。
