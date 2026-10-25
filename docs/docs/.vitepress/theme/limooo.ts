@@ -99,8 +99,10 @@ export function pathForLang(path: string, lang: string): string {
   const segments = pathSegments(path)
   if (hasLangSuffix(path)) segments.pop()
   const base = segments.length ? '/' + segments.join('/') : '/'
-  // The home page is the only exception: / is zh-cn; content pages still use /zh-cn.
-  if (base === '/') return lang === DEFAULT_LANG ? '/' : `/${lang}`
+  // The Chinese home page uses an explicit route because / redirects to the main site.
+  if (base === '/' || base === '/docs-home') {
+    return lang === DEFAULT_LANG ? '/docs-home/zh-cn' : `/${lang}`
+  }
   return `${base}/${lang}`
 }
 

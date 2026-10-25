@@ -9,6 +9,7 @@
  * docs.limooo.cn — VitePress 站点配置
  *
  * 内容源：site/docs/docs/*.md（本目录，即 VitePress 根）
+ *   index.md                     -> /docs-home/zh-cn
  *   video-platform.md            → /video-platform/zh-cn
  *   en-us/video-platform.md      → /video-platform/en-us
  *   README.md                    → /README/zh-cn（site/README.md 的四语副本）
@@ -18,7 +19,8 @@
  * **内容页的 URL 一律带显式语言段，默认语言 zh-cn 也不例外**；不带语言段的
  * `/video-platform`、`/README`、`/LICENSE` 由 docs/public/_redirects 302 到
  * 对应的 `/.../zh-cn`（2026-10-08 定）。docs 主域根路径 `/` 由 public/_redirects
- * 302 到主站；其它语言首页仍是 `/en-us`、`/ja-jp`、`/ko-kr`。
+ * 302 到主站；the Chinese documentation home uses `/docs-home/zh-cn`, while
+ * the other language homes remain `/en-us`、`/ja-jp`、`/ko-kr`。
  *
  * site/docs/ 是**按子域分目录**的容器：docs/ 归 docs.limooo.cn（本目录），
  * services/ 归 services.limooo.cn（价目表 CSV，由 src/services_pricing.py 读取）。
@@ -75,7 +77,7 @@ function routePath(basePath: string, code: string): string {
 /**
  * 内容页路径：语言码**一律显式带上**（默认语言 zh-cn 也是），
  * 无后缀的 `/README`、`/LICENSE`、`/video-platform` 由 _redirects 302 过来。
- * 首页不适用（`/` 就是 zh-cn），所以首页仍走 routePath。
+ * The Chinese documentation home uses `/docs-home/zh-cn` to avoid the root redirect.
  */
 function contentPath(basePath: string, code: string): string {
   return `${basePath}/${code}`
@@ -198,7 +200,9 @@ const labels: Record<string, Labels> = {
 
 function themeFor(code: string): DefaultTheme.Config {
   const L = labels[code] ?? labels[DEFAULT_LANG]
-  const home = routePath('/', code)
+  const home = code === DEFAULT_LANG
+    ? contentPath('/docs-home', code)
+    : routePath('/', code)
   const readme = contentPath('/README', code)
   const video = contentPath('/video-platform', code)
   const license = contentPath('/LICENSE', code)
@@ -272,9 +276,7 @@ const SOCIAL_IMAGE = 'https://images.limooo.cn/static/icons/social-preview.png'
 function canonicalUrlForPage(page: string): string | null {
   const sourcePage = page.startsWith('/') ? page.slice(1) : page
   if (sourcePage === '404.md') return null
-  const outputPage = sourcePage === 'index.md'
-    ? ''
-    : REWRITES[sourcePage] ?? sourcePage
+  const outputPage = REWRITES[sourcePage] ?? (sourcePage === 'index.md' ? '' : sourcePage)
   const route = outputPage.endsWith('/index.md')
     ? outputPage.slice(0, -'/index.md'.length)
     : outputPage.endsWith('.md')
@@ -326,7 +328,7 @@ export default defineConfig({
     const canonicalUrl = canonicalUrlForPage(page)
     if (!canonicalUrl) return []
     const pathname = new URL(canonicalUrl).pathname
-    const isHome = pathname === '/' || pathname === '/en-us'
+    const isHome = pathname === '/' || pathname === '/docs-home/zh-cn' || pathname === '/en-us'
       || pathname === '/ja-jp' || pathname === '/ko-kr'
     const pageType = isHome ? 'website' : 'article'
     return [

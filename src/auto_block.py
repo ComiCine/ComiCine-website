@@ -498,7 +498,9 @@ def sync_d1(dry_run: bool = False, pull: bool = False) -> int:
         if row.get("cidr")
     }
     to_add = sorted(cidr for cidr in desired if cidr not in known)
-    to_delete = sorted(
+    # Reconcile mode is additive toward the local snapshot: active D1 rows missing
+    # from the file must be pulled below, not deleted before they can be written.
+    to_delete = [] if pull else sorted(
         cidr
         for cidr, row in active_rows.items()
         if cidr not in desired and row.get("source") in (None, "", "auto_block", "blocklist.txt")

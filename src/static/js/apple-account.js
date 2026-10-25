@@ -251,14 +251,15 @@ async function revealPw(id) {
         const resp = await fetch('/api/apple-account/accounts/' + id + '/reveal', { method: 'POST', headers: csrfHeaders() });
         if (resp.status === 403) { toast(t('toast_no_permission')); return null; }
         if (resp.status === 401) {
-            // Recent authentication expired, but the session is still valid; authAt is simply too old.
-            // Go through Access again via /login. The user must retry reveal after returning; do not replay it automatically.
+            // Clear both the local session and Access SSO session so the return through Access requires authentication again.
+            // The user must retry reveal after returning; do not replay the sensitive request automatically.
             var body = {};
             try { body = await resp.json(); } catch(e) { body = {}; }
             if (body && body.reauth) toast(t('toast_reauth_required'));
             // Let the notice render for one frame before redirecting.
             setTimeout(function() {
-                window.location.href = '/login?next=' + encodeURIComponent(location.href);
+                var endpoint = body && body.reauth ? '/logout' : '/login';
+                window.location.href = endpoint + '?next=' + encodeURIComponent(location.href);
             }, body && body.reauth ? 800 : 0);
             return null;
         }

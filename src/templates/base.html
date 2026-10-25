@@ -22,7 +22,7 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Load the theme script before rendering to avoid a white flash in light mode. -->
     {% block theme_preload %}
-    <script src="/static/js/theme-preload.js?v=2"></script>
+    <script src="/static/js/theme-preload.js?v=3" data-theme-cookie="{{ theme_cookie }}"></script>
     {% endblock %}
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->

@@ -10,7 +10,10 @@
 (function () {
   var theme = localStorage.getItem("theme");
   if (!theme) {
-    var match = document.cookie.match(/(?:^|;\s*)limooo_theme=(light|dark)/);
+    var script = document.currentScript;
+    var cookieName = script && script.getAttribute("data-theme-cookie") || "limooo_theme";
+    var escapedName = cookieName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var match = document.cookie.match(new RegExp("(?:^|;\\s*)" + escapedName + "=(light|dark)(?:;|$)"));
     theme = match ? match[1] : null;
   }
   if (
