@@ -330,10 +330,10 @@ export const REAUTH_REQUIRED_MESSAGE = "需要重新验证";
  * unauthenticated users still get 401 and read-only accounts still get 403;
  * callers return a Response directly.
  *
- * Whether reauthentication **actually** asks the user to enter credentials
- * again depends on the Access application's Session Duration. If the Access
- * session is still valid, `/login` silently issues a new `authAt`. The current
- * Session Duration for `account.limooo.cn` (Limooo-Apple) is recorded in tasks/21.
+ * The Apple Account frontend sends this flow through `/logout`, which revokes
+ * the local session and clears the Cloudflare Access session before returning
+ * to the protected page. That prevents a still-valid Access application token
+ * from silently refreshing `authAt` without a new Access authentication flow.
  */
 export async function requireRecentAdminSession(
   env: Env,

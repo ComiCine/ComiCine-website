@@ -49,15 +49,18 @@ PIN = re.compile(r"^([A-Za-z0-9_.\-]+)==(\S+)$")
 
 
 def read_pins(path: Path) -> dict[str, str]:
-    """Return a name-to-version mapping, skipping comments and blank lines; later duplicates win."""
+    """Return a name-to-version mapping; reject declarations outside the strict pin format."""
     pins: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        match = PIN.match(line)
-        if match:
-            pins[match.group(1).lower()] = match.group(2)
+        match = PIN.fullmatch(line)
+        if not match:
+            raise ValueError(
+                f"{path}:{lineno}: invalid requirement {line!r}; expected name==version"
+            )
+        pins[match.group(1).lower()] = match.group(2)
     return pins
 
 
@@ -109,8 +112,12 @@ def main() -> int:
             print(f"FATAL: missing {path}", file=sys.stderr)
             return 1
 
-    txt = read_pins(TXT)
-    lock = read_pins(LOCK)
+    try:
+        txt = read_pins(TXT)
+        lock = read_pins(LOCK)
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"FATAL: cannot parse requirements: {exc}", file=sys.stderr)
+        return 1
     problems = check_pins(txt, lock)
 
     if problems:

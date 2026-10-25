@@ -172,6 +172,15 @@ def table_names(directory: str) -> list[str]:
     return names
 
 
+def idempotent_schema(ddl: str) -> str:
+    """Make supported SQLite schema declarations safe to replay without rewriting their bodies."""
+    create_prefix = re.compile(
+        r"(?im)^(\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNIQUE|VIRTUAL)\s+)*"
+        r"(?:TABLE|INDEX|TRIGGER|VIEW)\s+)(?!IF\s+NOT\s+EXISTS\b)"
+    )
+    return create_prefix.sub(r"\1IF NOT EXISTS ", ddl)
+
+
 def render(directory: str, data_only: bool, replace: bool) -> tuple[str, list[str]]:
     ddl_path = os.path.join(directory, "ddl.sql")
     if not os.path.exists(ddl_path):
@@ -182,7 +191,8 @@ def render(directory: str, data_only: bool, replace: bool) -> tuple[str, list[st
     notes: list[str] = []
     parts: list[str] = []
     if not data_only:
-        parts.append("-- schema (from ddl.sql)\n" + ddl.rstrip("\n") + "\n")
+        schema = idempotent_schema(ddl) if replace else ddl
+        parts.append("-- schema (from ddl.sql)\n" + schema.rstrip("\n") + "\n")
 
     manifest = load_manifest(directory)
     if manifest is not None:
@@ -215,7 +225,7 @@ def render(directory: str, data_only: bool, replace: bool) -> tuple[str, list[st
         f"-- tables: {rendered_tables}  rows: {rendered_rows}  mode: "
         + ("data only" if data_only else "schema + data")
         + ("  replace" if replace else ""),
-        "-- target must be a FRESH database (plain INSERT); re-runs need --replace.",
+        "-- target must be a FRESH database unless --replace was used.",
         "",
     ]
     return "\n".join(header) + "\n" + "\n\n".join(parts) + "\n", notes
