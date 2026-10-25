@@ -143,14 +143,17 @@
     position: absolute;
     left: 50%; top: 50%;
     transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: baseline;
     white-space: nowrap;
 }
-/* Position the unit 8px after the number's right edge and align their bottoms. */
+/* Keep the suffix in the centered price group and above the strike-through. */
 .plan-price .plan-unit {
-    position: absolute;
-    left: 100%; bottom: 0;
+    position: relative; z-index: 1;
     margin-left: 8px;
-    font-size: 0.5em; font-weight: 500; opacity: 0.45;
+    background: var(--bg);
+    color: color-mix(in srgb, currentColor 45%, transparent);
+    font-size: 0.5em; font-weight: 500;
     line-height: 1;
     white-space: nowrap;
 }
@@ -183,8 +186,10 @@
     text-align: center;
 }
 .currency-reference:empty { visibility: hidden; }
-/* Reduce price size in the mobile two-column layout to avoid overlap with the unit. */
+/* Stack mobile price tiers to give each amount and unit more room. */
 @media (max-width: 639px) {
+    .modal-body { padding-right: 16px; padding-left: 16px; }
+    .plan-grid-quad { grid-template-columns: 1fr; }
     .plan { padding-bottom: 45px; }
     .plan-price { font-size: 24px; height: 50px; }
     .plan-price .plan-unit { margin-left: 4px; }
@@ -206,6 +211,8 @@
 }
 .plan-features li span:first-child { opacity: 0.45; }
 .plan-features li span:last-child { font-weight: 600; opacity: 0.85; }
+.plan-features li span, .extra-row span { min-width: 0; }
+.plan-features li span:last-child, .extra-row span:last-child { overflow-wrap: anywhere; }
 
 /* Optional add-ons. */
 .extras { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }

@@ -160,6 +160,7 @@ setTimeout(function() {
     var status = document.getElementById('currency-picker-status');
     var selected = readPreference();
     var activeTrigger = null;
+    var optionsRenderScheduled = false;
     var currencyData = readCache();
     var requestPromise = null;
     var ratesFailed = false;
@@ -301,7 +302,7 @@ setTimeout(function() {
         if (currencyData) {
             refreshData().then(function(data) {
                 reconcileSelection(data);
-                if (!picker.hidden) renderOptions();
+                scheduleRenderOptions(true);
                 applyReferences();
                 if (!picker.hidden) updateStatus(data);
             }).catch(function() {});
@@ -365,7 +366,7 @@ setTimeout(function() {
             }
             countrySearchIndexReady = true;
             countrySearchIndexScheduled = false;
-            if (!picker.hidden) renderOptions();
+            scheduleRenderOptions(true);
         }
         if (typeof window.requestIdleCallback === 'function') {
             window.requestIdleCallback(processChunk, { timeout: 500 });
@@ -496,6 +497,18 @@ setTimeout(function() {
         renderBatch();
     }
 
+    function scheduleRenderOptions(preload) {
+        if (optionsRenderScheduled || (picker.hidden && !preload)) return;
+        optionsRenderScheduled = true;
+        window.requestAnimationFrame(function() {
+            window.setTimeout(function() {
+                optionsRenderScheduled = false;
+                if (picker.hidden && !preload) return;
+                renderOptions();
+            }, 0);
+        });
+    }
+
     function amountFormatter(code) {
         var locale = document.documentElement.lang || 'en';
         if (code !== cachedFormatterCode || locale !== cachedFormatterLocale) {
@@ -550,9 +563,6 @@ setTimeout(function() {
     function closePicker() {
         if (picker.hidden) return;
         picker.hidden = true;
-        renderGeneration += 1;
-        renderedData = undefined;
-        renderedQuery = null;
         document.body.style.overflow = document.querySelector('.service-modal.open') ? 'hidden' : '';
         if (activeTrigger && document.contains(activeTrigger)) activeTrigger.focus();
         activeTrigger = null;
@@ -586,9 +596,9 @@ setTimeout(function() {
         picker.hidden = false;
         document.body.style.overflow = 'hidden';
         search.value = '';
-        renderOptions();
         updateStatus(currencyData);
         search.focus();
+        scheduleRenderOptions();
     }
 
     document.addEventListener('click', function(event) {
@@ -619,7 +629,7 @@ setTimeout(function() {
         closePicker();
     });
 
-    search.addEventListener('input', renderOptions);
+    search.addEventListener('input', function() { scheduleRenderOptions(); });
     document.addEventListener('keydown', function(event) {
         if (picker.hidden) return;
         if (event.key === 'Escape') {
@@ -640,16 +650,17 @@ setTimeout(function() {
     });
 
     scheduleCountrySearchIndex();
+    scheduleRenderOptions(true);
     ensureData().then(function(data) {
         currencyData = data;
         reconcileSelection(data);
-        if (!picker.hidden) renderOptions();
+        scheduleRenderOptions(true);
         updateStatus(data);
         applyReferences();
     }).catch(function() {
         ratesFailed = true;
         reconcileSelection(currencyData);
-        renderOptions();
+        scheduleRenderOptions(true);
         updateStatus(currencyData, true);
     });
 })();
