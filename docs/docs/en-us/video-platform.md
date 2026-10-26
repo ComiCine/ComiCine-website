@@ -4,7 +4,7 @@ title: Publishing platform list
 description: The mainland-China and overseas platforms covered by the Fengxing Mizong authorization — operating entity, address, privacy policy, and contact and rights channels for overseas platforms.
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -21,7 +21,7 @@ This is the **exact scope** of the two checkboxes in the *Fengxing Mizong* (《�
 - If we want to add a platform later, we will tell you first and publish only after you agree.
 :::
 
-**Version: v2026.10.03**　When you sign, the version in force on the day you sign is the one that applies. Every change to this page is kept in the project [repository](https://github.com/Limooooo-Studio/Limooo-Website) commit history, so older versions can always be looked up.
+**Version: v2026.10.03**　When you sign, the version in force on the day you sign is the one that applies. Every change to this page is kept in the project [repository](https://github.com/ComiCine/ComiCine-website) commit history, so older versions can always be looked up.
 
 > Checked: mainland platforms on 2026-09-27, overseas platforms on 2026-10-03. Entities and policy URLs change; always confirm
 > against the official page before relying on an entry. This page is an index only and is not legal advice.

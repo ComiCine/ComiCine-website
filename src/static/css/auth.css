@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -195,7 +195,7 @@
     .footer-text > span, .footer-text > a { white-space: nowrap; }
     /* Draw "·" on each item's ::before so it wraps with that item instead of being orphaned.
        Use inline-block rather than inline-flex: flex removes spaces between children,
-       which would join "© 2026 Limooo Studio" into "© 2026LimoooStudio". */
+       which would join "© 2026 ComiCine" into "© 2026ComiCineStudio". */
     .footer-text > .footer-item { display: inline-block; }
     .footer-text > .footer-item:not(:first-child)::before {
         content: "·"; margin: 0 0.55em; opacity: 0.7;

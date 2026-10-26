@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -137,7 +137,7 @@ setTimeout(function() {
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
     var PRIORITY = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'HKD', 'TWD', 'SGD', 'AUD', 'CAD', 'CHF', 'INR', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'NZD', 'ZAR', 'BRL', 'MXN', 'AED', 'SAR'];
 
-    var CURRENCY_SEARCH_DATA = window.LimoooCurrencySearchData || {};
+    var CURRENCY_SEARCH_DATA = window.ComiCineCurrencySearchData || window.LimoooCurrencySearchData || {};
     var CURRENCY_META = CURRENCY_SEARCH_DATA.currencies || {};
     var TERRITORY_CURRENCIES = CURRENCY_SEARCH_DATA.territories || {};
     var TERRITORY_ALIASES = CURRENCY_SEARCH_DATA.territoryAliases || {};
@@ -176,7 +176,8 @@ setTimeout(function() {
     var renderGeneration = 0;
 
     function translate(key, params) {
-        return typeof window.limoooTranslate === 'function' ? window.limoooTranslate(key, params) : key;
+        var translate = window.comicineTranslate || window.limoooTranslate;
+        return typeof translate === 'function' ? translate(key, params) : key;
     }
 
     function setSelectedCurrency(code) {

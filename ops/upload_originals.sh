@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo - back up portfolio originals to the private Cloudflare R2 bucket.
+# ComiCine - back up portfolio originals to the private Cloudflare R2 bucket.
 #
 # After A2 the full-size portfolio originals (src/static/portfolio/*) are no longer
 # published with Pages: they live only on this machine and in the private R2 bucket

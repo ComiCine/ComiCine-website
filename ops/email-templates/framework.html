@@ -1,18 +1,18 @@
 <!--
-  Limooo shared email framework (HTML), reused by all services
+  ComiCine shared email framework (HTML), reused by all services
   - Layout: light gray background, white rounded card, centered logo, flexible content, optional CTA, divider, and footer
   - Placeholders replaced by ops/email-templates/render.py:
       TITLE message title (bold copy) / PREHEADER optional hidden inbox preview
       BODY message paragraphs (HTML allowed) / CODE_BLOCK optional highlighted value; omitted when empty
       CTA_LABEL / CTA_URL optional primary button / HINT optional secondary note
       FOOTER_RIGHTS localized copyright suffix
-  - Branding: top logo uses images.limooo.cn with transparency; footer Limooo uses Baloo 2
+  - Branding: top logo uses images.limooo.cn with transparency; footer ComiCine uses Baloo 2
     (font-size:1.21em compensates for its small glyph proportions)
   - Embeds the Baloo 2 variable font as a footer CID; omit the attachment when not sending email
 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -36,7 +36,7 @@ See ADDITIONAL_TERMS.txt.
           <tbody><tr><td style="padding:32px">
 
             <!-- Top logo with transparency. -->
-            <img alt="Limooo" src="https://images.limooo.cn/icons/Limooo-xtext.svg"
+            <img alt="ComiCine" src="https://images.limooo.cn/static/icons/comicine.svg?v=1"
               style="display:block;outline:none;border:none;text-decoration:none;margin:0 auto 2rem;width:160px;height:auto"/>
 
             <!-- Title. -->
@@ -59,7 +59,7 @@ See ADDITIONAL_TERMS.txt.
 
             <!-- Footer. -->
             <p style="font-size:12px;line-height:20px;color:#a1a1aa;text-align:center;margin:16px 0">&copy; 2026
-              <span style="font-family:Baloo;font-weight:700;font-size:1.21em;letter-spacing:1px;color:#a1a1aa">Limooo</span>
+              <span style="font-family:Baloo;font-weight:700;font-size:1.21em;letter-spacing:1px;color:#a1a1aa">ComiCine</span>
               Studio | __FOOTER_RIGHTS__</p>
 
           </td></tr></tbody></table>

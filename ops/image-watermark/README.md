@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -91,7 +91,7 @@ rewrite the live route set, which this repository cannot diff or roll back.
 
 ## Publishing a watermark appearance change
 
-`src/build.py` composites `src/static/icons/Limooo-xtext.svg` directly onto each
+`src/build.py` composites `src/static/icons/watermark.png` directly onto each
 portfolio image. The SVG's own opacity is preserved and no backing plate is added.
 After changing the SVG or composite placement/size:
 

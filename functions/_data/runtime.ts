@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -25,7 +25,7 @@ export const GATE_I18N: Record<string, Record<string, string>> = {
     "location": "Location",
     "ip": "IP",
     "ray": "Ray ID",
-    "foot": "由 Limooo 边缘安全提供保护",
+    "foot": "由 ComiCine 边缘安全提供保护",
     "lang_aria": "切换语言",
     "theme_aria": "切换主题",
     "footer_rights": "保留所有权利",
@@ -55,7 +55,7 @@ export const GATE_I18N: Record<string, Record<string, string>> = {
     "location": "Location",
     "ip": "IP",
     "ray": "Ray ID",
-    "foot": "Secured by Limooo Edge Security",
+    "foot": "Secured by ComiCine Edge Security",
     "lang_aria": "Switch language",
     "theme_aria": "Toggle theme",
     "footer_rights": "All rights reserved",
@@ -85,7 +85,7 @@ export const GATE_I18N: Record<string, Record<string, string>> = {
     "location": "Location",
     "ip": "IP",
     "ray": "Ray ID",
-    "foot": "Limooo Edge Security により保護されています",
+    "foot": "ComiCine Edge Security により保護されています",
     "lang_aria": "言語切替",
     "theme_aria": "テーマ切替",
     "footer_rights": "すべての権利を保有",
@@ -115,7 +115,7 @@ export const GATE_I18N: Record<string, Record<string, string>> = {
     "location": "Location",
     "ip": "IP",
     "ray": "Ray ID",
-    "foot": "Limooo Edge Security가 보호합니다",
+    "foot": "ComiCine Edge Security가 보호합니다",
     "lang_aria": "언어 전환",
     "theme_aria": "테마 전환",
     "footer_rights": "모든 권리 보유",

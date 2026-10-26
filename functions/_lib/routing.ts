@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -101,7 +101,9 @@ export const SKIP_PATHS = new Set<string>([
   "/__gate/verify",
   "/__gate/diag",
   "/__gate/config",
+  "/comicine.svg",
   "/Limooo-xtext.svg",
+  "/ComiCine-xtext.svg",
   "/favicon.svg",
 // Crawler and AI entry files (2026-10-12) are generated at the output root and
 // listed in _routes.json excludes, so normally they never reach Functions.
@@ -223,8 +225,8 @@ export function escapeHtml(value: string): string {
 /**
  * 展示/日志用的访客 IP：只信 Cloudflare 写入的 `CF-Connecting-IP`。
  *
- * 历史上这里优先读 nginx 反代带上的 `X-Limooo-Client-IP` /
- * `X-Limooo-Client-Country`，但那套 VPS 已于 2026-09-17 退租，这两个头
+ * 历史上这里优先读 nginx 反代带上的 `X-ComiCine-Client-IP` /
+ * `X-ComiCine-Client-Country`，但那套 VPS 已于 2026-09-17 退租，这两个头
  * **不再有可信来源**——任何访客自带即被采信，会污染 `visitor_rollups` 的
  * IP 哈希 / 国家 / `ip_enc`（后台"查看访客 IP"解出的就是攻击者自报的地址）、
  * 结构化日志，以及 Turnstile siteverify 的 `remoteip`。现已删除。
@@ -359,7 +361,9 @@ export function isPublicAssetPath(pathname: string): boolean {
     pathname.startsWith("/static/") ||
     pathname.startsWith(PUBLIC_FILES_PREFIX) ||
     pathname === "/favicon.svg" ||
-    pathname === "/Limooo-xtext.svg"
+    pathname === "/comicine.svg" ||
+    pathname === "/Limooo-xtext.svg" ||
+    pathname === "/ComiCine-xtext.svg"
   );
 }
 

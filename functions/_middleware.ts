@@ -1,14 +1,14 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
 /**
- * Limooo Pages middleware orchestration.
+ * ComiCine Pages middleware orchestration.
  *
  * This file coordinates requests, applies shared security headers, and controls
  * when tracking runs. Routing, gate, redirect, and blocklist logic live in
@@ -233,12 +233,12 @@ type LegacyHtmlResolution =
   | { kind: "redirect"; target: string }
   | { kind: "not_found" };
 
-const FEISHU_STUDIO_BASE_URL = "https://limooo-studio.feishu.cn";
+const COMICINE_FEISHU_BASE_URL = "https://comicine.feishu.cn";
 
 function resolveFeishuPathAlias(pathname: string): string | null {
   const match = pathname.match(/^\/(?:feishu|lark)(\/.*)?$/);
   if (!match) return null;
-  return `${FEISHU_STUDIO_BASE_URL}${match[1] || "/"}`;
+  return `${COMICINE_FEISHU_BASE_URL}${match[1] || "/"}`;
 }
 
 function resolveLegacyHtmlAlias(

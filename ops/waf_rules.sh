@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo WAF custom rule compaction / snapshot (zero-VPS, local token only).
+# ComiCine WAF custom rule compaction / snapshot (zero-VPS, local token only).
 #
 # Background (tasks/17 section 10): the free plan allows only 5 custom rules,
 # while IP Access Rules allow 50,000 and do not consume that quota. This script

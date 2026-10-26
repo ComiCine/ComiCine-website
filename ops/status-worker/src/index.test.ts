@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -333,7 +333,7 @@ describe("status page rendering", () => {
     });
     const html = await renderStatusPage({ DB: db } as Env, "zh-cn");
     expect(html).toContain("服务状态");
-    expect(html).toContain("Limooo 网站"); // label_key matches the same key in locales
+    expect(html).toContain("ComiCine 网站"); // label_key matches the same key in locales
     expect(html).toContain("运行正常");
     expect(html).toContain('href="/status.css"');
     expect(html).toContain('src="/status.js"');
@@ -347,9 +347,9 @@ describe("alert email", () => {
     const down = buildAlertEmail("zh-cn", "down", "Website", "http_503", 1700000000);
     const up = buildAlertEmail("zh-cn", "up", "Website", "http_200", 1700000000);
     // The probe name is **not in the subject** (user decision on 2026-10-11: subject is
-    // `Health check alert · Limooo`); it appears in the body row. The title only reports
+    // `Health check alert · ComiCine`); it appears in the body row. The title only reports
     // what happened.
-    expect(down.subject).toBe("Health check alert · Limooo");
+    expect(down.subject).toBe("Health check alert · ComiCine");
     expect(down.subject).not.toContain("Website");
     expect(down.text).toContain("Website");
     expect(down.html).toContain("#dc2626");

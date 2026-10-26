@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo - Cloudflare Pages build and deploy (tasks/17, zero-VPS)
+# ComiCine - Cloudflare Pages build and deploy (tasks/17, zero-VPS)
 #
 # The VPS was retired on 2026-09-17: no ssh, no remote secrets, no rsync.
 # Credentials are read from local secrets/webauthn.env only (never committed); the
@@ -25,15 +25,22 @@
 
 set -euo pipefail
 
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
+
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PAGES_PROJECT="${PAGES_PROJECT:-limooo}"
 PAGES_BRANCH="${PAGES_BRANCH:-main}"
 SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 
 # Reading many small files from the iCloud-synced directory can stall; use an isolated build directory under /tmp.
-PUBLIC_DIR="${LIMOOO_PUBLIC_DIR:-/tmp/limooo-public}"
-PREVIEW_DIR="${LIMOOO_PREVIEW_DIR:-/tmp/limooo-preview}"
-VENV_PYTHON="${LIMOOO_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
+PUBLIC_DIR="${COMICINE_PUBLIC_DIR:-/tmp/limooo-public}"
+PREVIEW_DIR="${COMICINE_PREVIEW_DIR:-/tmp/limooo-preview}"
+VENV_PYTHON="${COMICINE_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 
 DRY_RUN=0
@@ -72,21 +79,7 @@ fi
 
 echo "[pages] building (isolated output: ${PUBLIC_DIR})"
 
-# Added 2026-10-11: cairosvg needs the libcairo shared library. Homebrew installs it under a
-# non-standard prefix (/opt/homebrew/opt/cairo/lib), which is not searched by default on Apple
-# Silicon. Without this variable, build.py's image preflight reports that cairosvg and local
-# libcairo are missing, even when cairosvg is installed. Set the path only when it exists locally
-# and the caller has not provided one; this does not affect non-macOS systems or Linux CI.
-if [ -z "${DYLD_FALLBACK_LIBRARY_PATH:-}" ]; then
-    for _cairo_lib in /opt/homebrew/opt/cairo/lib /usr/local/opt/cairo/lib; do
-        if [ -d "$_cairo_lib" ]; then
-            export DYLD_FALLBACK_LIBRARY_PATH="$_cairo_lib"
-            break
-        fi
-    done
-fi
-
-LIMOOO_PUBLIC_DIR="$PUBLIC_DIR" LIMOOO_PREVIEW_DIR="$PREVIEW_DIR" "$VENV_PYTHON" src/build.py
+COMICINE_PUBLIC_DIR="$PUBLIC_DIR" COMICINE_PREVIEW_DIR="$PREVIEW_DIR" "$VENV_PYTHON" src/build.py
 
 if [ ! -f "$PUBLIC_DIR/manifest.json" ]; then
     echo "FATAL: $PUBLIC_DIR/manifest.json missing after build" >&2
@@ -96,7 +89,7 @@ if [ ! -f "$PUBLIC_DIR/manifest.json" ]; then
 fi
 # The manifest must match every file in the directory byte for byte. This catches edits made
 # after the build, as well as extra or missing files, including changes made by another process.
-LIMOOO_PUBLIC_DIR="$PUBLIC_DIR" "$VENV_PYTHON" src/build.py --verify-manifest
+COMICINE_PUBLIC_DIR="$PUBLIC_DIR" "$VENV_PYTHON" src/build.py --verify-manifest
 echo "[pages] artifact: $(find "$PUBLIC_DIR" -type f | wc -l | tr -d ' ') files"
 
 # Pre-deploy validation.

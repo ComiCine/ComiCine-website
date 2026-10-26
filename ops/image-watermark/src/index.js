@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -50,7 +50,15 @@ const CLIENT_CACHE =
 
 // Increment after changing watermark appearance or build.py parameters so the Worker fetches a
 // new origin URL and bypasses old watermark images in CDN and local caches.
-const WM_VERSION = "4";
+const WM_VERSION = "5";
+
+// Historical icon URLs stay live but always resolve to the current ComiCine artwork.
+const BRAND_ICON_ALIASES = new Map([
+  ["/icons/Limooo.svg", "/static/icons/comicine.svg"],
+  ["/icons/Limooo-xtext.svg", "/static/icons/comicine.svg"],
+  ["/icons/ComiCine.svg", "/static/icons/comicine.svg"],
+  ["/icons/ComiCine-xtext.svg", "/static/icons/comicine.svg"],
+]);
 
 /** Remove the `images.limooo.cn`-style `/static` prefix to get the logical path. */
 export function logicalPath(pathname) {
@@ -84,6 +92,12 @@ export function shouldWatermark(logical) {
 export function routeFor(url, request, origin) {
   const base = origin || ORIGIN;
   const path = logicalPath(url.pathname);
+
+  const brandIconTarget = BRAND_ICON_ALIASES.get(path);
+  if (brandIconTarget) {
+    const target = base + brandIconTarget + url.search;
+    return { target, originalUrl: target, watermarked: false, image: true };
+  }
 
   // Never allow /api/* through.
   if (path === "/api" || path.startsWith("/api/")) {
@@ -135,6 +149,7 @@ function clientResponse(store, watermarked) {
     "Content-Type": store.headers.get("Content-Type") || "application/octet-stream",
     "Cache-Control": CLIENT_CACHE,
     "Access-Control-Allow-Origin": "*",
+    "X-ComiCine-Watermark": watermarked ? "1" : "0",
     "X-Limooo-Watermark": watermarked ? "1" : "0",
   });
   const etag = store.headers.get("ETag");
@@ -147,12 +162,16 @@ async function headResponse(request, origin) {
   const url = new URL(request.url);
   const route = routeFor(url, request, origin);
   if (!route.target) {
-    return new Response(null, { status: 404, headers: { "X-Limooo-Watermark": "0" } });
+    return new Response(null, {
+      status: 404,
+      headers: { "X-ComiCine-Watermark": "0", "X-Limooo-Watermark": "0" },
+    });
   }
   const resp = await fetch(route.target, { method: "HEAD" });
   const headers = new Headers({
     "Content-Type": resp.headers.get("Content-Type") || "application/octet-stream",
     "Cache-Control": CLIENT_CACHE,
+    "X-ComiCine-Watermark": route.watermarked ? "1" : "0",
     "X-Limooo-Watermark": route.watermarked ? "1" : "0",
   });
   return new Response(null, { status: resp.status, headers });

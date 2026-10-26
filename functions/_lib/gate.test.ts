@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -41,12 +41,12 @@ beforeEach(() => {
 });
 
 describe("isBlocked", () => {
-  it("ignores spoofed X-Limooo-Client-* headers and shows the connecting IP", async () => {
+  it("ignores spoofed X-ComiCine-Client-* headers and shows the connecting IP", async () => {
     const req = new Request("https://auth.limooo.cn/__gate/diag", {
       headers: {
         "CF-Connecting-IP": "43.108.57.161",
-        "X-Limooo-Client-IP": "203.0.113.9",
-        "X-Limooo-Client-Country": "jp",
+        "X-ComiCine-Client-IP": "203.0.113.9",
+        "X-ComiCine-Client-Country": "jp",
       },
     });
     const diag = handleGateDiag({ request: req } as RequestContext);
@@ -55,7 +55,7 @@ describe("isBlocked", () => {
 
   it("falls back to the connecting IP when no forwarded header is present", async () => {
     const req = new Request("https://auth.limooo.cn/__gate/diag", {
-      headers: { "CF-Connecting-IP": "43.108.57.161", "X-Limooo-Client-IP": "not-an-ip" },
+      headers: { "CF-Connecting-IP": "43.108.57.161", "X-ComiCine-Client-IP": "not-an-ip" },
     });
     const diag = handleGateDiag({ request: req } as RequestContext);
     expect(await diag.json()).toMatchObject({ ip: "43.108.57.161", country: "—" });
@@ -167,8 +167,8 @@ describe("handleVerify", () => {
       headers: {
         Accept: "application/json",
         "CF-Connecting-IP": "43.108.57.161",
-        "X-Limooo-Client-IP": "1.2.3.4",
-        "X-Limooo-Client-Country": "CN",
+        "X-ComiCine-Client-IP": "1.2.3.4",
+        "X-ComiCine-Client-Country": "CN",
       },
       body: form,
     });

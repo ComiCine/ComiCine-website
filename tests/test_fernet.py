@@ -1,6 +1,6 @@
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -23,8 +23,8 @@ TS_TOKEN_FIXTURE = Path(__file__).parent / "fixtures" / "fernet_token_ts.txt"
 def test_fixed_ticket_round_trip():
     key = TEST_KEY
     fernet = Fernet(key.encode())
-    token = fernet.encrypt(b"hello-limooo").decode()
-    assert fernet.decrypt(token.encode()) == b"hello-limooo"
+    token = fernet.encrypt(b"hello-comicine").decode()
+    assert fernet.decrypt(token.encode()) == b"hello-comicine"
 
 
 def test_wrong_key_rejected():
@@ -37,7 +37,7 @@ def test_wrong_key_rejected():
 
 def test_fixture_is_python_decryptable():
     token = TOKEN_FIXTURE.read_text(encoding="utf-8").strip()
-    assert Fernet(TEST_KEY.encode()).decrypt(token.encode()) == b"hello-limooo"
+    assert Fernet(TEST_KEY.encode()).decrypt(token.encode()) == b"hello-comicine"
 
 
 def test_ts_generated_fixture_is_python_decryptable():

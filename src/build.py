@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Static-site build script for Limooo on Cloudflare Pages.
+"""Static-site build script for ComiCine on Cloudflare Pages.
 
 Prerender Jinja templates as static HTML in public/ for four languages, and generate:
   - public/<lang>/index.html, services.html, contact.html, and not-found.html
@@ -20,7 +20,6 @@ Output directory: public/ (Git keeps only .gitkeep; deployment uploads it with w
 """
 
 import hashlib
-import io
 import json
 import os
 import re
@@ -38,20 +37,6 @@ try:
     from PIL import Image
 except ImportError:
     Image = None  # type: ignore[assignment]
-
-try:
-    # The repository provides the cairosvg types in typings/cairosvg/__init__.pyi.
-    # Allow only for this package lacking py.typed; do not use ignore_missing_imports to
-    # disable checks for all third-party packages. Its svg2png call site still has real types.
-    # cairosvg does not include py.typed; the repository stub at typings/cairosvg/__init__.pyi
-    # provides its types. mypy recognizes this stub, so no ignore is needed here.
-    import cairosvg
-except (ImportError, OSError):
-    # cairosvg depends on the local libcairo library. When it is missing, cairocffi raises OSError rather than
-    # ImportError, which is common on Linux or systems without Homebrew. Treat both cases as unavailable,
-    # and let generate_watermarks decide whether watermarking is required.
-    cairosvg = None  # type: ignore[assignment]
-
 
 from config import (
     APPLE_ACCOUNT_HOST,
@@ -84,9 +69,9 @@ FUNCTIONS_DIR = os.path.join(BASE_DIR, "functions")
 # Update both copies together.
 LICENSE_HEADER_TS = """\
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -193,7 +178,10 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/static/*",
                     "/public/files/*",
                     "/favicon.svg",
+                    "/comicine.svg",
+                    # These historical URLs remain aliases to the current brand artwork.
                     "/Limooo-xtext.svg",
+                    "/ComiCine-xtext.svg",
                     # Crawler and AI entry files (2026-10-12): bypass Functions entirely.
                     # These three files must be reachable **without the gate**; otherwise an unverified crawler receives a
                     # 403 challenge page. The gate previously replaced `/robots.txt` in place,
@@ -291,9 +279,9 @@ def write_discovery_files(out_dir: str) -> None:
         f.write(sitemap)
 
     llms = (
-        "# Limooo\n"
+        "# ComiCine\n"
         "\n"
-        "> Limooo (https://limooo.cn) is a personal video-production studio site: a\n"
+        "> ComiCine (https://limooo.cn) is a personal video-production studio site: a\n"
         "> portfolio, a services price list and a four-language documentation site.\n"
         "> All public pages are open to search engines, crawlers and AI agents; the\n"
         "> full-size portfolio originals are deliberately not published.\n"
@@ -696,7 +684,7 @@ def write_manifest() -> dict:
 
     manifest = {
         "schema_version": 1,
-        "tool": "limooo-build",
+        "tool": "comicine-build",
         "count": len(files),
         "files": files,
     }
@@ -800,13 +788,13 @@ def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
 def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> bool:
     """Validate image prerequisites before touching public/; return whether portfolio sources exist.
 
-    These checks were previously spread through generate_watermarks. If cairosvg was
+    These checks were previously spread through generate_watermarks. If Pillow was
     missing, the build failed after copytree had copied originals, leaving a public/
     directory with full portfolio images that could be deployed directly (W9-22).
     Run checks at the start of main() so a failure writes nothing.
     """
     source_root = source_root or STATIC_DIR
-    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
+    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "watermark.png")
     portfolio_dir = os.path.join(source_root, "portfolio")
     has_portfolio = os.path.isdir(portfolio_dir) and any(
         name.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
@@ -820,11 +808,6 @@ def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> b
             "Pillow is not installed, cannot generate portfolio thumbnails or watermarks. "
             "Run `pip install -r ops/requirements.txt` before build.py."
         )
-    if cairosvg is None:
-        raise RuntimeError(
-            "portfolio source images are present but cairosvg (and local libcairo) is missing; "
-            "install it before build.py, or remove src/static/portfolio to build without watermarks"
-        )
     if not os.path.exists(wm_path):
         raise FileNotFoundError(f"missing watermark asset: {wm_path}")
     return True
@@ -836,11 +819,11 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     Rules, matching shouldWatermark in the Worker:
       - Process only top-level png, jpg, jpeg, and webp files under portfolio/.
       - Do not create watermarked variants for other paths such as icons/ or qr-codes/.
-    Use Limooo-xtext.svg, preserve its transparency, and overlay it at the lower-left
+    Use watermark.png, preserve its transparency, and overlay it at the lower-left
     corner without a background. The watermark is 25% of the image's shorter side
     (minimum 96px), with a margin of 2% of that side (minimum 12px).
     """
-    # Size parameters; the SVG asset defines watermark color and opacity.
+    # Size parameters; watermark.png defines the logo color and opacity.
     WATERMARK_SCALE = 0.25       # Watermark width as a fraction of the image short edge
     WATERMARK_MIN_W = 96         # Minimum watermark width in pixels
 
@@ -851,13 +834,13 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
 
     # A clean CI checkout has no gitignored src/static/portfolio directory. Without source images, watermarking is unnecessary,
     # so skip it instead of failing. Fail only when watermarking is required but assets or dependencies are missing.
-    wm_path = os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg")
+    wm_path = os.path.join(STATIC_DIR, "icons", "watermark.png")
     if not check_image_prerequisites(source_root, wm_path):
         print("[build] no portfolio files to watermark, skipping watermark generation", flush=True)
         return 0
     os.makedirs(out_root, exist_ok=True)
 
-    wm = Image.open(io.BytesIO(cairosvg.svg2png(url=wm_path))).convert("RGBA")
+    wm = Image.open(wm_path).convert("RGBA")
     wm_w0, wm_h0 = wm.size
     count = 0
 
@@ -942,7 +925,7 @@ def remove_public_portfolio_originals(
     default value to preserve the new ``thumbs/`` directory.
 
     Call immediately after ``shutil.copytree(STATIC_DIR, public/static)``, before any
-    step that can fail. If cairosvg or the watermark SVG is missing, or the build is
+    step that can fail. If Pillow or the watermark PNG is missing, or the build is
     interrupted, portfolio files in the previous public/ output have already been
     removed while wrangler.toml still points pages_build_output_dir at that directory.
     Watermarks and thumbnails are generated from the source directory
@@ -1054,10 +1037,12 @@ def main() -> int:
     validate_locale_completeness()
     # Build-mode flag: use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    os.environ.setdefault("LIMOOO_BUILD", "1")
+    if "COMICINE_BUILD" not in os.environ and "LIMOOO_BUILD" in os.environ:
+        os.environ["COMICINE_BUILD"] = os.environ["LIMOOO_BUILD"]
+    os.environ.setdefault("COMICINE_BUILD", "1")
     from render_app import RENDER_APP as appmod
 
-    # Validate prerequisites **before modifying public/**. If Pillow, cairosvg, or the watermark SVG is missing,
+    # Validate prerequisites **before modifying public/**. If Pillow or the watermark PNG is missing,
     # a partial output could retain full portfolio originals while wrangler.toml points pages_build_output_dir
     # at public/ (W9-22). Fail here before writing anything.
     check_image_prerequisites()
@@ -1126,11 +1111,10 @@ def main() -> int:
     remove_public_portfolio_originals(
         os.path.join(PUBLIC_DIR, "static", "portfolio")
     )
-    # Root-level logo used by the gate page; one of the allowed paths.
-    shutil.copy2(
-        os.path.join(STATIC_DIR, "icons", "Limooo-xtext.svg"),
-        os.path.join(PUBLIC_DIR, "Limooo-xtext.svg"),
-    )
+    # Publish the canonical root logo and keep historical root URLs as aliases to this new artwork.
+    logo_path = os.path.join(STATIC_DIR, "icons", "comicine.svg")
+    for public_name in ("comicine.svg", "Limooo-xtext.svg", "ComiCine-xtext.svg"):
+        shutil.copy2(logo_path, os.path.join(PUBLIC_DIR, public_name))
 
     # 4) i18n Functions (frontend language-switching endpoint)
     write_config_functions()
@@ -1188,8 +1172,8 @@ def main() -> int:
             # Also localize root-relative assets in inline CSS, such as the gate page @font-face url(/static/...).
             html = html.replace("url(/static/", "url(../static/")
             html = html.replace(
-                'src="/Limooo-xtext.svg"',
-                'src="../static/icons/Limooo-xtext.svg"',
+                'src="/comicine.svg"',
+                'src="../static/icons/comicine.svg"',
             )
             # Localize site navigation: https://<subdomain>.<root_domain> becomes a local file in the same directory.
             # Subdomain hostnames also come from the contract; do not hardcode limooo.cn.

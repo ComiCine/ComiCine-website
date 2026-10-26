@@ -1,17 +1,17 @@
 ---
 aside: false
 title: 项目说明
-description: "Limooo 网站与管理系统（Cloudflare 全无服务器架构）的项目 README"
+description: "ComiCine 网站与管理系统（Cloudflare 全无服务器架构）的项目 README"
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
 
-# Limooo
+# ComiCine
 
 一个完全无服务器的个人网站与管理系统，运行在 [limooo.cn](https://limooo.cn)。公开页面、人类验证门禁、访客面板、Apple Account 管理器、监控与状态页全部运行在 Cloudflare 上（Pages Functions、Workers、D1、R2）。
 
@@ -22,7 +22,7 @@ See ADDITIONAL_TERMS.txt.
 - **访客面板**（`visitor.limooo.cn`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
-- **认证与角色**：单一 `Limooo-Identity` Access 应用保护 `identity.limooo.cn/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
+- **认证与角色**：单一 `ComiCine-Identity` Access 应用保护 `identity.limooo.cn/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
 - **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.limooo.cn/login`；Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
@@ -150,11 +150,11 @@ npm run build
 ```
 
 `npm run build` 就是 `ops/build.sh`：它会在仓库外创建构建虚拟环境
-`/tmp/limooo-build-venv`、
-运行契约校验，并在渲染前导出 `DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib`，
-因此不需要任何手工准备。直接跑 `python3 src/build.py` 会跳过这三步 ——
-除非你自己导出那个 Homebrew cairo 路径，否则会以
-`RuntimeError: SVG watermarking requires cairosvg` 失败。
+`/tmp/comicine-build-venv`，从 `requirements.lock` 安装锁定的依赖，
+并在渲染前校验跨运行时配置。作品水印由 Pillow 使用
+`src/static/icons/watermark.png` 生成，不需要系统 Cairo 库。
+若要直接运行渲染器，请先安装锁定的 Python 依赖，再执行
+`COMICINE_BUILD=1 python3 src/build.py`。
 
 若要在本地预览生成后的站点，请先构建，然后打开 `preview/` 中的产物。
 
@@ -281,13 +281,13 @@ VitePress 根（每种语言每页一个 markdown 文件），
 并在 `public/_redirects` 里为无后缀路径补一条 302 —— 如果任何 markdown 文件没有产出 HTML，
 `ops/docs_check_output.py` 会让构建失败。
 
-该站点使用来自 fork `Limooooo-Studio/vitepress` 的 VitePress 构建：
-页头与页脚位于 fork 中（`VPLimoooNav.vue` / `VPLimoooFooter.vue`），
+该站点使用来自 fork `ComiCine/vitepress` 的 VitePress 构建：
+页头与页脚位于 fork 中（`VPComiCineNav.vue` / `VPComiCineFooter.vue`），
 并与主站的 `base.html` / `_footer.html` 逐条对齐 —— 在那里修改它们，
 下一次部署就会生效（只有当 fork 的 commit 变化时才会重新构建它；
-使用 `LIMOOO_VITEPRESS_FETCH=0` 可从 fork 工作区构建）。该站点是独立的
+使用 `COMICINE_VITEPRESS_FETCH=0` 可从 fork 工作区构建）。该站点是独立的
 Cloudflare Pages 项目（`limooo-docs`），因此绝不会碰到主 `limooo` 的产物，
-并且与主站共享 `user_lang_preference` / `limooo_theme` 两个 cookie。
+并且与主站共享 `user_lang_preference` / `comicine_theme` 两个 cookie。
 
 ```bash
 bash ops/docs_deploy.sh --build-only   # build + validate only
@@ -315,7 +315,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## 白名单
 
-手工维护的可信来源位于 [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt)，部署时会生成 [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt)：
+手工维护的可信来源位于 [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt)，部署时会生成 [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt)：
 
 | 条目 | 效果 |
 | --- | --- |
@@ -367,7 +367,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | 服务端 siteverify 密钥 |
 | `GATE_HMAC_KEY` | `__gate` cookie 的 HMAC-SHA256 签名密钥（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access 团队域名；同时也是用于验证的 JWT `iss` |
-| `ACCESS_IDENTITY_AUD` | 单一 `Limooo-Identity` Access 应用的 AUD；角色由 `config-contract.json` 的来源主机映射决定 |
+| `ACCESS_IDENTITY_AUD` | 单一 `ComiCine-Identity` Access 应用的 AUD；角色由 `config-contract.json` 的来源主机映射决定 |
 | `VISITOR_IP_KEY` | 用于加密完整访客 IP 字段（`visitor_rollups.ip_enc`）的 Fernet 密钥 |
 | `OBSERVABILITY_HMAC_KEY` | 隐私最小化访客 IP 哈希的 HMAC 密钥（`functions/_lib/tracking.ts`）；缺失时门禁 fail-closed |
 | `SESSION_HMAC_KEY` | Pages 会话 cookie 签名密钥（与 `GATE_HMAC_KEY` 分开） |
@@ -486,7 +486,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 1. **Pages**：项目 `limooo`（`limooo.pages.dev`）承载 `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档站是独立的 `limooo-docs` 项目（`docs.limooo.cn`），`fonts.limooo.cn` 由 R2 提供
 2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到该项目；`ops/migrations/` 的 schema 已就位，已应用版本记录在 `schema_version`；`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威（83 行、1 行生效 —— 软删除行保留用于审计）
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
-4. **Access**：`Limooo-Identity` 只保护 `identity.limooo.cn/login`；`visitor.limooo.cn` 与 `account.limooo.cn` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `Limooo-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
+4. **Access**：`ComiCine-Identity` 只保护 `identity.limooo.cn/login`；`visitor.limooo.cn` 与 `account.limooo.cn` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
 5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.limooo.cn` 与 `sink.limooo.cn` 是 Worker 自定义域名
 6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；动态重定向阶段为空，`ops/waf/rules.snapshot.json` 是刷新时刻对该空阶段的镜像（删掉的规则只存在于 git 历史里）
 7. **冒烟检查**：`https://limooo.cn/_health` → 200，`https://limooo.cn/?challenge=1` → 403，`https://docs.limooo.cn/` → 302 到 `https://limooo.cn`，`https://status.limooo.cn/` → 200
@@ -494,10 +494,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证
 
-Limooo Studio 拥有并有权授权的原创材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）授权。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS_zh_CN.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)；该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。GNU AGPL v3 官方英文全文见 [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt)，简体中文参考译本见 [LICENSE_zh_CN.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE_zh_CN.txt)。
+ComiCine 拥有并有权授权的原创材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）授权。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS_zh_CN.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)；该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。GNU AGPL v3 官方英文全文见 [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt)，简体中文参考译本见 [LICENSE_zh_CN.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt)。
 
-Limooo Studio 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
+ComiCine 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
 
 额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
 
-关于第三方字体、依赖及二维码图片中的平台标识，请参阅[第三方声明](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_zh_CN.md)；版权范围说明见[版权声明](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_zh_CN.md)。
+关于第三方字体、依赖及二维码图片中的平台标识，请参阅[第三方声明](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_zh_CN.md)；版权范围说明见[版权声明](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_zh_CN.md)。

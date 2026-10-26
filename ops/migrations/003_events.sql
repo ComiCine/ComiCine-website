@@ -1,9 +1,9 @@
--- Copyright (C) 2026-Present Limooo Studio
+-- Copyright (C) 2026-Present ComiCine
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Limooo observability: shared event table (docs/06).
+-- ComiCine observability: shared event table (docs/06).
 -- Apply with: wrangler d1 execute limooo --file=./migrations/003_events.sql
 -- The health-check script also creates this table idempotently through the D1 API on first run.
 

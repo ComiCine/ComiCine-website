@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -29,14 +29,14 @@ describe("logging privacy", () => {
     expect(await ipHash("8.8.8.8", { GATE_HMAC_KEY: "gate" } as Env)).toBe("");
   });
 
-  it("hashes the connecting IP, never a client-supplied X-Limooo-Client-IP", async () => {
+  it("hashes the connecting IP, never a client-supplied X-ComiCine-Client-IP", async () => {
     const env = { OBSERVABILITY_HMAC_KEY: "obs" } as unknown as Env;
     const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const request = new Request("https://limooo.cn/", {
       headers: {
         "CF-Connecting-IP": "43.108.57.161",
-        "X-Limooo-Client-IP": "1.2.3.4",
-        "X-Limooo-Client-Country": "CN",
+        "X-ComiCine-Client-IP": "1.2.3.4",
+        "X-ComiCine-Client-Country": "CN",
       },
     });
 

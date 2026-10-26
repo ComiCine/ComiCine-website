@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Limooo shared transactional-email renderer.
+"""ComiCine shared transactional-email renderer.
 
 DEPRECATED (2026-10-11, tasks/22 W7-13): nothing calls `render_email()` any more.
 The VPS Flask app that used it is gone, and Cloudflare Access replaced the login
@@ -25,7 +25,7 @@ Usage (Python):
     html, plaintext = render_email(
         lang="zh-cn",
         title="Your verification code",
-        body="Thank you for using Limooo Studio. Enter the code below to continue.",
+        body="Thank you for using ComiCine. Enter the code below to continue.",
         code="123456",                 # optional: show the highlighted code block
         cta_label="Continue",          # optional: primary button
         cta_url="https://limooo.cn",

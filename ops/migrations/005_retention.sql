@@ -1,9 +1,9 @@
--- Copyright (C) 2026-Present Limooo Studio
+-- Copyright (C) 2026-Present ComiCine
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Limooo D1 data retention and privacy (docs/11).
+-- ComiCine D1 data retention and privacy (docs/11).
 --
 -- Create v2 tables that do not store full IPs, user agents, or query strings. Keep the old
 -- visitors and ray_log tables as read-only history; ops/prune_d1.py applies their retention later.

@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -76,9 +76,13 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
   assert.equal(qr.watermarked, false);
   assert.equal(qr.target, `${ORIGIN}/static/qr-codes/a.png`);
 
-  const icon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
+  const icon = routeFor(new URL("https://image.limooo.cn/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
-  assert.equal(icon.target, `${ORIGIN}/static/icons/Limooo.svg`);
+  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg`);
+
+  const legacyIcon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
+  assert.equal(legacyIcon.watermarked, false);
+  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {
@@ -141,5 +145,5 @@ test("rejects non-GET/HEAD methods without contacting the origin", async () => {
 test("watermark origin URL hits /static/wm/ with a version param", () => {
   const target = wmTarget(ORIGIN, "/portfolio/a.webp", "?v=1");
   assert.equal(new URL(target).pathname, "/static/wm/portfolio/a.webp");
-  assert.ok(target.includes("__wmver=4"));
+  assert.ok(target.includes("__wmver=5"));
 });

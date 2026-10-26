@@ -5,7 +5,7 @@
  */
 (function() {
     'use strict';
-    window.LimoooCurrencySearchData = {
+    var currencySearchData = {
         currencies: {
         CNY: { flag: '🇨🇳', aliases: ['China', 'Mainland China', '中国', '中国大陆'] },
         USD: { flag: '🇺🇸', aliases: ['United States', 'United States of America', 'United States America', 'The United States', 'US', 'USA', 'U.S.', 'U.S.A.', 'US of America', 'America', 'American', 'US Dollar', 'United States Dollar', '美元', '美金'] },
@@ -327,4 +327,7 @@
         "VN": ["Viet Nam"]
         }
     };
+    window.ComiCineCurrencySearchData = currencySearchData;
+    // Keep the previous global for cached scripts that still consume this data.
+    window.LimoooCurrencySearchData = currencySearchData;
 })();

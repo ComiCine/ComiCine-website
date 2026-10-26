@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -127,7 +127,7 @@ describe("worker_runs → alert (daily check step 1)", () => {
 
     expect(step).toEqual({ ok: true, issues: 1, alerted: true });
     expect(sent).toHaveLength(1);
-    expect(String(sent[0].subject)).toBe("Cron job failure · Limooo");
+    expect(String(sent[0].subject)).toBe("Cron job failure · ComiCine");
     // The job name appears in the **body** (the subject only reports what happened, per
     // the user's 2026-10-11 decision).
     expect(String(sent[0].text)).toContain("blocklist_sync");
@@ -335,7 +335,7 @@ describe("alert copy for the daily checks", () => {
     }
     // The output must actually be English copy, not merely "happen to match."
     const mail = buildCheckAlertEmail("en-us", "runs", [{ name: "j", detail: "d" }], NOW);
-    expect(mail.subject).toBe("Cron job failure · Limooo");
+    expect(mail.subject).toBe("Cron job failure · ComiCine");
     expect(mail.text).toContain("did not succeed");
     expect(mail.text).not.toMatch(/[\u4e00-\u9fff]/);
   });

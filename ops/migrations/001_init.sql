@@ -1,9 +1,9 @@
--- Copyright (C) 2026-Present Limooo Studio
+-- Copyright (C) 2026-Present ComiCine
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Initial Limooo Cloudflare Pages D1 schema.
+-- Initial ComiCine Cloudflare Pages D1 schema.
 -- Apply with: wrangler d1 execute limooo --file=./migrations/001_init.sql
 
 CREATE TABLE IF NOT EXISTS apple_accounts (

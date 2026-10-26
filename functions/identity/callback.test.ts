@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -32,7 +32,8 @@ import { onRequestGet } from "./callback";
 const STATE = "S".repeat(43);
 const CODE = "C".repeat(43);
 const OTHER_STATE = "O".repeat(43);
-const STATE_COOKIE_PREFIX = "limooo_identity_state_";
+const STATE_COOKIE_PREFIX = "comicine_identity_state_";
+const LEGACY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
 
 function callbackRequest(
   host = "account.limooo.cn",
@@ -103,6 +104,20 @@ describe("GET /identity/callback", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Set-Cookie")).toContain(`limooo_identity_state=`);
+  });
+
+  it("accepts a still-valid prefixed legacy state cookie during deployment rollout", async () => {
+    const request = callbackRequest(
+      "account.limooo.cn",
+      STATE,
+      `${LEGACY_STATE_COOKIE_PREFIX}${STATE}=${STATE}`,
+    );
+    const response = await onRequestGet(
+      context(request, { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Set-Cookie")).toContain(`${LEGACY_STATE_COOKIE_PREFIX}${STATE}=`);
   });
 
   it("rejects a callback whose state belongs to another open login flow", async () => {

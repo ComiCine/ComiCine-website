@@ -1,11 +1,11 @@
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Read-only Limooo rendering application used during builds.
+"""Read-only ComiCine rendering application used during builds.
 
 Static page builds do not need to start the Flask business application, read production
 secrets, create a SQLite database, or initialize routes. This module provides a minimal

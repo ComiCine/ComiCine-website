@@ -1,22 +1,22 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
 /**
- * Theme entry point for docs.limooo.cn.
+ * Theme entry point for the ComiCine documentation site.
  *
  * Extend the fork's default theme; the header and footer are maintained in
- * Limooooo-Studio/vitepress. This file adds Limooo brand styles and the main
+ * ComiCine/vitepress. This file adds ComiCine brand styles and the main
  * site's cookie bridge.
  */
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 
 import './styles.css'
-import { installCookieBridge } from './limooo'
+import { installCookieBridge } from './comicine'
 
 const theme = {
   extends: DefaultTheme,

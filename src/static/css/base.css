@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
-/* Limooo site-wide base styles.
+/* ComiCine site-wide base styles.
    Design tokens such as colors, radii, and easing live in tokens.css as the single source of truth.
    This file contains structural styles for typography, the header, and the footer. */
         /* Global base styles. */
@@ -36,11 +36,14 @@
         .site-nav .nav-brand-link {
             display: flex; align-items: center; flex-shrink: 0; text-decoration: none;
         }
+        .site-nav .nav-brand-logo {
+            display: block; width: 64px; height: 64px; object-fit: contain;
+        }
         .site-nav .nav-right { display: flex; align-items: center; margin-inline-start: auto; }
 
         * { -webkit-tap-highlight-color: transparent; }
 
-        /* Use Baloo 2 for the upper-left brand name, matching the footer. */
+        /* The SVG brand mark keeps its intrinsic proportions and scales for smaller screens. */
         .nav-brand {
             font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
             font-weight: 700;
@@ -51,6 +54,9 @@
         }
         @media (min-width: 768px) {
             .site-nav .nav-brand { font-size: 1.5rem; }
+        }
+        @media (max-width: 767px) {
+            .site-nav .nav-brand-logo { width: 48px; height: 48px; }
         }
 
         .pressable {
@@ -88,7 +94,7 @@
         .footer-text > span, .footer-text > a { white-space: nowrap; }
         /* Draw "·" on each item's ::before so it wraps with that item instead of being orphaned.
            Use inline-block rather than inline-flex: flex removes spaces between children,
-           which would join "© 2026 Limooo Studio" into "© 2026LimoooStudio". */
+           which would join "© 2026 ComiCine" into "© 2026ComiCineStudio". */
         .footer-text > .footer-item { display: inline-block; }
         .footer-text > .footer-item:not(:first-child)::before {
             content: "·"; margin: 0 0.55em; opacity: 0.7;
@@ -108,7 +114,7 @@
             font-size: 10px;
             font-size-adjust: 0.6552;
         }
-        /* Apply Baloo 2 consistently to the Limooo brand name in body text. */
+        /* Apply Baloo 2 consistently to the ComiCine brand name in body text. */
         .brand-word {
             font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
             font-weight: 700;

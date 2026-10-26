@@ -1,17 +1,17 @@
 ---
 aside: false
 title: 프로젝트 README
-description: "Limooo 웹사이트 및 관리 시스템(Cloudflare 완전 서버리스 구성) 프로젝트 README"
+description: "ComiCine 웹사이트 및 관리 시스템(Cloudflare 완전 서버리스 구성) 프로젝트 README"
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
 
-# Limooo
+# ComiCine
 
 [limooo.cn](https://limooo.cn)에서 운영되는 완전 서버리스(serverless) 개인 웹사이트 겸 관리 시스템입니다. 공개 페이지, 사람 확인 게이트, 방문자 패널, Apple Account 관리자, 모니터링, 상태 페이지가 모두 Cloudflare(Pages Functions, Workers, D1, R2)에서 실행됩니다.
 
@@ -22,7 +22,7 @@ See ADDITIONAL_TERMS.txt.
 - **방문자 패널**(`visitor.limooo.cn`): Pages Function + D1 분석. 해시 처리된 방문자 식별자(목록 API에 원본 IP가 없음), 국가, 가능한 경우 ISP/ASN, 상태 코드 분포를 보여 주며 로그인으로 보호됩니다
 - 최초 로드 후 방문자 상태 칩은 새 `/api/visitors` 요청 없이 로컬에서 필터링합니다. 딥 링크를 위해 API는 여전히 `?status=<3-digit>`을 받습니다.
 - **Apple Account 관리자**(`account.limooo.cn/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
-- **인증 및 역할**: 하나의 `Limooo-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. identity 호스트의 Pages Function은 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
+- **인증 및 역할**: 하나의 `ComiCine-Identity` Access 앱이 `identity.limooo.cn/login`을 보호합니다. identity 호스트의 Pages Function은 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
 - **공유 로그인 이동**: 인증되지 않은 브라우저 페이지 요청은 HTTP 401 HTML을 반환하고, 같은 출처의 외부 스크립트가 `identity.limooo.cn/login`으로 이동합니다. 이후 Cloudflare Access가 브라우저를 `limooo.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다.
 - **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
 - **상태 페이지**(`status.limooo.cn`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
@@ -149,13 +149,12 @@ npm ci
 npm run build
 ```
 
-`npm run build`는 `ops/build.sh`입니다. 저장소 외부에 빌드용 가상 환경
-`/tmp/limooo-build-venv`를 만들고,
-계약 검증을 실행하며, 렌더링 전에
-`DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib`를 내보내므로 수동 준비가 필요 없습니다.
-`python3 src/build.py`를 직접 실행하면 이 세 가지를 모두 건너뛰며,
-Homebrew cairo 경로를 직접 내보내지 않는 한
-`RuntimeError: SVG watermarking requires cairosvg`로 실패합니다.
+`npm run build`는 `ops/build.sh`입니다. 저장소 외부에
+`/tmp/comicine-build-venv`를 만들고 `requirements.lock`의 고정 의존성을 설치한 뒤,
+렌더링 전에 런타임 간 설정을 검증합니다. 작품 워터마크는 Pillow와
+`src/static/icons/watermark.png`로 생성하므로 시스템 Cairo 라이브러리가 필요하지 않습니다.
+렌더러를 직접 실행하려면 고정된 Python 의존성을 설치한 다음
+`COMICINE_BUILD=1 python3 src/build.py`를 사용하세요.
 
 생성된 사이트를 로컬에서 미리 보려면 빌드한 뒤 `preview/`의 결과물을 여세요.
 
@@ -284,13 +283,13 @@ services.limooo.cn 가격표 CSV가 들어 있습니다. 언어 코드는 URL의
 `public/_redirects`의 접미사 없는 경로용 302 한 줄을 더하면 됩니다 — 마크다운 파일에
 대응하는 HTML이 없으면 `ops/docs_check_output.py`가 빌드를 실패시킵니다.
 
-이 사이트는 포크 `Limooooo-Studio/vitepress`의 VitePress로 빌드합니다: 헤더와
-푸터는 포크(`VPLimoooNav.vue` / `VPLimoooFooter.vue`)에 있고 메인 사이트의
+이 사이트는 포크 `ComiCine/vitepress`의 VitePress로 빌드합니다: 헤더와
+푸터는 포크(`VPComiCineNav.vue` / `VPComiCineFooter.vue`)에 있고 메인 사이트의
 `base.html` / `_footer.html`을 그대로 반영합니다 — 포크에서 고치면 다음 배포에서
 반영됩니다(포크는 커밋이 바뀔 때만 다시 빌드하며, 포크 작업 트리에서 빌드하려면
-`LIMOOO_VITEPRESS_FETCH=0`을 사용하세요). 이 사이트는 별도의 Cloudflare Pages
+`COMICINE_VITEPRESS_FETCH=0`을 사용하세요). 이 사이트는 별도의 Cloudflare Pages
 프로젝트(`limooo-docs`)이므로 메인 `limooo` 산출물을 절대 건드리지 않으며, 메인
-사이트와 `user_lang_preference` / `limooo_theme` 쿠키를 공유합니다.
+사이트와 `user_lang_preference` / `comicine_theme` 쿠키를 공유합니다.
 
 ```bash
 bash ops/docs_deploy.sh --build-only   # build + validate only
@@ -319,7 +318,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## 화이트리스트
 
-신뢰할 소스는 [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt)에서 수동 관리하며, 배포할 때 생성 파일 [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt)에 반영됩니다.
+신뢰할 소스는 [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt)에서 수동 관리하며, 배포할 때 생성 파일 [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt)에 반영됩니다.
 
 | 항목 | 효과 |
 | --- | --- |
@@ -371,7 +370,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | 서버 측 siteverify 시크릿 |
 | `GATE_HMAC_KEY` | `__gate` 쿠키용 HMAC-SHA256 서명 키 (`openssl rand -hex 32`) |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access 팀 도메인이며, 검증에 쓰는 JWT `iss`이기도 합니다 |
-| `ACCESS_IDENTITY_AUD` | 단일 `Limooo-Identity` Access 앱의 AUD. 역할은 `config-contract.json`의 원본 호스트 매핑으로 결정됩니다 |
+| `ACCESS_IDENTITY_AUD` | 단일 `ComiCine-Identity` Access 앱의 AUD. 역할은 `config-contract.json`의 원본 호스트 매핑으로 결정됩니다 |
 | `VISITOR_IP_KEY` | 암호화된 방문자 전체 IP 컬럼(`visitor_rollups.ip_enc`)용 Fernet 키 |
 | `OBSERVABILITY_HMAC_KEY` | 프라이버시 최소화 방문자 IP 해시용 HMAC 키(`functions/_lib/tracking.ts`); 없으면 게이트가 fail-closed 합니다 |
 | `SESSION_HMAC_KEY` | Pages 세션 쿠키 서명 키 (`GATE_HMAC_KEY`와 별개) |
@@ -483,7 +482,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 1. **Pages**: 프로젝트 `limooo`(`limooo.pages.dev`)가 `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image`, `redirect`를 제공합니다. 문서 사이트는 별도 프로젝트 `limooo-docs`(`docs.limooo.cn`)이고, `fonts.limooo.cn`은 R2가 받칩니다
 2. **D1**: 데이터베이스 `limooo`(APAC)가 `DB`로 프로젝트에 연결되어 있습니다. `ops/migrations/`의 스키마가 적용되어 있고 적용 버전은 `schema_version`이 기록합니다. `apple_accounts`가 Apple Account 행을 보관하고 `blocked_ips`가 차단의 권위입니다(83행, 활성 1행. 소프트 삭제된 행은 감사용으로 남습니다)
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
-4. **Access**: `Limooo-Identity`는 `identity.limooo.cn/login`만 보호합니다. `visitor.limooo.cn`과 `account.limooo.cn`은 공유 identity handoff 후 각 Pages 호스트 전용 세션을 사용합니다. Dashboard에 사용되지 않는 `Limooo-Admin` 앱이 남아 있지만 `admin.limooo.cn`에는 DNS 레코드나 Pages 사용자 지정 도메인이 없습니다. 자체 IdP나 사용자 지정 로그인 폼은 없습니다
+4. **Access**: `ComiCine-Identity`는 `identity.limooo.cn/login`만 보호합니다. `visitor.limooo.cn`과 `account.limooo.cn`은 공유 identity handoff 후 각 Pages 호스트 전용 세션을 사용합니다. Dashboard에 사용되지 않는 `ComiCine-Admin` 앱이 남아 있지만 `admin.limooo.cn`에는 DNS 레코드나 Pages 사용자 지정 도메인이 없습니다. 자체 IdP나 사용자 지정 로그인 폼은 없습니다
 5. **Worker**는 독립적으로 실행됩니다: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive`, `image-watermark`. `status.limooo.cn`과 `sink.limooo.cn`은 Worker 사용자 지정 도메인입니다
 6. **Cloudflare 규칙**: 사용자 지정 방화벽 단계는 비어 있습니다(`limooo_blocklist` IP List가 규칙을 기다리는 상태). 캐시 단계는 정적 자산, 레거시 이미지 경로, 워터마크 Worker 응답을 1년간 캐시하고 두 개의 HTML 페이지 캐시 규칙은 비활성입니다. 동적 리다이렉트 단계는 비어 있고, `ops/waf/rules.snapshot.json`은 그 빈 단계를 갱신 시점에 그대로 반영합니다(삭제된 규칙은 git 기록에만 남습니다)
 7. **스모크 검사**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → `https://limooo.cn`으로 302, `https://status.limooo.cn/` → 200
@@ -491,10 +490,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
 ## 라이선스
 
-Limooo Studio가 저작권을 보유하고 라이선스할 권한이 있는 독창적 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL v3 제7조에 따른 추가 조건은 [ADDITIONAL_TERMS_ko_KR.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)에, GNU AGPL v3 전문은 [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt)에 있습니다. 추가 조건은 GNU AGPL v3를 적용하는 경우에 적용되며, 이후 버전에 적용되는지는 해당 버전의 조건에 따릅니다.
+ComiCine가 저작권을 보유하고 라이선스할 권한이 있는 독창적 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL v3 제7조에 따른 추가 조건은 [ADDITIONAL_TERMS_ko_KR.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)에, GNU AGPL v3 전문은 [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt)에 있습니다. 추가 조건은 GNU AGPL v3를 적용하는 경우에 적용되며, 이후 버전에 적용되는지는 해당 버전의 조건에 따릅니다.
 
-Limooo Studio는 프로젝트에서 사용하는 개발 브랜드이자 공개 표기입니다. 저작권은 법적으로 해당 권리를 보유한 실제 권리자에게 있습니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
+ComiCine는 프로젝트에서 사용하는 개발 브랜드이자 공개 표기입니다. 저작권은 법적으로 해당 권리를 보유한 실제 권리자에게 있습니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
 
 추가 승인 또는 상표 사용 허가 문의: [contact@limooo.cn](mailto:contact@limooo.cn). 적용되는 GNU AGPL 버전을 준수하는 상업적 이용에는 별도 승인이 필요하지 않습니다.
 
-제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 표장은 [제3자 고지](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_ko_KR.md)를, 저작권 범위는 [저작권 안내](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_ko_KR.md)를 참조하세요.
+제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 표장은 [제3자 고지](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ko_KR.md)를, 저작권 범위는 [저작권 안내](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ko_KR.md)를 참조하세요.

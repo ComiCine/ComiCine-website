@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -29,7 +29,7 @@ export const CONTRACT = {
   ],
   "lang_cookie": "user_lang_preference",
   "lang_cookie_max_age": 31536000,
-  "theme_cookie": "limooo_theme",
+  "theme_cookie": "comicine_theme",
   "theme_cookie_max_age": 31536000,
   "gate_cookie": "__gate",
   "session_cookie": "limooo_session_v3",

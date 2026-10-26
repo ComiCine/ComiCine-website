@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -20,7 +20,9 @@ var DEFAULT_LANG = gateBodyAttr('data-default-lang', 'en-us');
 var ROOT_DOMAIN = gateBodyAttr('data-root-domain', 'limooo.cn');
 var LANG_COOKIE = gateBodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = gateBodyAttr('data-lang-cookie-max-age', '31536000');
-var THEME_COOKIE = gateBodyAttr('data-theme-cookie', 'limooo_theme');
+var THEME_COOKIE = gateBodyAttr('data-theme-cookie', 'comicine_theme');
+/* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
+var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = gateBodyAttr('data-theme-cookie-max-age', '31536000');
 function sharedCookieDomain() {
   return location.hostname === ROOT_DOMAIN || location.hostname.endsWith('.' + ROOT_DOMAIN)
@@ -60,6 +62,9 @@ function effectiveTheme() {
   var saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') return saved;
   var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
+  if (!match && LEGACY_THEME_COOKIE !== THEME_COOKIE) {
+    match = document.cookie.match(new RegExp('(?:^|;\\s*)' + LEGACY_THEME_COOKIE + '=(light|dark)'));
+  }
   return match ? match[1] : getSystemTheme();
 }
 
@@ -68,6 +73,10 @@ function saveTheme(theme) {
   var secure = location.protocol === 'https:' ? '; Secure' : '';
   document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
     + '; SameSite=Lax' + secure + sharedCookieDomain();
+  if (LEGACY_THEME_COOKIE !== THEME_COOKIE) {
+    document.cookie = LEGACY_THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
+      + '; SameSite=Lax' + secure + sharedCookieDomain();
+  }
 }
 
 function applyTheme(theme) {
@@ -118,7 +127,7 @@ function showError(key) {
   if (country) country.hidden = blocked;
 }
 
-/* Wrap brand names such as "Limooo" in a Baloo 2 span for every language variant. */
+/* Wrap brand names such as "ComiCine" in a Baloo 2 span for every language variant. */
 function brandifyText(el) {
   var word = el.getAttribute('data-brandify');
   if (!word || !el.textContent || el.textContent.indexOf(word) === -1) return;

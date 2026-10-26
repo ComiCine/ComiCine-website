@@ -1,6 +1,6 @@
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -282,22 +282,17 @@ def test_check_image_prerequisites_returns_false_without_sources(tmp_path):
     assert build.check_image_prerequisites(str(tmp_path)) is False
 
 
-def test_check_image_prerequisites_requires_pillow_and_cairosvg(tmp_path, monkeypatch):
-    """When portfolio sources exist, Pillow, cairosvg, and the watermark SVG are required before writing output.
-
-    Inject dependencies explicitly: the local CI interpreter lacks libcairo, so
-    `import cairosvg` fails. Do not rely on the ambient environment having it installed.
-    """
+def test_check_image_prerequisites_requires_pillow_and_watermark_png(tmp_path, monkeypatch):
+    """Require Pillow and the provided transparent ComiCine watermark before writing output."""
     source = tmp_path / "src"
     (source / "portfolio").mkdir(parents=True)
     _write_image(source / "portfolio" / "shot.webp", (1080, 1440))
-    watermark = source / "icons" / "Limooo-xtext.svg"
+    watermark = source / "icons" / "watermark.png"
     watermark.parent.mkdir(parents=True)
-    watermark.write_text("<svg/>", encoding="utf-8")
+    _write_image(watermark, (150, 150))
 
-    # All dependencies are available: pass.
+    # All prerequisites are available: pass.
     monkeypatch.setattr(build, "Image", object())
-    monkeypatch.setattr(build, "cairosvg", object())
     assert build.check_image_prerequisites(str(source), str(watermark)) is True
 
     # Pillow is missing.
@@ -305,16 +300,10 @@ def test_check_image_prerequisites_requires_pillow_and_cairosvg(tmp_path, monkey
     with pytest.raises(RuntimeError, match="Pillow"):
         build.check_image_prerequisites(str(source), str(watermark))
 
-    # cairosvg is missing (the local .venv-build is in this state).
+    # The watermark PNG is missing.
     monkeypatch.setattr(build, "Image", object())
-    monkeypatch.setattr(build, "cairosvg", None)
-    with pytest.raises(RuntimeError, match="cairosvg"):
-        build.check_image_prerequisites(str(source), str(watermark))
-
-    # The watermark SVG is missing.
-    monkeypatch.setattr(build, "cairosvg", object())
     with pytest.raises(FileNotFoundError):
-        build.check_image_prerequisites(str(source), str(tmp_path / "missing.svg"))
+        build.check_image_prerequisites(str(source), str(tmp_path / "missing.png"))
 
 
 def test_generate_watermarks_skips_without_sources(tmp_path):
@@ -355,7 +344,7 @@ def test_remove_public_portfolio_originals_can_clear_stale_thumbs(tmp_path):
 def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     """Regression on operation order: delete originals immediately after copytree, before any step that can fail.
 
-    Validate prerequisites (Pillow, cairosvg, watermark SVG) before writing public/.
+    Validate prerequisites (Pillow and watermark PNG) before writing public/.
     Replace expensive work with recording stubs and observe only call order.
     """
     order: list[str] = []
@@ -363,7 +352,7 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     (static_dir / "portfolio").mkdir(parents=True)
     (static_dir / "icons").mkdir(parents=True)
     # main() copies the gate-page logo to the output root, so the stub build needs this file to exist.
-    (static_dir / "icons" / "Limooo-xtext.svg").write_text("<svg/>", encoding="utf-8")
+    (static_dir / "icons" / "comicine.svg").write_text("<svg/>", encoding="utf-8")
     output_dir = tmp_path / "out"
 
     monkeypatch.setattr(build, "STATIC_DIR", str(static_dir))

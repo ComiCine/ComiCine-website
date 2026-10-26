@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -25,7 +25,7 @@ export { esc, statusKey } from "./page";
 import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from "./i18n";
 
 /**
- * Limooo status probe Worker (tasks/17, phase 2)
+ * ComiCine status probe Worker (tasks/17, phase 2)
  *
  * Replaces Uptime Kuma:
  * - scheduled() runs probes every minute and writes D1 heartbeats / probe_state
@@ -135,7 +135,7 @@ export async function runProbe(env: Env, probe: Probe): Promise<ProbeResult> {
       method: "GET",
       redirect: "manual",
       signal: controller.signal,
-      headers: { "User-Agent": "Limooo-Status/2.0" },
+      headers: { "User-Agent": "ComiCine-Status/2.0" },
     });
     // A gate page rendered with 403 means the service is reachable; only 5xx responses count as failures.
     return {
@@ -266,20 +266,20 @@ export type AlertKind = (typeof ALERT_KINDS)[number];
 /** Alert copy table; exported only so tests can verify that every kind has a key (runtime uses only the accessor below). */
 export const ALERT_I18N: Record<string, Record<string, string>> = {
   "en-us": {
-    // Subject format (set on 2026-10-11): `<event> · Limooo` — put the event first and the brand in the suffix.
+    // Subject format (set on 2026-10-11): `<event> · ComiCine` — put the event first and the brand in the suffix.
     // Readers can identify the event at a glance in Feishu and email; title/intro provide the details.
-    subject_down: "Health check alert · Limooo",
-    subject_up: "Service recovered · Limooo",
-    intro_down: "Following issue(s) detected by Limooo monitoring:",
+    subject_down: "Health check alert · ComiCine",
+    subject_up: "Service recovered · ComiCine",
+    intro_down: "Following issue(s) detected by ComiCine monitoring:",
     intro_up: "The following service(s) recovered:",
-    subject_runs: "Cron job failure · Limooo",
+    subject_runs: "Cron job failure · ComiCine",
     intro_runs: "A scheduled job did not succeed — the last recorded run of these jobs failed (a repeat alert means it is still broken):",
     hint_runs: "Triage: the error column for this job in the D1 worker_runs table, or the Workers logs in the Cloudflare dashboard.",
-    subject_blocklist: "Blocklist drift · Limooo",
+    subject_blocklist: "Blocklist drift · ComiCine",
     intro_blocklist: "Blocked IP list has drifted — the Cloudflare IP List and the active rows of D1 blocked_ips disagree, so edge blocking no longer matches the authority:",
     hint_blocklist: "Triage: python3 ops/check_blocklist_sync.py (this Worker runs the same comparison daily at 03:47 UTC).",
     view: "View status page",
-    hint: "Sent automatically by Limooo monitoring. If this keeps arriving, check the service and confirm recovery on the status page.",
+    hint: "Sent automatically by ComiCine monitoring. If this keeps arriving, check the service and confirm recovery on the status page.",
   },
 };
 
@@ -306,7 +306,7 @@ interface AlertBlock {
    *
    * **No title field** (set on 2026-10-11): all three alert types use the subject for the event and intro for the details,
    * with a two-line structure and no duplicate title in the body. Each type used to have an `<h1>` title that repeated the subject,
-   * for example, `Service issue detected` vs `Health check alert · Limooo`, or
+   * for example, `Service issue detected` vs `Health check alert · ComiCine`, or
    * `A scheduled job did not succeed` vs `Cron job failure`. Removing it keeps the same information with one less noisy line.
    * The old `title_*` copy has been removed from `ALERT_I18N`; do not add it back.
    */
@@ -371,7 +371,7 @@ export function buildAlertEmail(
   return renderAlert(
     t,
     {
-      // Do not append the probe name to the subject (set on 2026-10-11); use `Health check alert · Limooo` as the full subject.
+      // Do not append the probe name to the subject (set on 2026-10-11); use `Health check alert · ComiCine` as the full subject.
       // The body row (`- Website: selftest`) identifies the probe; the subject only needs to state what happened.
       subject: down ? t.subject_down : t.subject_up,
       // No title (the `Service issue detected` body line was removed at the user’s request on 2026-10-11):
@@ -405,7 +405,7 @@ export function buildCheckAlertEmail(
   subjectNote = "",
 ): AlertEmail {
   const t = ALERT_I18N[lang] ?? ALERT_I18N[ALERT_LANG_FORCED];
-  // The subject is `<event> · Limooo`; **do not append item names** (set on 2026-10-11). Item names can be long
+  // The subject is `<event> · ComiCine`; **do not append item names** (set on 2026-10-11). Item names can be long
   // (for example, `blocklist_sync, d1_archive, …`) and are already listed in the body. Keep the `subjectNote` parameter in
   // the signature for compatibility with existing call sites, but it no longer affects the subject.
   void subjectNote;
@@ -490,7 +490,7 @@ export async function deliverAlert(
     try {
       await env.EMAIL.send({
         to: env.ALERT_TO,
-        from: { email: env.ALERT_FROM ?? "no-reply@limooo.cn", name: "Limooo Monitor" },
+        from: { email: env.ALERT_FROM ?? "no-reply@limooo.cn", name: "ComiCine Monitor" },
         subject: mail.subject,
         text: mail.text,
         html: mail.html,

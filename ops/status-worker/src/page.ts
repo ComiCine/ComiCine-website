@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -22,7 +22,7 @@
  * must also be copied to the docs.limooo.cn VitePress fork.
  */
 
-import { type Lang, type UiKey, UI, LANG_LABELS, langFlag, probeDetail, t } from "./i18n";
+import { type Lang, type UiKey, UI, LANG_LABELS, THEME_COOKIE, LEGACY_THEME_COOKIE, langFlag, probeDetail, t } from "./i18n";
 import { BRAND_FONT_CSS } from "./brand-font";
 
 /** Escape HTML; apply this to every interpolated value, including probe names and language codes from D1. */
@@ -37,8 +37,8 @@ export function esc(v: unknown): string {
 /** Main-site asset host for the favicon and logo; matches `image_asset_host` in `config-contract.json`. */
 const IMAGE_ASSET_BASE = "https://images.limooo.cn";
 /** Repository linked by "Source" in the footer; matches `SOURCE_REPO_URL` in `src/config.py`. */
-const SOURCE_REPO_URL = "https://github.com/Limooooo-Studio/Limooo-Website";
-const GITHUB_URL = "https://github.com/Limooooo-Studio";
+const SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website";
+const GITHUB_URL = "https://github.com/ComiCine";
 const BILIBILI_URL = "https://space.bilibili.com/1234163143";
 const HOME_URL = "https://limooo.cn";
 const SERVICES_URL = "https://services.limooo.cn";
@@ -90,7 +90,7 @@ export function navHtml(lang: Lang): string {
     '<span class="appearance-check"><span class="appearance-icon">' + SVG_SUN + SVG_MOON + '</span></span></button>';
   return (
     '<nav class="site-nav"><div class="nav-inner">' +
-    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="Limooo"><span class="nav-brand">Limooo</span></a>' +
+    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="' + IMAGE_ASSET_BASE + '/static/icons/comicine.svg?v=1" alt="" width="64" height="64"></a>' +
     '<div class="nav-right"><div class="global-nav">' +
     links
       .map(([href, label]) => '<a class="nav-link" href="' + href + '"><span>' + esc(label) + '</span>' + SVG_EXTERNAL + '</a>')
@@ -128,7 +128,7 @@ export function footerHtml(lang: Lang): string {
   const copyrightYears = currentYear === 2026 ? "2026" : `2026-${currentYear}`;
   return (
     '<footer class="global-footer" id="global-footer"><div class="footer-link"><div class="footer-text">' +
-    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <span class="footer-brand">Limooo</span> Studio</span>` +
+    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <span class="footer-brand">ComiCine</span></span>` +
     `<span class="footer-item">${esc(t(lang, "footer_rights"))}</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_source"))}</span>` +
     `<span class="footer-item"><a class="footer-source-link" href="${SOURCE_REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(t(lang, "footer_source_link"))}</a></span>` +
@@ -162,8 +162,10 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-inner{display:flex;align-items:center;width:100%;max-width:80rem;height:100%;margin:0 auto;padding:0 20px}
 @media(min-width:768px){.nav-inner{padding:0 2rem}}
 .nav-brand-link{display:flex;align-items:center;flex-shrink:0;text-decoration:none}
+.nav-brand-logo{display:block;width:64px;height:64px;object-fit:contain}
 .nav-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;line-height:1;font-size:1.125rem;letter-spacing:.05em;color:var(--text)}
 @media(min-width:768px){.nav-brand{font-size:1.5rem}}
+@media(max-width:767px){.nav-brand-logo{width:48px;height:48px}}
 .nav-right{display:flex;align-items:center;margin-left:auto}
 .global-nav{display:none;align-items:center}
 @media(min-width:768px){.global-nav{display:flex}}
@@ -301,7 +303,7 @@ section{margin-top:32px}
  */
 export const THEME_JS =
   "(function(){var t=null;try{t=localStorage.getItem('theme')}catch(e){}" +
-  "if(t!=='light'&&t!=='dark'){var m=document.cookie.match(/(?:^|;\\s*)limooo_theme=(light|dark)/);t=m?m[1]:null}" +
+  "if(t!=='light'&&t!=='dark'){var m=document.cookie.match(/(?:^|;\\s*)" + THEME_COOKIE + "=(light|dark)/);if(!m)m=document.cookie.match(/(?:^|;\\s*)" + LEGACY_THEME_COOKIE + "=(light|dark)/);t=m?m[1]:null}" +
   "if(t==='light'||(!t&&window.matchMedia('(prefers-color-scheme: light)').matches)){document.documentElement.classList.add('light-mode')}})();";
 
 /** Automatic refresh interval in seconds; shared with the initial countdown to prevent mismatched hard-coded values. */
@@ -320,7 +322,7 @@ export const REFRESH_SECONDS = 300;
 export const STATUS_JS =
   "(function(){var REFRESH=" +
   REFRESH_SECONDS +
-  ",ROOT='limooo.cn',LANG_COOKIE='user_lang_preference',THEME_COOKIE='limooo_theme',MAX_AGE=31536000," +
+  ",ROOT='limooo.cn',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',LEGACY_THEME_COOKIE='" + LEGACY_THEME_COOKIE + "',MAX_AGE=31536000," +
   "LANGS=['zh-cn','en-us','ja-jp','ko-kr'],doc=document,html=doc.documentElement;" +
   "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
   "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
@@ -328,17 +330,18 @@ export const STATUS_JS =
   "function cookie(n){var m=doc.cookie.match(new RegExp('(?:^|;\\\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):''}" +
   "function save(n,v){var h=location.hostname,d=(h===ROOT||h.slice(-(ROOT.length+1))==='.'+ROOT)?'; domain=.'+ROOT:'',s=location.protocol==='https:'?'; Secure':'';" +
   "doc.cookie=n+'='+encodeURIComponent(v)+'; path=/; max-age='+MAX_AGE+'; SameSite=Lax'+s+d}" +
+  "function saveTheme(v){save(THEME_COOKIE,v);save(LEGACY_THEME_COOKIE,v)}" +
   "var up=doc.getElementById('updated-at');if(up){var ep=Number(up.getAttribute('data-epoch'));" +
   "if(ep){try{up.textContent=new Date(ep*1000).toLocaleString(html.lang||undefined)}catch(e){up.textContent=new Date(ep*1000).toISOString()}}}" +
   "var left=REFRESH,cnt=doc.getElementById('refresh-count');" +
   "setInterval(function(){left-=1;if(cnt){cnt.textContent=String(left>0?left:0)}if(left<=0){location.reload()}},1000);" +
   "var switches=doc.querySelectorAll('.appearance-switch');" +
   "function theme(){var s=null;try{s=localStorage.getItem('theme')}catch(e){}if(s==='light'||s==='dark')return s;" +
-  "var c=cookie(THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
+  "var c=cookie(THEME_COOKIE);if(c!=='light'&&c!=='dark')c=cookie(LEGACY_THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
   "return window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}" +
   "function paint(t){html.classList.toggle('light-mode',t==='light');switches.forEach(function(sw){sw.setAttribute('aria-checked',t==='dark'?'true':'false')})}" +
   "if(switches.length){paint(theme());switches.forEach(function(sw){sw.addEventListener('click',function(e){e.stopPropagation();var n=theme()==='light'?'dark':'light';" +
-  "try{localStorage.setItem('theme',n)}catch(e){}save(THEME_COOKIE,n);paint(n)})})}" +
+  "try{localStorage.setItem('theme',n)}catch(e){}saveTheme(n);paint(n)})})}" +
   "var menu=doc.getElementById('langMenu'),btn=doc.getElementById('lang-btn'),fly=doc.querySelector('.lang-flyout'),navScreen=doc.getElementById('nav-screen'),navBtn=doc.getElementById('nav-menu-btn'),screenLang=doc.getElementById('nav-screen-language-list'),screenLangBtn=doc.getElementById('nav-screen-languages-toggle');" +
   "var navScreenBackground=[];function setNavBackgroundInert(o){if(o){navScreenBackground=[];Array.prototype.forEach.call(doc.body.children,function(child){if(child.classList.contains('site-nav')||child.id==='nav-screen'||child.inert)return;child.inert=true;navScreenBackground.push(child)})}else{navScreenBackground.forEach(function(child){child.inert=false});navScreenBackground=[]}}" +
   "function open(o){if(!menu)return;menu.classList.toggle('open',o);if(btn)btn.setAttribute('aria-expanded',o?'true':'false')}" +
@@ -358,9 +361,9 @@ export const STATUS_JS =
   "if(navScreen)navScreen.addEventListener('click',function(e){if(e.target===navScreen||e.target.closest('.nav-screen-link'))openNav(false)});" +
   "doc.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(navScreen&&navScreen.classList.contains('open')){openNav(false);if(navBtn)navBtn.focus()}else open(false)});" +
   "window.addEventListener('resize',function(){if(window.matchMedia('(min-width: 768px)').matches)openNav(false)});" +
-  "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='limooo_status_lang_synced';" +
+  "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='comicine_status_lang_synced',legacyGuard='limooo_status_lang_synced';" +
   "if(pref&&LANGS.indexOf(pref)>=0&&pref!==html.lang&&!explicit){var done=false;" +
-  "try{done=sessionStorage.getItem(guard)==='1'}catch(e){}if(!done){try{sessionStorage.setItem(guard,'1')}catch(e){}" +
+  "try{done=sessionStorage.getItem(guard)==='1'||sessionStorage.getItem(legacyGuard)==='1'}catch(e){}if(!done){try{sessionStorage.setItem(guard,'1');sessionStorage.setItem(legacyGuard,'1')}catch(e){}" +
   "var v=new URL(location.href);v.searchParams.set('lang',pref);location.replace(v.toString())}}})();";
 
 /** Probe record for rendering. `detail` is a normalized error code, not raw exception text. */
@@ -392,7 +395,7 @@ function shell(lang: Lang, title: string, body: string): string {
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="dark light">' +
     `<title>${esc(title)}</title><meta name="robots" content="noindex">` +
-    `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/Limooo.svg?v=2" type="image/svg+xml">` +
+    `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=1" type="image/svg+xml">` +
     '<script src="/status-theme.js"></script>' +
     '<link rel="stylesheet" href="/status.css">' +
     `</head><body data-lang="${esc(lang)}">` +
