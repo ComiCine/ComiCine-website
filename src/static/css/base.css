@@ -320,6 +320,7 @@
         }
         @media (max-width: 767px) {
             .site-nav .nav-divider,
+            .site-nav .nav-divider.nav-divider-lang-theme,
             .site-nav .nav-desktop-language,
             .site-nav .nav-right > .appearance-switch,
             .site-nav .nav-desktop-social { display: none; }
