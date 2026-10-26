@@ -96,6 +96,30 @@ def test_theme_challenge_uses_gate_url_and_skips_gate_page():
     assert 'data-gate-url="https://auth.comicine.com/__gate"' in html
     gate_html = build.render_gate(RENDER_APP, "zh-cn")
     assert 'data-gate-url=' not in gate_html
+    assert 'id="nav-logo"' not in gate_html
+    assert 'class="logo"' in gate_html
+    assert 'class="gate-page"' in gate_html
+
+
+def test_gate_mobile_logo_matches_home_and_page_can_scroll():
+    root = Path(build.BASE_DIR)
+    auth_css = (root / "src/static/css/auth.css").read_text(encoding="utf-8")
+    home_css = (root / "src/static/css/index.css").read_text(encoding="utf-8")
+
+    assert ".hero-title { width: 96px; height: 96px; }" in home_css
+    assert ".logo { width: 96px; height: 96px; max-width: 96px; }" in auth_css
+    assert "html.gate-page" in auth_css
+    assert "body.gate-page" in auth_css
+    assert "overflow-y: auto" in auth_css
+
+
+def test_gate_turnstile_failure_offers_a_manual_retry_and_error_code():
+    root = Path(build.BASE_DIR)
+    auth_js = (root / "src/static/js/auth.js").read_text(encoding="utf-8")
+
+    assert "retry: 'never'" in auth_js
+    assert "console.error('Turnstile client error', errorCode)" in auth_js
+    assert "showRetry();" in auth_js
 
 
 def test_visitor_inherits_base_nav_logo():
@@ -224,14 +248,19 @@ def test_html_lang_is_rendered_by_the_template_for_every_language():
         assert f'data-lang="{lang}"' in html
 
         gate = build.render_gate(RENDER_APP, lang)
-        assert f'<html lang="{lang}">' in gate
+        assert f'<html lang="{lang}" class="gate-page">' in gate
         assert f'data-lang="{lang}"' in gate
 
     # Templates must not hardcode zh-cn; the contract default_lang is en-us.
     for name in ("base.html", "auth.html", "redirect.html", "preview.html"):
         source = (Path(build.BASE_DIR) / "src/templates" / name).read_text(encoding="utf-8")
         assert '<html lang="zh-cn">' not in source, name
-        assert '<html lang="{{ g.lang }}">' in source, name
+        expected = (
+            '<html lang="{{ g.lang }}" class="gate-page">'
+            if name == "auth.html"
+            else '<html lang="{{ g.lang }}">'
+        )
+        assert expected in source, name
 
     # The build script no longer replaces the <html lang> string.
     build_py = (Path(build.BASE_DIR) / "src/build.py").read_text(encoding="utf-8")

@@ -20,7 +20,7 @@ Inter 서브셋은 src/static/fonts/inter/ 및 docs/docs/public/fonts/에 있습
 
 Maple Mono NF CN의 저작권 표시는 The Maple Mono Project Authors(2022)이며 OFL-1.1에 따라 배포됩니다. 업스트림 프로젝트는 [subframe7536/maple-font](https://github.com/subframe7536/maple-font)이고 라이선스 전문은 [ops/fonts/OFL.txt](ops/fonts/OFL.txt)에 포함되어 있습니다.
 
-저장소에는 게이트 화면용으로 Maple Mono NF CN Regular에 한국어 글리프 2개를 추가하는 파생 글꼴 빌드 스크립트가 있습니다. 원본 글꼴과 생성된 글꼴 바이너리는 Git 저장소 외부에 보관되며, 생성된 웹 글꼴은 fonts.limooo.cn에서 제공합니다. 파생 글꼴에도 고지, 재배포 및 예약 글꼴 이름 조건을 포함한 OFL-1.1이 적용됩니다.
+저장소에는 게이트 화면용으로 Maple Mono NF CN Regular에 한국어 글리프 2개를 추가하는 파생 글꼴 빌드 스크립트가 있습니다. 원본 글꼴과 생성된 글꼴 바이너리는 Git 저장소 외부에 보관되며, 생성된 웹 글꼴은 fonts.comicine.com에서 제공합니다. 파생 글꼴에도 고지, 재배포 및 예약 글꼴 이름 조건을 포함한 OFL-1.1이 적용됩니다.
 
 ## 소프트웨어 의존성
 

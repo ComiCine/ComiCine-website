@@ -162,12 +162,19 @@ function resetTurnstile() {
     sitekey: TURNSTILE_SITEKEY,
     /* Keep this value aligned with the siteverify checks in gate.ts. */
     action: 'gate',
+    /* Stop hidden retry loops; a visible button lets the visitor retry after a network/config error. */
+    retry: 'never',
     callback: submitGateVerification,
-    'error-callback': function () {
+    'error-callback': function (errorCode) {
+      if (typeof errorCode === 'number') console.error('Turnstile client error', errorCode);
       showError('failed');
-      return true; /* Stop Turnstile from retrying automatically; let the user retry manually. */
+      showRetry();
+      return true; /* Mark the error handled; retryGateVerification owns the only retry path. */
     },
-    'expired-callback': function () { showError('failed'); },
+    'expired-callback': function () {
+      showError('failed');
+      showRetry();
+    },
     theme: effectiveTheme() === 'light' ? 'light' : 'dark',
     language: turnstileLang(CURRENT_LANG)
   });

@@ -247,7 +247,7 @@ TLS 証明書は Cloudflare が Pages のカスタムドメイン向けに発行
 
 ## デプロイ
 
-デプロイ対象は Cloudflare Pages（`limooo`）と独立した Workers で、すべて Cloudflare API 経由です。
+デプロイ対象は Cloudflare Pages プロジェクト `comicine`（デフォルトエイリアス `limooo.pages.dev`）と独立した Workers で、すべて Cloudflare API 経由です。
 リポジトリのルートから：
 
 ```bash
@@ -339,7 +339,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Pages ホストの DNS は `comicine.pages.dev` を指します。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。主サイトの Pages プロジェクト名は `comicine` ですが、現在のデフォルトエイリアスは `limooo.pages.dev` のままです。ドキュメントプロジェクト `comicine-docs` も `limooo-docs.pages.dev` のままで、エイリアス移行は未完了です。
 
 ランタイムの分担：
 
@@ -387,7 +387,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ゲートをレンダリングするすべてのホストは同じエッジコードで配信されるため、同期させる 2 つ目のゲート実装はありません。
 
-ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットは、それをレンダリングするすべてのホスト（`comicine.com` のゲート用サブドメイン、`auth`、`status`、`visitor`、`apple`、`images` を含む）を登録する必要があります。
+ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットのホスト名許可リストには、実際に利用するサイトを含める必要があります。現在 `.com` のゲートでは検証に失敗しています。設定 API と Turnstile スクリプトは読み込まれますが、`/gate/verify` に token が届く前にチャレンジが失敗します。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。設定済みの Cloudflare API 資格情報では widget 更新が HTTP 403 / error `10000` となるため、許可ホスト名はまだ確認・修正できていません。ゲートを無効にせず、クライアントエラーコードを確認し、Turnstile Sites Write 権限のある資格情報でホスト名許可を確認してください。
 
 ### ページ配信（クリーン URL、言語パスプレフィックスなし）
 
@@ -492,13 +492,15 @@ docs.comicine.com に公開されることはありません。
 
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：プロジェクト `limooo`（`comicine.pages.dev`）が `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `comicine-docs`（`docs.comicine.com`）で、`fonts.comicine.com` は R2 が支えます
-2. **D1**：データベース `limooo`（APAC）が `DB` としてプロジェクトに接続されています。`ops/migrations/` のスキーマは適用済みで、適用バージョンは `schema_version` が記録します。`apple_accounts` が Apple Account の行を保持し、`blocked_ips` がブロックの権威です（83 行、有効 1 行。ソフト削除した行は監査用に残ります）
+1. **Pages**：主プロジェクト `comicine` は現在も `limooo.pages.dev` 経由で配信します。ドキュメントプロジェクト `comicine-docs` のデフォルトエイリアスは `limooo-docs.pages.dev` のままです。主プロジェクトは `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信し、ドキュメントホストは `docs.comicine.com`、`fonts.comicine.com` は R2 が支えます
+2. **D1**：データベース `limooo`（APAC）がプロジェクトに `DB` としてバインドされ、`schema_version` が適用済みマイグレーションを記録します。022 は適用済みです。021 は既存の Apple Account 識別子を書き換えるため、設計どおり保留中です。`apple_accounts` が Apple Account データを保存し、`blocked_ips` がブロックの権威です。論理削除行は監査用に保持します
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
-4. **Access**：`ComiCine` が `identity.comicine.com/login` のみを保護します。`visitor.comicine.com` と `account.comicine.com` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `ComiCine-Admin` アプリが残っていますが、`admin.comicine.com` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
+4. **Access**：`ComiCine` が `identity.comicine.com/login` のみを保護します。`visitor.comicine.com` と `account.comicine.com` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `ComiCine-Admin` アプリが残っていますが、`admin.limooo.cn` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
 5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.comicine.com` と `sink.comicine.com` は Worker のカスタムドメインです
-6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります）
+6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります） `limooo.cn/feishu/<path>` は 301 で `comicine.com/feishu/<path>` に進み、その後 Pages が `https://comicine.feishu.cn/<path>` へ転送します。
 7. **スモークチェック**：`https://comicine.com/_health` → 200、`https://comicine.com/?challenge=1` → 403、`https://docs.comicine.com/` → `https://comicine.com` へ 302、`https://status.comicine.com/` → 200
+
+注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。ブラウザーで実際にチャレンジを完了し、`/gate/verify` が成功することを確認してください。`.com` のチャレンジはまだ復旧していません。
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス
@@ -507,6 +509,6 @@ ComiCine が著作権を有し、ライセンスする権限を有するオリ�
 
 ComiCine は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
-追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
+追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)（旧メールボックスは引き続き使用します）。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
 
 第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。

@@ -13,7 +13,8 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages project | `limooo` | `site/wrangler.toml` | Build output `public`, serves `comicine.com` and its subdomains |
+| Pages project | `comicine` (`limooo.pages.dev`) | `site/wrangler.toml` | Build output `public`, serves `comicine.com` and its subdomains; the default alias is still inherited from the old project |
+| Docs Pages project | `comicine-docs` (`limooo-docs.pages.dev`) | `site/ops/docs_deploy.sh` | VitePress output for `docs.comicine.com`; default alias is still inherited from the old project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
 | D1 migrations | `ops/migrations/*.sql` | Git | Entry point `ops/migrate_d1.sh`; `018_worker_runs.sql` / `019_worker_runs_dry_run.sql` hold the Worker run history |
@@ -24,7 +25,7 @@ are **not** written here; they come from the sources listed below.
 | R2 private bucket (originals) | `limooo-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
 | R2 bucket (fonts) | `limooo-fonts` | `ops/fonts/README.md` | Public gate-font subset at `fonts.comicine.com` |
 | WAF IP List | `limooo_blocklist` | `ops/sync-worker` | Cloudflare List, referenced by WAF rules |
-| DNS zone | `comicine.com` | Cloudflare Dashboard | CNAMEs to `comicine.pages.dev`, see AGENTS.md |
+| DNS zone | `comicine.com` | Cloudflare Dashboard | Pages CNAMEs currently target `limooo.pages.dev`; see AGENTS.md before replacing the Pages project |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | `ComiCine public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
 | Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
@@ -160,7 +161,7 @@ and returns a short-lived, one-use code containing the verified user identity an
 registered source host. The source host consumes that code server-to-server, applies
 its local role from `identity_sites`, and sets its own host-only session cookie. Both
 current protected hosts use the admin role because their APIs require administrator
-sessions. This registration path supports `.limooo.cn` subdomains in the main Pages
+sessions. This registration path supports `.comicine.com` subdomains in the main Pages
 project: add the host to `managed_hosts`, `page_routes`, and `identity_sites` in
 `config-contract.json`, make its pages and APIs enforce the local role, and add its DNS
 and Pages custom domain. The host must use the shared Pages Functions bundle, D1
@@ -600,5 +601,19 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   preserving the existing includes and exclusions. The old `ComiCine-Apple` app for
   `account.comicine.com` was deleted; visitor and account
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
-  legacy `ComiCine-Admin` app remains configured for `admin.comicine.com`, which has no DNS record
+  legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.
+- **Checked 2026-10-27: Pages aliases and gate migration**. The active project names are `comicine`
+  and `comicine-docs`, but their default aliases remain `limooo.pages.dev` and `limooo-docs.pages.dev`.
+  Pages does not support editing an alias in place. Keep the current projects as rollback targets,
+  stage replacement projects and verify their runtime configuration before moving any custom domain
+  or DNS record. The main gate currently fails on `comicine.com` before it submits a token to
+  `/gate/verify`; `/gate/config` and the Turnstile JS load, and recent D1 gate-verification events
+  succeeded on `limooo.cn` but none reached verification from `.com`. The numeric browser error was
+  not available in the screenshot, so an unauthorized hostname is likely but is not yet proven.
+  `auth.js` now logs the numeric callback error and exposes a manual retry. The configured API token's
+  Turnstile widget update fails with HTTP 403 / Cloudflare error `10000`; it needs Account Turnstile
+  Edit / Turnstile Sites Write access to inspect and update authorized hostnames. Do not weaken the
+  gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
+  `/feishu/<path>` follows that 301 to `comicine.com/feishu/<path>` and then Pages forwards to
+  `https://comicine.feishu.cn/<path>`.
