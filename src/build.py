@@ -281,28 +281,28 @@ def write_discovery_files(out_dir: str) -> None:
     llms = (
         "# ComiCine\n"
         "\n"
-        "> ComiCine (https://limooo.cn) is a personal video-production studio site: a\n"
+        "> ComiCine (https://comicine.com) is a personal video-production studio site: a\n"
         "> portfolio, a services price list and a four-language documentation site.\n"
         "> All public pages are open to search engines, crawlers and AI agents; the\n"
         "> full-size portfolio originals are deliberately not published.\n"
         "\n"
         "## Main site\n"
         "\n"
-        "- [Home](https://limooo.cn/): studio introduction and portfolio highlights.\n"
-        "- [Services](https://services.limooo.cn/): convention (studio) and outdoor\n"
+        "- [Home](https://comicine.com/): studio introduction and portfolio highlights.\n"
+        "- [Services](https://services.comicine.com/): convention (studio) and outdoor\n"
         "  shoot pricing, per shoot type and head count.\n"
-        "- [Contact](https://contact.limooo.cn/): how to get in touch.\n"
+        "- [Contact](https://contact.comicine.com/): how to get in touch.\n"
         f"- [Sitemap](https://{ROOT_DOMAIN}/sitemap.xml)\n"
         "\n"
-        "## Documentation (docs.limooo.cn)\n"
+        "## Documentation (docs.comicine.com)\n"
         "\n"
-        "- [Documentation home](https://docs.limooo.cn/): project documentation in\n"
+        "- [Documentation home](https://docs.comicine.com/): project documentation in\n"
         "  zh-cn, en-us, ja-jp and ko-kr; `/`, `/en-us`, `/ja-jp`, `/ko-kr` are the\n"
         "  per-language entry points and every content page carries its language as\n"
         "  the last path segment.\n"
-        "- [README](https://docs.limooo.cn/README/zh-cn)\n"
-        "- [License](https://docs.limooo.cn/LICENSE/zh-cn)\n"
-        "- [Sitemap](https://docs.limooo.cn/sitemap.xml)\n"
+        "- [README](https://docs.comicine.com/README/zh-cn)\n"
+        "- [License](https://docs.comicine.com/LICENSE/zh-cn)\n"
+        "- [Sitemap](https://docs.comicine.com/sitemap.xml)\n"
         "\n"
         "## Notes\n"
         "\n"
@@ -311,7 +311,7 @@ def write_discovery_files(out_dir: str) -> None:
         "  Cloudflare region; the default is en-us).\n"
         "- Crawling: `/robots.txt` allows everything except the endpoint and admin\n"
         "  paths; `/api/` is not content. Images are served from\n"
-        "  `images.limooo.cn` (thumbnails, watermarked copies, QR codes and icons).\n"
+        "  `images.comicine.com` (thumbnails, watermarked copies, QR codes and icons).\n"
     )
     with open(os.path.join(out_dir, "llms.txt"), "w", encoding="utf-8") as f:
         f.write(llms)
@@ -324,18 +324,18 @@ def _app_instance(appmod) -> Flask:
     """Accept either a Flask module (legacy tests) or a Flask app (build-time rendering)."""
     return appmod.app if hasattr(appmod, "app") else appmod
 
-# (template, output filename, render path). Render with Host: limooo.cn (is_prod=True),
-# preserving absolute subdomain links (limooo.cn, services.limooo.cn, contact.limooo.cn) in navigation.
+# (template, output filename, render path). Render with Host: comicine.com (is_prod=True),
+# preserving absolute subdomain links (comicine.com, services.comicine.com, contact.comicine.com) in navigation.
 # Middleware serves the matching language page at a clean URL based on the hostname, without a language path prefix.
 PAGES = (
     ("index.html", "index.html", "/", None),
     ("services.html", "services.html", "/services", None),
     ("contact.html", "contact.html", "/contact", None),
     ("404.html", "not-found.html", "/404", None),
-    # Subdomain-specific admin pages (visitor.limooo.cn / account.limooo.cn/apple) are served by middleware based on the hostname.
+    # Subdomain-specific admin pages (visitor.comicine.com / account.comicine.com/apple) are served by middleware based on the hostname.
     ("visitor.html", "visitor.html", "/visitor", None),
     ("apple-account.html", "apple-account.html", "/apple-account", None),
-    # Shared redirect page (redirect.limooo.cn): prerender the default target (the main home page); middleware adds the actual redirect parameters.
+    # Shared redirect page (redirect.comicine.com): prerender the default target (the main home page); middleware adds the actual redirect parameters.
     ("redirect.html", "redirect.html", "/r", "redirect"),
     # Login is handled by Pages Functions; no static login page is generated.
 )
@@ -438,7 +438,7 @@ GATE_I18N = _load_gate_i18n()
 
 
 def render_page(appmod, template: str, path: str, lang: str, extra=None) -> str:
-    """Render one page with Flask context and Host fixed to limooo.cn."""
+    """Render one page with Flask context and Host fixed to comicine.com."""
     app = _app_instance(appmod)
     kwargs = {}
     if extra == "redirect":
@@ -469,7 +469,7 @@ def write_not_found_fallback(appmod, out_dir: str) -> None:
 
 
 def render_gate(appmod, lang: str) -> str:
-    """Prerender the human-verification gate page for each language (auth.limooo.cn/__gate)."""
+    """Prerender the human-verification gate page for each language (auth.comicine.com/__gate)."""
     app = _app_instance(appmod)
     t = GATE_I18N[lang]
     # /__gate/config provides the site key and full i18n data at runtime; do not write secret-related values into build output.
@@ -531,6 +531,12 @@ def write_config_functions() -> None:
         "export const CONTRACT = " + json.dumps(contract, ensure_ascii=False, indent=2) + " as const;",
         "",
         "export const ROOT_DOMAIN = CONTRACT.root_domain;",
+        "export const LEGACY_ROOT_DOMAINS = CONTRACT.legacy_root_domains;",
+        "export const ROOT_DOMAINS: readonly string[] = [ROOT_DOMAIN, ...LEGACY_ROOT_DOMAINS];",
+        "export function rootDomainForHost(host: string): string | null {",
+        "  const hostname = host.split(\":\")[0]?.toLowerCase() ?? \"\";",
+        "  return ROOT_DOMAINS.find((domain) => hostname === domain || hostname.endsWith(`.${domain}`)) ?? null;",
+        "}",
         "export const BASE_URL = `https://${ROOT_DOMAIN}`;",
         "export const WWW_HOSTNAME = `www.${ROOT_DOMAIN}`;",
         # Emit only constants referenced by functions/. A full scan found no references to the 15 CONTRACT field aliases below
@@ -547,6 +553,7 @@ def write_config_functions() -> None:
         "export const VISITOR_HOSTNAME = `visitor.${ROOT_DOMAIN}`;",
         "export const APPLE_ACCOUNT_HOSTNAME = `account.${ROOT_DOMAIN}`;",
         "export const IDENTITY_HOSTNAME = CONTRACT.identity_host;",
+        "export const IDENTITY_HOSTS: Set<string> = new Set([IDENTITY_HOSTNAME, ...LEGACY_ROOT_DOMAINS.map((domain) => `identity.${domain}`)]);",
         "export const IDENTITY_SITE_ROLES: Record<string, \"admin\" | \"viewer\"> = CONTRACT.identity_sites;",
         "export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;",
         "export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;",
@@ -1068,7 +1075,7 @@ def main() -> int:
             html = render_page(appmod, template, path, lang, extra)
             with open(os.path.join(lang_dir, filename), "w", encoding="utf-8") as f:
                 f.write(html)
-        # Human-verification gate page (auth.limooo.cn/__gate)
+        # Human-verification gate page (auth.comicine.com/__gate)
         with open(os.path.join(lang_dir, "auth.html"), "w", encoding="utf-8") as f:
             f.write(render_gate(appmod, lang))
         print(f"[build] {lang} rendered", flush=True)
@@ -1167,7 +1174,7 @@ def main() -> int:
             # https://<image_asset_host>/static/... and <image_watermark_host>/....
             # → ../static/...
             # Replace HTML tag attributes only; leave absolute URLs in JavaScript untouched.
-            #   Construct all three hostnames from contract values; do not hardcode limooo.cn.
+            #   Construct all three hostnames from contract values; do not hardcode comicine.com.
             html = re.sub(preview_patterns["asset"], r'\1="../static/', html)
             # Also localize root-relative assets in inline CSS, such as the gate page @font-face url(/static/...).
             html = html.replace("url(/static/", "url(../static/")
@@ -1176,7 +1183,7 @@ def main() -> int:
                 'src="../static/icons/comicine.svg"',
             )
             # Localize site navigation: https://<subdomain>.<root_domain> becomes a local file in the same directory.
-            # Subdomain hostnames also come from the contract; do not hardcode limooo.cn.
+            # Subdomain hostnames also come from the contract; do not hardcode comicine.com.
             for host, page in preview_pages:
                 html = re.sub(
                     rf'href="https://{re.escape(host)}/?', f'href="{page}"', html

@@ -35,7 +35,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SECRETS_FILE="${WAF_ENV_FILE:-$ROOT/secrets/webauthn.env}"
-ZONE_NAME="${WAF_ZONE_NAME:-limooo.cn}"
+ZONE_NAME="${WAF_ZONE_NAME:-comicine.com}"
 SNAP_DIR="$ROOT/ops/waf"
 SNAP="$SNAP_DIR/rules.snapshot.json"
 PHASE_PATH="/rulesets/phases/http_request_firewall_custom/entrypoint"

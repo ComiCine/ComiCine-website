@@ -116,7 +116,10 @@ describe("exempt paths match exactly or as a subpath", () => {
 });
 
 describe("langCookieHeader domain scope", () => {
-  it("both main domain and subdomains set Domain=.limooo.cn", () => {
+  it("shares cookies within the current and legacy root domains", () => {
+    for (const host of ["comicine.com", "visitor.comicine.com", "images.comicine.com"]) {
+      expect(langCookieHeader(host, "ja-jp"), host).toContain("Domain=.comicine.com");
+    }
     for (const host of ["limooo.cn", "visitor.limooo.cn", "images.limooo.cn"]) {
       expect(langCookieHeader(host, "ja-jp"), host).toContain("Domain=.limooo.cn");
     }

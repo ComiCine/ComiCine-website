@@ -8,7 +8,7 @@
  */
 
 /**
- * All user-visible copy for status.limooo.cn, in one table for four languages.
+ * All user-visible copy for status.comicine.com, in one table for four languages.
  *
  * Why this file carries its own table instead of reading `site/locales/*.json`:
  *   The status page is server-rendered by a separate Worker, and Pages locales are unavailable
@@ -40,7 +40,7 @@ export function isLang(v: unknown): v is Lang {
  * the contract file, so these constants mirror it. Update them with the contract; `site/tests/`
  * does not include contract tests for this Worker.
  */
-export const ROOT_DOMAIN = "limooo.cn";
+export const ROOT_DOMAIN = "comicine.com";
 export const LANG_COOKIE = "user_lang_preference";
 export const THEME_COOKIE = "comicine_theme";
 export const LEGACY_THEME_COOKIE = "limooo_theme";
@@ -161,7 +161,7 @@ const ZH_CN = {
   notfound_title: "页面不存在",
   notfound_text: "这个地址在状态页上没有对应内容。",
   back_status: "状态页",
-  back_home: "回到 limooo.cn",
+  back_home: "回到 comicine.com",
 
   // Header and footer (matching keys and values in site/locales/*.json)
   nav_home: "主页",
@@ -244,7 +244,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     notfound_title: "Page not found",
     notfound_text: "There is nothing at this address on the status page.",
     back_status: "Status page",
-    back_home: "Go to limooo.cn",
+    back_home: "Go to comicine.com",
 
     nav_home: "Home",
     nav_services: "Services",
@@ -320,7 +320,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     notfound_title: "ページが見つかりません",
     notfound_text: "このアドレスに該当するページはありません。",
     back_status: "ステータスページ",
-    back_home: "limooo.cn へ",
+    back_home: "comicine.com へ",
 
     nav_home: "ホーム",
     nav_services: "サービス",
@@ -396,7 +396,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     notfound_title: "페이지를 찾을 수 없습니다",
     notfound_text: "이 주소에 해당하는 상태 페이지 내용이 없습니다.",
     back_status: "상태 페이지",
-    back_home: "limooo.cn으로",
+    back_home: "comicine.com으로",
 
     nav_home: "홈",
     nav_services: "서비스",

@@ -7,7 +7,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Generate Cloudflare Pages `_headers` for docs.limooo.cn.
+"""Generate Cloudflare Pages `_headers` for docs.comicine.com.
 
 VitePress inlines three scripts (theme bridge, check-dark-mode, and check-mac-os) and several
 styles in HTML, so the main site's CSP that forbids inline content cannot be copied directly.
@@ -80,11 +80,11 @@ def csp(scripts: list[str], styles: list[str]) -> str:
             "base-uri 'self'",
             f"script-src {script_src}",
             f"style-src {style_src}",
-            "img-src 'self' data: https://image.limooo.cn https://images.limooo.cn",
+            "img-src 'self' data: https://image.comicine.com https://images.comicine.com",
             "font-src 'self' data:",
             f"connect-src {connect_src}",
             "frame-ancestors 'self'",
-            "form-action 'self' https://*.limooo.cn",
+            "form-action 'self' https://*.comicine.com https://*.limooo.cn",
         ]
     )
 

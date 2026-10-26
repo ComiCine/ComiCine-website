@@ -110,6 +110,12 @@ def _contract_identity_site_roles() -> dict[str, str]:
     identity_host = CONTRACT.get("identity_host")
     managed_hosts = CONTRACT.get("managed_hosts")
     root_domain = CONTRACT.get("root_domain")
+    legacy_root_domains = CONTRACT.get("legacy_root_domains", [])
+    root_domains = [root_domain] if isinstance(root_domain, str) else []
+    if isinstance(legacy_root_domains, list) and all(
+        isinstance(domain, str) and domain for domain in legacy_root_domains
+    ):
+        root_domains.extend(legacy_root_domains)
     hostname_pattern = re.compile(
         r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
         r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$"
@@ -122,8 +128,7 @@ def _contract_identity_site_roles() -> dict[str, str]:
             or host == identity_host
             or not isinstance(managed_hosts, list)
             or host not in managed_hosts
-            or not isinstance(root_domain, str)
-            or not host.endswith(f".{root_domain}")
+            or not any(host.endswith(f".{domain}") for domain in root_domains)
             or not isinstance(role, str)
             or role not in {"admin", "viewer"}
         ):
@@ -164,6 +169,8 @@ D1_DATABASE_ID = os.environ.get(
 
 # Domains and subdomains
 ROOT_DOMAIN = _contract_str("root_domain")
+LEGACY_ROOT_DOMAINS = tuple(_contract_str_list("legacy_root_domains"))
+ROOT_DOMAINS = (ROOT_DOMAIN, *LEGACY_ROOT_DOMAINS)
 BASE_URL = f"https://{ROOT_DOMAIN}"
 WWW_HOST = f"www.{ROOT_DOMAIN}"
 SERVICES_HOST = f"services.{ROOT_DOMAIN}"
@@ -171,6 +178,7 @@ CONTACT_HOST = f"contact.{ROOT_DOMAIN}"
 VISITOR_HOST = f"visitor.{ROOT_DOMAIN}"
 APPLE_ACCOUNT_HOST = f"account.{ROOT_DOMAIN}"
 IDENTITY_HOST = _contract_str("identity_host")
+IDENTITY_HOSTS = (IDENTITY_HOST, *(f"identity.{domain}" for domain in LEGACY_ROOT_DOMAINS))
 REDIRECT_HOST = f"redirect.{ROOT_DOMAIN}"
 REDIRECT_URL = f"https://{REDIRECT_HOST}/"
 GATE_HOST = f"auth.{ROOT_DOMAIN}"

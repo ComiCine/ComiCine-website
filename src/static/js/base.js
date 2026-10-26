@@ -14,17 +14,28 @@ function bodyAttr(name, fallback) {
 }
 var DEFAULT_LANG = bodyAttr('data-default-lang', 'en-us');
 var SUPPORTED_LANGS = bodyAttr('data-supported-langs').split(/\s+/).filter(function (code) { return code; });
-var ROOT_DOMAIN = bodyAttr('data-root-domain', 'limooo.cn');
+var ROOT_DOMAIN = bodyAttr('data-root-domain', 'comicine.com');
 var LANG_COOKIE = bodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = bodyAttr('data-lang-cookie-max-age', '31536000');
 var THEME_COOKIE = bodyAttr('data-theme-cookie', 'comicine_theme');
 /* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
 var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = bodyAttr('data-theme-cookie-max-age', '31536000');
+var LEGACY_ROOT_DOMAINS = ['limooo.cn'];
+function rootDomainForHost(host) {
+    var domains = [ROOT_DOMAIN].concat(LEGACY_ROOT_DOMAINS);
+    host = String(host || '').toLowerCase();
+    for (var i = 0; i < domains.length; i++) {
+        if (host === domains[i] || host.endsWith('.' + domains[i])) return domains[i];
+    }
+    return null;
+}
+function isProductionDomain(host) {
+    return rootDomainForHost(host) !== null;
+}
 function sharedCookieDomain() {
-    return location.hostname === ROOT_DOMAIN || location.hostname.endsWith('.' + ROOT_DOMAIN)
-        ? '; domain=.' + ROOT_DOMAIN
-        : '';
+    var root = rootDomainForHost(location.hostname);
+    return root ? '; domain=.' + root : '';
 }
 document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
@@ -271,8 +282,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /*
        After the current page loads, prefetch the other two home pages (HTML and images).
        - Use <link rel=prefetch> for HTML; its cache retains the language cookie and degrades gracefully.
-       - Use new Image() to warm the HTTP cache. Home images use images.limooo.cn's static edge cache;
-         contact-page QR codes continue to use the image.limooo.cn Worker.
+       - Use new Image() to warm the HTTP cache. Home images use images.comicine.com's static edge cache;
+         contact-page QR codes continue to use the image.comicine.com Worker.
        - Do not prefetch QR codes on mobile; the contact page only shows them on desktop hover.
        - Keep this image list aligned with the src values in index.html and contact.html.
        */
@@ -290,9 +301,9 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             '/static/portfolio/thumbs/IMG_0179-640.avif' ];
     }
     var PAGE_MANIFEST = {
-        '/':        { host: 'limooo.cn',          path: '/',        images: HOME_IMAGES, assetBase: true },
-        '/services':{ host: 'services.limooo.cn', path: '/services', images: [] },
-        '/contact': { host: 'contact.limooo.cn',  path: '/contact',  images: [
+        '/':        { host: 'comicine.com',          path: '/',        images: HOME_IMAGES, assetBase: true },
+        '/services':{ host: 'services.comicine.com', path: '/services', images: [] },
+        '/contact': { host: 'contact.comicine.com',  path: '/contact',  images: [
                         '/qr-codes/bilibili.webp',
                         '/qr-codes/qq.webp',
                         '/qr-codes/wechat.webp' ], qr: true, assetBase: false }
@@ -301,32 +312,32 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /* Identify the current home page by subdomain in production and by path in local development. */
     function currentPageKey() {
         var h = location.hostname;
-        if (h === 'limooo.cn' || h === 'www.limooo.cn') return '/';
-        if (h === 'services.limooo.cn') return '/services';
-        if (h === 'contact.limooo.cn') return '/contact';
-        if (h.endsWith('.limooo.cn')) return null;   /* Do not prefetch admin or Apple Account pages. */
+        if (h === ROOT_DOMAIN || h === 'www.' + ROOT_DOMAIN || h === 'limooo.cn' || h === 'www.limooo.cn') return '/';
+        if (h === 'services.' + ROOT_DOMAIN || h === 'services.limooo.cn') return '/services';
+        if (h === 'contact.' + ROOT_DOMAIN || h === 'contact.limooo.cn') return '/contact';
+        if (rootDomainForHost(h)) return null;   /* Do not prefetch admin or Apple Account pages. */
         return location.pathname;                    /* Local paths: '/', '/services', or '/contact'. */
     }
 
-    /* Home images load from images.limooo.cn/static via the static edge cache.
-       QR codes still use the image.limooo.cn Worker, which selects a watermark by Referer. */
+    /* Home images load from images.comicine.com/static via the static edge cache.
+       QR codes still use the image.comicine.com Worker, which selects a watermark by Referer. */
     function pageOrigin(key) {
         var manifest = PAGE_MANIFEST[key];
         var attr = manifest && manifest.assetBase
             ? 'data-image-asset-base'
             : 'data-image-watermark-base';
         var base = document.body && document.body.getAttribute(attr);
-        return location.hostname.endsWith('limooo.cn')
+        return isProductionDomain(location.hostname)
             ? (base || (manifest && manifest.assetBase
-                ? 'https://images.limooo.cn'
-                : 'https://image.limooo.cn'))
+                ? 'https://images.comicine.com'
+                : 'https://image.comicine.com'))
             : location.origin;
     }
 
     /* Sibling page URLs use a subdomain root in production and same-origin paths locally. */
     function siblingHref(key) {
         var p = PAGE_MANIFEST[key];
-        return location.hostname.endsWith('limooo.cn') ? 'https://' + p.host : location.origin + p.path;
+        return isProductionDomain(location.hostname) ? 'https://' + p.host : location.origin + p.path;
     }
 
     function prefetchPages() {

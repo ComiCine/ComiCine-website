@@ -15,7 +15,7 @@ Copyright (C) 2026-Present ComiCine
 
 ComiCine 对其原创源代码、原创文档及其他依法受版权保护的原创材料主张版权，但仅限于其拥有相关权利或有权主张相关权利的范围。本声明不主张仓库内第三方材料的版权。
 
-项目官方网站：<https://limooo.cn/>。
+项目官方网站：<https://comicine.com/>。
 
 ## 版权归属
 
@@ -48,7 +48,7 @@ ComiCine 名称、Logo、图形标识及相关品牌元素可能受到适用商�
 ## 许可与授权咨询
 
 邮箱：[contact@limooo.cn](mailto:contact@limooo.cn)
-网站：<https://limooo.cn/>
+网站：<https://comicine.com/>
 
 可通过该邮箱向相关权利人咨询额外授权，包括单独申请商标许可或超出开源许可证范围的特殊使用。发送邮件本身不构成授权。符合适用 AGPL 许可证条件的商业使用无需额外许可。
 

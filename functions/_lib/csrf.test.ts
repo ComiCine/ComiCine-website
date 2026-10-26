@@ -27,7 +27,7 @@ function request(
   cookieToken = token,
   method = "POST",
 ): Request {
-  return new Request("https://account.limooo.cn/api/apple-account/accounts/1/reveal", {
+  return new Request("https://account.comicine.com/api/apple-account/accounts/1/reveal", {
     method,
     headers: {
       Origin: origin,
@@ -40,27 +40,27 @@ function request(
 describe("csrf", () => {
   it("round-trips a signed token with matching cookie and header", async () => {
     const { token } = await createCsrfToken(env, SID_A);
-    expect(await verifyCsrf(env, request("https://account.limooo.cn", token), SID_A)).toBe(true);
+    expect(await verifyCsrf(env, request("https://account.comicine.com", token), SID_A)).toBe(true);
   });
 
   it("rejects missing or mismatched header/cookie", async () => {
     const { token } = await createCsrfToken(env, SID_A);
-    expect(await verifyCsrf(env, request("https://account.limooo.cn", "", token), SID_A)).toBe(false);
+    expect(await verifyCsrf(env, request("https://account.comicine.com", "", token), SID_A)).toBe(false);
     expect(
-      await verifyCsrf(env, request("https://account.limooo.cn", token, "different"), SID_A),
+      await verifyCsrf(env, request("https://account.comicine.com", token, "different"), SID_A),
     ).toBe(false);
   });
 
   it("rejects a token issued for a different session", async () => {
     const { token } = await createCsrfToken(env, SID_A);
-    expect(await verifyCsrf(env, request("https://account.limooo.cn", token), SID_B)).toBe(false);
+    expect(await verifyCsrf(env, request("https://account.comicine.com", token), SID_B)).toBe(false);
 // The same token remains valid in its own session, ruling out a false pass caused by rejecting every signature.
-    expect(await verifyCsrf(env, request("https://account.limooo.cn", token), SID_A)).toBe(true);
+    expect(await verifyCsrf(env, request("https://account.comicine.com", token), SID_A)).toBe(true);
   });
 
   it("rejects an empty session id even when the signature matches", async () => {
     const { token } = await createCsrfToken(env, SID_A);
-    expect(await verifyCsrf(env, request("https://account.limooo.cn", token), "")).toBe(false);
+    expect(await verifyCsrf(env, request("https://account.comicine.com", token), "")).toBe(false);
     await expect(createCsrfToken(env, "")).rejects.toThrow();
   });
 

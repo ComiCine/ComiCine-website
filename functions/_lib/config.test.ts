@@ -14,15 +14,19 @@ import {
   DEFAULT_LANG,
   GATE_COOKIE,
   LANG_COOKIE,
+  LEGACY_ROOT_DOMAINS,
   PENDING_COOKIE,
   ROOT_DOMAIN,
+  ROOT_DOMAINS,
   SESSION_COOKIE,
   SUPPORTED_LANGS,
 } from "./config";
 
 describe("shared config", () => {
   it("has the expected shared constants", () => {
-    expect(ROOT_DOMAIN).toBe("limooo.cn");
+    expect(ROOT_DOMAIN).toBe("comicine.com");
+    expect(LEGACY_ROOT_DOMAINS).toEqual(["limooo.cn"]);
+    expect(ROOT_DOMAINS).toEqual(["comicine.com", "limooo.cn"]);
     expect(DEFAULT_LANG).toBe("en-us");
     expect(SUPPORTED_LANGS).toContain("zh-cn");
     expect(GATE_COOKIE).toBe("__gate");

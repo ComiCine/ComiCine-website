@@ -85,7 +85,7 @@ describe("GET /login", () => {
     );
     expect(resp.status).toBe(302);
     const destination = new URL(resp.headers.get("Location") ?? "");
-    expect(destination.origin).toBe("https://identity.limooo.cn");
+    expect(destination.origin).toBe("https://identity.comicine.com");
     expect(destination.pathname).toBe("/login");
     const callback = new URL(destination.searchParams.get("next") ?? "");
     expect(callback.origin).toBe("https://account.limooo.cn");

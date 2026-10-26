@@ -9,8 +9,8 @@
  * Cookie bridge shared with the main site and documentation site.
  *
  * Main-site cookies (see site/src/static/js/base.js and functions/_lib/routing.ts):
- *   user_lang_preference = zh-cn | en-us | ja-jp | ko-kr   Domain=.limooo.cn
- *   comicine_theme       = light | dark                     Domain=.limooo.cn
+ *   user_lang_preference = zh-cn | en-us | ja-jp | ko-kr   Domain=.comicine.com
+ *   comicine_theme       = light | dark                     Domain=.comicine.com
  *
  * Language URL convention: the language code is the final path segment. Every
  * content page includes it explicitly, including the default zh-cn. Paths without
@@ -36,9 +36,10 @@ export const APPEARANCE_KEY = 'vitepress-theme-appearance'
 export const DEFAULT_LANG = 'zh-cn'
 export const LANGS = ['zh-cn', 'en-us', 'ja-jp', 'ko-kr'] as const
 
-const ROOT_DOMAIN = 'limooo.cn'
+const ROOT_DOMAIN = 'comicine.com'
 const COOKIE_MAX_AGE = 31536000
-const REDIRECT_FLAG = 'limooo-docs-lang-redirect'
+const REDIRECT_FLAG = 'comicine-docs-lang-redirect'
+const LEGACY_REDIRECT_FLAG = 'limooo-docs-lang-redirect'
 
 /** Synchronous script run in <head> before VitePress's own check-dark-mode script. */
 export const THEME_BOOTSTRAP_SCRIPT = `;(() => {
@@ -156,7 +157,7 @@ async function maybeRedirectToPreferred(
   if (hasLangSuffix(location.pathname)) return false
   if (!isValidLang(preferred) || preferred === DEFAULT_LANG) return false
   try {
-    if (sessionStorage.getItem(REDIRECT_FLAG)) return false
+    if (sessionStorage.getItem(REDIRECT_FLAG) || sessionStorage.getItem(LEGACY_REDIRECT_FLAG)) return false
     sessionStorage.setItem(REDIRECT_FLAG, '1')
   } catch {
     return false

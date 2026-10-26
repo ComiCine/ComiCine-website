@@ -7,7 +7,7 @@ See ADDITIONAL_TERMS.txt.
 
 # 名单目录（白名单 / 黑名单）
 
-这里存放门禁与封禁链路使用的名单。本目录不进入 docs.limooo.cn 的部署产物。
+这里存放门禁与封禁链路使用的名单。本目录不进入 docs.comicine.com 的部署产物。
 
 ## 文件一览
 
@@ -24,7 +24,7 @@ See ADDITIONAL_TERMS.txt.
 
 `docs/lists/robots.txt` 一份文件、两个用途：
 
-1. `src/build.py` 将爬虫规则发布到线上 `https://limooo.cn/robots.txt`，并按契约追加 Sitemap 行。
+1. `src/build.py` 将爬虫规则发布到线上 `https://comicine.com/robots.txt`，并按契约追加 Sitemap 行。
 2. `ops/check_gate_trust.py` 解析每条显式 `User-agent:`（`*` 除外），生成 `functions/_data/gateTrust.ts` 中的 `GATE_TRUST_CRAWLER_UAS`。这些 User-Agent 只免人机验证，不免 D1 封禁、不签发 `__gate` cookie，也不计入访客。
 
 新增爬虫时，只需在 `robots.txt` 添加一条 `User-agent:`。`Allow`、`Disallow` 与注释不参与门禁名单解析。`Google-Extended` / `Applebot-Extended` 是 robots.txt 专用标记，没有对应的请求 User-Agent。

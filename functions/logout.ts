@@ -64,7 +64,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const target = accessTeamDomain(env) ? accessLogoutUrl(env, next) : next;
   const resp = new Response(null, { status: 302, headers: { Location: target } });
   resp.headers.append("Set-Cookie", clearSessionCookie());
-  resp.headers.append("Set-Cookie", clearLegacySharedSessionCookie());
+  resp.headers.append("Set-Cookie", clearLegacySharedSessionCookie(new URL(request.url).hostname));
   resp.headers.append("Set-Cookie", clearPendingCookie());
   return resp;
 };

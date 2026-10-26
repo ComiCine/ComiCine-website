@@ -13,7 +13,7 @@ Copyright (C) 2026-Present ComiCine
 
 ComiCine asserts copyright in original source code, original documentation, and other original materials protected by copyright law, but only to the extent that it owns or is authorized to assert those rights. This notice does not claim ownership of third-party material in this repository.
 
-Project website: <https://limooo.cn/>.
+Project website: <https://comicine.com/>.
 
 ## Copyright Ownership
 
@@ -46,7 +46,7 @@ The ComiCine name, logo, graphic marks, and related brand elements may be protec
 ## Licensing and Authorization Inquiries
 
 Email: [contact@limooo.cn](mailto:contact@limooo.cn)
-Website: <https://limooo.cn/>
+Website: <https://comicine.com/>
 
 Contact the relevant rights holder at this email to inquire about additional authorization, including a separate trademark permission or special use beyond the open-source license. Sending an inquiry does not itself grant authorization. Commercial use that complies with the applicable AGPL license does not require additional permission.
 

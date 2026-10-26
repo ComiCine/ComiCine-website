@@ -13,21 +13,21 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages project | `limooo` | `site/wrangler.toml` | Build output `public`, serves `limooo.cn` and its subdomains |
+| Pages project | `limooo` | `site/wrangler.toml` | Build output `public`, serves `comicine.com` and its subdomains |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
 | D1 migrations | `ops/migrations/*.sql` | Git | Entry point `ops/migrate_d1.sh`; `018_worker_runs.sql` / `019_worker_runs_dry_run.sql` hold the Worker run history |
-| Worker: probes / status page | `limooo-status` | `ops/status-worker/wrangler.toml` | Probes every minute + 10 s re-check after down; `status.limooo.cn`; D1 retention **and the daily checks** (run history + blocklist invariant) daily at 03:47 |
+| Worker: probes / status page | `limooo-status` | `ops/status-worker/wrangler.toml` | Probes every minute + 10 s re-check after down; `status.comicine.com`; D1 retention **and the daily checks** (run history + blocklist invariant) daily at 03:47 |
 | Worker: blocklist sync | `limooo-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
-| Worker: image watermark | `image-watermark` | `ops/image-watermark/wrangler.toml` | `image.limooo.cn/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
+| Worker: image watermark | `image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
 | Worker: D1 archive | `limooo-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `limooo-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
 | R2 private bucket (originals) | `limooo-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
-| R2 bucket (fonts) | `limooo-fonts` | `ops/fonts/README.md` | Public gate-font subset at `fonts.limooo.cn` |
+| R2 bucket (fonts) | `limooo-fonts` | `ops/fonts/README.md` | Public gate-font subset at `fonts.comicine.com` |
 | WAF IP List | `limooo_blocklist` | `ops/sync-worker` | Cloudflare List, referenced by WAF rules |
-| DNS zone | `limooo.cn` | Cloudflare Dashboard | CNAMEs to `limooo.pages.dev`, see AGENTS.md |
+| DNS zone | `comicine.com` | Cloudflare Dashboard | CNAMEs to `comicine.pages.dev`, see AGENTS.md |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | `ComiCine public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
-| Zone settings | `limooo.cn` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
+| Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
 | AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
 ## Dashboard-only resources (this repository is not fully reproducible)
@@ -36,15 +36,15 @@ Everything below exists **only in the Cloudflare Dashboard**. The files listed a
 declare the Worker code and its bindings, but they do **not** declare the routes, so a
 fresh `wrangler deploy` will not recreate them:
 
-- Worker **custom domains and routes**: `image.limooo.cn/*` -> `image-watermark`,
-  `status.limooo.cn/*` -> `limooo-status`, plus the `sync-worker` route. They live
+- Worker **custom domains and routes**: `image.comicine.com/*` -> `image-watermark`,
+  `status.comicine.com/*` -> `limooo-status`, plus the `sync-worker` route. They live
   under Workers & Pages -> (worker) -> Settings -> Domains & Routes and are
   deliberately absent from every `wrangler.toml` (`ops/image-watermark/wrangler.toml`
   says so explicitly): a `routes` block would make each deploy rewrite the live route
   set, which this repository cannot diff or roll back.
-- Pages **custom domains** (`limooo.cn`, `www`, `services`, `contact`, `visitor`,
+- Pages **custom domains** (`comicine.com`, `www`, `services`, `contact`, `visitor`,
   `account`, `admin`, ...) and their certificates.
-- **DNS records** in `limooo.cn`.
+- **DNS records** in `comicine.com`.
 - **WAF custom rules** and the access rules for the `limooo_blocklist` IP List.
 - **Cache Rules** and any manual edge cache purge.
 - **AI bot policies** (`Security > Settings > Configure AI bot policies`): they decide
@@ -89,7 +89,7 @@ this was deliberate. Flagged in `## Open items / external confirmations`.
 
 ## AI bots and crawlers (`ops/ai_bots.py`)
 
-`limooo.cn` is deliberately readable by crawlers and AI agents: `docs/lists/robots.txt`
+`comicine.com` is deliberately readable by crawlers and AI agents: `docs/lists/robots.txt`
 lets them past the Pages-Functions Turnstile gate, and `src/build.py` generates an
 allow-everything `/robots.txt` plus an `/llms.txt` index. The edge in front of the Worker
 has its own opinion, and it wins first:
@@ -125,7 +125,7 @@ those is a product decision, not a cleanup.
 i.e. AI crawlers were being sent into a link maze) and `is_robots_txt_managed: true`; all
 six managed keys now hold the allow value. Verified from a non-allow-listed egress:
 GPTBot / ClaudeBot / CCBot / Bytespider / Amazonbot / PerplexityBot get `200` on
-`limooo.cn`, `services.`, `contact.`, `images.` and `docs.limooo.cn`, while a browser
+`comicine.com`, `services.`, `contact.`, `images.` and `docs.comicine.com`, while a browser
 User-Agent still gets the `403` Turnstile gate. Two dead ends worth remembering:
 `PATCH` is rejected (`405`), and a WAF custom rule with `action: skip` over
 `phases: ["http_request_firewall_managed"]` is *accepted* by the API on a Free zone but
@@ -153,7 +153,7 @@ echoed). There is no server-side credential source any more.
 
 ## Shared Access identity application
 
-`ComiCine-Identity` protects only `identity.limooo.cn/login`. Cloudflare Access sends
+`ComiCine` protects only `identity.comicine.com/login`. Cloudflare Access sends
 the browser through the `limooo.cloudflareaccess.com` team domain and back to that
 route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
@@ -261,7 +261,7 @@ hours. Cost is one index seek per job per day (`idx_worker_runs_job_started`,
 measured `rows_read=2` for two jobs); this table is never read from the every-minute
 probe cron, and adding it to the status page was rejected on purpose (that page is
 re-rendered every minute per language, which would turn a 2-row read into thousands
-of rows per day). `POST /daily-checks` on `status.limooo.cn` runs the same check on
+of rows per day). `POST /daily-checks` on `status.comicine.com` runs the same check on
 demand.
 
 Health endpoints (both require `Authorization: Bearer <SYNC_TOKEN>` and fail closed
@@ -474,7 +474,7 @@ bash ops/workers_deploy.sh
 
 ## Cache Rules
 
-`ComiCine public cache` exists in the `limooo.cn` zone. **Since 2026-09-26 both HTML
+`ComiCine public cache` exists in the `comicine.com` zone. **Since 2026-09-26 both HTML
 cache rules are disabled** (`Cache public HTML for returning visitors`,
 `Cache images gallery page for returning visitors`, `enabled=false`): their
 `cache_key` was empty, so the edge cached by URL only, while the public page language
@@ -488,8 +488,8 @@ the key; the rules were disabled and the Worker's Cache API now buckets by `lang
 
 Historical records:
 
-- Public HTML: used to match `/`, `/services`, `/contact` on `limooo.cn`,
-  `services.limooo.cn`, `contact.limooo.cn` when the request carried the
+- Public HTML: used to match `/`, `/services`, `/contact` on `comicine.com`,
+  `services.comicine.com`, `contact.comicine.com` when the request carried the
   `user_lang_preference` cookie; edge/browser TTL 300 s.
 - Static assets: used to match `/static/*` on the hosts above plus the main-site
   favicon and `limooo-xtext.svg`; edge/browser TTL 1 year.
@@ -590,15 +590,15 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   Cloudflare default (challenge suspicious traffic, do not block outright). The zone
   snapshot now reads `medium` and the `--show` review note is gone. If legitimate traffic
   ever gets challenged, the value is one PATCH away and the snapshot will show the diff.
-- **Resolved 2026-10-11: `identity.limooo.cn` removed** from both the Pages custom domains
-  and the zone DNS (proxied `CNAME` to `limooo.pages.dev`). It returned 404 and nothing in
+- **Resolved 2026-10-11: `identity.comicine.com` removed** from both the Pages custom domains
+  and the zone DNS (proxied `CNAME` to `comicine.pages.dev`). It returned 404 and nothing in
   the repository, the contract or the docs referenced it (authentik-era leftover). The
   other ten hostnames were re-checked and still answer.
 - **Configured 2026-10-18: shared Access identity**. The former `ComiCine-Visitor` app was
-  repurposed as `ComiCine-Identity` for `identity.limooo.cn/login`, retaining its admin policy
-  and AUD. Its `ComiCine-Admins` policy now also allows the `account.limooo.cn` email domain,
+  repurposed as `ComiCine` for `identity.comicine.com/login`, retaining its admin policy
+  and AUD. Its `ComiCine-Admins` policy now also allows the `account.comicine.com` email domain,
   preserving the existing includes and exclusions. The old `ComiCine-Apple` app for
-  `account.limooo.cn` was deleted; visitor and account
+  `account.comicine.com` was deleted; visitor and account
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
-  legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
+  legacy `ComiCine-Admin` app remains configured for `admin.comicine.com`, which has no DNS record
   or Pages custom domain.

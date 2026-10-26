@@ -403,7 +403,7 @@ def live_facts() -> dict:
         elif rows:
             facts["d1"][label] = list(rows[0].values())[0]
 
-    project = api("GET", f"/accounts/{account}/pages/projects/limooo")
+    project = api("GET", f"/accounts/{account}/pages/projects/comicine")
     if project.get("success"):
         result = project["result"]
         facts["pages"] = {
@@ -419,7 +419,7 @@ def live_facts() -> dict:
     if scripts.get("success"):
         facts["workers"] = sorted(item["id"] for item in scripts["result"])
 
-    zone = api("GET", "/zones?name=limooo.cn")
+    zone = api("GET", "/zones?name=comicine.com")
     if zone.get("success") and zone["result"]:
         zone_id = zone["result"][0]["id"]
         records = api("GET", f"/zones/{zone_id}/dns_records?per_page=100")

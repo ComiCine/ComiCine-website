@@ -15,6 +15,7 @@ import {
   PENDING_COOKIE,
   REVEAL_MAX_AUTH_AGE_SECONDS,
   ROOT_DOMAIN,
+  rootDomainForHost,
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
 } from "./config";
@@ -106,8 +107,8 @@ function cookieHeader(name: string, value: string, maxAge: number): string {
   return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
-function clearCookieHeader(name: string, sharedDomain = true): string {
-  const domain = sharedDomain ? ` Domain=.${ROOT_DOMAIN};` : "";
+function clearCookieHeader(name: string, rootDomain?: string): string {
+  const domain = rootDomain ? ` Domain=.${rootDomain};` : "";
   return `${name}=;${domain} Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
@@ -123,11 +124,11 @@ export async function createSessionCookie(env: Env, data: SessionData): Promise<
 }
 
 export function clearSessionCookie(): string {
-  return clearCookieHeader(SESSION_COOKIE, false);
+  return clearCookieHeader(SESSION_COOKIE);
 }
 
-export function clearLegacySharedSessionCookie(): string {
-  return clearCookieHeader("limooo_session_v2");
+export function clearLegacySharedSessionCookie(host: string = ROOT_DOMAIN): string {
+  return clearCookieHeader("limooo_session_v2", rootDomainForHost(host) ?? ROOT_DOMAIN);
 }
 
 export async function readSession(

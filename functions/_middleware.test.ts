@@ -78,7 +78,7 @@ describe("shared identity navigation", () => {
     const targetAttribute = html.match(/data-target="([^"]+)"/)?.[1];
     expect(targetAttribute).toBeDefined();
     const identityUrl = new URL(targetAttribute!.replaceAll("&amp;", "&"));
-    expect(identityUrl.origin).toBe("https://identity.limooo.cn");
+    expect(identityUrl.origin).toBe("https://identity.comicine.com");
     expect(identityUrl.pathname).toBe("/login");
 
     const callback = new URL(identityUrl.searchParams.get("next") ?? "");
@@ -244,7 +244,7 @@ describe("force theme challenge", () => {
   it("renders the gate page in place on the gate host for verified visitors", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://auth.limooo.cn/", {
+        new Request("https://auth.comicine.com/", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
         {
@@ -260,7 +260,7 @@ describe("force theme challenge", () => {
 
     expect(resp.status).toBe(200);
     expect(resp.headers.get("Location")).toBeNull();
-    await expect(resp.text()).resolves.toContain("auth.limooo.cn /");
+    await expect(resp.text()).resolves.toContain("auth.comicine.com /");
   });
 
   it("serves public pages with edge-cache headers", async () => {
@@ -353,14 +353,14 @@ describe("force theme challenge", () => {
 
 describe("legacy HTML redirects", () => {
   it.each([
-    ["https://limooo.cn/www.html", "https://limooo.cn/"],
-    ["https://limooo.cn/images.html", "https://limooo.cn/"],
-    ["https://limooo.cn/portfolio.html", "https://limooo.cn/portfolio"],
-    ["https://limooo.cn/visitor.html", "https://visitor.limooo.cn/"],
-    ["https://limooo.cn/apple-account.html", "https://account.limooo.cn/"],
-    ["https://limooo.cn/redirect.html", "https://redirect.limooo.cn/"],
-    ["https://limooo.cn/status.html", "https://status.limooo.cn/"],
-    ["https://services.limooo.cn/index.html", "https://services.limooo.cn/"],
+    ["https://limooo.cn/www.html", "https://comicine.com/"],
+    ["https://limooo.cn/images.html", "https://comicine.com/"],
+    ["https://limooo.cn/portfolio.html", "https://comicine.com/portfolio"],
+    ["https://limooo.cn/visitor.html", "https://visitor.comicine.com/"],
+    ["https://limooo.cn/apple-account.html", "https://account.comicine.com/"],
+    ["https://limooo.cn/redirect.html", "https://redirect.comicine.com/"],
+    ["https://limooo.cn/status.html", "https://status.comicine.com/"],
+    ["https://services.limooo.cn/index.html", "https://services.comicine.com/"],
   ])("redirects known alias %s to %s", async (requestUrl, target) => {
     const resp = await handleOnRequest(context(new Request(requestUrl)));
 
@@ -386,7 +386,7 @@ describe("legacy HTML redirects", () => {
 
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe(
-      "https://services.limooo.cn/?from=legacy",
+      "https://services.comicine.com/?from=legacy",
     );
     expect(assetCalls).toBe(0);
   });
@@ -397,7 +397,7 @@ describe("legacy HTML redirects", () => {
     );
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://contact.limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://contact.comicine.com/");
   });
 
   it("sends the docs alias to the main site without the docs-root redirect hop", async () => {
@@ -406,7 +406,7 @@ describe("legacy HTML redirects", () => {
     );
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/");
   });
 
   it("returns HTTP 404 for unknown html targets without redirecting", async () => {
@@ -485,7 +485,7 @@ describe("images host routing", () => {
     );
 
     expect(resp.status).toBe(301);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/");
   });
 
   it("never forwards API paths to Pages Functions", async () => {
@@ -1027,7 +1027,7 @@ describe("canonical /gate entry", () => {
       context(new Request("https://limooo.cn/gate/config")),
     );
     expect(config.status).toBe(200);
-    await expect(config.json()).resolves.toHaveProperty("root_domain", "limooo.cn");
+    await expect(config.json()).resolves.toHaveProperty("root_domain", "comicine.com");
 
     const diag = await handleOnRequest(
       context(
@@ -1408,7 +1408,7 @@ describe("cachedPageAsset passes the asset body through", () => {
       expect(caches.puts[0].key).toContain("lang=zh-cn");
       expect(new URL(caches.puts[0].key).hostname).toBe("limooo.cn");
       expect(String(vi.mocked(assets.fetch).mock.calls[0][0])).toBe(
-        "https://limooo.cn/zh-cn/services.html",
+        "https://comicine.com/zh-cn/services.html",
       );
     } finally {
       caches.restore();

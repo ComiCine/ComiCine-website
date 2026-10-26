@@ -20,7 +20,7 @@ Inter subsets are present under src/static/fonts/inter/ and docs/docs/public/fon
 
 Maple Mono NF CN is by The Maple Mono Project Authors, copyright 2022, and is distributed under OFL-1.1. The upstream project is [subframe7536/maple-font](https://github.com/subframe7536/maple-font); the license text is included at [ops/fonts/OFL.txt](ops/fonts/OFL.txt).
 
-The repository contains a build script for a gate-specific derivative that adds two Korean glyphs to Maple Mono NF CN Regular. The source font and generated font binaries are kept outside this Git repository; the generated web font is served from fonts.limooo.cn. The derivative remains subject to OFL-1.1, including its notice, redistribution, and reserved-name terms.
+The repository contains a build script for a gate-specific derivative that adds two Korean glyphs to Maple Mono NF CN Regular. The source font and generated font binaries are kept outside this Git repository; the generated web font is served from fonts.comicine.com. The derivative remains subject to OFL-1.1, including its notice, redistribution, and reserved-name terms.
 
 ## Software Dependencies
 

@@ -29,6 +29,7 @@ PYTHON_CONFIG_PATH = ROOT / "src" / "config.py"
 
 PYTHON_FIELD_MAP = {
     "root_domain": "ROOT_DOMAIN",
+    "legacy_root_domains": "LEGACY_ROOT_DOMAINS",
     "supported_langs": "SUPPORTED_LANGS",
     "default_lang": "DEFAULT_LANG",
     "key_fallback_lang": "KEY_FALLBACK_LANG",
@@ -77,7 +78,7 @@ def load_contract() -> dict:
 
 
 def load_python_config() -> dict:
-    spec = importlib.util.spec_from_file_location("limooo_config_check", PYTHON_CONFIG_PATH)
+    spec = importlib.util.spec_from_file_location("comicine_config_check", PYTHON_CONFIG_PATH)
     if spec is None or spec.loader is None:
         fail(f"cannot load {PYTHON_CONFIG_PATH}")
         raise SystemExit(1)
@@ -154,6 +155,8 @@ def check_constants_consumed() -> None:
 def check_managed_hosts(contract: dict) -> None:
     """Require managed_hosts to include hosted subdomains such as auth, redirect, images, and image."""
     root = contract.get("root_domain", "")
+    legacy_roots = contract.get("legacy_root_domains", [])
+    roots = [root, *(legacy_roots if isinstance(legacy_roots, list) else [])]
     expected = [
         f"auth.{root}",
         f"identity.{root}",
@@ -184,7 +187,7 @@ def check_managed_hosts(contract: dict) -> None:
             not isinstance(host, str)
             or not hostname_pattern.fullmatch(host)
             or host not in managed
-            or not host.endswith(f".{root}")
+            or not any(host.endswith(f".{domain}") for domain in roots if isinstance(domain, str))
             or not isinstance(role, str)
             or role not in ("admin", "viewer")
             or host == identity_host

@@ -11,7 +11,7 @@
 #
 # Covers:
 #   - ops/sync-worker       (D1 blocked_ips -> Cloudflare IP List, cron 03:30)
-#   - ops/image-watermark   (image.limooo.cn watermark route)
+#   - ops/image-watermark   (image.comicine.com watermark route)
 #   - ops/d1-archive        (D1 export archive worker)
 #   - ops/status-worker     (probes / status page / alerts / D1 retention)
 #

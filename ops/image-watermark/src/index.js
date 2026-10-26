@@ -7,7 +7,7 @@
  * See ADDITIONAL_TERMS.txt.
 
 /**
- * image-watermark — image.limooo.cn image watermark Worker (A2 normalization proxy).
+ * image-watermark — image.comicine.com image watermark Worker (A2 normalization proxy).
  *
  * After A2 (portfolio originals are no longer published), the public bundle contains:
  *   - /static/wm/portfolio/*  Watermarked full-size images (already stored here; old cache entries are harmless).
@@ -22,16 +22,16 @@
  *      watermarked variant at `/static/wm/portfolio/<image>`, regardless of the request source.
  *   2. Other images and assets (`thumbs`, `qr-codes`, `icons`) return the clean file at `/static/<path>`.
  *   3. Never proxy `/api/*`; return 404 for non-images outside known asset directories.
- *   4. Accept `images.limooo.cn`-style `/static/portfolio/...` paths by removing the `/static` prefix.
+ *   4. Accept `images.comicine.com`-style `/static/portfolio/...` paths by removing the `/static` prefix.
  *
  * Cache API uses the origin URL as the key; watermarked and clean variants have different URLs
  * and cannot pollute each other's cache. All clients receive the same response under A2, so the
  * response no longer includes `Vary: Referer`.
  */
 
-const ORIGIN = "https://limooo.cn";
-// image.limooo.cn normalizes asset paths; its root redirects to the main site.
-const LANDING_PAGE = "https://limooo.cn/";
+const ORIGIN = "https://comicine.com";
+// image.comicine.com normalizes asset paths; its root redirects to the main site.
+const LANDING_PAGE = "https://comicine.com/";
 
 // Image extensions actually used by the site, matching content exposed under public/static.
 const IMAGE_PATH_RE = /\.(png|jpe?g|webp|avif|gif|bmp|ico|svg)$/i;
@@ -60,14 +60,14 @@ const BRAND_ICON_ALIASES = new Map([
   ["/icons/ComiCine-xtext.svg", "/static/icons/comicine.svg"],
 ]);
 
-/** Remove the `images.limooo.cn`-style `/static` prefix to get the logical path. */
+/** Remove the `images.comicine.com`-style `/static` prefix to get the logical path. */
 export function logicalPath(pathname) {
   return pathname.startsWith("/static/")
     ? pathname.slice("/static".length)
     : pathname;
 }
 
-/** Redirect the bare `image.limooo.cn` domain to the main site. */
+/** Redirect the bare `image.comicine.com` domain to the main site. */
 export function landingRedirect(url) {
   return url.pathname === "/" ? LANDING_PAGE : "";
 }

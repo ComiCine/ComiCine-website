@@ -9,7 +9,7 @@
 
 """Zone AI-bot policy: read, snapshot and (optionally) set it to "do not block".
 
-Why this exists (2026-10-12): limooo.cn is deliberately open to crawlers and AI
+Why this exists (2026-10-12): comicine.com is deliberately open to crawlers and AI
 agents -- `docs/lists/robots.txt` publishes crawler rules at /robots.txt, while
 the build adds a generated Sitemap line. Its explicit User-agent lines also
 drive the challenge-bypass allow-list. The edge, however, has
@@ -73,7 +73,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SECRETS_FILE = Path(os.environ.get("AI_BOTS_ENV_FILE", ROOT / "secrets" / "webauthn.env"))
 SNAPSHOT = Path(os.environ.get("AI_BOTS_SNAPSHOT", ROOT / "ops" / "ai-bots.snapshot.json"))
-ZONE_NAME = os.environ.get("ZONE_NAME", "limooo.cn")
+ZONE_NAME = os.environ.get("ZONE_NAME", "comicine.com")
 API_BASE = "https://api.cloudflare.com/client/v4"
 ENDPOINT = "/zones/{zone_id}/bot_management"
 
@@ -241,7 +241,7 @@ def report_plan(changes: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Read, snapshot or relax the limooo.cn AI bot policy.",
+        description="Read, snapshot or relax the comicine.com AI bot policy.",
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--show", action="store_true", help="live: print the AI-related keys; write nothing")

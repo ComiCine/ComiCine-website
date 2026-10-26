@@ -1,10 +1,10 @@
 {
-  "captured_at": "2026-10-11T08:02:04.022000+00:00",
-  "zone": "limooo.cn",
-  "zone_id": "9fae48942c655fd03a4a483b4866c1c3",
+  "captured_at": "2026-10-26T22:44:25.833217+00:00",
+  "zone": "comicine.com",
+  "zone_id": "d22337c1b3100ec5e02e916c9f07b956",
   "settings": {
     "0rtt": {
-      "value": "on",
+      "value": "off",
       "editable": true
     },
     "always_use_https": {
@@ -32,7 +32,7 @@
       "editable": true
     },
     "early_hints": {
-      "value": "on",
+      "value": "off",
       "editable": true
     },
     "email_obfuscation": {
@@ -76,7 +76,7 @@
       "editable": true
     },
     "pseudo_ipv4": {
-      "value": "add_header",
+      "value": "off",
       "editable": true
     },
     "rocket_loader": {
@@ -96,7 +96,7 @@
       "editable": true
     },
     "tls_1_3": {
-      "value": "zrt",
+      "value": "on",
       "editable": true
     },
     "webp": {

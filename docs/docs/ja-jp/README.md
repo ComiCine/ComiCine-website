@@ -13,24 +13,24 @@ See ADDITIONAL_TERMS.txt.
 
 # ComiCine
 
-[limooo.cn](https://limooo.cn) で稼働する、完全サーバーレスの個人ウェブサイト兼管理システムです。公開ページ、人間検証ゲート、ビジターパネル、Apple Account マネージャー、監視、ステータスページは、すべて Cloudflare（Pages Functions、Workers、D1、R2）上で動作します。
+[comicine.com](https://comicine.com) で稼働する、完全サーバーレスの個人ウェブサイト兼管理システムです。公開ページ、人間検証ゲート、ビジターパネル、Apple Account マネージャー、監視、ステータスページは、すべて Cloudflare（Pages Functions、Workers、D1、R2）上で動作します。
 
 ## 機能
 
 - **公開ページ**：ホーム、サービス、お問い合わせ、ポートフォリオ — 4 言語で事前レンダリングされ、ダーク／ライトテーマの切り替えに対応
 - **人間検証（human verification）**：Turnstile ゲートページは、どのホストでも要求された URL に**その場で**レンダリングされます（クロスドメインへの遷移なし）— [ゲートの挙動](#ゲートの挙動)を参照
-- **ビジターパネル（visitor panel）**（`visitor.limooo.cn`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
+- **ビジターパネル（visitor panel）**（`visitor.comicine.com`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
-- **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
-- **認証とロール**：単一の `ComiCine-Identity` Access アプリが `identity.limooo.cn/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
-- **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと HTTP 401 HTML を返し、同一オリジンの外部スクリプトが `identity.limooo.cn/login` へ遷移します。その後 Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。
+- **Apple Account マネージャー**（`account.comicine.com/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
+- **認証とロール**：単一の `ComiCine` Access アプリが `identity.comicine.com/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
+- **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと HTTP 401 HTML を返し、同一オリジンの外部スクリプトが `identity.comicine.com/login` へ遷移します。その後 Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
-- **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
+- **ステータスページ**（`status.comicine.com`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
   - D1 の `blocked_ips` が権威データです。`sync-worker` が有効な行を Cloudflare IP List に反映し、エッジで遮断します（オリジンがないため ipset/iptables はありません）
   - フォールバックとしてアプリケーション層のグローバルフィルタ — ブロックされた IP は直接 403 になります
-- **統一リダイレクトページ**（`redirect.limooo.cn/?to=<https-url>`、`/r` も可）：任意の HTTPS 宛先へリダイレクトする前に中間ページを表示します
-- **ポートフォリオ画像の扱い**：原本は一切公開されません。公開されるのはウォーターマーク入りのフル画像（`image.limooo.cn/portfolio/*`）とクリーンなサムネイルのみです
+- **統一リダイレクトページ**（`redirect.comicine.com/?to=<https-url>`、`/r` も可）：任意の HTTPS 宛先へリダイレクトする前に中間ページを表示します
+- **ポートフォリオ画像の扱い**：原本は一切公開されません。公開されるのはウォーターマーク入りのフル画像（`image.comicine.com/portfolio/*`）とクリーンなサムネイルのみです
 
 ## 技術スタック
 
@@ -56,7 +56,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── cidr.py                                       # CIDR parsing helpers
 │   ├── portfolio.py                                  # portfolio image / thumbnail helpers
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
-│   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
+│   ├── services_pricing.py                           # CSV-driven price list for services.comicine.com
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
@@ -100,7 +100,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── deploy.sh                                     # the single deploy entry point (commit/push + Pages + docs + Worker)
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
-│   ├── docs_deploy.sh                                # docs.limooo.cn build + deploy (VitePress → Pages project limooo-docs)
+│   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -121,7 +121,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
 │   ├── status-worker/                                # Worker: probes, status page, alerting, D1 retention
-│   ├── image-watermark/                              # Worker: image.limooo.cn watermark normalizer
+│   ├── image-watermark/                              # Worker: image.comicine.com watermark normalizer
 │   ├── d1-archive/                                   # Worker: D1 snapshot/archive (cron 00:00)
 │   ├── sync-worker/                                  # Worker: D1 blocked_ips → Cloudflare IP List (cron 03:30)
 │   ├── requirements.txt                              # Python dependencies
@@ -136,7 +136,7 @@ See ADDITIONAL_TERMS.txt.
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.limooo.cn VitePress root + services.limooo.cn price-list CSVs
+└── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
 ```
 
 ## クイックスタート
@@ -255,7 +255,7 @@ cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
-bash ops/deploy.sh --docs       # deploy docs.limooo.cn only
+bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
@@ -270,13 +270,13 @@ bash ops/deploy.sh --all --full             # same, but stream every step's outp
 認証情報はローカルの `secrets/webauthn.env` から読み込みます。すべてのステップは
 Cloudflare API か Git 経由で実行されます。
 
-### ドキュメントサイト（docs.limooo.cn）
+### ドキュメントサイト（docs.comicine.com）
 
-`site/docs/` は**サブドメインごとのコンテナ**です：`docs/` には docs.limooo.cn の
+`site/docs/` は**サブドメインごとのコンテナ**です：`docs/` には docs.comicine.com の
  VitePress ルート（1 ページ 1 言語につき 1 つの markdown ファイル）が入り、`services/` には
- services.limooo.cn の価格表 CSV が入ります。言語コードは URL の**最後**のセグメントで、
+ services.comicine.com の価格表 CSV が入ります。言語コードは URL の**最後**のセグメントで、
 内容ページは常に明示的に付けます（`/README/zh-cn`、`/README/en-us`）。サフィックスなしの
-`/README` は `/README/zh-cn` へ 302 で転送されます。ドキュメントサイトのルート `/` は `https://limooo.cn` へ 302 で転送されます。
+`/README` は `/README/zh-cn` へ 302 で転送されます。ドキュメントサイトのルート `/` は `https://comicine.com` へ 302 で転送されます。
 
 `.vitepress/rewrites.json`（コンテンツの隣）がソースをサフィックス付きルートにマッピングし、
 `.vitepress/config.mts` が `additionalConfig` を通じて各ページに固有の `lang` / `themeConfig` を与えます。
@@ -288,7 +288,7 @@ markdown ファイルに HTML が出力されないと `ops/docs_check_output.py
 （`VPComiCineNav.vue` / `VPComiCineFooter.vue`）にあり、メインサイトの `base.html` / `_footer.html` を忠実に再現しています —
  編集はフォークで行えば次のデプロイが反映します（フォークはコミットが変わったときだけ再ビルドされます。
 フォークの作業ツリーからビルドするには `COMICINE_VITEPRESS_FETCH=0` を使います）。
-サイトは独立した Cloudflare Pages プロジェクト（`limooo-docs`）なので
+サイトは独立した Cloudflare Pages プロジェクト（`comicine-docs`）なので
 メインの `limooo` 成果物には一切触れず、
 `user_lang_preference` / `comicine_theme` cookie をメインサイトと共有します。
 
@@ -307,8 +307,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   `SESSION_HMAC_KEY` のいずれかが空の場合、エッジはページをレンダリングしたり署名のない
    cookie を発行したりせず、503 を返します。
 - `__gate` cookie は `<unix-expiry>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
-  `Domain=.limooo.cn`）。発行と検証はすべてエッジで行います。
-- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定した HTTP 401 HTML を返します。同一オリジンの外部スクリプトが `identity.limooo.cn/login` へ遷移し、Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
+  `Domain=.comicine.com`）。発行と検証はすべてエッジで行います。
+- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定した HTTP 401 HTML を返します。同一オリジンの外部スクリプトが `identity.comicine.com/login` へ遷移し、Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `limooo_blocklist` に追随させます（WAF ルールが使う想定ですが、
@@ -339,7 +339,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.limooo.cn` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Pages ホストの DNS は `limooo.pages.dev` を指します。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Pages ホストの DNS は `comicine.pages.dev` を指します。
 
 ランタイムの分担：
 
@@ -349,7 +349,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | Pages | ビルド時に事前レンダリングされた静的 HTML（多言語） |
 | データ | D1（訪問者分析、ブロックリスト、Apple Account 管理、認証セッション） |
 | 人間検証 | Cloudflare Turnstile、ゲートページをその場でレンダリング |
-| 独立した Workers | `status.limooo.cn`（`limooo-status`：プローブ、ステータスページ、データ保持）、`image.limooo.cn`（`image-watermark`）、`limooo-blocklist-sync` |
+| 独立した Workers | `status.comicine.com`（`limooo-status`：プローブ、ステータスページ、データ保持）、`image.comicine.com`（`image-watermark`）、`limooo-blocklist-sync` |
 
 ### ビルドとディレクトリ構成
 
@@ -371,7 +371,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | サーバー側 siteverify のシークレット |
 | `GATE_HMAC_KEY` | `__gate` cookie 用の HMAC-SHA256 署名鍵（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access のチームドメイン。検証に使う JWT の `iss` でもあります |
-| `ACCESS_IDENTITY_AUD` | 単一 `ComiCine-Identity` Access アプリの AUD。ロールは `config-contract.json` の送信元ホストマップで決まります |
+| `ACCESS_IDENTITY_AUD` | 単一 `ComiCine` Access アプリの AUD。ロールは `config-contract.json` の送信元ホストマップで決まります |
 | `VISITOR_IP_KEY` | 暗号化された訪問者 IP 完全版カラム（`visitor_rollups.ip_enc`）用の Fernet 鍵 |
 | `OBSERVABILITY_HMAC_KEY` | プライバシー最小化された訪問者 IP ハッシュの HMAC 鍵（`functions/_lib/tracking.ts`）。未設定だとゲートがフェイルクローズします |
 | `SESSION_HMAC_KEY` | Pages のセッション cookie 署名鍵（`GATE_HMAC_KEY` とは別） |
@@ -383,25 +383,25 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 すべてのリクエストで署名済み `__gate` cookie を確認します。Cloudflare の `botManagement.verifiedBot` は検証済み検索エンジンの信頼シグナルとして受理されますが、任意の `Googlebot`/`GPTBot` の User-Agent 文字列やクライアントが送ってきた `cf_clearance` cookie がゲートを迂回することはありません。エッジコードが完全なバイパスを認めるのは、生成されたホワイトリスト（`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`）にある IP-CIDR だけです。
 
-未検証のリクエストには Turnstile ゲートページを**その場で**返します。ホストもパスも変わりません。ミドルウェアは要求された URL に `public/<lang>/auth.html` をステータス `403` でレンダリングし、`POST /__gate/verify` が同じオリジンで `Set-Cookie: __gate=…`（1 時間、`Domain=.limooo.cn`）を返し、その後ページが元のターゲットを再読み込みします。`auth.limooo.cn` はゲートのホストです — 自身のルートで同じページを配信し、`/__gate/config|diag|verify` エンドポイントを持ちます。
+未検証のリクエストには Turnstile ゲートページを**その場で**返します。ホストもパスも変わりません。ミドルウェアは要求された URL に `public/<lang>/auth.html` をステータス `403` でレンダリングし、`POST /__gate/verify` が同じオリジンで `Set-Cookie: __gate=…`（1 時間、`Domain=.comicine.com`）を返し、その後ページが元のターゲットを再読み込みします。`auth.comicine.com` はゲートのホストです — 自身のルートで同じページを配信し、`/__gate/config|diag|verify` エンドポイントを持ちます。
 
 ゲートをレンダリングするすべてのホストは同じエッジコードで配信されるため、同期させる 2 つ目のゲート実装はありません。
 
-ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットは、それをレンダリングするすべてのホスト（`limooo.cn` のゲート用サブドメイン、`auth`、`status`、`visitor`、`apple`、`images` を含む）を登録する必要があります。
+ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットは、それをレンダリングするすべてのホスト（`comicine.com` のゲート用サブドメイン、`auth`、`status`、`visitor`、`apple`、`images` を含む）を登録する必要があります。
 
 ### ページ配信（クリーン URL、言語パスプレフィックスなし）
 
 `src/build.py` が `public/<lang>/` を 4 言語で事前レンダリングします。ゲート通過後、ミドルウェアは **cookie > Accept-Language > CF region > en-US** の順で言語を選び、`env.ASSETS.fetch()` で該当ページを取得して URL をクリーンに保ちます：
 
-- `limooo.cn/` → ホームページ、`limooo.cn/services` / `limooo.cn/contact` → それぞれ対応するページ
-- `services.limooo.cn/` → サービスページ、`contact.limooo.cn/` → お問い合わせページ（サブドメインはメインサイトへの 301 なしで直接コンテンツを配信します）
-- `visitor.limooo.cn/` → ビジターパネル（要ログイン）、`account.limooo.cn/apple` → Apple Account マネージャー（要ログイン）
-- `images.limooo.cn/` → `limooo.cn/` へ 301、その他のパスはポートフォリオ画像、favicon、ロゴ、QR などの静的アセットを配信します。`image.limooo.cn/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートも `limooo.cn/` へ 301）
-- `www.limooo.cn` → メインサイトへ 301
-- ルート直下の `x.html` は、`x` が公開ホームページを持つ稼働中のサブドメイン（`services`、`contact`、`docs`、`status`）なら `x.limooo.cn/` へ 302 で転送し、不明な名前なら現在のサイトのホームへ 302 で転送します。`index.html` は現在のホストの正規ホームへ転送します。
-- ナビのリンクは絶対サブドメイン URL（`https://services.limooo.cn` など）を維持します。言語切り替えは純粋にフロントエンドの `applyLang()` で、リロードも URL 変更もありません
+- `comicine.com/` → ホームページ、`comicine.com/services` / `comicine.com/contact` → それぞれ対応するページ
+- `services.comicine.com/` → サービスページ、`contact.comicine.com/` → お問い合わせページ（サブドメインはメインサイトへの 301 なしで直接コンテンツを配信します）
+- `visitor.comicine.com/` → ビジターパネル（要ログイン）、`account.comicine.com/apple` → Apple Account マネージャー（要ログイン）
+- `images.comicine.com/` → `comicine.com/` へ 301、その他のパスはポートフォリオ画像、favicon、ロゴ、QR などの静的アセットを配信します。`image.comicine.com/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートも `comicine.com/` へ 301）
+- `www.comicine.com` → メインサイトへ 301
+- ルート直下の `x.html` は、`x` が公開ホームページを持つ稼働中のサブドメイン（`services`、`contact`、`docs`、`status`）なら `x.comicine.com/` へ 302 で転送し、不明な名前なら現在のサイトのホームへ 302 で転送します。`index.html` は現在のホストの正規ホームへ転送します。
+- ナビのリンクは絶対サブドメイン URL（`https://services.comicine.com` など）を維持します。言語切り替えは純粋にフロントエンドの `applyLang()` で、リロードも URL 変更もありません
 
-### services.limooo.cn の価格表（CSV 駆動）
+### services.comicine.com の価格表（CSV 駆動）
 
 サービスの価格表は**マークアップではなくデータ**です：`src/build.py` はレンダリングのたびに
  `docs/services/*.csv` を読み（`src/services_pricing.py`）、`src/templates/services.html` の
@@ -457,13 +457,13 @@ CSV から取得するのは数値、ティアの集合、受付可否だけで�
 
 `docs/services/` は VitePress のビルドから除外されるため（`docs/.vitepress/config.mts` の
  `srcExclude`）、CSV はデータソースのままで、
-docs.limooo.cn に公開されることはありません。
+docs.comicine.com に公開されることはありません。
 
 ### パフォーマンス／エッジキャッシュ
 
 - `public/_routes.json` は `/static/*` とルートの静的アセットを Pages
    Functions から除外するため、CSS/JS/フォントは Pages アセットサーバーが直接配信します。
-- `src/static/files/` 内のファイルはビルド出力の `/public/files/` に元の階層を保ってミラーされ、`src/static/files/<path>` は `https://limooo.cn/public/files/<path>` で配信されます。
+- `src/static/files/` 内のファイルはビルド出力の `/public/files/` に元の階層を保ってミラーされ、`src/static/files/<path>` は `https://comicine.com/public/files/<path>` で配信されます。
   `/public/files/*` は Pages Functions を迂回し、静的アセットと同じ1日キャッシュを使用し、存在しないパスは404を返します。
 - `public/_headers` はバージョン付きの静的アセットに
    `stale-while-revalidate` 付きの長いブラウザキャッシュを与えます。`public/_routes.json` と `_headers` は
@@ -476,12 +476,12 @@ docs.limooo.cn に公開されることはありません。
   共有キャッシュ向けの寿命ディレクティブは死んだ設定になります。言語 cookie も `Vary` に入れません
   （ブラウザキャッシュが細分化されるだけだからです）。
 - ファーストパーティのポートフォリオサムネイルと favicon は、
-  ウォーターマーク Worker ではなく `images.limooo.cn/static/...`（静的エッジキャッシュ、Functions を迂回）
+  ウォーターマーク Worker ではなく `images.comicine.com/static/...`（静的エッジキャッシュ、Functions を迂回）
   を使用します。QR コードと外部から直リンクされた画像は
-  引き続き `image.limooo.cn` を使用します。
+  引き続き `image.comicine.com` を使用します。
 - ポートフォリオの原本は一切公開されません：`/static/portfolio/<img>` は 404 を返します。
-  公開されるのはクリーンなサムネイル（`images.limooo.cn/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）と、
-  `image.limooo.cn` の正規化・ウォーターマーク済み `/portfolio/<img>` だけです。
+  公開されるのはクリーンなサムネイル（`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）と、
+  `image.comicine.com` の正規化・ウォーターマーク済み `/portfolio/<img>` だけです。
   原本は git 管理外の `src/static/portfolio/` とプライベート R2 バケット
    `limooo-originals`（`ops/upload_originals.sh`）に残ります。
 - Turnstile の検証にはサーバー側で 3 秒のタイムアウトがあるため、
@@ -492,13 +492,13 @@ docs.limooo.cn に公開されることはありません。
 
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：プロジェクト `limooo`（`limooo.pages.dev`）が `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `limooo-docs`（`docs.limooo.cn`）で、`fonts.limooo.cn` は R2 が支えます
+1. **Pages**：プロジェクト `limooo`（`comicine.pages.dev`）が `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `comicine-docs`（`docs.comicine.com`）で、`fonts.comicine.com` は R2 が支えます
 2. **D1**：データベース `limooo`（APAC）が `DB` としてプロジェクトに接続されています。`ops/migrations/` のスキーマは適用済みで、適用バージョンは `schema_version` が記録します。`apple_accounts` が Apple Account の行を保持し、`blocked_ips` がブロックの権威です（83 行、有効 1 行。ソフト削除した行は監査用に残ります）
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
-4. **Access**：`ComiCine-Identity` が `identity.limooo.cn/login` のみを保護します。`visitor.limooo.cn` と `account.limooo.cn` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `ComiCine-Admin` アプリが残っていますが、`admin.limooo.cn` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
-5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.limooo.cn` と `sink.limooo.cn` は Worker のカスタムドメインです
+4. **Access**：`ComiCine` が `identity.comicine.com/login` のみを保護します。`visitor.comicine.com` と `account.comicine.com` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `ComiCine-Admin` アプリが残っていますが、`admin.comicine.com` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
+5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.comicine.com` と `sink.comicine.com` は Worker のカスタムドメインです
 6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります）
-7. **スモークチェック**：`https://limooo.cn/_health` → 200、`https://limooo.cn/?challenge=1` → 403、`https://docs.limooo.cn/` → `https://limooo.cn` へ 302、`https://status.limooo.cn/` → 200
+7. **スモークチェック**：`https://comicine.com/_health` → 200、`https://comicine.com/?challenge=1` → 403、`https://docs.comicine.com/` → `https://comicine.com` へ 302、`https://status.comicine.com/` → 200
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス

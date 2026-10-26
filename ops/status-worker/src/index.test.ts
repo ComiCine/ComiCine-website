@@ -57,7 +57,7 @@ const probe = {
   id: 1,
   name: "Website",
   type: "http",
-  target: "https://limooo.cn/_health",
+  target: "https://comicine.com/_health",
   group_key: "public",
   interval_s: 60,
 };
@@ -165,7 +165,7 @@ describe("statusPayload", () => {
             id: 1,
             name: "Website",
             type: "http",
-            target: "https://limooo.cn/_health",
+            target: "https://comicine.com/_health",
             group_key: "public",
             active: 1,
             status: 1,
@@ -318,7 +318,7 @@ describe("status page rendering", () => {
             id: 1,
             name: "Website",
             type: "http",
-            target: "https://limooo.cn/_health",
+            target: "https://comicine.com/_health",
             group_key: "public",
             active: 1,
             label_key: "card_website",
@@ -489,12 +489,12 @@ describe("alert channel priority", () => {
 });
 
 // /run and /alert-test are write endpoints: the former writes to D1 (3 probes × 3 tables),
-// while the latter sends real email. This Worker is public (status.limooo.cn); without
+// while the latter sends real email. This Worker is public (status.comicine.com); without
 // this authentication, any third-party page could use a simple POST with an empty body
 // to flood the alert channel and consume the daily D1 write quota.
 describe("ops endpoint auth", () => {
   const TOKEN = "ops-token-0123456789abcdef";
-  const URL_BASE = "https://status.limooo.cn";
+  const URL_BASE = "https://status.comicine.com";
 
   /** Fully configured environment with an available alert channel, so "no message sent" is real. */
   function opsEnv(extra: Partial<Env> = {}) {
@@ -616,13 +616,13 @@ describe("ops endpoint auth", () => {
  * and normalize error codes before sending them to clients.
  */
 describe("status page routing", () => {
-  const URL_BASE = "https://status.limooo.cn";
+  const URL_BASE = "https://status.comicine.com";
   /** One probe row whose msg contains raw exception text (neither page nor API should expose it). */
   const probeRow = {
     id: 1,
     name: "Website",
     type: "http",
-    target: "https://limooo.cn/_health",
+    target: "https://comicine.com/_health",
     group_key: "public",
     active: 1,
     label_key: "card_website",
@@ -668,7 +668,7 @@ describe("status page routing", () => {
     const csp = res.headers.get("Content-Security-Policy") ?? "";
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("font-src 'self' data:");
-    expect(csp).toContain("img-src 'self' data: https://images.limooo.cn");
+    expect(csp).toContain("img-src 'self' data: https://images.comicine.com");
     expect(csp).not.toContain("unsafe-inline");
     expect(csp).not.toContain("unsafe-eval");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");

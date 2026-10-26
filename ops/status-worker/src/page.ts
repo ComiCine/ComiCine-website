@@ -13,13 +13,13 @@
  * The header and footer "inherit base" by matching the `<nav>` in `site/src/templates/base.html`
  * and `_footer.html` item by item (same classes, SVGs, order, and `tokens.css` palette), but
  * **this file contains its own implementation** and does not load the main site's CSS:
- *   - status.limooo.cn is served by a separate Worker, while the main site's `/static/**` is
+ *   - status.comicine.com is served by a separate Worker, while the main site's `/static/**` is
  *     cross-origin. `style-src 'self'` blocks it; loosening CSP would make this critical page
  *     depend on the main site and fail with it.
  *   - The main site uses precompiled Tailwind classes. Their equivalent CSS is written here
  *     (such as `.site-nav`, `.global-nav`, and `.nav-divider`), with matching class names for comparison.
  * The tradeoff is that header and footer changes on the main site must be copied here, as they
- * must also be copied to the docs.limooo.cn VitePress fork.
+ * must also be copied to the docs.comicine.com VitePress fork.
  */
 
 import { type Lang, type UiKey, UI, LANG_LABELS, THEME_COOKIE, LEGACY_THEME_COOKIE, langFlag, probeDetail, t } from "./i18n";
@@ -35,15 +35,15 @@ export function esc(v: unknown): string {
 }
 
 /** Main-site asset host for the favicon and logo; matches `image_asset_host` in `config-contract.json`. */
-const IMAGE_ASSET_BASE = "https://images.limooo.cn";
-const COMICINE_LOGO_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=1`;
+const IMAGE_ASSET_BASE = "https://images.comicine.com";
+const COMICINE_LOGO_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=2`;
 /** Repository linked by "Source" in the footer; matches `SOURCE_REPO_URL` in `src/config.py`. */
 const SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website";
 const GITHUB_URL = "https://github.com/ComiCine";
 const BILIBILI_URL = "https://space.bilibili.com/1234163143";
-const HOME_URL = "https://limooo.cn";
-const SERVICES_URL = "https://services.limooo.cn";
-const CONTACT_URL = "https://contact.limooo.cn";
+const HOME_URL = "https://comicine.com";
+const SERVICES_URL = "https://services.comicine.com";
+const CONTACT_URL = "https://contact.comicine.com";
 
 // SVG paths and view boxes match base.html; the stylesheet supplies the shared dimensions.
 const SVG_LANG =
@@ -91,7 +91,7 @@ export function navHtml(lang: Lang): string {
     '<span class="appearance-check"><span class="appearance-icon">' + SVG_SUN + SVG_MOON + '</span></span></button>';
   return (
     '<nav class="site-nav"><div class="nav-inner">' +
-    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="' + IMAGE_ASSET_BASE + '/static/icons/comicine.svg?v=1" alt="" width="64" height="64"></a>' +
+    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="' + IMAGE_ASSET_BASE + '/static/icons/comicine.svg?v=2" alt="" width="64" height="64"></a>' +
     '<div class="nav-right"><div class="global-nav">' +
     links
       .map(([href, label]) => '<a class="nav-link" href="' + href + '"><span>' + esc(label) + '</span>' + SVG_EXTERNAL + '</a>')
@@ -317,13 +317,13 @@ export const REFRESH_SECONDS = 300;
  * reloads with `?lang=`. The status page is server-rendered and edge-cached, so putting the
  * language in the query string gives each language its own cache key without sending all four
  * dictionaries on every page load.
- * Language and theme cookies use `Domain=.limooo.cn`; changing either here also affects the
- * main site and docs.limooo.cn on the next visit, matching the docs bridge strategy.
+ * Language and theme cookies use the current `.comicine.com` root; changing either here also
+ * affects the main site and docs.comicine.com on the next visit, matching the docs bridge strategy.
  */
 export const STATUS_JS =
   "(function(){var REFRESH=" +
   REFRESH_SECONDS +
-  ",ROOT='limooo.cn',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',LEGACY_THEME_COOKIE='" + LEGACY_THEME_COOKIE + "',MAX_AGE=31536000," +
+  ",ROOT='comicine.com',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',LEGACY_THEME_COOKIE='" + LEGACY_THEME_COOKIE + "',MAX_AGE=31536000," +
   "LANGS=['zh-cn','en-us','ja-jp','ko-kr'],doc=document,html=doc.documentElement;" +
   "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
   "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
@@ -396,7 +396,7 @@ function shell(lang: Lang, title: string, body: string): string {
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="dark light">' +
     `<title>${esc(title)}</title><meta name="robots" content="noindex">` +
-    `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=1" type="image/svg+xml">` +
+    `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=2" type="image/svg+xml">` +
     '<script src="/status-theme.js"></script>' +
     '<link rel="stylesheet" href="/status.css">' +
     `</head><body data-lang="${esc(lang)}">` +

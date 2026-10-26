@@ -26,7 +26,7 @@ import {
   safeIdentityTarget,
 } from "./_lib/identity";
 import type { Env } from "./_lib/env";
-import { IDENTITY_HOSTNAME } from "./_lib/config";
+import { IDENTITY_HOSTS } from "./_lib/config";
 import { buildIdentityLoginStart } from "./_lib/identity-login";
 import { logEvent } from "./_lib/logging";
 
@@ -122,7 +122,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (configError) return configErrorResponse(configError);
 
   const url = new URL(request.url);
-  if (url.hostname === IDENTITY_HOSTNAME) {
+  if (IDENTITY_HOSTS.has(url.hostname)) {
     const accessError = accessConfigError(env);
     if (accessError) return configErrorResponse(accessError);
     return completeIdentityLogin(env, request, url);

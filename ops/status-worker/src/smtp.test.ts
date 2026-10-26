@@ -137,7 +137,7 @@ describe("sendViaSmtp", () => {
 
     const stream = written();
     const order = [
-      "EHLO limooo.cn",
+      "EHLO comicine.com",
       "AUTH LOGIN",
       base64(CONFIG.user),
       base64(CONFIG.pass),

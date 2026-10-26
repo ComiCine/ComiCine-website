@@ -313,13 +313,17 @@ describe("duplicate __gate names and issue-time cleanup", () => {
     vi.useRealTimers();
 
     expect(headers).toHaveLength(2);
-// First, delete the host-only variant. Do not include Domain or it will not be removed.
+    // First, delete the host-only variant. Do not include Domain or it will not be removed.
     expect(headers[0]).toContain("__gate=;");
     expect(headers[0]).toContain("Max-Age=0");
     expect(headers[0]).not.toContain("Domain=");
-// Then write the regular one-hour domain cookie.
-    expect(headers[1]).toContain("Domain=.limooo.cn");
+    // Then write the regular one-hour domain cookie.
+    expect(headers[1]).toContain("Domain=.comicine.com");
     expect(headers[1]).toContain("Max-Age=3600");
+  });
+
+  it("scopes legacy-host gate cookies to the legacy root", async () => {
+    await expect(mintGateCookie(KEY, "services.limooo.cn")).resolves.toContain("Domain=.limooo.cn");
   });
 
   it("validation returns a categorised failure reason for diagnostics", async () => {

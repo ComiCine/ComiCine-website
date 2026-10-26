@@ -7,12 +7,12 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# ComiCine - docs.limooo.cn build and deploy (VitePress)
+# ComiCine - docs.comicine.com build and deploy (VitePress)
 #
 # Content lives in site/docs/docs/ (the VitePress root, with its own
 # .vitepress/ beside it); every markdown file becomes
-# https://docs.limooo.cn/<path>. site/docs/ is a per-subdomain container:
-# docs/ -> docs.limooo.cn, services/ -> services.limooo.cn (the price-list CSVs
+# https://docs.comicine.com/<path>. site/docs/ is a per-subdomain container:
+# docs/ -> docs.comicine.com, services/ -> services.comicine.com (the price-list CSVs
 # read by src/services_pricing.py). The VitePress implementation is the fork at
 # ComiCine/vitepress, so that header / footer changes in the fork show up
 # on the next deploy.
@@ -21,8 +21,8 @@
 # builds it with pnpm + tsdown and packs it into a tarball. The tarball is cached
 # by commit sha: the fork is only rebuilt when COMICINE_VITEPRESS_REF moves.
 #
-# The docs site is its own Cloudflare Pages project (default: limooo-docs), so a
-# heavy VitePress build never touches the main limooo Pages artifact.
+# The docs site is its own Cloudflare Pages project (default: comicine-docs), so a
+# heavy VitePress build never touches the main comicine Pages artifact.
 #
 # Usage:
 #   bash ops/docs_deploy.sh --dry-run      # print the plan only
@@ -34,7 +34,7 @@
 #   COMICINE_VITEPRESS_REF   git ref of the fork (default: main)
 #   COMICINE_VITEPRESS_DIR   fork checkout cache (default: /tmp/comicine-vitepress)
 #   COMICINE_DOCS_BUILD_DIR  build workspace   (default: /tmp/comicine-docs-build)
-#   DOCS_PAGES_PROJECT     Pages project     (default: limooo-docs)
+#   DOCS_PAGES_PROJECT     Pages project     (default: comicine-docs)
 #   COMICINE_SKIP_VITEPRESS_BUILD=1  reuse the cached tarball as-is
 #   COMICINE_VITEPRESS_FETCH=0       use the fork working tree as-is (fork development)
 
@@ -48,15 +48,15 @@ elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# site/docs/ is a container organized by subdomain: docs/ = docs.limooo.cn,
-# services/ = services.limooo.cn. This script handles only docs.limooo.cn content,
+# site/docs/ is a container organized by subdomain: docs/ = docs.comicine.com,
+# services/ = services.comicine.com. This script handles only docs.comicine.com content,
 # including its own .vitepress/ directory.
 DOCS_DIR="$ROOT/docs/docs"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 
-PAGES_PROJECT="${DOCS_PAGES_PROJECT:-limooo-docs}"
+PAGES_PROJECT="${DOCS_PAGES_PROJECT:-comicine-docs}"
 PAGES_BRANCH="${DOCS_PAGES_BRANCH:-main}"
-DOCS_HOST="${DOCS_HOST:-docs.limooo.cn}"
+DOCS_HOST="${DOCS_HOST:-docs.comicine.com}"
 
 VITEPRESS_REPO="${COMICINE_VITEPRESS_REPO:-https://github.com/ComiCine/vitepress.git}"
 VITEPRESS_REF="${COMICINE_VITEPRESS_REF:-main}"
@@ -288,16 +288,16 @@ check_root_redirect() {
         result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}/" || true)"
         code="${result%%$'\n'*}"
         location="${result#*$'\n'}"
-        if [ "$code" = 302 ] && [ "$location" = "https://limooo.cn/" ]; then
+        if [ "$code" = 302 ] && [ "$location" = "https://comicine.com/" ]; then
             break
         fi
         sleep 10
     done
-    if [ "$code" != 302 ] || [ "$location" != "https://limooo.cn/" ]; then
-        echo "FATAL: https://${DOCS_HOST}/ = ${code} Location: ${location:--} (expected 302 to https://limooo.cn/)" >&2
+    if [ "$code" != 302 ] || [ "$location" != "https://comicine.com/" ]; then
+        echo "FATAL: https://${DOCS_HOST}/ = ${code} Location: ${location:--} (expected 302 to https://comicine.com/)" >&2
         exit 1
     fi
-    echo "[docs] / = 302 to https://limooo.cn OK"
+    echo "[docs] / = 302 to https://comicine.com OK"
 }
 
 # Content page paths without a language suffix must return 302 to /<page>/zh-cn.

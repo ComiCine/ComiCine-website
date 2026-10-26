@@ -11,7 +11,7 @@
         var rels = JSON.parse(document.body.getAttribute('data-preload') || '[]');
         function go() { location.replace(target); }
 
-        /* When the target is limooo.cn, <link rel=preload> in the head already warms the home portfolio images.
+        /* When the target is comicine.com, <link rel=preload> in the head already warms the home portfolio images.
            Use new Image() to observe the same URLs; in-flight requests and cached images are reused.
            Redirect as soon as they are ready, with an 800ms limit to avoid slowing a login return. */
         if (rels.length === 0) { go(); return; }

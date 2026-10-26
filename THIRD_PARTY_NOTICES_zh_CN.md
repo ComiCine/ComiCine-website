@@ -20,7 +20,7 @@ Inter 字体子集位于 src/static/fonts/inter/ 和 docs/docs/public/fonts/。�
 
 Maple Mono NF CN 的版权声明为 The Maple Mono Project Authors，版权年份为 2022，依据 OFL-1.1 提供。上游项目为 [subframe7536/maple-font](https://github.com/subframe7536/maple-font)；仓库内许可证副本位于 [ops/fonts/OFL.txt](ops/fonts/OFL.txt)。
 
-仓库包含一个构建脚本，用于生成适配门禁页面的字体衍生版本，该版本为 Maple Mono NF CN Regular 添加两个韩文字形。源字体和生成的字体文件保存在 Git 仓库之外；生成的网页字体由 fonts.limooo.cn 提供。该衍生字体仍须遵守 OFL-1.1，包括声明、再分发和保留字体名称等条件。
+仓库包含一个构建脚本，用于生成适配门禁页面的字体衍生版本，该版本为 Maple Mono NF CN Regular 添加两个韩文字形。源字体和生成的字体文件保存在 Git 仓库之外；生成的网页字体由 fonts.comicine.com 提供。该衍生字体仍须遵守 OFL-1.1，包括声明、再分发和保留字体名称等条件。
 
 ## 软件依赖
 

@@ -6,7 +6,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Read-only snapshot of the limooo.cn zone settings.
+"""Read-only snapshot of the comicine.com zone settings.
 
 Why this exists (tasks/22, 2026-10-11): `ops/cloudflare/README.md` is the inventory
 of resources that live only in the Cloudflare Dashboard, but it had no record of the
@@ -44,7 +44,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SECRETS_FILE = Path(os.environ.get("ZONE_ENV_FILE", ROOT / "secrets" / "webauthn.env"))
 SNAPSHOT = Path(os.environ.get("ZONE_SNAPSHOT", ROOT / "ops" / "zone-settings.snapshot.json"))
-ZONE_NAME = os.environ.get("ZONE_NAME", "limooo.cn")
+ZONE_NAME = os.environ.get("ZONE_NAME", "comicine.com")
 API_BASE = "https://api.cloudflare.com/client/v4"
 
 # Settings whose value is observable from outside, or which change site behaviour.
@@ -186,7 +186,7 @@ def describe(settings: dict[str, dict[str, object]]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Read-only snapshot of the limooo.cn zone settings.",
+        description="Read-only snapshot of the comicine.com zone settings.",
         epilog="Live modes need CLOUDFLARE_API_TOKEN (env or secrets/webauthn.env).",
     )
     group = parser.add_mutually_exclusive_group()

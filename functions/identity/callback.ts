@@ -16,7 +16,7 @@ import {
   randomToken,
   runtimeConfigError,
 } from "../_lib/session";
-import { IDENTITY_HOSTNAME } from "../_lib/config";
+import { IDENTITY_HOSTS, IDENTITY_HOSTNAME } from "../_lib/config";
 import {
   identityRoleForHost,
   safeIdentityTarget,
@@ -62,7 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const sourceHost = url.hostname.toLowerCase();
   const expectedRole = identityRoleForHost(sourceHost);
-  if (!expectedRole || sourceHost === IDENTITY_HOSTNAME) return response(404, "Not Found");
+  if (!expectedRole || IDENTITY_HOSTS.has(sourceHost)) return response(404, "Not Found");
 
   const codes = url.searchParams.getAll("code");
   const states = url.searchParams.getAll("state");

@@ -53,8 +53,8 @@ def main() -> int:
             script_src = re.search(r"script-src ([^;]+)", actual)
             style_src = re.search(r"style-src ([^;]+)", actual)
             for section, match in (("script-src", script_src), ("style-src", style_src)):
-                if match and "https://limooo.cn" in match.group(1):
-                    errors.append(f"CSP {section} still allows https://limooo.cn, use 'self' instead")
+                if match and "https://comicine.com" in match.group(1):
+                    errors.append(f"CSP {section} still allows https://comicine.com, use 'self' instead")
 
             # Third-party component consistency checks.
             #
