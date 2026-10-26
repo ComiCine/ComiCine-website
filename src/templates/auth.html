@@ -23,35 +23,18 @@ See ADDITIONAL_TERMS.txt.
 <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 <script src="/static/js/theme-preload.js?v=3" data-theme-cookie="{{ theme_cookie }}"></script>
 <link rel="preload" as="script" href="/static/js/actions.js?v=1">
-<link rel="preload" as="script" href="/static/js/auth.js?v=9">
+<link rel="preload" as="script" href="/static/js/auth.js?v=10">
 <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 <link rel="stylesheet" href="/static/css/auth.css?v=20">
 <!-- Site base styles; structural styles such as .global-footer reuse the main base.css. -->
-<link rel="stylesheet" href="/static/css/base.css?v=22">
+<link rel="stylesheet" href="/static/css/base.css?v=25">
 </head>
 <body data-lang="{{ lang }}" {% include "_lang_attrs.html" %} data-gate-error="{{ error_html }}">
-<div class="gate-controls">
-  <div class="theme-toggle lang-flyout">
-    <button class="lang-btn" data-action="toggleLangMenu" data-needs-event aria-haspopup="true" aria-label="{{ lang_aria }}" data-i18n-attr="aria-label:lang_aria">
-      <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
-      <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-    <div id="langMenu" class="theme-menu">
-      {# Language menu entries come from contract.supported_langs; copy keys use lang_<language>. #}
-      {% for option in lang_options %}
-      <div class="theme-option{% if lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}"><span class="lang-flag">{{ option.flag }}</span><span>{{ _(option.label_key) }}</span></div>
-      {% endfor %}
-    </div>
-  </div>
-  <button class="appearance-switch" type="button" role="switch" aria-checked="false" aria-label="{{ theme_aria }}" data-i18n-attr="aria-label:theme_aria" data-action="toggleTheme">
-    <span class="appearance-check">
-      <span class="appearance-icon">
-        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-      </span>
-    </span>
-  </button>
-</div>
+{% set is_prod = request.host.endswith(root_domain) %}
+{% set home_url = 'https://' ~ root_domain if is_prod else '/' %}
+{% set services_url = 'https://' ~ services_host if is_prod else '/services' %}
+{% set contact_url = 'https://' ~ contact_host if is_prod else '/contact' %}
+{% include "_gate_nav.html" %}
 <main class="card">
   <img class="logo" src="/static/icons/Limooo-xtext.svg?v=3" alt="Limooo" width="220">
   <h1 data-i18n="heading">{{ heading }}</h1>
@@ -73,6 +56,6 @@ See ADDITIONAL_TERMS.txt.
 {% include "_footer.html" %}
     <script id="gate-i18n" type="application/json">{{ gate_i18n_json | safe }}</script>
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/auth.js?v=9" defer></script>
+    <script src="/static/js/auth.js?v=10" defer></script>
 </body>
 </html>

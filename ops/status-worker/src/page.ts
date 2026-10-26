@@ -111,9 +111,9 @@ export function navHtml(lang: Lang): string {
     '<div id="nav-screen" class="nav-screen" aria-hidden="true" inert><div class="nav-screen-container">' +
     '<nav class="nav-screen-links" aria-label="' + esc(t(lang, "nav_menu_aria")) + '">' + screenLinks + '</nav>' +
     '<div class="nav-screen-translations">' +
-    '<button id="nav-screen-languages-toggle" class="nav-screen-language-toggle" type="button" aria-expanded="false" aria-controls="nav-screen-language-list">' + SVG_LANG.replace('class="lang-icon"', 'class="nav-screen-language-icon"') +
-    '<span>' + esc(LANG_LABELS[lang]) + '</span><svg class="nav-screen-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
-    '<ul id="nav-screen-language-list" class="nav-screen-language-list" hidden>' + screenOptions + '</ul></div>' +
+    '<button id="nav-screen-languages-toggle" class="nav-screen-language-toggle" type="button" aria-label="' + esc(t(lang, "lang_aria")) + '" aria-expanded="false" aria-controls="nav-screen-language-list">' + SVG_LANG.replace('class="lang-icon"', 'class="nav-screen-language-icon"') +
+    '<svg class="nav-screen-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
+    '<ul id="nav-screen-language-list" class="nav-screen-language-list" aria-hidden="true" inert>' + screenOptions + '</ul></div>' +
     '<div class="nav-screen-appearance"><span class="nav-screen-appearance-label">' + esc(t(lang, "nav_appearance")) + '</span>' +
     appearanceSwitch("theme-switch-mobile", "nav-mobile-appearance") + '</div>' +
     '<div class="nav-screen-socials"><a class="nav-screen-social-link" href="' + GITHUB_URL + '" target="_blank" rel="noopener noreferrer" aria-label="GitHub">' + SVG_GITHUB + '</a>' +
@@ -224,8 +224,8 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-screen-language-icon{width:1rem;height:1rem;margin-right:.5rem}
 .nav-screen-chevron{width:1rem;height:1rem;margin-left:.25rem;transition:transform 250ms var(--ease-out)}
 .nav-screen-translations.open .nav-screen-chevron{transform:rotate(-90deg)}
-.nav-screen-language-list{margin:0;padding:.25rem 0 0 1.5rem}
-.nav-screen-language-list[hidden]{display:none}
+.nav-screen-language-list{margin:0;padding:.25rem 0 0 1.5rem;max-height:0;overflow:hidden;opacity:0;transition:max-height 250ms var(--ease-out),opacity 180ms var(--ease-out)}
+.nav-screen-language-list.open{max-height:12rem;opacity:1}
 .nav-screen-language-list li{list-style:none}
 .nav-screen-language-option{display:block;line-height:2.4615385;font-size:.8125rem;color:var(--text);text-decoration:none;opacity:.75}
 .nav-screen-language-option.selected,.nav-screen-language-option:hover{color:var(--accent);opacity:1}
@@ -238,7 +238,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 @media(min-width:768px){.nav-screen{display:none}}
 @media(max-width:767px){.nav-divider,.nav-divider.nav-divider-lang-theme,.nav-desktop-language,.nav-right>.appearance-switch,.nav-desktop-social{display:none}.nav-brand{font-size:1.125rem}}
 html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
-@media(prefers-reduced-motion:reduce){.nav-screen,.nav-screen-container,.nav-hamburger>span,.nav-screen-chevron{transition:none}}
+@media(prefers-reduced-motion:reduce){.nav-screen,.nav-screen-container,.nav-hamburger>span,.nav-screen-chevron,.nav-screen-language-list{transition:none}}
 
 /* Footer (equivalent CSS for _footer.html) */
 .global-footer{position:fixed;bottom:0;left:0;width:100%;z-index:90;border-top:1px solid var(--footer-border);background:var(--bg);display:flex;align-items:center;justify-content:center}
@@ -354,7 +354,7 @@ export const STATUS_JS =
   "var c=el.getAttribute('data-lang');if(LANGS.indexOf(c)<0)return;save(LANG_COOKIE,c);" +
   "var u=new URL(location.href);u.searchParams.set('lang',c);location.href=u.toString()}" +
   "if(menu)menu.addEventListener('click',chooseLang);if(screenLang)screenLang.addEventListener('click',chooseLang);" +
-  "if(screenLangBtn)screenLangBtn.addEventListener('click',function(e){e.stopPropagation();if(!screenLang)return;var o=screenLang.hidden;screenLang.hidden=!o;screenLangBtn.setAttribute('aria-expanded',o?'true':'false');var g=doc.querySelector('.nav-screen-translations');if(g)g.classList.toggle('open',o)});" +
+  "if(screenLangBtn)screenLangBtn.addEventListener('click',function(e){e.stopPropagation();if(!screenLang)return;var o=screenLang.inert;screenLang.classList.toggle('open',o);screenLang.setAttribute('aria-hidden',o?'false':'true');screenLang.inert=!o;screenLangBtn.setAttribute('aria-expanded',o?'true':'false');var g=doc.querySelector('.nav-screen-translations');if(g)g.classList.toggle('open',o)});" +
   "if(navScreen)navScreen.addEventListener('click',function(e){if(e.target===navScreen||e.target.closest('.nav-screen-link'))openNav(false)});" +
   "doc.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(navScreen&&navScreen.classList.contains('open')){openNav(false);if(navBtn)navBtn.focus()}else open(false)});" +
   "window.addEventListener('resize',function(){if(window.matchMedia('(min-width: 768px)').matches)openNav(false)});" +

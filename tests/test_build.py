@@ -328,7 +328,8 @@ def test_frontend_reads_contract_facts_from_data_attributes():
 
     # The gate page language menu is generated from the contract too.
     gate_menu = gate[gate.index('id="langMenu"'):]
-    assert gate_menu.count('data-action="setLang"') == len(build.LANGS)
+    assert gate_menu.count('data-action="setLang"') == 2 * len(build.LANGS)
+    assert gate_menu.count('class="nav-screen-language-option') == len(build.LANGS)
 
 
 def test_frontend_js_has_no_hardcoded_language_list_or_cookie_ttl():
