@@ -59,8 +59,9 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var themeMeta = document.querySelector('meta[name="theme-color"]');
         if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
         document.querySelector('meta[name="color-scheme"]').content = theme;
-        var sw = document.querySelector('.appearance-switch');
-        if (sw) sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+        document.querySelectorAll('.appearance-switch').forEach(function(sw) {
+            sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+        });
     }
 
     /* Use the localStorage theme when present; otherwise follow the system, as in VitePress. */
@@ -369,6 +370,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
     function setLang(code) {
         closeLangMenu();
+        closeNavLanguages();
+        closeNavMenu();
         /* Normally switch without a reload: fetch the target dictionary and update data-i18n nodes.
            applyLang reloads only as a fallback when the dictionary endpoint fails. */
         if (code !== CURRENT_LANG) applyLang(code);
@@ -390,24 +393,77 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
     })();
 
-    /* Toggle the navigation menu. */
-    function toggleMobileMenu(e) {
-        if (e) e.stopPropagation();
-        var menu = document.getElementById('navLinksDropdown');
-        if (!menu) return;
-        var open = !menu.classList.contains('open');
-        menu.classList.toggle('open', open);
-        var button = document.querySelector('[data-action="toggleMobileMenu"]');
-        if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
-        closeLangMenu();
+    var navScreenBackground = [];
+
+    function setNavScreenBackgroundInert(inert) {
+        if (inert) {
+            navScreenBackground = [];
+            Array.prototype.forEach.call(document.body.children, function(child) {
+                if (child.classList.contains('site-nav') || child.id === 'nav-screen' || child.inert) return;
+                child.inert = true;
+                navScreenBackground.push(child);
+            });
+            return;
+        }
+        navScreenBackground.forEach(function(child) { child.inert = false; });
+        navScreenBackground = [];
     }
 
-    /* Close the navigation menu. */
+    function toggleNavLanguages(e) {
+        if (e) e.stopPropagation();
+        var list = document.getElementById('nav-screen-language-list');
+        var toggle = document.getElementById('nav-screen-languages-toggle');
+        var group = document.querySelector('.nav-screen-translations');
+        if (!list || !toggle) return;
+        var open = list.hidden;
+        list.hidden = !open;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (group) group.classList.toggle('open', open);
+    }
+
+    function closeNavLanguages() {
+        var list = document.getElementById('nav-screen-language-list');
+        var toggle = document.getElementById('nav-screen-languages-toggle');
+        var group = document.querySelector('.nav-screen-translations');
+        if (list) list.hidden = true;
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        if (group) group.classList.remove('open');
+    }
+
+    /* Toggle the VitePress-style full-screen navigation panel. */
+    function toggleMobileMenu(e) {
+        if (e) e.stopPropagation();
+        var screen = document.getElementById('nav-screen');
+        if (!screen) return;
+        var open = !screen.classList.contains('open');
+        screen.classList.toggle('open', open);
+        screen.setAttribute('aria-hidden', open ? 'false' : 'true');
+        screen.inert = !open;
+        setNavScreenBackgroundInert(open);
+        document.documentElement.classList.toggle('nav-screen-open', open);
+        document.body.classList.toggle('nav-screen-open', open);
+        var button = document.querySelector('.nav-menu-button');
+        if (button) button.classList.toggle('active', open);
+        if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        closeLangMenu();
+        closeNavLanguages();
+    }
+
+    /* Close the navigation panel and restore the page scroll state. */
     function closeNavMenu() {
-        var menu = document.getElementById('navLinksDropdown');
-        if (menu) menu.classList.remove('open');
-        var button = document.querySelector('[data-action="toggleMobileMenu"]');
+        var screen = document.getElementById('nav-screen');
+        if (screen) {
+            screen.classList.remove('open');
+            screen.setAttribute('aria-hidden', 'true');
+            screen.inert = true;
+        }
+        setNavScreenBackgroundInert(false);
+        document.documentElement.classList.remove('nav-screen-open');
+        document.body.classList.remove('nav-screen-open');
+        var button = document.querySelector('.nav-menu-button');
+        if (button) button.classList.remove('active');
         if (button) button.setAttribute('aria-expanded', 'false');
+        closeNavLanguages();
     }
 
     function openNewWindow(url) {
@@ -427,12 +483,28 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             if (!localStorage.getItem('theme')) applyTheme(getSystemTheme());
         });
 
-        /* Close both menus when clicking outside their controls. */
+        /* Close the language flyout outside its control; the screen closes on its own backdrop or links. */
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.lang-toggle') && !e.target.closest('.nav-mobile-menu')) {
+            if (!e.target.closest('.lang-toggle')) closeLangMenu();
+            var screen = document.getElementById('nav-screen');
+            if (screen && e.target === screen) closeNavMenu();
+            if (e.target.closest('.nav-screen-link')) closeNavMenu();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            var screen = document.getElementById('nav-screen');
+            if (screen && screen.classList.contains('open')) {
                 closeNavMenu();
+                var button = document.querySelector('.nav-menu-button');
+                if (button) button.focus();
+            } else {
                 closeLangMenu();
             }
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.matchMedia('(min-width: 768px)').matches) closeNavMenu();
         });
 
 
