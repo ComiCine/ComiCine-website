@@ -19,7 +19,24 @@
             font-weight: 500;
         }
 
-        .site-nav { background: var(--bg); }
+        .site-nav {
+            position: fixed; top: 0; left: 0; width: 100%; height: 70px; z-index: 100;
+            background: var(--bg);
+        }
+        @media (min-width: 768px) {
+            .site-nav { height: 100px; }
+        }
+        .site-nav .nav-inner {
+            display: flex; align-items: center; width: 100%; max-width: 80rem; height: 100%;
+            margin: 0 auto; padding-inline: 20px;
+        }
+        @media (min-width: 768px) {
+            .site-nav .nav-inner { padding-inline: 2rem; }
+        }
+        .site-nav .nav-brand-link {
+            display: flex; align-items: center; flex-shrink: 0; text-decoration: none;
+        }
+        .site-nav .nav-right { display: flex; align-items: center; margin-inline-start: auto; }
 
         * { -webkit-tap-highlight-color: transparent; }
 
@@ -28,6 +45,12 @@
             font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
             font-weight: 700;
             line-height: 1;
+            font-size: 1.125rem;
+            letter-spacing: 0.05em;
+            color: var(--text);
+        }
+        @media (min-width: 768px) {
+            .site-nav .nav-brand { font-size: 1.5rem; }
         }
 
         .pressable {
@@ -98,7 +121,6 @@
            keeping it would add 3px after "·" in English. */
         /* Show the footer on mobile and touch devices; do not hide it based on pointer type. */
 
-        /* Icon buttons: social links, theme and language switches, and the mobile menu. */
         .icon-btn, .theme-btn {
             width: 36px; height: 36px; display: flex; align-items: center;
             justify-content: center; border-radius: var(--radius-md);
@@ -106,43 +128,67 @@
             color: var(--text); opacity: 0.75;
             transition: transform 200ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
         }
+        .icon-btn { text-decoration: none; }
         .icon-btn:active, .theme-btn:active { transform: scale(0.92); }
+        .site-nav .nav-social-link svg, .site-nav .nav-menu-button svg { width: 18px; height: 18px; }
+        .site-nav .nav-social-link svg { fill: currentColor; }
         @media (max-width: 767px) {
-            .site-nav .icon-btn { display: none; }
+            .site-nav .nav-social-link { display: none; }
         }
         @media (hover: hover) and (pointer: fine) {
             .icon-btn:hover, .theme-btn:hover { background: var(--highlight); opacity: 1; }
         }
-        /* Language switch using the VitePress VPFlyout text-and-A icon with a down arrow. */
-        .lang-btn {
-            display: flex; align-items: center;
-            padding: 0 12px; height: 36px;
-            border: none; background: none; cursor: pointer;
-            color: var(--text);
+        .site-nav .global-nav { display: none; align-items: center; }
+        @media (min-width: 768px) {
+            .site-nav .global-nav { display: flex; }
+        }
+        .global-nav a {
+            display: inline-flex; align-items: center; padding: 0 12px;
+            font-size: 14px; font-weight: 500; text-decoration: none;
+            color: var(--text); transition: color 200ms var(--ease-out);
+            -webkit-font-smoothing: antialiased; white-space: nowrap;
+        }
+        .global-nav a.active, .global-nav a:hover { color: var(--accent); }
+        .nav-external {
+            display: inline-block; margin-inline-start: 4px; width: 11px; height: 11px;
+            flex-shrink: 0; opacity: 0.45;
+        }
+        .nav-divider {
+            display: none; width: 1px; height: 24px; background: var(--line);
+            margin: 0 12px; flex-shrink: 0;
+        }
+        @media (min-width: 768px) {
+            .site-nav .nav-divider { display: block; }
+        }
+        .site-nav .nav-divider.nav-divider-lang-theme { display: block; }
+        .site-nav .nav-divider-mobile { display: none; }
+        @media (max-width: 767px) {
+            .site-nav .nav-divider-mobile { display: block; }
+        }
+        .site-nav .lang-toggle { position: relative; display: flex; align-items: center; }
+        .site-nav .lang-btn {
+            display: flex; align-items: center; padding: 0 12px; height: 36px;
+            border: none; background: none; cursor: pointer; color: var(--text);
             transition: color 200ms var(--ease-out);
         }
         @media (hover: hover) and (pointer: fine) {
-            .lang-btn:hover { color: var(--accent); }
+            .site-nav .lang-btn:hover { color: var(--accent); }
         }
-        .lang-btn .lang-icon { width: 16px; height: 16px; }
-        .lang-btn .lang-chevron { width: 14px; height: 14px; margin-left: 4px; opacity: 0.6; }
-
-        /* Theme switch using the VitePress VPSwitchAppearance sun-and-moon pill slider. */
+        .site-nav .lang-icon { width: 16px; height: 16px; }
+        .site-nav .lang-chevron { width: 14px; height: 14px; margin-inline-start: 4px; opacity: 0.6; }
         .appearance-switch {
-            position: relative; border-radius: 11px; display: block;
-            width: 40px; height: 22px; flex-shrink: 0;
-            border: 1px solid var(--line);
-            background: var(--highlight);
-            cursor: pointer; padding: 0;
-            transition: background-color 200ms var(--ease-out);
+            position: relative; display: block; width: 40px; height: 22px; flex-shrink: 0;
+            padding: 0; border: 1px solid var(--line); border-radius: 11px;
+            background: var(--highlight); cursor: pointer;
+            transition: border-color 200ms var(--ease-out), background-color 200ms var(--ease-out);
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .appearance-switch:hover { border-color: var(--accent); }
         }
         .appearance-check {
-            position: absolute; top: 1px; left: 1px;
-            width: 18px; height: 18px; border-radius: 50%;
-            background: var(--bg);
-            box-shadow: var(--switch-shadow);
-            transform: translateX(18px); /* Dark mode is the default, with the slider on the right. */
-            transition: transform 250ms var(--ease-out);
+            position: absolute; top: 1px; left: 1px; width: 18px; height: 18px;
+            border-radius: 50%; background: var(--bg); box-shadow: var(--switch-shadow);
+            transform: translateX(18px); transition: transform 250ms var(--ease-out);
         }
         .appearance-icon {
             position: relative; display: block; width: 18px; height: 18px;
@@ -150,50 +196,55 @@
         }
         .appearance-icon svg {
             position: absolute; top: 3px; left: 3px; width: 12px; height: 12px;
-            color: var(--switch-icon);
-            transition: opacity 250ms var(--ease-out), color 200ms var(--ease-out);
+            color: var(--switch-icon); transition: opacity 250ms var(--ease-out);
         }
-        /* Show the moon by default in dark mode and the sun in light mode. */
         .appearance-icon .sun { opacity: 0; }
         .appearance-icon .moon { opacity: 1; }
         .light-mode .appearance-icon .sun { opacity: 1; }
         .light-mode .appearance-icon .moon { opacity: 0; }
         .light-mode .appearance-check { transform: translateX(0); }
-        @media (hover: hover) and (pointer: fine) {
-            .appearance-switch:hover .appearance-icon svg { color: var(--accent); }
-        }
-
-        .theme-toggle { position: relative; display: flex; align-items: center; }
-        /* Show the mobile subsite menu only below 768px. Keep this after .theme-toggle to override display:flex. */
+        .site-nav .nav-mobile-menu { position: relative; display: flex; align-items: center; }
         @media (min-width: 768px) {
-            .nav-mobile-menu { display: none; }
+            .site-nav .nav-mobile-menu { display: none; }
         }
-        .theme-menu {
-            position: absolute; top: calc(100% + 8px); right: 0; min-width: 120px;
+        .site-nav .lang-menu, .site-nav .nav-menu {
+            position: absolute; right: 0; padding: 4px; z-index: 200;
             background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius-md);
-            padding: 4px; z-index: 200;
-            opacity: 0; visibility: hidden;
-            transform: translateY(-4px) scale(0.92);
+            opacity: 0; visibility: hidden; transform: translateY(-4px) scale(0.92);
             transform-origin: top right;
             transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), visibility 150ms;
             box-shadow: 0 8px 28px var(--shadow-soft);
         }
-        .theme-menu.open {
+        .site-nav .lang-menu { top: calc(100% + 4px); min-width: 132px; }
+        .site-nav .lang-menu.open {
             opacity: 1; visibility: visible; transform: translateY(0) scale(1);
-            transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+        }
+        .site-nav .nav-menu { top: calc(100% + 8px); min-width: 120px; }
+        .site-nav .nav-menu.open {
+            opacity: 1; visibility: visible; transform: translateY(0) scale(1);
         }
         .theme-option {
-            padding: 8px 14px; margin: 2px 0; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600;
-            letter-spacing: calc(0.05em*var(--ls-scale)); cursor: pointer; white-space: nowrap;
-            transition: background 150ms var(--ease-out);
-            opacity: 0.5;
+            padding: 8px 14px; margin: 2px 0; border-radius: var(--radius-sm);
+            font-size: 12px; font-weight: 600; letter-spacing: calc(0.05em*var(--ls-scale));
+            cursor: pointer; white-space: nowrap; transition: background 150ms var(--ease-out); opacity: 0.5;
         }
-        .lang-flag { margin-right: 6px; }
-        .theme-option.selected {
-            opacity: 1; background: var(--highlight);
+        .site-nav .lang-menu .theme-option {
+            display: block; color: var(--text); text-decoration: none;
         }
+        .lang-flag { margin-inline-end: 6px; }
+        .theme-option.selected { opacity: 1; background: var(--highlight); }
         @media (hover: hover) and (pointer: fine) {
             .theme-option:hover { opacity: 1; background: var(--highlight); }
+        }
+        .site-nav .nav-menu-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; margin: 2px 0; border-radius: var(--radius-sm);
+            font-size: 12px; font-weight: 600; letter-spacing: calc(0.05em*var(--ls-scale));
+            white-space: nowrap; text-decoration: none; color: var(--text);
+            opacity: 0.75; transition: background 150ms var(--ease-out);
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .site-nav .nav-menu-item:hover { opacity: 1; background: var(--highlight); }
         }
 
         /* Entrance animation: reveal-item to show. */
@@ -203,41 +254,3 @@
             will-change: transform, opacity;
         }
         .reveal-item.show { opacity: 1 !important; transform: translateY(0); }
-
-        /* Match VitePress VPNavBarMenuLink: default text color, brand color on hover or when active, no underline. */
-        .global-nav a {
-            display: inline-flex; align-items: center;
-            padding: 0 12px;
-            font-size: 14px; font-weight: 500;
-            text-decoration: none;
-            color: var(--text);
-            transition: color 200ms var(--ease-out);
-            -webkit-font-smoothing: antialiased;
-        }
-        .global-nav a.active { color: var(--accent); }
-        @media (hover: hover) and (pointer: fine) {
-            .global-nav a:hover { color: var(--accent); }
-        }
-        /* External-link icon after navigation links. */
-        .nav-external {
-            display: inline-block;
-            margin-left: 4px;
-            width: 11px; height: 11px;
-            flex-shrink: 0;
-            opacity: 0.45;
-        }
-        /* Vertical separators between groups on the right side of the navigation. */
-        .nav-divider {
-            width: 1px; height: 24px;
-            background: var(--line);
-            margin: 0 12px;
-            flex-shrink: 0;
-        }
-        .nav-divider-lang-theme { display: block; }
-        .nav-divider-mobile { display: none; }
-        @media (max-width: 767px) {
-            .nav-divider-mobile { display: block; }
-        }
-
-        /* Expanded navigation menu. */
-        /* Reuse .theme-menu and .theme-option; no additional CSS is needed. */

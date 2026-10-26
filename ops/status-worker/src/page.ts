@@ -44,7 +44,7 @@ const HOME_URL = "https://limooo.cn";
 const SERVICES_URL = "https://services.limooo.cn";
 const CONTACT_URL = "https://contact.limooo.cn";
 
-// SVG copied verbatim from base.html, with Tailwind's w-[18px] h-[18px] replaced by .icon-svg.
+// SVG paths and view boxes match base.html; the stylesheet supplies the shared dimensions.
 const SVG_LANG =
   '<svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>';
 const SVG_CHEVRON =
@@ -54,14 +54,13 @@ const SVG_SUN =
 const SVG_MOON =
   '<svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
 const SVG_MENU =
-  '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 const SVG_EXTERNAL =
   '<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>';
 const SVG_GITHUB =
-  '<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>';
+  '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12c0 5.303 3.438 9.8 8.205 11.385c.6.113.82-.258.82-.577c0-.285-.01-1.04-.015-2.04c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729c1.205.084 1.838 1.236 1.838 1.236c1.07 1.835 2.809 1.305 3.495.998c.108-.776.417-1.305.76-1.605c-2.665-.3-5.466-1.332-5.466-5.93c0-1.31.465-2.38 1.235-3.22c-.135-.303-.54-1.523.105-3.176c0 0 1.005-.322 3.3 1.23c.96-.267 1.98-.399 3-.405c1.02.006 2.04.138 3 .405c2.28-1.552 3.285-1.23 3.285-1.23c.645 1.653.24 2.873.12 3.176c.765.84 1.23 1.91 1.23 3.22c0 4.61-2.805 5.625-5.475 5.92c.42.36.81 1.096.81 2.22c0 1.606-.015 2.896-.015 3.286c0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>';
 const SVG_BILIBILI =
-  '<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/></svg>';
-
+  '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.813 4.653h.854q2.266.08 3.773 1.574Q23.946 7.72 24 9.987v7.36q-.054 2.266-1.56 3.773c-1.506 1.507-2.262 1.524-3.773 1.56H5.333q-2.266-.054-3.773-1.56C.053 19.614.036 18.858 0 17.347v-7.36q.054-2.267 1.56-3.76t3.773-1.574h.774l-1.174-1.12a1.23 1.23 0 0 1-.373-.906q0-.534.373-.907l.027-.027q.4-.373.92-.373t.92.373L9.653 4.44q.107.106.187.213h4.267a.8.8 0 0 1 .16-.213l2.853-2.747q.4-.373.92-.373c.347 0 .662.151.929.4s.391.551.391.907q0 .532-.373.906zM5.333 7.24q-1.12.027-1.88.773q-.76.748-.786 1.894v7.52q.026 1.146.786 1.893t1.88.773h13.334q1.12-.026 1.88-.773t.786-1.893v-7.52q-.026-1.147-.786-1.894t-1.88-.773zM8 11.107q.56 0 .933.373q.375.374.4.96v1.173q-.025.586-.4.96q-.373.375-.933.374c-.56-.001-.684-.125-.933-.374q-.375-.373-.4-.96V12.44q0-.56.386-.947q.387-.386.947-.386m8 0q.56 0 .933.373q.375.374.4.96v1.173q-.025.586-.4.96q-.373.375-.933.374c-.56-.001-.684-.125-.933-.374q-.375-.373-.4-.96V12.44q.025-.586.4-.96q.373-.373.933-.373"/></svg>';
 /** Header corresponding to `<nav>` in base.html: wordmark, three links, language overlay, theme toggle, mobile menu, and desktop socials. */
 export function navHtml(lang: Lang): string {
   const links: Array<[string, string]> = [
@@ -72,40 +71,35 @@ export function navHtml(lang: Lang): string {
   const options = (Object.keys(LANG_LABELS) as Lang[])
     .map(
       (code) =>
-        `<div class="theme-option${code === lang ? " selected" : ""}" data-lang="${esc(code)}" role="menuitem">` +
-        `<span class="lang-flag">${esc(langFlag(code))}</span><span>${esc(LANG_LABELS[code])}</span></div>`,
+        `<a class="theme-option${code === lang ? " selected" : ""}" data-lang="${esc(code)}" href="?lang=${esc(code)}">` +
+        `<span class="lang-flag">${esc(langFlag(code))}</span><span>${esc(LANG_LABELS[code])}</span></a>`,
     )
     .join("");
   return (
-    '<nav class="site-nav">' +
-    `<a href="${HOME_URL}" class="nav-logo" id="nav-logo"><span class="nav-brand">Limooo</span></a>` +
-    '<div class="nav-right">' +
-    '<div class="global-nav">' +
+    '<nav class="site-nav"><div class="nav-inner">' +
+    `<a href="${HOME_URL}" class="nav-brand-link" id="nav-logo" aria-label="Limooo"><span class="nav-brand">Limooo</span></a>` +
+    '<div class="nav-right"><div class="global-nav">' +
     links
-      .map(([href, label]) => `<a href="${href}"><span>${esc(label)}</span>${SVG_EXTERNAL}</a>`)
+      .map(([href, label]) => `<a class="nav-link" href="${href}"><span>${esc(label)}</span>${SVG_EXTERNAL}</a>`)
       .join("") +
-    "</div>" +
-    '<span class="nav-divider"></span>' +
-    '<div class="theme-toggle lang-flyout">' +
+    '</div><span class="nav-divider"></span>' +
+    '<div class="lang-toggle lang-flyout">' +
     `<button class="lang-btn" id="lang-btn" type="button" aria-label="${esc(t(lang, "lang_aria"))}" aria-haspopup="true" aria-expanded="false">${SVG_LANG}${SVG_CHEVRON}</button>` +
-    `<div id="langMenu" class="theme-menu" role="menu">${options}</div>` +
-    "</div>" +
-    '<span class="nav-divider nav-divider-lang-theme"></span>' +
+    `<div id="langMenu" class="lang-menu">${options}</div>` +
+    '</div><span class="nav-divider nav-divider-lang-theme"></span>' +
     `<button class="appearance-switch" id="theme-switch" type="button" role="switch" aria-checked="false" aria-label="${esc(t(lang, "theme_aria"))}">` +
-    `<span class="appearance-check"><span class="appearance-icon">${SVG_SUN}${SVG_MOON}</span></span>` +
-    "</button>" +
-    '<span class="nav-divider"></span>' +
-    '<span class="nav-divider nav-divider-mobile"></span>' +
-    `<a class="icon-btn nav-social-link" href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">${SVG_GITHUB}</a>` +
-    `<a class="icon-btn nav-social-link" href="${BILIBILI_URL}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t(lang, "visit_bilibili"))}" title="${esc(t(lang, "visit_bilibili"))}">${SVG_BILIBILI}</a>` +
-    '<div class="theme-toggle nav-mobile-menu">' +
-    `<button class="theme-btn" id="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="${esc(t(lang, "nav_menu_aria"))}">${SVG_MENU}</button>` +
-    '<div id="navLinksDropdown" class="theme-menu" role="menu">' +
-    `<a class="nav-menu-option" role="menuitem" href="${HOME_URL}">${esc(t(lang, "nav_home"))}</a>` +
-    `<a class="nav-menu-option" role="menuitem" href="${SERVICES_URL}">${esc(t(lang, "nav_services"))}</a>` +
-    `<a class="nav-menu-option" role="menuitem" href="${CONTACT_URL}">${esc(t(lang, "nav_contact"))}</a>` +
+    `<span class="appearance-check"><span class="appearance-icon">${SVG_SUN}${SVG_MOON}</span></span></button>` +
+    '<span class="nav-divider"></span><span class="nav-divider nav-divider-mobile"></span>' +
+    '<div class="nav-mobile-menu">' +
+    `<button class="icon-btn nav-menu-button" id="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="${esc(t(lang, "nav_menu_aria"))}">${SVG_MENU}</button>` +
+    '<div id="navLinksDropdown" class="nav-menu" role="menu">' +
+    `<a class="nav-menu-item" role="menuitem" href="${HOME_URL}"><span>${esc(t(lang, "nav_home"))}</span>${SVG_EXTERNAL}</a>` +
+    `<a class="nav-menu-item" role="menuitem" href="${SERVICES_URL}"><span>${esc(t(lang, "nav_services"))}</span>${SVG_EXTERNAL}</a>` +
+    `<a class="nav-menu-item" role="menuitem" href="${CONTACT_URL}"><span>${esc(t(lang, "nav_contact"))}</span>${SVG_EXTERNAL}</a>` +
     '</div></div>' +
-    "</div></nav>"
+    `<a class="icon-btn nav-social-link" href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer" aria-label="GitHub">${SVG_GITHUB}</a>` +
+    `<a class="icon-btn nav-social-link" href="${BILIBILI_URL}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t(lang, "visit_bilibili"))}">${SVG_BILIBILI}</a>` +
+    '</div></div></nav>'
   );
 }
 
@@ -143,53 +137,60 @@ html[lang^="en"]{--ls-scale:.3}
 html,body{margin:0;padding:0;width:100%}
 body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
 
-/* Header (equivalent CSS for base.html <nav>) */
-.site-nav{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:80rem;z-index:100;display:flex;align-items:center;padding:0 1.25rem;height:70px;background:var(--bg)}
-@media(min-width:768px){.site-nav{padding:0 2rem;height:100px}}
-.nav-logo{display:flex;align-items:center;gap:.5rem;flex-shrink:0;text-decoration:none;color:var(--text)}
-@media(min-width:768px){.nav-logo{gap:.625rem}}
-.nav-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;line-height:1;font-size:1.125rem;letter-spacing:.05em}
+/* Header rules equivalent to the main site navigation. */
+.site-nav{position:fixed;top:0;left:0;width:100%;height:70px;z-index:100;background:var(--bg)}
+@media(min-width:768px){.site-nav{height:100px}}
+.nav-inner{display:flex;align-items:center;width:100%;max-width:80rem;height:100%;margin:0 auto;padding:0 20px}
+@media(min-width:768px){.nav-inner{padding:0 2rem}}
+.nav-brand-link{display:flex;align-items:center;flex-shrink:0;text-decoration:none}
+.nav-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;line-height:1;font-size:1.125rem;letter-spacing:.05em;color:var(--text)}
 @media(min-width:768px){.nav-brand{font-size:1.5rem}}
 .nav-right{display:flex;align-items:center;margin-left:auto}
 .global-nav{display:none;align-items:center}
 @media(min-width:768px){.global-nav{display:flex}}
-.global-nav a{display:inline-flex;align-items:center;padding:0 12px;font-size:14px;font-weight:500;text-decoration:none;color:var(--text);transition:color 200ms var(--ease-out);-webkit-font-smoothing:antialiased}
-.global-nav a.active{color:var(--accent)}
-@media(hover:hover) and (pointer:fine){.global-nav a:hover{color:var(--accent)}}
+.global-nav a{display:inline-flex;align-items:center;padding:0 12px;font-size:14px;font-weight:500;text-decoration:none;color:var(--text);transition:color 200ms var(--ease-out);-webkit-font-smoothing:antialiased;white-space:nowrap}
+.global-nav a.active,.global-nav a:hover{color:var(--accent)}
 .nav-external{display:inline-block;margin-left:4px;width:11px;height:11px;flex-shrink:0;opacity:.45}
 .nav-divider{display:none;width:1px;height:24px;background:var(--line);margin:0 12px;flex-shrink:0}
 @media(min-width:768px){.nav-divider{display:block}}
 .nav-divider-lang-theme{display:block}
 .nav-divider-mobile{display:none}
 @media(max-width:767px){.nav-divider-mobile{display:block}}
-.icon-btn,.theme-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--text);opacity:.75;transition:transform 200ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
+.icon-btn,.theme-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);border:none;background:none;cursor:pointer;color:var(--text);opacity:.75;text-decoration:none;transition:transform 200ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
 .icon-btn:active,.theme-btn:active{transform:scale(.92)}
 .icon-btn .icon-svg,.theme-btn .icon-svg{width:18px;height:18px}
+.nav-social-link svg,.nav-menu-button svg{width:18px;height:18px}
+.nav-social-link svg{fill:currentColor}
 @media(hover:hover) and (pointer:fine){.icon-btn:hover,.theme-btn:hover{background:var(--highlight);opacity:1}}
 @media(max-width:767px){.nav-social-link{display:none}}
 .nav-mobile-menu{position:relative;display:flex;align-items:center}
 @media(min-width:768px){.nav-mobile-menu{display:none}}
+.lang-toggle{position:relative;display:flex;align-items:center}
 .lang-btn{display:flex;align-items:center;padding:0 12px;height:36px;border:none;background:none;cursor:pointer;color:var(--text);transition:color 200ms var(--ease-out)}
 @media(hover:hover) and (pointer:fine){.lang-btn:hover{color:var(--accent)}}
-.lang-btn .lang-icon{width:16px;height:16px}
-.lang-btn .lang-chevron{width:14px;height:14px;margin-left:4px;opacity:.6}
-.appearance-switch{position:relative;border-radius:11px;display:block;width:40px;height:22px;flex-shrink:0;border:1px solid var(--line);background:var(--highlight);cursor:pointer;padding:0;transition:background-color 200ms var(--ease-out)}
-@media(hover:hover) and (pointer:fine){.appearance-switch:hover .appearance-icon svg{color:var(--accent)}}
+.lang-icon{width:16px;height:16px}
+.lang-chevron{width:14px;height:14px;margin-left:4px;opacity:.6}
+.appearance-switch{position:relative;display:block;width:40px;height:22px;flex-shrink:0;padding:0;border:1px solid var(--line);border-radius:11px;background:var(--highlight);cursor:pointer;transition:border-color 200ms var(--ease-out),background-color 200ms var(--ease-out)}
+@media(hover:hover) and (pointer:fine){.appearance-switch:hover{border-color:var(--accent)}}
 .appearance-check{position:absolute;top:1px;left:1px;width:18px;height:18px;border-radius:50%;background:var(--bg);box-shadow:var(--switch-shadow);transform:translateX(18px);transition:transform 250ms var(--ease-out)}
 .appearance-icon{position:relative;display:block;width:18px;height:18px;border-radius:50%;overflow:hidden}
-.appearance-icon svg{position:absolute;top:3px;left:3px;width:12px;height:12px;color:var(--switch-icon);transition:opacity 250ms var(--ease-out),color 200ms var(--ease-out)}
+.appearance-icon svg{position:absolute;top:3px;left:3px;width:12px;height:12px;color:var(--switch-icon);transition:opacity 250ms var(--ease-out)}
 .appearance-icon .sun{opacity:0}
 .appearance-icon .moon{opacity:1}
 .light-mode .appearance-icon .sun{opacity:1}
 .light-mode .appearance-icon .moon{opacity:0}
 .light-mode .appearance-check{transform:translateX(0)}
-.theme-toggle{position:relative;display:flex;align-items:center}
-.theme-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:120px;background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--radius-md);padding:4px;z-index:200;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.92);transform-origin:top right;transition:opacity 150ms var(--ease-out),transform 150ms var(--ease-out),visibility 150ms;box-shadow:0 8px 28px var(--shadow-soft)}
-.theme-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out)}
-.theme-option,.nav-menu-option{display:block;padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));cursor:pointer;white-space:nowrap;transition:background 150ms var(--ease-out);opacity:.5;color:inherit;text-decoration:none}
-.lang-flag{margin-right:6px}
+.lang-menu,.nav-menu{position:absolute;right:0;padding:4px;z-index:200;background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--radius-md);opacity:0;visibility:hidden;transform:translateY(-4px) scale(.92);transform-origin:top right;transition:opacity 150ms var(--ease-out),transform 150ms var(--ease-out),visibility 150ms;box-shadow:0 8px 28px var(--shadow-soft)}
+.lang-menu{top:calc(100% + 4px);min-width:132px}
+.lang-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
+.nav-menu{top:calc(100% + 8px);min-width:120px}
+.nav-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
+.theme-option{display:block;padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));cursor:pointer;white-space:nowrap;text-decoration:none;opacity:.5;color:var(--text);transition:background 150ms var(--ease-out)}
 .theme-option.selected{opacity:1;background:var(--highlight)}
-@media(hover:hover) and (pointer:fine){.theme-option:hover,.nav-menu-option:hover{opacity:1;background:var(--highlight)}}
+@media(hover:hover) and (pointer:fine){.theme-option:hover{opacity:1;background:var(--highlight)}}
+.lang-flag{margin-right:6px}
+.nav-menu-item{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));white-space:nowrap;text-decoration:none;color:var(--text);opacity:.75;transition:background 150ms var(--ease-out)}
+@media(hover:hover) and (pointer:fine){.nav-menu-item:hover{opacity:1;background:var(--highlight)}}
 
 /* Footer (equivalent CSS for _footer.html) */
 .global-footer{position:fixed;bottom:0;left:0;width:100%;z-index:90;border-top:1px solid var(--footer-border);background:var(--bg);display:flex;align-items:center;justify-content:center}
@@ -298,7 +299,7 @@ export const STATUS_JS =
   "if(fly&&window.matchMedia('(hover: hover) and (pointer: fine)').matches){" +
   "fly.addEventListener('mouseenter',function(){open(true)});fly.addEventListener('mouseleave',function(){open(false)})}" +
   "doc.addEventListener('click',function(){open(false);openNav(false)});" +
-  "if(menu)menu.addEventListener('click',function(e){e.stopPropagation();var el=e.target.closest('[data-lang]');if(!el)return;" +
+  "if(menu)menu.addEventListener('click',function(e){e.stopPropagation();var el=e.target.closest('[data-lang]');if(!el)return;e.preventDefault();" +
   "var c=el.getAttribute('data-lang');if(LANGS.indexOf(c)<0)return;save(LANG_COOKIE,c);" +
   "var u=new URL(location.href);u.searchParams.set('lang',c);location.href=u.toString()});" +
   "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='limooo_status_lang_synced';" +
