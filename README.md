@@ -573,9 +573,12 @@ The shape of the live deployment, re-read any time with
 The gate renders in place on every host, the real visitor IP is shown in the gate page
 and logs, and Access remains the only identity source. As of 2026-10-27, a forced
 `?challenge=1` response of 403 confirms only that the page rendered: the `.com` Turnstile
-challenge still fails before `/gate/verify` receives a token. The gate now exposes a manual
-retry and logs the numeric client error; the configured API token lacks permission to update
-Turnstile host authorization (HTTP 403 / error `10000`).
+challenge returns client error `110200` (domain not authorized) before `/gate/verify` receives a
+token. Add `comicine.com` to the existing widget's Hostname Management and retain other live hosts.
+The configured API token is active but cannot read or update widget settings (HTTP 403 / error
+`10000`); the update needs `Turnstile Sites Write` or `Account Settings Write`. The gate exposes a
+manual retry; a production browser probe captured the widget callback code. Do not bypass or weaken
+verification.
 
 ## License
 
