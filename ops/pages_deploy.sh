@@ -38,8 +38,8 @@ PAGES_BRANCH="${PAGES_BRANCH:-main}"
 SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 
 # Reading many small files from the iCloud-synced directory can stall; use an isolated build directory under /tmp.
-PUBLIC_DIR="${COMICINE_PUBLIC_DIR:-/tmp/limooo-public}"
-PREVIEW_DIR="${COMICINE_PREVIEW_DIR:-/tmp/limooo-preview}"
+PUBLIC_DIR="${COMICINE_PUBLIC_DIR:-/tmp/comicine-public}"
+PREVIEW_DIR="${COMICINE_PREVIEW_DIR:-/tmp/comicine-preview}"
 VENV_PYTHON="${COMICINE_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 

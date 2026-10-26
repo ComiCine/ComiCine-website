@@ -276,7 +276,7 @@ run_step() {
         return
     fi
     local log
-    log="$(mktemp -t limooo-deploy-XXXXXX.log)"
+    log="$(mktemp -t comicine-deploy-XXXXXX.log)"
     ACTIVE_LOG="$log"
     if "$@" >"$log" 2>&1; then
         rm -f "$log"
@@ -393,7 +393,7 @@ verify_head_signature() {
 WORKTREE_SNAPSHOT=""
 worktree_snapshot() {
     local tmp
-    tmp="$(mktemp -t limooo-deploy-index-XXXXXX)"
+    tmp="$(mktemp -t comicine-deploy-index-XXXXXX)"
     ACTIVE_TMP_INDEX="$tmp"
     rm -f "$tmp"
     # Use HEAD as the baseline, then add all current working-tree files (including untracked but

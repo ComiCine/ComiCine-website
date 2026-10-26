@@ -172,7 +172,7 @@ npm run build
 `functions/_data/i18n.ts`, `functions/_data/runtime.ts`와 `preview/`를 다시 생성합니다.
 이 결과물을 직접 수정하지 말고, `locales/*.json`이나 템플릿, 정적 소스를 바꾼 뒤
 다시 빌드하세요. `src/static/tailwind.css`는 저장소에 커밋된 Tailwind 사전 빌드
-결과물입니다. `npm run build`는 `ops/build.sh`를 사용하며, 이 스크립트가 `/tmp/limooo-build-venv`를
+결과물입니다. `npm run build`는 `ops/build.sh`를 사용하며, 이 스크립트가 `/tmp/comicine-build-venv`를
 만들고 `public/manifest.json`(빌드 산출물 해시 증거)을 생성합니다.
 
 Pages 결과물만 배포하려면:

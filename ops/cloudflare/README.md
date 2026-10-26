@@ -402,7 +402,7 @@ target should be a **fresh** database; the rendered SQL uses plain `INSERT`.
 
 ```sh
 DAY=2026_10_10
-DEST=/tmp/limooo-restore-$DAY
+DEST=/tmp/comicine-restore-$DAY
 mkdir -p "$DEST"
 
 # 1. download the day (12 objects; the table names are the ones listed in the table above)

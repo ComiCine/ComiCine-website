@@ -285,7 +285,7 @@ while IFS=$'\t' read -r kind value why; do
     [ -n "${kind:-}" ] || continue
     case "$kind" in
         access-rule)
-            body="{\"mode\":\"whitelist\",\"configuration\":{\"target\":\"ip\",\"value\":\"$value\"},\"notes\":\"limooo: bypass security for trusted IP (migrated from custom skip rule)\"}"
+            body="{\"mode\":\"whitelist\",\"configuration\":{\"target\":\"ip\",\"value\":\"$value\"},\"notes\":\"ComiCine: bypass security for trusted IP (migrated from custom skip rule)\"}"
             api POST "/zones/$ZID/firewall/access_rules/rules" "$body" \
                 | jsonq 'print("  access rule:", "OK" if d.get("success") else "FAIL " + json.dumps(d.get("errors"))[:160])'
             ;;
