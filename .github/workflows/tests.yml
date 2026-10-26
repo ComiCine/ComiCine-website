@@ -49,3 +49,37 @@ jobs:
       - run: npm test
       - run: npm run test:coverage
         continue-on-error: true
+
+  deploy-pages:
+    name: Deploy Cloudflare Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [python, typescript]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: comicine-pages-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build requirements
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.lock
+          echo "COMICINE_VENV_PYTHON=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+      - run: npm ci
+      - name: Deploy Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: limooo
+          PAGES_BRANCH: main
+          COMICINE_PUBLIC_DIR: ${{ runner.temp }}/comicine-public
+          COMICINE_PREVIEW_DIR: ${{ runner.temp }}/comicine-preview
+          WRANGLER_BIN: ${{ github.workspace }}/node_modules/.bin/wrangler
+        run: bash ops/pages_deploy.sh

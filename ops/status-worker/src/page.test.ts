@@ -100,7 +100,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-brand">ComiCine</span></span>',
+      'class="footer-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",

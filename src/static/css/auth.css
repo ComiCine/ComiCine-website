@@ -194,8 +194,7 @@
     /* Keep each semantic item intact, separate items with "·", and center the group. */
     .footer-text > span, .footer-text > a { white-space: nowrap; }
     /* Draw "·" on each item's ::before so it wraps with that item instead of being orphaned.
-       Use inline-block rather than inline-flex: flex removes spaces between children,
-       which would join "© 2026 ComiCine" into "© 2026ComiCineStudio". */
+       Use inline-block rather than inline-flex: flex removes spaces between children. */
     .footer-text > .footer-item { display: inline-block; }
     .footer-text > .footer-item:not(:first-child)::before {
         content: "·"; margin: 0 0.55em; opacity: 0.7;
@@ -208,12 +207,12 @@
         /* Do not show "·" at the wrap; it must not precede the first item on row two. */
         .footer-text > .footer-copyright + .footer-item::before { content: none; }
     }
-  .footer-brand {
-    font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
-    font-weight: 700; letter-spacing: 0.02em;
-    /* Brand text is 1.2 times the body size: 0.546 × 1.2 = 0.6552, based on x-height. */
-    font-size: 10px;
-    font-size-adjust: 0.6552;
+  .footer-brand-logo {
+    display: inline-block;
+    width: 1.6em; height: 1.6em;
+    margin-inline-start: 0.25em;
+    object-fit: contain;
+    vertical-align: -0.3em;
   }
   .footer-source-link { color: inherit; text-decoration: underline; white-space: nowrap; }
   /* The old English-only spacing patch was removed. The "·" now provides spacing for
