@@ -147,7 +147,8 @@
     align-items: baseline;
     white-space: nowrap;
 }
-/* Keep the suffix in the centered price group and above the strike-through. */
+.plan-price .price-amount { position: relative; display: inline-block; }
+/* Keep the suffix aligned with the amount and outside its strike-through. */
 .plan-price .plan-unit {
     position: relative; z-index: 1;
     margin-left: 8px;
@@ -195,7 +196,7 @@
 }
 /* For unavailable tiers, strike through the price with 2px extensions; leave the unit unstruck. */
 .plan-price.strikethrough { opacity: 0.35; }
-.plan-price.strikethrough .price-num::after {
+.plan-price.strikethrough .price-amount::after {
     content: ''; position: absolute;
     left: -2px; right: -2px; top: 50%;
     height: 2px; background: currentColor;
