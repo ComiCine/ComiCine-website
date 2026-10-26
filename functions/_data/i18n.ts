@@ -16,7 +16,7 @@ export const translations: Record<string, Record<string, string>> = {
     "not_found_heading": "没有找到这个页面",
     "not_found_message": "你访问的地址可能有误，或页面已移动。",
     "not_found_redirect": "{seconds}秒后将自动返回主页。",
-    "gate_title": "正在验证您是否为人类…",
+    "gate_title": "正在验证您是否为真人…",
     "gate_heading": "请完成人机验证后再访问本站",
     "gate_location": "Location",
     "gate_ip": "IP",

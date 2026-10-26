@@ -30,7 +30,7 @@ See ADDITIONAL_TERMS.txt.
 <link rel="preload" as="script" href="/static/js/currency-data.js?v=1">
 <link rel="preload" as="script" href="/static/js/services.js?v=12">
 <link rel="preload" as="fetch" href="/api/currency-rates" crossorigin="anonymous">
-<link rel="stylesheet" href="/static/css/services.css?v=17">
+<link rel="stylesheet" href="/static/css/services.css?v=18">
 {% endblock %}
 
 
@@ -84,7 +84,7 @@ See ADDITIONAL_TERMS.txt.
             {% for plan in pricing.convention %}
             <div class="plan">
                 <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
-                    <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}{% if plan.unit_key %}<span class="plan-unit" data-i18n="{{ plan.unit_key }}">{{ _(plan.unit_key) }}</span>{% endif %}</span>
+                    <span class="price-num"><span class="price-amount">CNY {{ plan.price if not plan.no_price else '-' }}</span>{% if plan.unit_key %}<span class="plan-unit" data-i18n="{{ plan.unit_key }}">{{ _(plan.unit_key) }}</span>{% endif %}</span>
                 </p>
                 <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>
@@ -133,7 +133,7 @@ See ADDITIONAL_TERMS.txt.
             <div class="plan">
                 <p class="plan-tag" data-i18n="{{ plan.plan_key }}">{{ _(plan.plan_key) }}</p>
                 <p class="plan-price{% if plan.strikethrough %} strikethrough{% endif %}" data-price-box{% if not plan.no_price %} data-cny-price="{{ plan.price }}"{% endif %}>
-                    <span class="price-num">CNY {{ plan.price if not plan.no_price else '-' }}<span class="plan-unit" data-i18n="unit_per_hour">{{ _('unit_per_hour') }}</span></span>
+                    <span class="price-num"><span class="price-amount">CNY {{ plan.price if not plan.no_price else '-' }}</span><span class="plan-unit" data-i18n="unit_per_hour">{{ _('unit_per_hour') }}</span></span>
                 </p>
                 <p class="currency-reference" data-currency-reference aria-live="polite"></p>
             </div>

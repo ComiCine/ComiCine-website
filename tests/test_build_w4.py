@@ -124,8 +124,8 @@ def test_two_services_dirs_do_not_cross_pollute(tmp_path, monkeypatch):
     monkeypatch.setattr("services_pricing.SERVICES_DIR", str(second))
     html_second = build.render_page(render_app.RENDER_APP, "services.html", "/services", "zh-cn")
 
-    prices_first = re.findall(r'<span class="price-num">CNY (\d+)', html_first)
-    prices_second = re.findall(r'<span class="price-num">CNY (\d+)', html_second)
+    prices_first = re.findall(r'<span class="price-amount">CNY (\d+)', html_first)
+    prices_second = re.findall(r'<span class="price-amount">CNY (\d+)', html_second)
     assert prices_first[0] == "111", prices_first
     assert prices_second[0] == "222", prices_second
 

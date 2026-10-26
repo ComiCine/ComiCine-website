@@ -243,7 +243,7 @@ def test_services_page_renders_csv_prices(services_dir):
     )
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
 
-    assert re.findall(r'<span class="price-num">CNY (\d+)', html) == [
+    assert re.findall(r'<span class="price-amount">CNY (\d+)', html) == [
         "30",
         "60",
         "110",
@@ -305,17 +305,17 @@ def test_no_price_renders_as_dash(services_dir):
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
 
     # Studio photography uses a per-shot suffix; outdoor photography uses a per-hour suffix. Keep both prefixes.
-    assert '<span class="price-num">CNY -<span class="plan-unit" data-i18n="unit_per_shot">' in html
+    assert '<span class="price-num"><span class="price-amount">CNY -</span><span class="plan-unit" data-i18n="unit_per_shot">' in html
     assert (
         html.count(
-            '<span class="price-num">CNY -<span class="plan-unit" data-i18n="unit_per_hour">'
+            '<span class="price-num"><span class="price-amount">CNY -</span><span class="plan-unit" data-i18n="unit_per_hour">'
         )
         == 2
     )
     assert "N/A" not in html
     assert "TBD" not in html
     assert "CNY None" not in html
-    assert re.findall(r'<span class="price-num">CNY (\d+)', html) == [
+    assert re.findall(r'<span class="price-amount">CNY (\d+)', html) == [
         "55",
         "100",
         "150",
@@ -363,8 +363,8 @@ def test_overflow_price_column_renders_dash(services_dir):
     html = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
 
     # For an overflow tier, replace only the number with `-`; keep the CNY prefix and unit suffix, and leave other tiers unchanged.
-    assert '<span class="price-num">CNY -<span class="plan-unit" data-i18n="unit_per_shot">' in html
-    assert re.findall(r'<span class="price-num">CNY (\d+)', html) == [
+    assert '<span class="price-num"><span class="price-amount">CNY -</span><span class="plan-unit" data-i18n="unit_per_shot">' in html
+    assert re.findall(r'<span class="price-amount">CNY (\d+)', html) == [
         "55",
         "100",
         "150",
