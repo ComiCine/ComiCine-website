@@ -7,7 +7,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Validate docs.limooo.cn build output: every Markdown file must produce an HTML file.
+"""Validate docs.comicine.com build output: every Markdown file must produce an HTML file.
 
 Sources are stored in language directories (en-us/video-platform.md), while
 .vitepress/rewrites.json changes URLs to put the language code last (/video-platform/en-us).
@@ -15,7 +15,7 @@ This script and the VitePress configuration read the same rewrites.json, ensurin
 added Markdown file produces a page.
 
 <docs-dir> is the VitePress content root, site/docs/docs/. site/docs/ is organized by subdomain:
-docs/ belongs to docs.limooo.cn and services/ belongs to services.limooo.cn. The .vitepress/
+docs/ belongs to docs.comicine.com and services/ belongs to services.comicine.com. The .vitepress/
 directory is a sibling of the content root.
 
 Usage:

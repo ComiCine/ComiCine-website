@@ -37,11 +37,12 @@ import {
   APPLE_ACCOUNT_HOSTNAME,
   BASE_URL,
   GATE_HOSTNAME,
-  IDENTITY_HOSTNAME,
+  IDENTITY_HOSTS,
   IDENTITY_SITE_ROLES,
   IMAGES_HOSTNAME,
   LANG_COOKIE,
   REDIRECT_HOSTNAME,
+  ROOT_DOMAINS,
   ROOT_DOMAIN,
   VISITOR_HOSTNAME,
   WWW_HOSTNAME,
@@ -197,7 +198,7 @@ function defer(context: RequestContext, promise: Promise<unknown>): void {
  */
 const PAGE_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
 const PAGE_CACHE_VARY = "Accept-Language";
-const PRIVATE_PAGE_HOSTS = new Set([VISITOR_HOSTNAME, APPLE_ACCOUNT_HOSTNAME]);
+const PRIVATE_PAGE_HOSTS = new Set(Object.keys(IDENTITY_SITE_ROLES));
 const PRIVATE_PAGE_CACHE_CONTROL = "private, no-store";
 const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/",
@@ -206,15 +207,16 @@ const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/qr-codes",
   "/icons",
 ]);
-const LEGACY_HTML_HOST_ROOTS = new Map<string, string>([
-  [ROOT_DOMAIN, `${BASE_URL}/`],
-  [WWW_HOSTNAME, `${BASE_URL}/`],
-  [IMAGES_HOSTNAME, `${BASE_URL}/`],
-  [`services.${ROOT_DOMAIN}`, `https://services.${ROOT_DOMAIN}/`],
-  [`contact.${ROOT_DOMAIN}`, `https://contact.${ROOT_DOMAIN}/`],
-  [VISITOR_HOSTNAME, `https://${VISITOR_HOSTNAME}/`],
-  [APPLE_ACCOUNT_HOSTNAME, `https://${APPLE_ACCOUNT_HOSTNAME}/`],
-]);
+const LEGACY_HTML_HOST_ROOTS = new Map<string, string>();
+for (const domain of ROOT_DOMAINS) {
+  LEGACY_HTML_HOST_ROOTS.set(domain, `${BASE_URL}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`www.${domain}`, `${BASE_URL}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`images.${domain}`, `${BASE_URL}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`services.${domain}`, `https://services.${ROOT_DOMAIN}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`contact.${domain}`, `https://contact.${ROOT_DOMAIN}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`visitor.${domain}`, `https://${VISITOR_HOSTNAME}/`);
+  LEGACY_HTML_HOST_ROOTS.set(`account.${domain}`, `https://${APPLE_ACCOUNT_HOSTNAME}/`);
+}
 const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
   ["www", `${BASE_URL}/`],
   ["images", `${BASE_URL}/`],
@@ -224,7 +226,7 @@ const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
   ["visitor", `https://${VISITOR_HOSTNAME}/`],
   ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/`],
   ["redirect", `https://${REDIRECT_HOSTNAME}/`],
-  // docs.limooo.cn/ currently redirects to the main site via its own _redirects file.
+  // The docs root redirects to the main site via its own _redirects file.
   ["docs", `${BASE_URL}/`],
   ["status", `https://status.${ROOT_DOMAIN}/`],
 ]);
@@ -239,6 +241,10 @@ function resolveFeishuPathAlias(pathname: string): string | null {
   const match = pathname.match(/^\/(?:feishu|lark)(\/.*)?$/);
   if (!match) return null;
   return `${COMICINE_FEISHU_BASE_URL}${match[1] || "/"}`;
+}
+
+function isImageAssetHost(hostname: string): boolean {
+  return hostname === IMAGES_HOSTNAME || ROOT_DOMAINS.some((domain) => hostname === `images.${domain}`);
 }
 
 function resolveLegacyHtmlAlias(
@@ -470,7 +476,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   }
 
   if (
-    hostname === IDENTITY_HOSTNAME &&
+    IDENTITY_HOSTS.has(hostname) &&
     pathname !== "/login" &&
     pathname !== "/api/identity/exchange"
   ) {
@@ -480,8 +486,8 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  // images.limooo.cn is a static asset host, never an API origin.
-  if (hostname === IMAGES_HOSTNAME && isApiPath(pathname)) {
+  // The images host is static-only and never an API origin.
+  if (isImageAssetHost(hostname) && isApiPath(pathname)) {
     return new Response("Not Found", {
       status: 404,
       headers: { "Cache-Control": "no-store" },
@@ -506,12 +512,12 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   const sourceTrusted = whitelisted || isTrustedCrawler(request);
 
 // Route public static assets and APIs first. The redirect subdomain shares
-// /static assets; do not render redirect.limooo.cn/static/css/... as a redirect
+// /static assets; do not render redirect.<root-domain>/static/css/... as a redirect
 // page. Do this before blocklist checks because static assets and /files/ do
 // not require a database lookup.
   if (isPublicAssetPath(pathname) || isApiPath(pathname)) {
 // Clean file URL `/files/<name>` maps to `/static/files/<name>` in the build
-// output. It is public and bypasses the gate, including on images.limooo.cn.
+// output. It is public and bypasses the gate, including on the images host.
     if (pathname.startsWith(PUBLIC_FILES_PREFIX)) {
       const response = await servePublicFile(context, pathname);
       return brandedNotFoundResponse(context, response);
@@ -575,7 +581,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   if (pathname === "/gate") return handleGateEntry(context);
 
 // On the image subdomain, render a forced challenge at the current URL; do not change the address to /__gate.
-  if (forceChallenge && hostname === IMAGES_HOSTNAME) {
+  if (forceChallenge && isImageAssetHost(hostname)) {
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
 
@@ -607,7 +613,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 
   // Preserve permanent redirects for the image host's retired landing paths.
   const normalizedImagePath = pathname.replace(/\/+$/, "") || "/";
-  if (hostname === IMAGES_HOSTNAME && IMAGE_ASSET_LANDING_PATHS.has(normalizedImagePath)) {
+  if (isImageAssetHost(hostname) && IMAGE_ASSET_LANDING_PATHS.has(normalizedImagePath)) {
     return new Response(null, {
       status: 301,
       headers: {
@@ -617,7 +623,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  if (hostname === ROOT_DOMAIN) {
+  if (ROOT_DOMAINS.includes(hostname)) {
     const feishuTarget = resolveFeishuPathAlias(pathname);
     if (feishuTarget) {
       return new Response(null, {
@@ -658,7 +664,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   }
 
 // images.<root_domain> serves public static assets only; map /icons and /portfolio/thumbs to /static.
-  if (hostname === IMAGES_HOSTNAME) {
+  if (isImageAssetHost(hostname)) {
     if (env.ASSETS) {
       const staticPath = pathname === "/static" || pathname.startsWith("/static/")
         ? pathname

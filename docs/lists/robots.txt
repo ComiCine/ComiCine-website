@@ -1,4 +1,4 @@
-# https://limooo.cn/robots.txt
+# https://comicine.com/robots.txt
 #
 # Public site: search engines, crawlers and AI agents are all welcome.
 #

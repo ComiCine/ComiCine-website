@@ -76,14 +76,14 @@ describe("logout next validation", () => {
     const resp = await logout("");
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/");
     expect(resp.headers.getSetCookie()).toHaveLength(3);
   });
 
   it("falls back to the site root for an off-site next when Access is unconfigured", async () => {
     const resp = await logout("?next=https://evil.example/phish");
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/");
   });
 
   it("still accepts a relative in-site next", async () => {
@@ -102,7 +102,7 @@ describe("logout next validation", () => {
   // %0d%0a encodes CRLF; these values used to reach Location directly and make workerd throw TypeError while building the response headers.
     const resp = await logout("?next=%2F%0d%0aX%3A%201");
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/");
     expect(resp.headers.get("Location")).not.toContain("\r");
     expect(resp.headers.get("Location")).not.toContain("\n");
   });
@@ -111,7 +111,7 @@ describe("logout next validation", () => {
     for (const raw of ["//evil.example", "%2F%5Cevil.example", "http://evil.example"]) {
       const resp = await logout(`?next=${raw}`);
       expect(resp.status, `next=${raw}`).toBe(302);
-      expect(resp.headers.get("Location"), `next=${raw}`).toBe("https://limooo.cn/");
+      expect(resp.headers.get("Location"), `next=${raw}`).toBe("https://comicine.com/");
     }
   });
 
@@ -122,7 +122,7 @@ describe("logout next validation", () => {
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe(
       "https://limooo.cloudflareaccess.com/cdn-cgi/access/logout?redirect_url=" +
-        encodeURIComponent("https://limooo.cn/"),
+        encodeURIComponent("https://comicine.com/"),
     );
   });
 });

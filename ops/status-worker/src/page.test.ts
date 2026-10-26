@@ -55,10 +55,10 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
     for (const needle of [
       'class="site-nav"',
-      'class="nav-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1"',
-      'href="https://limooo.cn"',
-      'href="https://services.limooo.cn"',
-      'href="https://contact.limooo.cn"',
+      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=2"',
+      'href="https://comicine.com"',
+      'href="https://services.comicine.com"',
+      'href="https://contact.comicine.com"',
       'class="nav-external"',
       'class="lang-btn"',
       'id="langMenu"',
@@ -76,7 +76,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
     // base.html is the canonical header; derive the expected order from its three nav template variables, then compare it with navHtml().
     const base = readFileSync(new URL("../../../src/templates/base.html", import.meta.url), "utf8");
     const nav = base.slice(base.indexOf("<nav"), base.indexOf("</nav>"));
-    const literal = ["https://limooo.cn", "https://services.limooo.cn", "https://contact.limooo.cn"];
+    const literal = ["https://comicine.com", "https://services.comicine.com", "https://contact.comicine.com"];
     const slots = ["home_url", "services_url", "contact_url"].map((name, i) => ({
       url: literal[i]!,
       at: nav.indexOf(`{{ ${name} }}`),
@@ -100,7 +100,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
+      'class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=2" alt="ComiCine" width="16" height="16">',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
@@ -186,7 +186,7 @@ describe("failure pages", () => {
       expect(html, lang).toContain('class="site-nav"');
       expect(html, lang).toContain('class="global-footer"');
       expect(html, lang).toContain('class="btn primary" href="/"');
-      expect(html, lang).toContain("https://limooo.cn");
+      expect(html, lang).toContain("https://comicine.com");
       expect(html, lang).not.toContain("<script>");
     }
     expect(notFoundHtml("zh-cn")).toContain("页面不存在");

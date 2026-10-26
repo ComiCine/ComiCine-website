@@ -7,7 +7,7 @@ See ADDITIONAL_TERMS.txt.
 
 # image-watermark
 
-Cloudflare Worker for `image.limooo.cn/*`: the **A2 normalising proxy** that maps a
+Cloudflare Worker for `image.comicine.com/*`: the **A2 normalising proxy** that maps a
 "logical path" back to a public static asset and always returns the watermarked or
 the clean variant.
 
@@ -34,10 +34,10 @@ Referer to bypass.
   `/static/<path>`. Nested portfolio paths and other portfolio formats return 404.
 - `/qr-codes/*`, `/icons/*`, and other non-portfolio image paths -> returns the clean
   static asset at `/static/<path>`.
-- Accepts the `images.limooo.cn` style `/static/portfolio/...` too: the `/static`
+- Accepts the `images.comicine.com` style `/static/portfolio/...` too: the `/static`
   prefix is stripped before normalisation.
-- The roots of `images.limooo.cn` and `image.limooo.cn` redirect to `https://limooo.cn/`;
-  `images.limooo.cn` remains the static asset host.
+- The roots of `images.comicine.com` and `image.comicine.com` redirect to `https://comicine.com/`;
+  `images.comicine.com` remains the static asset host.
 - Never proxies `/api/*`; anything that is not an image or an allowed static directory -> 404.
 - Accepts only `GET` and `HEAD`; other methods return 405 without contacting the origin.
 - A missing watermark variant returns 404 and **never falls back to the original**
@@ -69,7 +69,7 @@ break scanning) and `icons/` (brand logo/favicon) are not.
 # 1) rebuild and deploy Pages (regenerates public/static/wm/ and drops the originals)
 bash ops/pages_deploy.sh
 
-# 2) deploy the Worker (updates the image.limooo.cn routing logic)
+# 2) deploy the Worker (updates the image.comicine.com routing logic)
 bash ops/workers_deploy.sh --worker=image-watermark
 ```
 
@@ -80,8 +80,8 @@ never written to the repository.
 
 ## Route and DNS
 
-`image.limooo.cn/*` -> `image-watermark`, with `image.limooo.cn` CNAME'd to
-`limooo.pages.dev` (proxied).
+`image.comicine.com/*` -> `image-watermark`, with `image.comicine.com` CNAME'd to
+`comicine.pages.dev` (proxied).
 
 **The route is not declared in `wrangler.toml` on purpose.** Custom domains and
 their routes are managed in the Cloudflare Dashboard (Workers & Pages ->

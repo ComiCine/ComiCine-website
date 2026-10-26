@@ -92,13 +92,13 @@ describe("renderRedirectPage", () => {
     const internal = await render(`https://${REDIRECT_HOSTNAME}/?to=${encodeURIComponent(`${BASE_URL}/portfolio`)}`, {
       ASSETS: assets(),
     } as Env);
-    expect(internal.html).toContain('<link rel="preload" as="image" href="https://images.limooo.cn/');
+    expect(internal.html).toContain('<link rel="preload" as="image" href="https://images.comicine.com/');
     expect(internal.html).not.toContain('"preload":[]');
 
     const external = await render(`https://${REDIRECT_HOSTNAME}/?to=${encodeURIComponent("https://example.com/x")}`, {
       ASSETS: assets(),
     } as Env);
-    expect(external.html).not.toContain('<link rel="preload" as="image" href="https://images.limooo.cn/');
+    expect(external.html).not.toContain('<link rel="preload" as="image" href="https://images.comicine.com/');
     expect(external.html).toContain('"preload":[]');
   });
 
@@ -166,7 +166,7 @@ describe("renderRedirectPage template cache", () => {
 
     expect(vi.mocked(router.fetch)).toHaveBeenCalledTimes(1);
     expect(first.html).toBe(second.html);
-    expect(first.html).toContain('<link rel="preload" as="image" href="https://images.limooo.cn/');
+    expect(first.html).toContain('<link rel="preload" as="image" href="https://images.comicine.com/');
     expect(first.html).not.toContain("{{");
   });
 

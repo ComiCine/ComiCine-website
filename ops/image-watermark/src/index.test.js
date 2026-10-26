@@ -21,9 +21,9 @@ import worker, {
   wmTarget,
 } from "./index.js";
 
-const ORIGIN = "https://limooo.cn";
+const ORIGIN = "https://comicine.com";
 
-test("logicalPath strips the /static prefix (images.limooo.cn style paths)", () => {
+test("logicalPath strips the /static prefix (images.comicine.com style paths)", () => {
   assert.equal(logicalPath("/portfolio/a.webp"), "/portfolio/a.webp");
   assert.equal(logicalPath("/static/portfolio/a.webp"), "/portfolio/a.webp");
   assert.equal(logicalPath("/static/qr-codes/a.png"), "/qr-codes/a.png");
@@ -32,7 +32,7 @@ test("logicalPath strips the /static prefix (images.limooo.cn style paths)", () 
 test("bare domain redirects to the main site; asset paths do not", () => {
   assert.equal(
     landingRedirect(new URL("https://image.limooo.cn/")),
-    "https://limooo.cn/",
+    "https://comicine.com/",
   );
   assert.equal(
     landingRedirect(new URL("https://image.limooo.cn/portfolio/a.webp")),
@@ -47,7 +47,7 @@ test("worker returns a permanent redirect for bare-domain requests", async () =>
     { waitUntil() {} },
   );
   assert.equal(response.status, 301);
-  assert.equal(response.headers.get("location"), "https://limooo.cn/");
+  assert.equal(response.headers.get("location"), "https://comicine.com/");
 });
 
 test("only top-level portfolio png/jpg/jpeg/webp get watermarked; thumbs do not", () => {

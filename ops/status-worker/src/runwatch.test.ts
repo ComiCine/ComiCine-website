@@ -408,14 +408,14 @@ describe("daily cron wiring", () => {
     const { env } = alertEnv(db, { STATUS_TOKEN: "tok-0123456789" } as Partial<Env>);
 
     const unauth = await worker.fetch(
-      new Request("https://status.limooo.cn/daily-checks", { method: "POST" }),
+      new Request("https://status.comicine.com/daily-checks", { method: "POST" }),
       env,
     );
     expect(unauth.status).toBe(401);
     expect(calls).toHaveLength(0);
 
     const ok = await worker.fetch(
-      new Request("https://status.limooo.cn/daily-checks", {
+      new Request("https://status.comicine.com/daily-checks", {
         method: "POST",
         headers: { Authorization: "Bearer tok-0123456789" },
       }),

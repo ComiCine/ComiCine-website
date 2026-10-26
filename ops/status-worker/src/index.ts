@@ -37,7 +37,7 @@ import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from 
  *
  * There are only three public write endpoints: POST /run (runs probes and writes to D1), POST /alert-test
  * (sends a real alert) and POST /daily-checks (runs daily checks immediately and may send alerts).
- * This Worker is exposed at status.limooo.cn without Cloudflare Access,
+ * This Worker is exposed at status.comicine.com without Cloudflare Access,
  * so all three require `Authorization: Bearer $STATUS_TOKEN`; see authorized().
  * **After deployment, run `wrangler secret put STATUS_TOKEN`; otherwise these endpoints always return 401.**
  */
@@ -338,7 +338,7 @@ function renderAlert(
   const text =
     `${block.intro}\n\n` +
     items.map((i) => `- ${i.name}: ${i.detail}`).join("\n") +
-    `\n\n${when}\n\n${t.view}: https://status.limooo.cn/\n\n${block.hint}\n`;
+    `\n\n${when}\n\n${t.view}: https://status.comicine.com/\n\n${block.hint}\n`;
   const rows = items
     .map(
       (i) =>
@@ -352,7 +352,7 @@ function renderAlert(
     `<p style="color:#52525b;font-size:14px;margin:0 0 16px">${esc(block.intro)}</p>` +
     `<table style="width:100%;border-collapse:collapse">${rows}</table>` +
     `<p style="font-size:13px;color:#52525b;margin:14px 0 0">${esc(when)}</p>` +
-    `<p style="margin:16px 0 0"><a href="https://status.limooo.cn/" style="color:${block.color};font-size:14px">${esc(t.view)}</a></p>` +
+    `<p style="margin:16px 0 0"><a href="https://status.comicine.com/" style="color:${block.color};font-size:14px">${esc(t.view)}</a></p>` +
     `<p style="color:#71717a;font-size:12px;margin:18px 0 0;border-top:1px solid #e4e4e7;padding-top:12px">${esc(block.hint)}</p>` +
     `</div>`;
   return { subject: block.subject, text, html };
@@ -882,12 +882,12 @@ export const STATUS_HTML_CACHE_CONTROL =
  *   - `style-src 'self'`: styles come from /status.css, and the template has no style attributes;
  *   - `font-src 'self' data:`: the brand font is a WOFF2 subset embedded in CSS
  * (see brand-font.ts; the main-site font is cross-origin and requires CORS, so the status page does not depend on it);
- *   - `img-src` allows only images.limooo.cn, which hosts the same favicon used by base.html.
+ *   - `img-src` allows only images.comicine.com, which hosts the same favicon used by base.html.
  * Before loosening any directive, ask whether failure of that resource could take down the status page.
  */
 export const STATUS_CSP =
   "default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self' data:; " +
-  "img-src 'self' data: https://images.limooo.cn; connect-src 'self'; base-uri 'none'; " +
+  "img-src 'self' data: https://images.comicine.com; connect-src 'self'; base-uri 'none'; " +
   "form-action 'none'; frame-ancestors 'none'";
 
 /** HTML response headers shared by normal, 404, and error pages; only Cache-Control differs. */
@@ -908,7 +908,7 @@ export async function renderStatusPage(env: Env, lang: string): Promise<string> 
  * Authentication for operational write endpoints (/run, /alert-test, /daily-checks): compare
  * `Authorization: Bearer <STATUS_TOKEN>`。
  *
- * This Worker is public at status.limooo.cn and has no Cloudflare Access. These three endpoints
+ * This Worker is public at status.comicine.com and has no Cloudflare Access. These three endpoints
  * have meaningful costs: /run writes D1 (probes × heartbeats/probe_state/probe_uptime_daily,
  * so repeated calls can exhaust the daily write quota), and /alert-test and /daily-checks can send real alerts.
  * The shared secret is the only access control.
@@ -996,7 +996,7 @@ export default {
         html = await renderStatusPage(env, lang);
       } catch (err) {
         // If the database cannot be read, return the branded 503 page instead of Cloudflare’s generic error page,
-        // which has no branding or exit path and may make visitors think all of limooo.cn is down. Never cache the error page.
+        // which has no branding or exit path and may make visitors think all of comicine.com is down. Never cache the error page.
         console.error(
           JSON.stringify({ event: "status_render_failed", lang, error: String(err) }),
         );

@@ -19,6 +19,7 @@ import {
   LANG_COOKIE_MAX_AGE,
   PAGE_ROUTES,
   PUBLIC_HOSTS,
+  rootDomainForHost,
   ROOT_DOMAIN,
   SUPPORTED_LANGS,
 } from "./config";
@@ -183,7 +184,7 @@ export function safeNextUrl(raw: string | null): string {
   return fallback;
 }
 
-/** Gate and login redirect allowlist: exact hostnames or configured *.limooo.cn subdomains. */
+/** Gate and login redirect allowlist: exact hostnames or configured domain subdomains. */
 export function isPublicHost(host: string): boolean {
   if (!host) return false;
   if (PUBLIC_HOSTS.has(host)) return true;
@@ -269,9 +270,10 @@ function regionSubtag(lang: string): string {
  */
 export function detectLang(request: Request): SupportedLang {
   const host = (request.headers.get("Host") ?? requestUrl(request).hostname).split(":")[0];
-  // 语言 cookie 以 Domain=.limooo.cn 下发，全站共享：主域与所有子域（含
+  // Language cookies are shared within the matching current or legacy domain:
+  // main site and its subdomains (including
   // visitor / account / status / images 等）都读同一份，切语言后跨子域一致。
-  if (host === ROOT_DOMAIN || host.endsWith(`.${ROOT_DOMAIN}`)) {
+  if (rootDomainForHost(host)) {
     const cookie = getCookie(LANG_COOKIE, request.headers.get("Cookie"));
     if (cookie && SUPPORTED_LANGS.includes(cookie.toLowerCase() as SupportedLang)) {
       return cookie.toLowerCase() as SupportedLang;
@@ -297,13 +299,11 @@ export function detectLang(request: Request): SupportedLang {
   return DEFAULT_LANG as SupportedLang;
 }
 
-/** 语言 cookie（跨 .<root_domain> 子域共享）。 */
+/** Share language preference across subdomains of the request's current domain. */
 export function langCookieHeader(host: string, lang: string): string {
   const bareHost = host.split(":")[0] ?? "";
-  const domain =
-    bareHost === ROOT_DOMAIN || bareHost.endsWith(`.${ROOT_DOMAIN}`)
-      ? `Domain=.${ROOT_DOMAIN}; `
-      : "";
+  const cookieDomain = rootDomainForHost(bareHost);
+  const domain = cookieDomain ? `Domain=.${cookieDomain}; ` : "";
   return `${LANG_COOKIE}=${lang}; Path=/; Max-Age=${LANG_COOKIE_MAX_AGE}; SameSite=Lax; Secure; ${domain}`;
 }
 
@@ -350,7 +350,7 @@ export function pageAsset(host: string, pathname: string, lang: string): string 
 /**
  * 免人机验证的公开文件目录：`src/static/files/` 随构建镜像到
  * `public/static/files/`，这里额外暴露成干净 URL `/files/<文件名>`
- * （limooo.cn 与 images.limooo.cn 都可用），供站外直接引用，不进门禁。
+ * （comicine.com 与 images.comicine.com 都可用），供站外直接引用，不进门禁。
  */
 export const PUBLIC_FILES_PREFIX = "/files/";
 

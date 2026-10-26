@@ -181,7 +181,7 @@ export async function sendViaSmtp(
     const greeting = await session.readReply();
     if (!greeting.startsWith("220")) return { sent: false, reason: `smtp_greeting: ${greeting.slice(0, 60)}` };
 
-    await session.cmd(`EHLO limooo.cn`, "250");
+    await session.cmd(`EHLO comicine.com`, "250");
     await session.cmd("AUTH LOGIN", "334");
     await session.cmd(b64(cfg.user), "334");
     const auth = await session.cmd(b64(cfg.pass), "235");

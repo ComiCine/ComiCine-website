@@ -34,6 +34,7 @@ import {
   GATE_COOKIE,
   GATE_TTL_SECONDS,
   ROOT_DOMAIN,
+  rootDomainForHost,
 } from "./config";
 import { GATE_I18N } from "../_data/runtime";
 import { hmacSha256Hex, timingSafeEqual } from "./crypto";
@@ -161,14 +162,16 @@ export async function readGateCookie(
   };
 }
 
-/** Issue a __gate cookie for Domain=.<root_domain> with the contract TTL (one hour by default). */
-export async function mintGateCookie(key: string): Promise<string> {
+/** Issue a __gate cookie for the matching current or legacy root domain, with the contract TTL. */
+export async function mintGateCookie(key: string, host: string = ROOT_DOMAIN): Promise<string> {
   const ttlSeconds = GATE_TTL_SECONDS;
   const now = Math.floor(Date.now() / 1000);
   const expiry = now + ttlSeconds;
   const payload = `${now}.${expiry}`;
   const signature = await hmacSha256Hex(key, payload);
-  return `${GATE_COOKIE}=${payload}.${signature}; Domain=.${ROOT_DOMAIN}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${ttlSeconds}`;
+  const rootDomain = rootDomainForHost(host);
+  const domain = rootDomain ? ` Domain=.${rootDomain};` : "";
+  return `${GATE_COOKIE}=${payload}.${signature};${domain} HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${ttlSeconds}`;
 }
 
 /**
@@ -183,9 +186,9 @@ export function purgeLegacyGateCookie(): string {
   return `${GATE_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax`;
 }
 
-/** Set-Cookie headers for one issuance: clear the old scope, then write the new domain cookie. */
-export async function gateCookieHeaders(key: string): Promise<string[]> {
-  return [purgeLegacyGateCookie(), await mintGateCookie(key)];
+/** Set-Cookie headers for one issuance: clear the host-only cookie, then write the matching root-domain cookie. */
+export async function gateCookieHeaders(key: string, host: string = ROOT_DOMAIN): Promise<string[]> {
+  return [purgeLegacyGateCookie(), await mintGateCookie(key, host)];
 }
 
 export interface GateTrustState {
@@ -308,7 +311,7 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
     if (trust.trusted || trust.shouldRenew) {
       const headers = new Headers(resp.headers);
       preserveSetCookie(headers, resp.headers);
-      for (const value of await gateCookieHeaders(env.GATE_HMAC_KEY)) {
+      for (const value of await gateCookieHeaders(env.GATE_HMAC_KEY, requestUrl(request).hostname)) {
         headers.append("Set-Cookie", value);
       }
       resp = new Response(resp.body, {
@@ -888,7 +891,7 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
 // coexists with the new domain cookie and remains first in the request header.
 // Writing only the new cookie would not remove the old one. preserveSetCookie
 // prevents the headers from being merged, avoiding Safari's first-header issue.
-  const cookies = await gateCookieHeaders(env.GATE_HMAC_KEY);
+  const cookies = await gateCookieHeaders(env.GATE_HMAC_KEY, requestUrl(request).hostname);
   deferLog(
     context,
     logEvent(env, "gate_verify", request, {

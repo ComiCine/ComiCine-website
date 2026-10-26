@@ -7,7 +7,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# limooo.cn deploy entrypoint (tasks/17, zero-VPS) -- the SINGLE deploy script.
+# ComiCine.com deploy entrypoint (tasks/17, zero-VPS) -- the SINGLE deploy script.
 #
 # The VPS was retired on 2026-09-17: no ssh, no rsync, no remote restart, no nginx.
 # Full deploy = (1) git commit -> (2) git push -> (3) Cloudflare Pages (+ related Workers).
@@ -21,7 +21,7 @@
 #   bash ops/deploy.sh -m "fix: thing"          # commit with message "deploy: fix: thing"
 #   bash ops/deploy.sh --message="fix: thing"   # same, long form
 #   bash ops/deploy.sh --pages                  # deploy the main Pages project only
-#   bash ops/deploy.sh --docs                   # build + deploy docs.limooo.cn only
+#   bash ops/deploy.sh --docs                   # build + deploy docs.comicine.com only
 #   bash ops/deploy.sh --workers                # deploy every standalone Worker only
 #   bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker only
 #   bash ops/deploy.sh --full ...               # same flags, but stream every step's output
@@ -91,7 +91,7 @@
 #
 # Environment:
 #   COMICINE_DEPLOY_VERBOSE=1   same as --full
-#   COMICINE_SKIP_DOCS=1        drop the docs.limooo.cn step
+#   COMICINE_SKIP_DOCS=1        drop the docs.comicine.com step
 #   COMICINE_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
 #   COMICINE_ALLOW_DIRTY=1      deploy release artifacts with a dirty working tree
 #   COMICINE_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
@@ -632,7 +632,7 @@ if [ "$DO_PAGES" = 1 ]; then
     run_step "Pages" bash ops/pages_deploy.sh
 fi
 
-# Stage 3b: docs.limooo.cn (separate Pages project limooo-docs).
+# Stage 3b: docs.comicine.com (separate Pages project comicine-docs).
 if [ "$DO_DOCS" = 1 ]; then
     # docs_deploy.sh smoke-checks each language path and exits nonzero on failure.
     run_step "Docs" bash ops/docs_deploy.sh

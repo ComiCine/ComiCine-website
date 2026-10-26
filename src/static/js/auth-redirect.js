@@ -14,7 +14,7 @@
         var destination = new URL(target);
         if (
             destination.protocol !== 'https:' ||
-            destination.hostname !== 'identity.limooo.cn' ||
+            destination.hostname !== 'identity.comicine.com' ||
             destination.port !== '' ||
             destination.pathname !== '/login'
         ) return;

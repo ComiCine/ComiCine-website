@@ -84,7 +84,7 @@ def test_render_v2_renders_fields():
         {
             "ray": "a4162d53fc471732-SJC",
             "ts": 1790466693,
-            "host": "visitor.limooo.cn",
+            "host": "visitor.comicine.com",
             "path": "/",
             "method": "GET",
             "status": 200,
@@ -93,7 +93,7 @@ def test_render_v2_renders_fields():
         }
     )
     assert "a4162d53fc471732-SJC" in line
-    assert "visitor.limooo.cn/" in line
+    assert "visitor.comicine.com/" in line
     assert "386ms" in line
     # No decorative symbols (AGENTS.md: terminal output must be plain English).
     assert "==" not in line and "--" not in line

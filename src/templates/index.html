@@ -36,7 +36,7 @@ See ADDITIONAL_TERMS.txt.
 {% block flash %}{% endblock %}
 
 {% block content %}
-<h1 id="hero-title" class="hero-title" aria-label="ComiCine"><img class="hero-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=1" alt="ComiCine" width="192" height="192"></h1>
+<h1 id="hero-title" class="hero-title" aria-label="ComiCine"><img class="hero-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=2" alt="ComiCine" width="192" height="192"></h1>
 <!-- Initial home view. -->
 <div id="home-screen" class="page-layer">
     <section class="flex-grow flex flex-col justify-center items-center text-center px-6"></section>
@@ -56,7 +56,7 @@ See ADDITIONAL_TERMS.txt.
             {# The card count comes from the images in src/static/portfolio, passed as portfolio_items.
                Add or remove images and rebuild; filenames are not maintained in this template. #}
             {% for item in portfolio_items %}
-            <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.limooo.cn/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
+            <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.comicine.com/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
                 {# Match each card to its image's aspect ratio (3:4, 3:2, 2:3, etc.) to avoid cropping mixed orientations. #}
                 <div class="work-frame" style="aspect-ratio: {{ item.ratio }}">
                     <picture>

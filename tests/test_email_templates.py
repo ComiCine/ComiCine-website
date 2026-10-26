@@ -50,12 +50,12 @@ def test_framework_still_renders_all_four_languages() -> None:
             body="Body text",
             code="123456",
             cta_label="Open",
-            cta_url="https://limooo.cn/",
+            cta_url="https://comicine.com/",
             hint="Hint",
         )
         assert "123456" in html and "123456" in plain, lang
         assert "__TITLE__" not in html and "__BODY__" not in html, lang
-        assert "https://limooo.cn/" in html, lang
+        assert "https://comicine.com/" in html, lang
 
 
 def test_renderer_escapes_html() -> None:

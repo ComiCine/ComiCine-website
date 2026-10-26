@@ -13,24 +13,24 @@ See ADDITIONAL_TERMS.txt.
 
 # ComiCine
 
-A fully serverless personal website and admin system running at [limooo.cn](https://limooo.cn). Public pages, the human-verification gate, the visitor panel, the Apple Account manager, monitoring and the status page all run on Cloudflare (Pages Functions, Workers, D1, R2).
+A fully serverless personal website and admin system running at [comicine.com](https://comicine.com). Public pages, the human-verification gate, the visitor panel, the Apple Account manager, monitoring and the status page all run on Cloudflare (Pages Functions, Workers, D1, R2).
 
 ## Features
 
 - **Public pages**: Home, Services, Contact, Portfolio — pre-rendered in 4 languages with dark/light theme switching
 - **Human verification**: the Turnstile gate page is rendered **in place** at the requested URL (no cross-domain hop) on every host — see [Gate behavior](#gate-behavior)
-- **Visitor panel** (`visitor.limooo.cn`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
+- **Visitor panel** (`visitor.comicine.com`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
-- **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
-- **Auth & roles**: one `ComiCine-Identity` Access application protects `identity.limooo.cn/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
-- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.limooo.cn/login`; Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
+- **Apple Account manager** (`account.comicine.com/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
+- **Auth & roles**: one `ComiCine` Access application protects `identity.comicine.com/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
+- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.comicine.com/login`; Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
-- **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
+- **Status page** (`status.comicine.com`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
   - D1 `blocked_ips` is the authority; `sync-worker` mirrors active rows to a Cloudflare IP List for edge interception (no origin, so no ipset/iptables)
   - Application-layer global filter as a fallback — banned IPs get a direct 403
-- **Unified redirect page** (`redirect.limooo.cn/?to=<https-url>`, `/r` also accepted): shows an interstitial before redirecting to any HTTPS destination
-- **Portfolio image handling**: originals are never published; only watermarked full images (`image.limooo.cn/portfolio/*`) and clean thumbnails are public
+- **Unified redirect page** (`redirect.comicine.com/?to=<https-url>`, `/r` also accepted): shows an interstitial before redirecting to any HTTPS destination
+- **Portfolio image handling**: originals are never published; only watermarked full images (`image.comicine.com/portfolio/*`) and clean thumbnails are public
 
 ## Tech stack
 
@@ -56,7 +56,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │   ├── cidr.py                                       # CIDR parsing helpers
 │   ├── portfolio.py                                  # portfolio image / thumbnail helpers
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
-│   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
+│   ├── services_pricing.py                           # CSV-driven price list for services.comicine.com
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
@@ -100,7 +100,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │   ├── deploy.sh                                     # the single deploy entry point (commit/push + Pages + docs + Worker)
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
-│   ├── docs_deploy.sh                                # docs.limooo.cn build + deploy (VitePress → Pages project limooo-docs)
+│   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -121,7 +121,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
 │   ├── status-worker/                                # Worker: probes, status page, alerting, D1 retention
-│   ├── image-watermark/                              # Worker: image.limooo.cn watermark normalizer
+│   ├── image-watermark/                              # Worker: image.comicine.com watermark normalizer
 │   ├── d1-archive/                                   # Worker: D1 snapshot/archive (cron 00:00)
 │   ├── sync-worker/                                  # Worker: D1 blocked_ips → Cloudflare IP List (cron 03:30)
 │   ├── requirements.txt                              # Python dependencies
@@ -136,7 +136,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.limooo.cn VitePress root + services.limooo.cn price-list CSVs
+└── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
 ```
 
 ## Quick start
@@ -256,7 +256,7 @@ cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
-bash ops/deploy.sh --docs       # deploy docs.limooo.cn only
+bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
@@ -271,13 +271,13 @@ process. `--dry-run` works with any combination of the flags above.
 Credentials are read from the local `secrets/webauthn.env`; every step runs over the
 Cloudflare API or Git.
 
-### Docs site (docs.limooo.cn)
+### Docs site (docs.comicine.com)
 
-`site/docs/` is a **per-subdomain container**: `docs/` holds the docs.limooo.cn
+`site/docs/` is a **per-subdomain container**: `docs/` holds the docs.comicine.com
 VitePress root (one markdown file per page per language), `services/` holds the
-services.limooo.cn price-list CSVs. The language code is the **last** URL segment and
+services.comicine.com price-list CSVs. The language code is the **last** URL segment and
 content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`); a suffix-less
-`/README` 302s to `/README/zh-cn`. The bare docs root `/` 302s to `https://limooo.cn`.
+`/README` 302s to `/README/zh-cn`. The bare docs root `/` 302s to `https://comicine.com`.
 
 `.vitepress/rewrites.json` (beside the content) maps the markdown sources onto those suffixed
 routes, and `.vitepress/config.mts` gives each page its own `lang` / `themeConfig`
@@ -291,7 +291,7 @@ and footer live in the fork (`VPComiCineNav.vue` / `VPComiCineFooter.vue`) and m
 main site's `base.html` / `_footer.html` — edit them there and the next deploy picks it
 up (the fork is rebuilt only when its commit changes; use `COMICINE_VITEPRESS_FETCH=0` to
 build from a fork working tree). The site is a separate Cloudflare Pages project
-(`limooo-docs`) so it never touches the main `limooo` artifact, and it shares the
+(`comicine-docs`) so it never touches the main `comicine` artifact, and it shares the
 `user_lang_preference` / `comicine_theme` cookies with the main site.
 
 ```bash
@@ -309,8 +309,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   `SESSION_HMAC_KEY` empty, the edge answers 503 instead of rendering pages or
   issuing unsigned cookies.
 - The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
-  `Domain=.limooo.cn`), minted and validated entirely at the edge.
-- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML and sets the short-lived state cookie; a same-origin external script then navigates to `identity.limooo.cn/login`. Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`, while API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+  `Domain=.comicine.com`), minted and validated entirely at the edge.
+- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML and sets the short-lived state cookie; a same-origin external script then navigates to `identity.comicine.com/login`. Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`, while API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `limooo_blocklist` in step with the
@@ -341,7 +341,7 @@ The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full depl
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.limooo.cn` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. DNS for the Pages hosts points at `limooo.pages.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. DNS for the Pages hosts points at `comicine.pages.dev`.
 
 Runtime split:
 
@@ -351,7 +351,7 @@ Runtime split:
 | Pages | Pre-rendered static HTML at build time (multi-language) |
 | Data | D1 (visitor analytics, blocklist, Apple Account management, auth sessions) |
 | Human verification | Cloudflare Turnstile, gate page rendered in place |
-| Independent Workers | `status.limooo.cn` (`limooo-status`: probes, status page, retention), `image.limooo.cn` (`image-watermark`), `limooo-blocklist-sync` |
+| Independent Workers | `status.comicine.com` (`limooo-status`: probes, status page, retention), `image.comicine.com` (`image-watermark`), `limooo-blocklist-sync` |
 
 ### Build & directory layout
 
@@ -373,7 +373,7 @@ Configured under **Pages project settings → Environment variables → Encrypt 
 | `TURNSTILE_SECRET` | Server-side siteverify secret |
 | `GATE_HMAC_KEY` | HMAC-SHA256 signing key for the `__gate` cookie (`openssl rand -hex 32`) |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access team domain; also the JWT `iss` used for verification |
-| `ACCESS_IDENTITY_AUD` | AUD for the single `ComiCine-Identity` Access application; source-host roles are applied by each site callback from `config-contract.json` |
+| `ACCESS_IDENTITY_AUD` | AUD for the single `ComiCine` Access application; source-host roles are applied by each site callback from `config-contract.json` |
 | `VISITOR_IP_KEY` | Fernet key for the encrypted full visitor IP column (`visitor_rollups.ip_enc`) |
 | `OBSERVABILITY_HMAC_KEY` | HMAC key for the privacy-minimized visitor IP hash (`functions/_lib/tracking.ts`); the gate fails closed without it |
 | `SESSION_HMAC_KEY` | Pages session-cookie signing key (separate from `GATE_HMAC_KEY`) |
@@ -385,25 +385,25 @@ Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real valu
 
 Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Edge code trusts only the generated whitelist (`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
 
-Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.limooo.cn`), after which the page reloads the original target. `auth.limooo.cn` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
+Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.comicine.com`), after which the page reloads the original target. `auth.comicine.com` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 
 Every host that renders the gate is served by the same edge code, so there is no second gate implementation to keep in sync.
 
-The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget must list every host that renders it (the `limooo.cn` gate subdomains, including `auth`, `status`, `visitor`, `apple` and `images`).
+The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget must list every host that renders it (the `comicine.com` gate subdomains, including `auth`, `status`, `visitor`, `apple` and `images`).
 
 ### Page serving (clean URLs, no language path prefix)
 
 `src/build.py` pre-renders `public/<lang>/` in 4 languages; after the gate passes, the middleware picks a language by **cookie > Accept-Language > CF region > en-US** and fetches the matching page via `env.ASSETS.fetch()`, keeping the URL clean:
 
-- `limooo.cn/` → home page; `limooo.cn/services` / `limooo.cn/contact` → corresponding pages
-- `services.limooo.cn/` → services page; `contact.limooo.cn/` → contact page (subdomains serve content directly, no 301 to the main site)
-- `visitor.limooo.cn/` → visitor panel (login required); `account.limooo.cn/apple` → Apple Account manager (login required)
-- `images.limooo.cn/` → 301 to `limooo.cn/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.limooo.cn/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `limooo.cn/`)
-- `www.limooo.cn` → 301 to the main site
-- Root-level `x.html` aliases return 302 to `x.limooo.cn/` when `x` is an active public homepage subdomain (`services`, `contact`, `docs` or `status`); unknown names return 302 to the current site's homepage. `index.html` returns to the current host's canonical homepage.
-- Nav links keep absolute subdomain URLs (`https://services.limooo.cn` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
+- `comicine.com/` → home page; `comicine.com/services` / `comicine.com/contact` → corresponding pages
+- `services.comicine.com/` → services page; `contact.comicine.com/` → contact page (subdomains serve content directly, no 301 to the main site)
+- `visitor.comicine.com/` → visitor panel (login required); `account.comicine.com/apple` → Apple Account manager (login required)
+- `images.comicine.com/` → 301 to `comicine.com/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.comicine.com/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `comicine.com/`)
+- `www.comicine.com` → 301 to the main site
+- Root-level `x.html` aliases return 302 to `x.comicine.com/` when `x` is an active public homepage subdomain (`services`, `contact`, `docs` or `status`); unknown names return 302 to the current site's homepage. `index.html` returns to the current host's canonical homepage.
+- Nav links keep absolute subdomain URLs (`https://services.comicine.com` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
 
-### services.limooo.cn pricing (CSV-driven)
+### services.comicine.com pricing (CSV-driven)
 
 The services price list is **data, not markup**: `src/build.py` reads
 `docs/services/*.csv` on every render (`src/services_pricing.py`) and fills the
@@ -459,13 +459,13 @@ check against the committed CSVs.
 
 `docs/services/` is excluded from the VitePress build (`srcExclude` in
 `docs/.vitepress/config.mts`), so the CSVs stay a data source and are never
-published to docs.limooo.cn.
+published to docs.comicine.com.
 
 ### Performance / edge caching
 
 - `public/_routes.json` excludes `/static/*` and root static assets from Pages
   Functions, so CSS/JS/fonts are served directly by the Pages asset server.
-- Files in `src/static/files/` are mirrored to `/public/files/`, preserving nested paths, so `src/static/files/<path>` is served at `https://limooo.cn/public/files/<path>`.
+- Files in `src/static/files/` are mirrored to `/public/files/`, preserving nested paths, so `src/static/files/<path>` is served at `https://comicine.com/public/files/<path>`.
   `/public/files/*` bypasses Pages Functions and uses the same one-day cache as other static assets; missing paths return 404.
 - `public/_headers` gives versioned static assets a long browser cache with
   `stale-while-revalidate`; `public/_routes.json` and `_headers` are both
@@ -479,12 +479,12 @@ published to docs.limooo.cn.
   dead configuration, and the language cookie stays out of `Vary` because it
   would only fragment the browser cache.
 - First-party portfolio thumbnails and favicons use
-  `images.limooo.cn/static/...` (static edge cache, bypasses Functions)
+  `images.comicine.com/static/...` (static edge cache, bypasses Functions)
   instead of the watermark Worker; QR codes and externally hotlinked images
-  still use `image.limooo.cn`.
+  still use `image.comicine.com`.
 - Portfolio originals are never published: `/static/portfolio/<img>` returns 404.
-  Only clean thumbnails (`images.limooo.cn/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)
-  and the normalized, watermarked `/portfolio/<img>` on `image.limooo.cn` are public;
+  Only clean thumbnails (`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)
+  and the normalized, watermarked `/portfolio/<img>` on `image.comicine.com` are public;
   originals stay in the git-ignored `src/static/portfolio/` and the private R2 bucket
   `limooo-originals` (`ops/upload_originals.sh`).
 - Turnstile verification has a 3-second server-side timeout so Cloudflare
@@ -496,13 +496,13 @@ published to docs.limooo.cn.
 The shape of the live deployment, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: project `limooo` (`limooo.pages.dev`) serves `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; the docs site is the separate `limooo-docs` project behind `docs.limooo.cn`, and `fonts.limooo.cn` is backed by R2
+1. **Pages**: project `comicine` (`comicine.pages.dev`) serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; the docs site is the separate `comicine-docs` project behind `docs.comicine.com`, and `fonts.comicine.com` is backed by R2
 2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; the schema from `ops/migrations/` is present and `schema_version` tracks the applied versions; `apple_accounts` holds the Apple Account rows, and `blocked_ips` is the blocking authority (83 rows, 1 active — soft-deleted rows stay for audit)
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `ComiCine-Identity` protects only `identity.limooo.cn/login`; `visitor.limooo.cn` and `account.limooo.cn` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
-5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.limooo.cn` and `sink.limooo.cn` are Worker custom domains
-6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the dynamic-redirect phase is empty, and `ops/waf/rules.snapshot.json` is a refresh-time mirror of that empty phase (removed rules live only in git history)
-7. **Smoke checks**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → 302 to `https://limooo.cn`, `https://status.limooo.cn/` → 200
+4. **Access**: `ComiCine` protects only `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.comicine.com`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
+5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.comicine.com` and `sink.comicine.com` are Worker custom domains
+6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone sends GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving the path and query
+7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200
 
 The gate renders in place on every host, the real visitor IP is shown in the gate page
 and logs, and Access remains the only identity source.

@@ -28,7 +28,7 @@ Usage (Python):
         body="Thank you for using ComiCine. Enter the code below to continue.",
         code="123456",                 # optional: show the highlighted code block
         cta_label="Continue",          # optional: primary button
-        cta_url="https://limooo.cn",
+        cta_url="https://comicine.com",
         hint="If you did not request this, you can ignore this email.",  # optional: secondary hint
         preheader="Your verification code is 123456",  # optional: inbox preview
     )

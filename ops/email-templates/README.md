@@ -43,7 +43,7 @@ add a third copy of the same copy.
       body="Thanks for using ComiCine.",
       code="654321",                   # optional: highlight block
       cta_label="Open",                # optional: primary button
-      cta_url="https://limooo.cn",
+      cta_url="https://comicine.com",
       hint="If you did not request this, you can ignore this mail.",
       preheader="Your code is 654321",
   )
@@ -69,14 +69,14 @@ login), so this case is kept for reference only.
 - **Preferred channel after the VPS retirement**: the status-worker's
   `ALERT_WEBHOOK_URL` (HTTP webhook, Feishu bot format by default).
 - **Fallback**: the Workers `send_email` binding (requires Email Sending). Sender
-  domain `limooo.cn`; DNS changes stay on the `cf-bounce` subdomain, the root SPF
+  domain `comicine.com`; DNS changes stay on the `cf-bounce` subdomain, the root SPF
   record is untouched.
 - Recipients are injected with `wrangler secret put ALERT_TO` and never committed;
   with no recipient configured an alert is only logged and does not fail.
 - The `ComiCine` footer wordmark uses Baloo 2 (`font-size:1.21em` compensates the
   small glyphs); the TTF is embedded as a `cid` attachment.
-- The header logo comes from `images.limooo.cn` (keeps the alpha channel);
-  `image.limooo.cn` drops alpha and renders a black background.
+- The header logo comes from `images.comicine.com` (keeps the alpha channel);
+  `image.comicine.com` drops alpha and renders a black background.
 
 ## History (pre-migration, retired)
 

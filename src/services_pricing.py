@@ -5,13 +5,13 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""CSV data source for the services.limooo.cn price list.
+"""CSV data source for the services.comicine.com price list.
 
 The price list is no longer hard-coded in templates/services.html. Each build reads
 ``site/docs/services/*.csv``, so changing a price only requires editing the CSV and
 deploying. Note that ``site/docs/`` contains subdomain-specific directories:
-``docs/`` belongs to docs.limooo.cn (VitePress content), while ``services/`` belongs
-to services.limooo.cn and contains the price list read by this module:
+``docs/`` belongs to docs.comicine.com (VitePress content), while ``services/`` belongs
+to services.comicine.com and contains the price list read by this module:
 
   convention.csv   shots,price[,bookable]       -> convention photography (01), priced by shot count
   outdoor.csv      type,people,price[,bookable] -> portrait photography (02), studio/outdoor x solo/duo
@@ -43,8 +43,8 @@ from config import BASE_DIR
 
 SERVICES_DIR = os.path.join(BASE_DIR, "docs", "services")
 # site/docs/ is now split into subdomain directories: docs/ belongs to
-# docs.limooo.cn (the VitePress content source, built by ops/docs_deploy.sh),
-# while services/ belongs to services.limooo.cn and contains the price lists
+# docs.comicine.com (the VitePress content source, built by ops/docs_deploy.sh),
+# while services/ belongs to services.comicine.com and contains the price lists
 # read by this module.
 
 CONVENTION_CSV = "convention.csv"

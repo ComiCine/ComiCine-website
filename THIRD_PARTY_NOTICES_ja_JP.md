@@ -20,7 +20,7 @@ Inter のサブセットは src/static/fonts/inter/ および docs/docs/public/f
 
 Maple Mono NF CN の著作権表示は The Maple Mono Project Authors（Copyright 2022）で、OFL-1.1 に基づきます。上流プロジェクトは [subframe7536/maple-font](https://github.com/subframe7536/maple-font) です。ライセンス本文は [ops/fonts/OFL.txt](ops/fonts/OFL.txt) に含まれています。
 
-リポジトリには、ゲート画面用に Maple Mono NF CN Regular へ韓国語グリフを 2 文字追加する派生フォントのビルドスクリプトがあります。元フォントと生成されたフォントバイナリは Git リポジトリ外に保管され、生成した Web フォントは fonts.limooo.cn から配信されます。派生フォントにも、表示、再配布、予約フォント名に関する条項を含め、OFL-1.1 が適用されます。
+リポジトリには、ゲート画面用に Maple Mono NF CN Regular へ韓国語グリフを 2 文字追加する派生フォントのビルドスクリプトがあります。元フォントと生成されたフォントバイナリは Git リポジトリ外に保管され、生成した Web フォントは fonts.comicine.com から配信されます。派生フォントにも、表示、再配布、予約フォント名に関する条項を含め、OFL-1.1 が適用されます。
 
 ## ソフトウェア依存関係
 

@@ -17,17 +17,25 @@ function gateBodyAttr(name, fallback) {
   return value === null || value === undefined || value === '' ? (fallback || '') : value;
 }
 var DEFAULT_LANG = gateBodyAttr('data-default-lang', 'en-us');
-var ROOT_DOMAIN = gateBodyAttr('data-root-domain', 'limooo.cn');
+var ROOT_DOMAIN = gateBodyAttr('data-root-domain', 'comicine.com');
 var LANG_COOKIE = gateBodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = gateBodyAttr('data-lang-cookie-max-age', '31536000');
 var THEME_COOKIE = gateBodyAttr('data-theme-cookie', 'comicine_theme');
 /* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
 var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = gateBodyAttr('data-theme-cookie-max-age', '31536000');
+var LEGACY_ROOT_DOMAINS = ['limooo.cn'];
+function rootDomainForHost(host) {
+  var domains = [ROOT_DOMAIN].concat(LEGACY_ROOT_DOMAINS);
+  host = String(host || '').toLowerCase();
+  for (var i = 0; i < domains.length; i++) {
+    if (host === domains[i] || host.endsWith('.' + domains[i])) return domains[i];
+  }
+  return null;
+}
 function sharedCookieDomain() {
-  return location.hostname === ROOT_DOMAIN || location.hostname.endsWith('.' + ROOT_DOMAIN)
-    ? '; domain=.' + ROOT_DOMAIN
-    : '';
+  var root = rootDomainForHost(location.hostname);
+  return root ? '; domain=.' + root : '';
 }
 var CURRENT_LANG = gateBodyAttr('data-lang', DEFAULT_LANG);
 var gateVerificationInFlight = false;
@@ -196,7 +204,7 @@ function submitGateVerification(token) {
     .then(function (response) {
       if (response.ok) {
         var next = form.querySelector('input[name="next"]');
-        /* Navigate from this page directly to the original target, without redirect.limooo.cn. */
+        /* Navigate from this page directly to the original target, without the redirect subdomain. */
         location.replace(next && next.value ? next.value : '/');
         return null;
       }

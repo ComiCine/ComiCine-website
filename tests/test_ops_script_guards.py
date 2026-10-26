@@ -637,7 +637,7 @@ def test_waf_rules_plan_deletes_a_migrated_enabled_skip_rule(tmp_path):
         json.dumps(
             {
                 "captured_at": "2026-10-19T00:00:00Z",
-                "zone": "limooo.cn",
+                "zone": "comicine.com",
                 "phase": "http_request_firewall_custom",
                 "ruleset": {
                     "id": "ruleset-1",

@@ -33,7 +33,7 @@ elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
 fi
 
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PAGES_PROJECT="${PAGES_PROJECT:-limooo}"
+PAGES_PROJECT="${PAGES_PROJECT:-comicine}"
 PAGES_BRANCH="${PAGES_BRANCH:-main}"
 SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 
@@ -143,9 +143,9 @@ export CI=1 WRANGLER_SEND_METRICS=false
 
 # Post-deploy smoke check.
 echo "[pages] post-deploy check"
-health="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://limooo.cn/_health || echo 000)"
+health="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://comicine.com/_health || echo 000)"
 if [ "$health" != "200" ]; then
-    echo "FATAL: https://limooo.cn/_health = ${health} (expected 200)" >&2
+    echo "FATAL: https://comicine.com/_health = ${health} (expected 200)" >&2
     exit 1
 fi
 echo "[pages] /_health = 200 OK"

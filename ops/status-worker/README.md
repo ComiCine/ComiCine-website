@@ -7,7 +7,7 @@ See ADDITIONAL_TERMS.txt.
 
 # status-worker
 
-Cloudflare Worker behind `status.limooo.cn`: uptime probes, the public status page
+Cloudflare Worker behind `status.comicine.com`: uptime probes, the public status page
 and the alert channel that replaced Uptime Kuma.
 
 - Cron `* * * * *` runs one round of probes and writes D1
@@ -79,7 +79,7 @@ multiply D1 reads. Instead `/status.js` redirects once per session to
 The header and footer mirror the main site's `src/templates/base.html` and
 `src/templates/_footer.html` (same class names, same SVG, same `tokens.css` palette,
 Baloo 2 wordmark, language flyout, dark/light pill, GitHub/Bilibili links). The
-implementation is **self-contained on purpose**: `status.limooo.cn` is a separate
+implementation is **self-contained on purpose**: `status.comicine.com` is a separate
 origin, so linking the main site's `/static/**` would need a relaxed CSP *and* would
 make the status page depend on the very site it monitors being reachable. The
 trade-off is that this markup is duplicated by hand — the docs fork
@@ -118,7 +118,7 @@ raw exception text on purpose: the operator needs it, the public page does not.
 
 The status page ships the tightest CSP in the project: `default-src 'none'`,
 `style-src 'self'`, `script-src 'self'`, `font-src 'self' data:`, `img-src 'self'
-data: https://images.limooo.cn`, `connect-src 'self'`, `base-uri 'none'`,
+data: https://images.comicine.com`, `connect-src 'self'`, `base-uri 'none'`,
 `form-action 'none'`, `frame-ancestors 'none'`. There is no inline script or
 style, so the theme class is applied before paint by the blocking
 `/status-theme.js` in `<head>`. The Baloo 2 wordmark is a 2.2 KB woff2 subset
@@ -156,12 +156,12 @@ CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' ../../secrets/web
 Smoke test after a deploy:
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://status.limooo.cn/run
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://status.comicine.com/run
 # 401 without a token
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $STATUS_TOKEN" \
-  -X POST https://status.limooo.cn/run
+  -X POST https://status.comicine.com/run
 # 200 with the token
-curl -s -o /dev/null -w '%{http_code}\n' https://status.limooo.cn/_health
+curl -s -o /dev/null -w '%{http_code}\n' https://status.comicine.com/_health
 # 200
 ```
 
@@ -169,7 +169,7 @@ The daily checks can be exercised without waiting for 03:47 UTC:
 
 ```sh
 curl -s -H "Authorization: Bearer $STATUS_TOKEN" -X POST \
-  https://status.limooo.cn/daily-checks
+  https://status.comicine.com/daily-checks
 # {"runs":{"ok":true,"issues":0,"alerted":false},
 #  "blocklist":{"ok":true,"issues":0,"alerted":false}}
 # ok=false means "this step could not run" (missing secret, D1/API error), not

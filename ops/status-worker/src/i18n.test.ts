@@ -157,7 +157,7 @@ describe("probe error codes", () => {
 
 describe("language detection", () => {
   const req = (accept?: string) =>
-    new Request("https://status.limooo.cn/", accept ? { headers: { "Accept-Language": accept } } : {});
+    new Request("https://status.comicine.com/", accept ? { headers: { "Accept-Language": accept } } : {});
 
   it("reads Accept-Language by prefix and defaults to zh-cn", () => {
     expect(pickLang(req("zh-CN,zh;q=0.9"))).toBe("zh-cn");
@@ -169,7 +169,7 @@ describe("language detection", () => {
   });
 
   it("lets an explicit ?lang= override the header, and ignores junk values", () => {
-    const url = (q: string) => new URL(`https://status.limooo.cn/${q}`);
+    const url = (q: string) => new URL(`https://status.comicine.com/${q}`);
     expect(pickLang(req("en-US"), url("?lang=ja-jp"))).toBe("ja-jp");
     expect(pickLang(req("en-US"), url("?lang=EN-US"))).toBe("en-us");
     expect(pickLang(req("en-US"), url("?lang=fr-fr"))).toBe("en-us");

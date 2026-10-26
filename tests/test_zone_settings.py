@@ -99,7 +99,7 @@ def test_committed_snapshot_covers_every_guarded_key() -> None:
 
     missing = [key for key, _bad, _why in zone_settings.NOTEWORTHY if key not in settings]
     assert missing == [], f"guarded keys missing from the snapshot: {missing}"
-    assert data["zone"] == "limooo.cn"
+    assert data["zone"] == "comicine.com"
     assert set(zone_settings.SNAPSHOT_KEYS) == set(settings), (
         "snapshot drifted from SNAPSHOT_KEYS: regenerate with --snapshot"
     )

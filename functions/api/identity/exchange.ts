@@ -11,7 +11,7 @@
 
 import { consumeIdentityHandoff } from "../../_lib/identity";
 import type { Env } from "../../_lib/env";
-import { IDENTITY_HOSTNAME } from "../../_lib/config";
+import { IDENTITY_HOSTS } from "../../_lib/config";
 
 const MAX_BODY_BYTES = 2048;
 
@@ -60,7 +60,7 @@ async function readLimitedBody(request: Request): Promise<string | null> {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (new URL(request.url).hostname !== IDENTITY_HOSTNAME) return response(404, "Not Found");
+  if (!IDENTITY_HOSTS.has(new URL(request.url).hostname)) return response(404, "Not Found");
   if ((request.headers.get("Content-Type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json") {
     return response(415, "Unsupported Media Type");
   }

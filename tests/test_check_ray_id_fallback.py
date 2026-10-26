@@ -38,7 +38,7 @@ def test_permission_error_falls_back_to_the_aggregated_dataset(monkeypatch) -> N
                                 "dimensions": {
                                     "datetime": "2026-10-11T00:00:00Z",
                                     "clientIP": "203.0.113.7",
-                                    "clientRequestHTTPHost": "limooo.cn",
+                                    "clientRequestHTTPHost": "comicine.com",
                                     "clientRequestPath": "/",
                                     "clientRequestHTTPMethodName": "GET",
                                     "edgeResponseStatus": 200,

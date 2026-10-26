@@ -20,7 +20,7 @@
  *     --output-file=/tmp/baloo2-wordmark.woff2
  *   Then run: base64 -i /tmp/baloo2-wordmark.woff2 | tr -d '\n'
  *
- * Why the font is inlined: the status page runs on a separate Worker (status.limooo.cn), and
+ * Why the font is inlined: the status page runs on a separate Worker (status.comicine.com), and
  * the main site's /static/fonts/** is cross-origin. Cross-origin @font-face requires CORS
  * headers, which the main site does not provide. The status page must remain readable and
  * styled when the main site is down, so the wordmark font must be bundled here.

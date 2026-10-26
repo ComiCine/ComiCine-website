@@ -77,7 +77,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_PROJECT: limooo
+          PAGES_PROJECT: comicine
           PAGES_BRANCH: main
           COMICINE_PUBLIC_DIR: ${{ runner.temp }}/comicine-public
           COMICINE_PREVIEW_DIR: ${{ runner.temp }}/comicine-preview

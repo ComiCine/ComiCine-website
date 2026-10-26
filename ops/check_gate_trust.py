@@ -34,7 +34,7 @@ CONTRACT_PATH = ROOT / "config-contract.json"
 # See docs/lists/README.md.
 WHITELIST_PATH = ROOT / "docs" / "lists" / "whitelist.txt"
 # robots.txt has been the **only** crawler-list source since 2026-10-12. It also supplies the live
-# https://limooo.cn/robots.txt rules (the builder adds the Sitemap line), and this module extracts
+# https://comicine.com/robots.txt rules (the builder adds the Sitemap line), and this module extracts
 # each explicit User-agent as a gate allowlist entry. See docs/lists/README.md for the semantics.
 ROBOTS_PATH = ROOT / "docs" / "lists" / "robots.txt"
 OUTPUT_PATH = ROOT / "functions" / "_data" / "gateTrust.ts"

@@ -6,7 +6,7 @@
  */
 
 /**
- * docs.limooo.cn — VitePress 站点配置
+ * docs.comicine.com — VitePress 站点配置
  *
  * 内容源：site/docs/docs/*.md（本目录，即 VitePress 根）
  *   index.md                     -> /docs-home/zh-cn
@@ -22,8 +22,8 @@
  * 302 到主站；the Chinese documentation home uses `/docs-home/zh-cn`, while
  * the other language homes remain `/en-us`、`/ja-jp`、`/ko-kr`。
  *
- * site/docs/ 是**按子域分目录**的容器：docs/ 归 docs.limooo.cn（本目录），
- * services/ 归 services.limooo.cn（价目表 CSV，由 src/services_pricing.py 读取）。
+ * site/docs/ 是**按子域分目录**的容器：docs/ 归 docs.comicine.com（本目录），
+ * services/ 归 services.comicine.com（价目表 CSV，由 src/services_pricing.py 读取）。
  *
  * 语言码放在**页面路径最后一段**（不是 VitePress 的 locales 前缀），所以不用
  * `locales`，改用 `additionalConfig`（按**源目录**分层）+ `rewrites`：
@@ -38,10 +38,10 @@ import type { DefaultTheme } from 'vitepress'
 
 import { THEME_BOOTSTRAP_SCRIPT } from './theme/comicine.ts'
 
-const SITE_URL = 'https://docs.limooo.cn'
-const MAIN_SITE = 'https://limooo.cn'
-const SERVICES_SITE = 'https://services.limooo.cn'
-const CONTACT_SITE = 'https://contact.limooo.cn'
+const SITE_URL = 'https://docs.comicine.com'
+const MAIN_SITE = 'https://comicine.com'
+const SERVICES_SITE = 'https://services.comicine.com'
+const CONTACT_SITE = 'https://contact.comicine.com'
 const REPO = 'https://github.com/ComiCine/ComiCine-website'
 
 interface LangDef {
@@ -237,7 +237,7 @@ function themeFor(code: string): DefaultTheme.Config {
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
     ],
     footer: {
-      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
+      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
       items: [
         { text: L.footerRights },
         { text: 'AGPL-3.0' },
@@ -271,7 +271,7 @@ const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
 )
 
-const SOCIAL_IMAGE = 'https://images.limooo.cn/static/icons/social-preview.png'
+const SOCIAL_IMAGE = 'https://images.comicine.com/static/icons/social-preview.png'
 
 function canonicalUrlForPage(page: string): string | null {
   const sourcePage = page.startsWith('/') ? page.slice(1) : page

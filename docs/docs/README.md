@@ -13,24 +13,24 @@ See ADDITIONAL_TERMS.txt.
 
 # ComiCine
 
-一个完全无服务器的个人网站与管理系统，运行在 [limooo.cn](https://limooo.cn)。公开页面、人类验证门禁、访客面板、Apple Account 管理器、监控与状态页全部运行在 Cloudflare 上（Pages Functions、Workers、D1、R2）。
+一个完全无服务器的个人网站与管理系统，运行在 [comicine.com](https://comicine.com)。公开页面、人类验证门禁、访客面板、Apple Account 管理器、监控与状态页全部运行在 Cloudflare 上（Pages Functions、Workers、D1、R2）。
 
 ## 功能特性
 
 - **公开页面**：首页、服务、联系、作品集 —— 以 4 种语言预渲染，支持深色/浅色主题切换
 - **人类验证**：Turnstile 门禁页在所有主机上都**原地**渲染在请求的 URL 上（不跨域跳转）—— 见 [门禁行为](#门禁行为)
-- **访客面板**（`visitor.limooo.cn`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
+- **访客面板**（`visitor.comicine.com`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
-- **Apple Account 管理器**（`account.limooo.cn/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
-- **认证与角色**：单一 `ComiCine-Identity` Access 应用保护 `identity.limooo.cn/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
-- **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.limooo.cn/login`；Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
+- **Apple Account 管理器**（`account.comicine.com/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
+- **认证与角色**：单一 `ComiCine` Access 应用保护 `identity.comicine.com/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
+- **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.comicine.com/login`；Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
 - **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
-- **状态页**（`status.limooo.cn`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
+- **状态页**（`status.comicine.com`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
   - D1 `blocked_ips` 是权威数据源；`sync-worker` 把生效的行同步到 Cloudflare IP List，用于边缘拦截（没有源站，因此也不需要 ipset/iptables）
   - 应用层全局过滤器作为后备 —— 被封禁的 IP 直接收到 403
-- **统一跳转页**（`redirect.limooo.cn/?to=<https-url>`，也接受 `/r`）：在跳转到任意 HTTPS 目标之前显示一个中转提示页
-- **作品集图片处理**：原图永不对外发布；只有加水印的完整图片（`image.limooo.cn/portfolio/*`）和干净的缩略图是公开的
+- **统一跳转页**（`redirect.comicine.com/?to=<https-url>`，也接受 `/r`）：在跳转到任意 HTTPS 目标之前显示一个中转提示页
+- **作品集图片处理**：原图永不对外发布；只有加水印的完整图片（`image.comicine.com/portfolio/*`）和干净的缩略图是公开的
 
 ## 技术栈
 
@@ -56,7 +56,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── cidr.py                                       # CIDR parsing helpers
 │   ├── portfolio.py                                  # portfolio image / thumbnail helpers
 │   ├── render_app.py                                 # build-time read-only renderer used by src/build.py
-│   ├── services_pricing.py                           # CSV-driven price list for services.limooo.cn
+│   ├── services_pricing.py                           # CSV-driven price list for services.comicine.com
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
@@ -100,7 +100,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── deploy.sh                                     # the single deploy entry point (commit/push + Pages + docs + Worker)
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
-│   ├── docs_deploy.sh                                # docs.limooo.cn build + deploy (VitePress → Pages project limooo-docs)
+│   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -121,7 +121,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
 │   ├── status-worker/                                # Worker: probes, status page, alerting, D1 retention
-│   ├── image-watermark/                              # Worker: image.limooo.cn watermark normalizer
+│   ├── image-watermark/                              # Worker: image.comicine.com watermark normalizer
 │   ├── d1-archive/                                   # Worker: D1 snapshot/archive (cron 00:00)
 │   ├── sync-worker/                                  # Worker: D1 blocked_ips → Cloudflare IP List (cron 03:30)
 │   ├── requirements.txt                              # Python dependencies
@@ -136,7 +136,7 @@ See ADDITIONAL_TERMS.txt.
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.limooo.cn VitePress root + services.limooo.cn price-list CSVs
+└── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
 ```
 
 ## 快速开始
@@ -253,7 +253,7 @@ cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
-bash ops/deploy.sh --docs       # deploy docs.limooo.cn only
+bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
@@ -267,13 +267,13 @@ docs，即「完整部署」契约。若要只发布本地已提交的内容，
 
 凭据从本地 `secrets/webauthn.env` 读取；所有步骤都走 Cloudflare API 或 Git。
 
-### 文档站（docs.limooo.cn）
+### 文档站（docs.comicine.com）
 
-`site/docs/` 是一个**按子域分目录的容器**：`docs/` 存放 docs.limooo.cn 的
+`site/docs/` 是一个**按子域分目录的容器**：`docs/` 存放 docs.comicine.com 的
 VitePress 根（每种语言每页一个 markdown 文件），
-`services/` 存放 services.limooo.cn 的价目表 CSV。
+`services/` 存放 services.comicine.com 的价目表 CSV。
 语言码是 URL 的**最后**一段，内容页一律显式带上（`/README/zh-cn`、`/README/en-us`）；
-无后缀的 `/README` 会 302 到 `/README/zh-cn`；文档站根路径 `/` 会 302 到 `https://limooo.cn`。
+无后缀的 `/README` 会 302 到 `/README/zh-cn`；文档站根路径 `/` 会 302 到 `https://comicine.com`。
 
 `.vitepress/rewrites.json`（与内容同级）把源文件映射到带后缀的路由，
 `.vitepress/config.mts` 通过 `additionalConfig` 为每个页面设置各自的
@@ -286,7 +286,7 @@ VitePress 根（每种语言每页一个 markdown 文件），
 并与主站的 `base.html` / `_footer.html` 逐条对齐 —— 在那里修改它们，
 下一次部署就会生效（只有当 fork 的 commit 变化时才会重新构建它；
 使用 `COMICINE_VITEPRESS_FETCH=0` 可从 fork 工作区构建）。该站点是独立的
-Cloudflare Pages 项目（`limooo-docs`），因此绝不会碰到主 `limooo` 的产物，
+Cloudflare Pages 项目（`comicine-docs`），因此绝不会碰到主 `comicine` 的产物，
 并且与主站共享 `user_lang_preference` / `comicine_theme` 两个 cookie。
 
 ```bash
@@ -304,8 +304,8 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   `SESSION_HMAC_KEY` 为空时，边缘返回 503，
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<unix-expiry>.<HMAC-SHA256 hex>`（1 小时 TTL，
-  `HttpOnly`，`Domain=.limooo.cn`），完全在边缘签发与校验。
-- 未登录浏览器访问受保护页面时，来源站点先返回 HTTP 401 HTML，并设置短时 state cookie；同源外置脚本再跳转到 `identity.limooo.cn/login`，Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
+  `HttpOnly`，`Domain=.comicine.com`），完全在边缘签发与校验。
+- 未登录浏览器访问受保护页面时，来源站点先返回 HTTP 401 HTML，并设置短时 state cookie；同源外置脚本再跳转到 `identity.comicine.com/login`，Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
   Cloudflare IP List `limooo_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）
@@ -335,7 +335,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.limooo.cn` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。Pages 各主机的 DNS 都指向 `limooo.pages.dev`。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。Pages 各主机的 DNS 都指向 `comicine.pages.dev`。
 
 运行时划分：
 
@@ -345,7 +345,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | 页面 | 构建时预渲染的静态 HTML（多语言） |
 | 数据 | D1（访客分析、黑名单、Apple Account 管理、认证会话） |
 | 人类验证 | Cloudflare Turnstile，门禁页原地渲染 |
-| 独立 Worker | `status.limooo.cn`（`limooo-status`：探针、状态页、数据保留）、`image.limooo.cn`（`image-watermark`）、`limooo-blocklist-sync` |
+| 独立 Worker | `status.comicine.com`（`limooo-status`：探针、状态页、数据保留）、`image.comicine.com`（`image-watermark`）、`limooo-blocklist-sync` |
 
 ### 构建与目录结构
 
@@ -367,7 +367,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | 服务端 siteverify 密钥 |
 | `GATE_HMAC_KEY` | `__gate` cookie 的 HMAC-SHA256 签名密钥（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access 团队域名；同时也是用于验证的 JWT `iss` |
-| `ACCESS_IDENTITY_AUD` | 单一 `ComiCine-Identity` Access 应用的 AUD；角色由 `config-contract.json` 的来源主机映射决定 |
+| `ACCESS_IDENTITY_AUD` | 单一 `ComiCine` Access 应用的 AUD；角色由 `config-contract.json` 的来源主机映射决定 |
 | `VISITOR_IP_KEY` | 用于加密完整访客 IP 字段（`visitor_rollups.ip_enc`）的 Fernet 密钥 |
 | `OBSERVABILITY_HMAC_KEY` | 隐私最小化访客 IP 哈希的 HMAC 密钥（`functions/_lib/tracking.ts`）；缺失时门禁 fail-closed |
 | `SESSION_HMAC_KEY` | Pages 会话 cookie 签名密钥（与 `GATE_HMAC_KEY` 分开） |
@@ -379,25 +379,25 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 每个请求都会检查已签名的 `__gate` cookie。Cloudflare 的 `botManagement.verifiedBot` 被视为经过验证的搜索引擎信任信号；任意伪造的 `Googlebot`/`GPTBot` User-Agent 字符串以及客户端自带的 `cf_clearance` cookie 都不能绕过门禁。边缘代码只信任生成的白名单（`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`）来做完全绕过。
 
-未验证的请求会**原地**获得 Turnstile 门禁页：主机与路径始终不变。中间件在请求的 URL 上以状态码 `403` 渲染 `public/<lang>/auth.html`，`POST /__gate/verify` 在同一来源上返回 `Set-Cookie: __gate=…`（1 小时，`Domain=.limooo.cn`），随后页面重新加载最初的目标地址。`auth.limooo.cn` 是门禁主机 —— 它在自己的根路径上提供同一个页面，且拥有 `/__gate/config|diag|verify` 端点。
+未验证的请求会**原地**获得 Turnstile 门禁页：主机与路径始终不变。中间件在请求的 URL 上以状态码 `403` 渲染 `public/<lang>/auth.html`，`POST /__gate/verify` 在同一来源上返回 `Set-Cookie: __gate=…`（1 小时，`Domain=.comicine.com`），随后页面重新加载最初的目标地址。`auth.comicine.com` 是门禁主机 —— 它在自己的根路径上提供同一个页面，且拥有 `/__gate/config|diag|verify` 端点。
 
 每个渲染门禁的主机都由同一份边缘代码提供服务，因此不存在需要保持同步的第二套门禁实现。
 
-中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile 组件必须列出所有渲染它的主机（`limooo.cn` 的门禁子域，包括 `auth`、`status`、`visitor`、`apple` 与 `images`）。
+中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile 组件必须列出所有渲染它的主机（`comicine.com` 的门禁子域，包括 `auth`、`status`、`visitor`、`apple` 与 `images`）。
 
 ### 页面服务（干净 URL，无语言路径前缀）
 
 `src/build.py` 以 4 种语言预渲染 `public/<lang>/`；门禁通过之后，中间件按 **cookie > Accept-Language > CF 区域 > en-US** 的顺序选择语言，并通过 `env.ASSETS.fetch()` 获取匹配的页面，从而保持 URL 干净：
 
-- `limooo.cn/` → 首页；`limooo.cn/services` / `limooo.cn/contact` → 对应页面
-- `services.limooo.cn/` → 服务页；`contact.limooo.cn/` → 联系页（子域直接提供内容，不 301 到主站）
-- `visitor.limooo.cn/` → 访客面板（需要登录）；`account.limooo.cn/apple` → Apple Account 管理器（需要登录）
-- `images.limooo.cn/` → 301 到 `limooo.cn/`；其他路径提供作品集图片、favicon、logo 与二维码等静态资源。`image.limooo.cn/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径也 301 到 `limooo.cn/`）
-- `www.limooo.cn` → 301 到主站
-- 根路径下的 `x.html` 别名在 `x` 是现有公开首页子域名（`services`、`contact`、`docs`、`status`）时返回 302 到 `x.limooo.cn/`；名称无效时返回 302 到当前站点首页。`index.html` 返回当前主机的规范首页
-- 导航链接保持绝对子域 URL（`https://services.limooo.cn` 等）；语言切换是纯前端的 `applyLang()`，不重新加载、不改变 URL
+- `comicine.com/` → 首页；`comicine.com/services` / `comicine.com/contact` → 对应页面
+- `services.comicine.com/` → 服务页；`contact.comicine.com/` → 联系页（子域直接提供内容，不 301 到主站）
+- `visitor.comicine.com/` → 访客面板（需要登录）；`account.comicine.com/apple` → Apple Account 管理器（需要登录）
+- `images.comicine.com/` → 301 到 `comicine.com/`；其他路径提供作品集图片、favicon、logo 与二维码等静态资源。`image.comicine.com/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径也 301 到 `comicine.com/`）
+- `www.comicine.com` → 301 到主站
+- 根路径下的 `x.html` 别名在 `x` 是现有公开首页子域名（`services`、`contact`、`docs`、`status`）时返回 302 到 `x.comicine.com/`；名称无效时返回 302 到当前站点首页。`index.html` 返回当前主机的规范首页
+- 导航链接保持绝对子域 URL（`https://services.comicine.com` 等）；语言切换是纯前端的 `applyLang()`，不重新加载、不改变 URL
 
-### services.limooo.cn 价目表（CSV 驱动）
+### services.comicine.com 价目表（CSV 驱动）
 
 服务价目表是**数据，而不是标记**：`src/build.py` 在每次渲染时读取
 `docs/services/*.csv`（`src/services_pricing.py`），并填充
@@ -450,13 +450,13 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 `docs/services/` 已被排除在 VitePress 构建之外
 （`docs/.vitepress/config.mts` 中的 `srcExclude`），因此这些 CSV 始终只是数据源，
-绝不会发布到 docs.limooo.cn。
+绝不会发布到 docs.comicine.com。
 
 ### 性能 / 边缘缓存
 
 - `public/_routes.json` 把 `/static/*` 与根级静态资源排除在 Pages Functions 之外，
   因此 CSS/JS/字体由 Pages 资源服务器直接提供。
-- `src/static/files/` 中的文件会镜像到构建产物 `/public/files/` 并保留子目录，因此 `src/static/files/<path>` 可通过 `https://limooo.cn/public/files/<path>` 访问。
+- `src/static/files/` 中的文件会镜像到构建产物 `/public/files/` 并保留子目录，因此 `src/static/files/<path>` 可通过 `https://comicine.com/public/files/<path>` 访问。
   `/public/files/*` 绕过 Pages Functions，并使用与其他静态资源相同的一天缓存策略；不存在的路径返回 404。
 - `public/_headers` 为带版本号的静态资源设置带 `stale-while-revalidate`
   的长浏览器缓存；`public/_routes.json` 与 `_headers`
@@ -466,13 +466,13 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   这里**不再声称边缘缓存**：Cloudflare 不缓存 Pages Functions 的响应
   （同一 URL 连续请求 `cf-cache-status` 恒为 `DYNAMIC`），所以共享缓存的生命周期指令是死配置；
   语言 cookie 也不放进 `Vary`，否则只会把浏览器缓存切得更碎。
-- 第一方作品集缩略图与 favicon 使用 `images.limooo.cn/static/...`
+- 第一方作品集缩略图与 favicon 使用 `images.comicine.com/static/...`
   （静态边缘缓存，绕过 Functions），而不是水印 Worker；
   二维码与外部热链图片
-  仍然使用 `image.limooo.cn`。
+  仍然使用 `image.comicine.com`。
 - 作品集原图永不发布：`/static/portfolio/<img>` 返回 404。
-  只有干净的缩略图（`images.limooo.cn/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）
-  与 `image.limooo.cn` 上归一化、加水印的 `/portfolio/<img>` 是公开的；
+  只有干净的缩略图（`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）
+  与 `image.comicine.com` 上归一化、加水印的 `/portfolio/<img>` 是公开的；
   原图保留在被 git 忽略的 `src/static/portfolio/` 与私有 R2 桶
   `limooo-originals` 中（`ops/upload_originals.sh`）。
 - Turnstile 验证有 3 秒的服务端超时，
@@ -483,13 +483,13 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：项目 `limooo`（`limooo.pages.dev`）承载 `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档站是独立的 `limooo-docs` 项目（`docs.limooo.cn`），`fonts.limooo.cn` 由 R2 提供
+1. **Pages**：项目 `comicine`（`comicine.pages.dev`）承载 `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档站是独立的 `comicine-docs` 项目（`docs.comicine.com`），`fonts.comicine.com` 由 R2 提供
 2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到该项目；`ops/migrations/` 的 schema 已就位，已应用版本记录在 `schema_version`；`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威（83 行、1 行生效 —— 软删除行保留用于审计）
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
-4. **Access**：`ComiCine-Identity` 只保护 `identity.limooo.cn/login`；`visitor.limooo.cn` 与 `account.limooo.cn` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
-5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.limooo.cn` 与 `sink.limooo.cn` 是 Worker 自定义域名
-6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；动态重定向阶段为空，`ops/waf/rules.snapshot.json` 是刷新时刻对该空阶段的镜像（删掉的规则只存在于 git 历史里）
-7. **冒烟检查**：`https://limooo.cn/_health` → 200，`https://limooo.cn/?challenge=1` → 403，`https://docs.limooo.cn/` → 302 到 `https://limooo.cn`，`https://status.limooo.cn/` → 200
+4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；`visitor.comicine.com` 与 `account.comicine.com` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.comicine.com`。没有自建 IdP，也没有自定义登录页
+5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名
+6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳转到对应 `.com` 主机，并保留路径和查询参数
+7. **冒烟检查**：`https://comicine.com/_health` → 200，`https://comicine.com/?challenge=1` → 403，`https://docs.comicine.com/` → 302 到 `https://comicine.com`，`https://status.comicine.com/` → 200
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证

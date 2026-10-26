@@ -56,8 +56,8 @@ def test_body_translation_dict_does_not_collide_with_i18n_markers():
 
 def test_home_image_urls_use_edge_cached_asset_host():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
-    assert "https://images.limooo.cn/static/portfolio/thumbs/" in html
-    assert "https://image.limooo.cn/portfolio/thumbs/" not in html
+    assert "https://images.comicine.com/static/portfolio/thumbs/" in html
+    assert "https://image.comicine.com/portfolio/thumbs/" not in html
 
 
 def test_contact_prerenders_all_qr_images():
@@ -69,31 +69,31 @@ def test_contact_prerenders_all_qr_images():
 
     assert len(preloads) == 5
     assert set(preloads) == {
-        "https://image.limooo.cn/qr-codes/bilibili.webp",
-        "https://image.limooo.cn/qr-codes/qq.webp",
-        "https://image.limooo.cn/qr-codes/wechat.webp",
-        "https://image.limooo.cn/qr-codes/mail-services-zh-cn.webp",
-        "https://image.limooo.cn/qr-codes/form-services-zh-cn.webp",
+        "https://image.comicine.com/qr-codes/bilibili.webp",
+        "https://image.comicine.com/qr-codes/qq.webp",
+        "https://image.comicine.com/qr-codes/wechat.webp",
+        "https://image.comicine.com/qr-codes/mail-services-zh-cn.webp",
+        "https://image.comicine.com/qr-codes/form-services-zh-cn.webp",
     }
     assert html.count('(hover: hover) and (pointer: fine)') == 5
 
 
 def test_contact_survey_block_uses_limooo_shortlink_and_qr():
-    """The survey block uses the limooo.cn short link and the current language's QR code in all four locales."""
+    """The survey block uses the comicine.com short link and the current language's QR code in all four locales."""
     for lang in ("zh-cn", "en-us", "ja-jp", "ko-kr"):
         html = build.render_page(RENDER_APP, "contact.html", "/contact", lang)
         block = html[html.index('id="surveyBlock"'):]
         block = block[:block.index("</a>")]
 
-        assert f'href="https://limooo.cn/link/photograph-form-{lang}"' in block
-        assert f'data-qr="https://image.limooo.cn/qr-codes/form-services-{lang}.webp"' in block
+        assert f'href="https://comicine.com/link/photograph-form-{lang}"' in block
+        assert f'data-qr="https://image.comicine.com/qr-codes/form-services-{lang}.webp"' in block
         assert "qr-trigger" in block
         assert "lime-official.feishu.cn" not in block
 
 
 def test_theme_challenge_uses_gate_url_and_skips_gate_page():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
-    assert 'data-gate-url="https://auth.limooo.cn/__gate"' in html
+    assert 'data-gate-url="https://auth.comicine.com/__gate"' in html
     gate_html = build.render_gate(RENDER_APP, "zh-cn")
     assert 'data-gate-url=' not in gate_html
 
@@ -104,7 +104,7 @@ def test_visitor_inherits_base_nav_logo():
     logo_open_end = html.index(">", logo_start) + 1
 
     assert "ComiCine" in html[logo_start:html.index("</a>", logo_open_end)]
-    assert 'href="https://limooo.cn"' in html[html.rindex("<a", 0, logo_start):logo_open_end]
+    assert 'href="https://comicine.com"' in html[html.rindex("<a", 0, logo_start):logo_open_end]
 
 
 def test_static_ignore_skips_parallel_artifacts():
@@ -178,7 +178,7 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
 
     llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
     assert llms.startswith("# ComiCine\n")
-    assert "https://docs.limooo.cn/sitemap.xml" in llms
+    assert "https://docs.comicine.com/sitemap.xml" in llms
     sitemap = (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
     for host in (
         build.ROOT_DOMAIN,
@@ -352,14 +352,14 @@ def test_frontend_js_has_no_hardcoded_language_list_or_cookie_ttl():
 
 
 def test_preview_localization_uses_contract_domains(monkeypatch):
-    """W1-5: Preview rewrites use contract constants, so domain changes propagate instead of hard-coding limooo.cn."""
+    """W1-5: Preview rewrites use contract constants, so domain changes propagate instead of hard-coding comicine.com."""
     patterns = build.preview_localization_patterns()
     sample = (
-        '<img src="https://limooo.cn/static/icons/comicine.svg">'
-        '<img src="https://images.limooo.cn/static/icons/comicine.svg">'
-        '<img src="https://image.limooo.cn/portfolio/IMG_0115.webp">'
-        '<a href="https://services.limooo.cn/services">x</a>'
-        '<a href="https://limooo.cn/services">y</a>'
+        '<img src="https://comicine.com/static/icons/comicine.svg">'
+        '<img src="https://images.comicine.com/static/icons/comicine.svg">'
+        '<img src="https://image.comicine.com/portfolio/IMG_0115.webp">'
+        '<a href="https://services.comicine.com/services">x</a>'
+        '<a href="https://comicine.com/services">y</a>'
     )
     localized = patterns["asset"].sub(r'\1="../static/', sample)
     assert 'src="../static/icons/comicine.svg"' in localized
@@ -382,7 +382,7 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
     assert swapped["asset"].sub(r'\1="../static/', sample) == sample
     assert dict(build.preview_subdomain_pages())[build.SERVICES_HOST] == "services.html"
     assert swapped["root_href"].search('href="https://example.com/"')
-    assert not swapped["root_href"].search('href="https://limooo.cn/"')
+    assert not swapped["root_href"].search('href="https://comicine.com/"')
 
 
 def test_lang_options_follow_the_contract_at_call_time(monkeypatch):
