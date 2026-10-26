@@ -172,7 +172,7 @@ npm run build
 `functions/_data/i18n.ts`、`functions/_data/runtime.ts` 与 `preview/`。
 不要手动编辑这些产物；应修改 `locales/*.json`、模板或静态源文件后重新构建。
 `src/static/tailwind.css` 是已入库的 Tailwind 预构建产物。
-`npm run build` 使用 `ops/build.sh`，它会创建 `/tmp/limooo-build-venv`
+`npm run build` 使用 `ops/build.sh`，它会创建 `/tmp/comicine-build-venv`
 并生成 `public/manifest.json`（构建产物哈希凭据）。
 
 只部署 Pages 产物时使用：

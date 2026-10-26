@@ -74,4 +74,5 @@ data/*.log
 
 # Server reset backups (database dumps and similar files; never track)
 backup-limooo-*/
+backup-comicine-*/
 ops/backups/

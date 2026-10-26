@@ -171,7 +171,7 @@ if [ -n "$REF" ]; then
         echo "FATAL: not a commit: $REF" >&2
         exit 2
     fi
-    WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/limooo-ci-check.XXXXXX")"
+    WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/comicine-ci-check.XXXXXX")"
     # git worktree add requires the destination to be empty or absent.
     rmdir "$WORKTREE"
     git worktree add --detach "$WORKTREE" "$REF" >/dev/null
@@ -213,7 +213,7 @@ fi
 # Keep these patterns in sync with the sensitive-file section of the repository's .gitignore.
 SENSITIVE_PATTERNS=(
     'secrets/*' '.dev.vars' '*.db' '*.db-shm' '*.db-wal' '*.pem' '*.key'
-    'ops/out/*' 'ops/backups/*' 'backup-limooo-*' '各种密钥.txt' '*.mmdb'
+    'ops/out/*' 'ops/backups/*' 'backup-limooo-*' 'backup-comicine-*' '各种密钥.txt' '*.mmdb'
 )
 
 sensitive_paths() {
@@ -358,7 +358,7 @@ if [ "$RUN_PY" = 1 ]; then
     # GitHub Actions with `fatal: empty ident name`. To reproduce CI, point HOME to an empty
     # directory, disable global/system config, and disable identity auto-detection with
     # user.useConfigOnly=true. Tests that commit must set an identity in their repository config.
-    GIT_HOSTILE_HOME="$(mktemp -d -t limooo-ci-home-XXXXXX)"
+    GIT_HOSTILE_HOME="$(mktemp -d -t comicine-ci-home-XXXXXX)"
     if (cd "$TARGET" && "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1); then
         (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \

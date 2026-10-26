@@ -172,7 +172,7 @@ npm run build
 `functions/_data/i18n.ts`, `functions/_data/runtime.ts` and `preview/`.
 Do not hand-edit those outputs; change `locales/*.json`, templates or static
 sources and rebuild. `src/static/tailwind.css` is the checked-in prebuilt
-Tailwind output. `npm run build` uses `ops/build.sh`, which creates `/tmp/limooo-build-venv`
+Tailwind output. `npm run build` uses `ops/build.sh`, which creates `/tmp/comicine-build-venv`
 and generates `public/manifest.json` (build-artifact hash evidence).
 
 Deploy only the Pages output with:

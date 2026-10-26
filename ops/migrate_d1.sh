@@ -216,7 +216,7 @@ json_table_names() {
 # Execute one SQL statement against remote D1; print Wrangler's full output on failure.
 d1_execute_sql() {
     local sql="$1" log
-    log="$(mktemp -t limooo-d1-sql-XXXXXX.log)"
+    log="$(mktemp -t comicine-d1-sql-XXXXXX.log)"
     if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --command "$sql" >"$log" 2>&1; then
         rm -f "$log"
         return 0
@@ -246,7 +246,7 @@ if [ "$CHECK_SCHEMA" = 1 ]; then
         schema_payload="$(cat "$SCHEMA_JSON_FILE")"
     else
         echo "[d1] schema source: remote D1 ($D1_DATABASE_NAME)"
-        schema_log="$(mktemp -t limooo-d1-schema-XXXXXX.log)"
+        schema_log="$(mktemp -t comicine-d1-schema-XXXXXX.log)"
         if schema_payload="$("${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote \
             --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name" \
             --json 2>"$schema_log")"; then
@@ -304,7 +304,7 @@ echo "[d1] apply: database=$D1_DATABASE_NAME target=remote files=${#MIGRATION_NA
 # Create the state table first; it is the sole source of truth for migration state.
 d1_execute_sql "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));" || exit 1
 
-versions_log="$(mktemp -t limooo-d1-versions-XXXXXX.log)"
+versions_log="$(mktemp -t comicine-d1-versions-XXXXXX.log)"
 if versions_raw="$("${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote \
     --command "SELECT version FROM schema_version ORDER BY version" --json 2>"$versions_log")"; then
     rm -f "$versions_log"
@@ -341,7 +341,7 @@ for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
     fi
 
     echo "[d1] apply: $name key=$key"
-    statements_file="$(mktemp -t limooo-d1-statements-XXXXXX)"
+    statements_file="$(mktemp -t comicine-d1-statements-XXXXXX)"
     if ! python3 - "$MIGRATIONS_DIR/$name" >"$statements_file" <<'PY'
 import sqlite3
 import sys
@@ -371,7 +371,7 @@ PY
     statement_count=0
     while IFS= read -r -d '' statement; do
         statement_count=$((statement_count + 1))
-        apply_log="$(mktemp -t limooo-d1-apply-XXXXXX.log)"
+        apply_log="$(mktemp -t comicine-d1-apply-XXXXXX.log)"
         if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --command "$statement" >"$apply_log" 2>&1; then
             rm -f "$apply_log"
         elif grep -Eq 'duplicate column name:' "$apply_log"; then
@@ -403,7 +403,7 @@ done
 # Refresh the local cache only after every remote migration succeeds, replacing it entirely to
 # remove stale entries (W3-5).
 mkdir -p "$(dirname "$STATE_FILE")"
-cache_tmp="$(mktemp -t limooo-d1-cache-XXXXXX)"
+cache_tmp="$(mktemp -t comicine-d1-cache-XXXXXX)"
 printf '%s\n' "${applied_names[@]+"${applied_names[@]}"}" > "$cache_tmp"
 mv "$cache_tmp" "$STATE_FILE"
 echo "[d1] plan cache refreshed: $STATE_FILE"

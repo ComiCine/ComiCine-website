@@ -75,7 +75,7 @@ def deploy_test_signing_key(request):
     """Create an isolated throwaway key for tests that exercise deploy commit verification."""
     gpg = shutil.which("gpg")
     assert gpg, "gpg is required for deploy commit-signature tests"
-    home = Path(tempfile.mkdtemp(prefix="limooo-gpg-", dir="/tmp"))
+    home = Path(tempfile.mkdtemp(prefix="comicine-gpg-", dir="/tmp"))
     request.addfinalizer(lambda: shutil.rmtree(home))
     user_id = "ComiCine Deploy Test <deploy-test@example.test>"
     generated = subprocess.run(
@@ -431,7 +431,7 @@ def test_deploy_ctrl_c_stops_active_step_and_exits_cleanly(tmp_path, verbose):
         assert "Deploy: interrupted" in stderr
         assert stopped.exists(), "active step did not receive Ctrl-C"
         assert "Git: committed" not in stdout
-        assert not list(temp_dir.glob("limooo-deploy-*")), "temporary deploy files were not cleaned"
+        assert not list(temp_dir.glob("comicine-deploy-*")), "temporary deploy files were not cleaned"
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)

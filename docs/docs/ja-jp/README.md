@@ -172,7 +172,7 @@ npm run build
 `functions/_data/i18n.ts`、`functions/_data/runtime.ts`、`preview/` を再生成します。
 これらの出力を手で編集しないでください。`locales/*.json`、テンプレート、静的ソースを変更して再ビルドします。
 `src/static/tailwind.css` はリポジトリにコミット済みの Tailwind ビルド済み出力です。
-`npm run build` は `ops/build.sh` を使用し、これが `/tmp/limooo-build-venv` を作成して
+`npm run build` は `ops/build.sh` を使用し、これが `/tmp/comicine-build-venv` を作成して
  `public/manifest.json`（ビルド成果物のハッシュ証跡）を生成します。
 
 Pages の出力だけをデプロイするには：
