@@ -608,12 +608,12 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   Pages does not support editing an alias in place. Keep the current projects as rollback targets,
   stage replacement projects and verify their runtime configuration before moving any custom domain
   or DNS record. The main gate currently fails on `comicine.com` before it submits a token to
-  `/gate/verify`; `/gate/config` and the Turnstile JS load, and recent D1 gate-verification events
-  succeeded on `limooo.cn` but none reached verification from `.com`. The numeric browser error was
-  not available in the screenshot, so an unauthorized hostname is likely but is not yet proven.
-  `auth.js` now logs the numeric callback error and exposes a manual retry. The configured API token's
-  Turnstile widget update fails with HTTP 403 / Cloudflare error `10000`; it needs Account Turnstile
-  Edit / Turnstile Sites Write access to inspect and update authorized hostnames. Do not weaken the
-  gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
+  `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. A production
+  headless-browser run captured client error `110200` (Cloudflare: domain not authorized). Recent
+  D1 gate-verification events succeeded on `limooo.cn` but none reached verification from `.com`.
+  Add `comicine.com` under the existing widget's Hostname Management while retaining any other live
+  hosts. The configured API token is active, but widget-detail reads and updates return HTTP 403 /
+  error `10000`; Cloudflare requires `Turnstile Sites Write` or `Account Settings Write` for updates.
+  Do not weaken the gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
   `/feishu/<path>` follows that 301 to `comicine.com/feishu/<path>` and then Pages forwards to
   `https://comicine.feishu.cn/<path>`.
