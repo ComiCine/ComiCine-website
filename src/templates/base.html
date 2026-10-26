@@ -27,7 +27,7 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=12" as="script">
+    <link rel="preload" href="/static/js/base.js?v=13" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
@@ -69,86 +69,81 @@ See ADDITIONAL_TERMS.txt.
     {% set status_url = 'https://status.limooo.cn' if is_prod else '/status' %}
     {% set page = 'home' if request.path == '/' else ('services' if request.path == '/services' else ('contact' if request.path == '/contact' else '')) %}
     {% block nav %}
-    <nav class="site-nav fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl z-[100] flex items-center px-5 md:px-8 h-[70px] md:h-[100px]">
-        {% block nav_logo %}
-        <a href="{{ home_url }}" class="flex items-center gap-2 md:gap-2.5 shrink-0" id="nav-logo">
-            <span class="nav-brand text-lg md:text-2xl font-semibold tracking-[0.05em]">Limooo</span>
-        </a>
-        {% endblock %}
-
-        <div class="flex items-center ml-auto">
-            {% block nav_links %}
-            <div class="global-nav hidden md:flex items-center">
-                <a href="{{ home_url }}" class="nav-link{% if page == 'home' %} active{% endif %}">
-                    <span data-i18n="nav_home">{{ _('nav_home') }}</span>
-                    <svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>
-                </a>
-                <a href="{{ services_url }}" class="nav-link{% if page == 'services' %} active{% endif %}">
-                    <span data-i18n="nav_services">{{ _('nav_services') }}</span>
-                    <svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>
-                </a>
-                <a href="{{ contact_url }}" class="nav-link{% if page == 'contact' %} active{% endif %}">
-                    <span data-i18n="nav_contact">{{ _('nav_contact') }}</span>
-                    <svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>
-                </a>
-            </div>
-            <span class="nav-divider hidden md:block"></span>
+    <nav class="site-nav">
+        <div class="nav-inner">
+            {% block nav_logo %}
+            <a href="{{ home_url }}" class="nav-brand-link" id="nav-logo" aria-label="Limooo">
+                <span class="nav-brand">Limooo</span>
+            </a>
             {% endblock %}
 
-            <!-- Language switch with text-and-A icon and down arrow; hover to open on desktop. -->
-            <div class="theme-toggle lang-flyout">
-                <button class="lang-btn" data-action="toggleLangMenu" data-needs-event aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-haspopup="true">
-                    <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
-                    <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </button>
-                <div id="langMenu" class="theme-menu">
-                    {# Language menu entries come from contract.supported_langs; add languages in the contract only. #}
-                    {% for option in lang_options %}
-                    <div class="theme-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}"><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></div>
-                    {% endfor %}
+            <div class="nav-right">
+                {% block nav_links %}
+                <div class="global-nav">
+                    <a href="{{ home_url }}" class="nav-link{% if page == 'home' %} active{% endif %}">
+                        <span data-i18n="nav_home">{{ _('nav_home') }}</span>
+                        {% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
+                    </a>
+                    <a href="{{ services_url }}" class="nav-link{% if page == 'services' %} active{% endif %}">
+                        <span data-i18n="nav_services">{{ _('nav_services') }}</span>
+                        {% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
+                    </a>
+                    <a href="{{ contact_url }}" class="nav-link{% if page == 'contact' %} active{% endif %}">
+                        <span data-i18n="nav_contact">{{ _('nav_contact') }}</span>
+                        {% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
+                    </a>
                 </div>
-            </div>
-            <span class="nav-divider nav-divider-lang-theme"></span>
+                <span class="nav-divider"></span>
+                {% endblock %}
 
-            {% block theme_toggle %}
-            <!-- Theme switch with a sun-and-moon pill slider. -->
-            <button class="appearance-switch" type="button" role="switch" aria-checked="false" data-action="toggleTheme" aria-label="{{ _('theme_aria') }}" data-i18n-attr="aria-label:theme_aria">
-                <span class="appearance-check">
-                    <span class="appearance-icon">
-                        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <div class="lang-toggle lang-flyout">
+                    <button class="lang-btn" id="lang-btn" type="button" data-action="toggleLangMenu" data-needs-event aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-haspopup="true" aria-expanded="false">
+                        <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
+                        <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div id="langMenu" class="lang-menu">
+                        {% for option in lang_options %}
+                        <a href="{{ request.path }}" class="theme-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <span class="nav-divider nav-divider-lang-theme"></span>
+
+                {% block theme_toggle %}
+                <button class="appearance-switch" type="button" role="switch" aria-checked="false" data-action="toggleTheme" aria-label="{{ _('theme_aria') }}" data-i18n-attr="aria-label:theme_aria">
+                    <span class="appearance-check">
+                        <span class="appearance-icon">
+                            <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41-1.41"/></svg>
+                            <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                        </span>
                     </span>
-                </span>
-            </button>
-            {% endblock %}
-            <span class="nav-divider hidden md:block"></span>
-            <span class="nav-divider nav-divider-mobile"></span>
-
-            {% block social_links %}
-            <a class="icon-btn" href="https://github.com/Limooooo-Studio" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
-                <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-            </a>
-            <a class="icon-btn" href="https://space.bilibili.com/1234163143" target="_blank" rel="noopener noreferrer" aria-label="{{ _('visit_bilibili') }}" title="{{ _('visit_bilibili') }}" data-i18n-attr="aria-label,title:visit_bilibili">
-                <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/></svg>
-            </a>
-            {% endblock %}
-
-            {% block nav_dropdown %}
-            <div class="theme-toggle nav-mobile-menu">
-                <button class="theme-btn" data-action="toggleMobileMenu" data-needs-event aria-label="{{ _('nav_menu_aria') }}" data-i18n-attr="aria-label:nav_menu_aria">
-                    <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <line x1="4" y1="6" x2="20" y2="6"></line>
-                        <line x1="4" y1="12" x2="20" y2="12"></line>
-                        <line x1="4" y1="18" x2="20" y2="18"></line>
-                    </svg>
                 </button>
-                <div id="navLinksDropdown" class="theme-menu">
-                    <div class="theme-option{% if page == 'home' %} selected{% endif %}" data-i18n="nav_home" data-action="navigateTo" data-arg="{{ home_url }}">{{ _('nav_home') }}</div>
-                    <div class="theme-option{% if page == 'services' %} selected{% endif %}" data-i18n="nav_services" data-action="navigateTo" data-arg="{{ services_url }}">{{ _('nav_services') }}</div>
-                    <div class="theme-option{% if page == 'contact' %} selected{% endif %}" data-i18n="nav_contact" data-action="navigateTo" data-arg="{{ contact_url }}">{{ _('nav_contact') }}</div>
+                {% endblock %}
+                <span class="nav-divider"></span>
+                <span class="nav-divider nav-divider-mobile"></span>
+
+                {% block nav_dropdown %}
+                <div class="nav-mobile-menu">
+                    <button class="icon-btn nav-menu-button" type="button" data-action="toggleMobileMenu" data-needs-event aria-label="{{ _('nav_menu_aria') }}" data-i18n-attr="aria-label:nav_menu_aria" aria-haspopup="true" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <div id="navLinksDropdown" class="nav-menu" role="menu">
+                        <a class="nav-menu-item" role="menuitem" href="{{ home_url }}"><span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                        <a class="nav-menu-item" role="menuitem" href="{{ services_url }}"><span data-i18n="nav_services">{{ _('nav_services') }}</span>{% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                        <a class="nav-menu-item" role="menuitem" href="{{ contact_url }}"><span data-i18n="nav_contact">{{ _('nav_contact') }}</span>{% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                    </div>
                 </div>
+                {% endblock %}
+
+                {% block social_links %}
+                <a class="icon-btn nav-social-link" href="https://github.com/Limooooo-Studio" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12c0 5.303 3.438 9.8 8.205 11.385c.6.113.82-.258.82-.577c0-.285-.01-1.04-.015-2.04c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729c1.205.084 1.838 1.236 1.838 1.236c1.07 1.835 2.809 1.305 3.495.998c.108-.776.417-1.305.76-1.605c-2.665-.3-5.466-1.332-5.466-5.93c0-1.31.465-2.38 1.235-3.22c-.135-.303-.54-1.523.105-3.176c0 0 1.005-.322 3.3 1.23c.96-.267 1.98-.399 3-.405c1.02.006 2.04.138 3 .405c2.28-1.552 3.285-1.23 3.285-1.23c.645 1.653.24 2.873.12 3.176c.765.84 1.23 1.91 1.23 3.22c0 4.61-2.805 5.625-5.475 5.92c.42.36.81 1.096.81 2.22c0 1.606-.015 2.896-.015 3.286c0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                </a>
+                <a class="icon-btn nav-social-link" href="https://space.bilibili.com/1234163143" target="_blank" rel="noopener noreferrer" aria-label="{{ _('visit_bilibili') }}" data-i18n-attr="aria-label:visit_bilibili">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.813 4.653h.854q2.266.08 3.773 1.574Q23.946 7.72 24 9.987v7.36q-.054 2.266-1.56 3.773c-1.506 1.507-2.262 1.524-3.773 1.56H5.333q-2.266-.054-3.773-1.56C.053 19.614.036 18.858 0 17.347v-7.36q.054-2.267 1.56-3.76t3.773-1.574h.774l-1.174-1.12a1.23 1.23 0 0 1-.373-.906q0-.534.373-.907l.027-.027q.4-.373.92-.373t.92.373L9.653 4.44q.107.106.187.213h4.267a.8.8 0 0 1 .16-.213l2.853-2.747q.4-.373.92-.373c.347 0 .662.151.929.4s.391.551.391.907q0 .532-.373.906zM5.333 7.24q-1.12.027-1.88.773q-.76.748-.786 1.894v7.52q.026 1.146.786 1.893t1.88.773h13.334q1.12-.026 1.88-.773t.786-1.893v-7.52q-.026-1.147-.786-1.894t-1.88-.773zM8 11.107q.56 0 .933.373q.375.374.4.96v1.173q-.025.586-.4.96q-.373.375-.933.374c-.56-.001-.684-.125-.933-.374q-.375-.373-.4-.96V12.44q0-.56.386-.947q.387-.386.947-.386m8 0q.56 0 .933.373q.375.374.4.96v1.173q-.025.586-.4.96q-.373.375-.933.374c-.56-.001-.684-.125-.933-.374q-.375-.373-.4-.96V12.44q.025-.586.4-.96q.373-.373.933-.373"/></svg>
+                </a>
+                {% endblock %}
             </div>
-            {% endblock %}
         </div>
     </nav>
     {% endblock %}
@@ -164,7 +159,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=12" defer></script>
+    <script src="/static/js/base.js?v=13" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>

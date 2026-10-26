@@ -351,13 +351,20 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     function toggleLangMenu(e) {
         if (e) e.stopPropagation();
         var m = document.getElementById('langMenu');
-        if (m) m.classList.toggle('open');
+        if (m) {
+            var open = !m.classList.contains('open');
+            m.classList.toggle('open', open);
+            var button = document.getElementById('lang-btn');
+            if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
         closeNavMenu();
     }
 
     function closeLangMenu() {
         var m = document.getElementById('langMenu');
         if (m) m.classList.remove('open');
+        var button = document.getElementById('lang-btn');
+        if (button) button.setAttribute('aria-expanded', 'false');
     }
 
     function setLang(code) {
@@ -376,6 +383,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             fly.addEventListener('mouseenter', function() {
                 var m = document.getElementById('langMenu');
                 if (m) m.classList.add('open');
+                var button = document.getElementById('lang-btn');
+                if (button) button.setAttribute('aria-expanded', 'true');
             });
             fly.addEventListener('mouseleave', closeLangMenu);
         }
@@ -384,19 +393,21 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /* Toggle the navigation menu. */
     function toggleMobileMenu(e) {
         if (e) e.stopPropagation();
-        document.getElementById('navLinksDropdown').classList.toggle('open');
+        var menu = document.getElementById('navLinksDropdown');
+        if (!menu) return;
+        var open = !menu.classList.contains('open');
+        menu.classList.toggle('open', open);
+        var button = document.querySelector('[data-action="toggleMobileMenu"]');
+        if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
         closeLangMenu();
     }
 
     /* Close the navigation menu. */
     function closeNavMenu() {
-        document.getElementById('navLinksDropdown').classList.remove('open');
-    }
-
-    /* Navigate and update the active link. */
-    function navigateTo(url) {
-        closeNavMenu();
-        location.href = url;
+        var menu = document.getElementById('navLinksDropdown');
+        if (menu) menu.classList.remove('open');
+        var button = document.querySelector('[data-action="toggleMobileMenu"]');
+        if (button) button.setAttribute('aria-expanded', 'false');
     }
 
     function openNewWindow(url) {
@@ -416,9 +427,9 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             if (!localStorage.getItem('theme')) applyTheme(getSystemTheme());
         });
 
-        /* Close all menus when clicking outside .theme-toggle. */
+        /* Close both menus when clicking outside their controls. */
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.theme-toggle')) {
+            if (!e.target.closest('.lang-toggle') && !e.target.closest('.nav-mobile-menu')) {
                 closeNavMenu();
                 closeLangMenu();
             }
