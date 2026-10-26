@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -93,7 +93,7 @@ describe("GET /login", () => {
     expect(callback.searchParams.get("next")).toBe("/apple");
     const state = callback.searchParams.get("state");
     expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(resp.headers.get("Set-Cookie")).toContain(`limooo_identity_state_${state}=${state};`);
+    expect(resp.headers.get("Set-Cookie")).toContain(`comicine_identity_state_${state}=${state};`);
     expect(resp.headers.get("Set-Cookie")).toContain("Path=/identity/callback");
     expect(resp.headers.get("Set-Cookie")).toContain("HttpOnly");
     expect(resp.headers.get("Set-Cookie")).toContain("Secure");
@@ -108,7 +108,7 @@ describe("GET /login", () => {
 
     expect(secondState).not.toBe(state);
     expect(secondResponse.headers.get("Set-Cookie")).toContain(
-      `limooo_identity_state_${secondState}=${secondState};`,
+      `comicine_identity_state_${secondState}=${secondState};`,
     );
   });
 

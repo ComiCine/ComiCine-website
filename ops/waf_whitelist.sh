@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -35,12 +35,19 @@
 
 set -uo pipefail
 
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 ZONE_ID="${CLOUDFLARE_ZONE_ID:-9fae48942c655fd03a4a483b4866c1c3}"
 WHITELIST="$ROOT/docs/lists/whitelist.txt"
 API="https://api.cloudflare.com/client/v4"
-NOTES="limooo: trusted ASN (managed by ops/waf_whitelist.sh from docs/lists/whitelist.txt)"
+NOTES="ComiCine: trusted ASN (managed by ops/waf_whitelist.sh from docs/lists/whitelist.txt)"
 
 MODE=dry-run
 case "${1:-}" in
@@ -224,14 +231,14 @@ to_remove = [a for a in have if a not in want]
 
 # Bulk-removal guard (added 2026-10-11): this script deletes the ASN rules it manages on the zone.
 # Removing dozens of rules at once is a significant security change and requires a second check.
-# Set LIMOOO_WAF_ALLOW_BULK_REMOVE=1 to allow bulk cleanup.
+# Set COMICINE_WAF_ALLOW_BULK_REMOVE=1 to allow bulk cleanup.
 BULK_REMOVE_LIMIT = 50
-if len(to_remove) > BULK_REMOVE_LIMIT and os.environ.get("LIMOOO_WAF_ALLOW_BULK_REMOVE") != "1":
+if len(to_remove) > BULK_REMOVE_LIMIT and os.environ.get("COMICINE_WAF_ALLOW_BULK_REMOVE") != "1":
     print(
         f"REFUSING to remove {len(to_remove)} ASN rules in one run "
         f"(limit {BULK_REMOVE_LIMIT}).\n"
         f"  The whitelist now yields {len(want)} ASN. If that is intentional, re-run with\n"
-        f"  LIMOOO_WAF_ALLOW_BULK_REMOVE=1 bash ops/waf_whitelist.sh --apply",
+        f"  COMICINE_WAF_ALLOW_BULK_REMOVE=1 bash ops/waf_whitelist.sh --apply",
         file=sys.stderr,
     )
     sys.exit(2)

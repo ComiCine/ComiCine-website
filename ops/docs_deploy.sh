@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo - docs.limooo.cn build and deploy (VitePress)
+# ComiCine - docs.limooo.cn build and deploy (VitePress)
 #
 # Content lives in site/docs/docs/ (the VitePress root, with its own
 # .vitepress/ beside it); every markdown file becomes
 # https://docs.limooo.cn/<path>. site/docs/ is a per-subdomain container:
 # docs/ -> docs.limooo.cn, services/ -> services.limooo.cn (the price-list CSVs
 # read by src/services_pricing.py). The VitePress implementation is the fork at
-# Limooooo-Studio/vitepress, so that header / footer changes in the fork show up
+# ComiCine/vitepress, so that header / footer changes in the fork show up
 # on the next deploy.
 #
 # The fork has no published dist, so this script clones it into a cache dir,
 # builds it with pnpm + tsdown and packs it into a tarball. The tarball is cached
-# by commit sha: the fork is only rebuilt when LIMOOO_VITEPRESS_REF moves.
+# by commit sha: the fork is only rebuilt when COMICINE_VITEPRESS_REF moves.
 #
 # The docs site is its own Cloudflare Pages project (default: limooo-docs), so a
 # heavy VitePress build never touches the main limooo Pages artifact.
@@ -31,14 +31,21 @@
 #   bash ops/docs_deploy.sh --dev          # run the VitePress dev server
 #
 # Environment overrides:
-#   LIMOOO_VITEPRESS_REF   git ref of the fork (default: main)
-#   LIMOOO_VITEPRESS_DIR   fork checkout cache (default: /tmp/limooo-vitepress)
-#   LIMOOO_DOCS_BUILD_DIR  build workspace   (default: /tmp/limooo-docs-build)
+#   COMICINE_VITEPRESS_REF   git ref of the fork (default: main)
+#   COMICINE_VITEPRESS_DIR   fork checkout cache (default: /tmp/comicine-vitepress)
+#   COMICINE_DOCS_BUILD_DIR  build workspace   (default: /tmp/comicine-docs-build)
 #   DOCS_PAGES_PROJECT     Pages project     (default: limooo-docs)
-#   LIMOOO_SKIP_VITEPRESS_BUILD=1  reuse the cached tarball as-is
-#   LIMOOO_VITEPRESS_FETCH=0       use the fork working tree as-is (fork development)
+#   COMICINE_SKIP_VITEPRESS_BUILD=1  reuse the cached tarball as-is
+#   COMICINE_VITEPRESS_FETCH=0       use the fork working tree as-is (fork development)
 
 set -euo pipefail
+
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # site/docs/ is a container organized by subdomain: docs/ = docs.limooo.cn,
@@ -51,10 +58,10 @@ PAGES_PROJECT="${DOCS_PAGES_PROJECT:-limooo-docs}"
 PAGES_BRANCH="${DOCS_PAGES_BRANCH:-main}"
 DOCS_HOST="${DOCS_HOST:-docs.limooo.cn}"
 
-VITEPRESS_REPO="${LIMOOO_VITEPRESS_REPO:-https://github.com/Limooooo-Studio/vitepress.git}"
-VITEPRESS_REF="${LIMOOO_VITEPRESS_REF:-main}"
-VITEPRESS_DIR="${LIMOOO_VITEPRESS_DIR:-/tmp/limooo-vitepress}"
-BUILD_DIR="${LIMOOO_DOCS_BUILD_DIR:-/tmp/limooo-docs-build}"
+VITEPRESS_REPO="${COMICINE_VITEPRESS_REPO:-https://github.com/ComiCine/vitepress.git}"
+VITEPRESS_REF="${COMICINE_VITEPRESS_REF:-main}"
+VITEPRESS_DIR="${COMICINE_VITEPRESS_DIR:-/tmp/comicine-vitepress}"
+BUILD_DIR="${COMICINE_DOCS_BUILD_DIR:-/tmp/comicine-docs-build}"
 
 SRC_DIR="$BUILD_DIR/src"
 DIST_DIR="$SRC_DIR/.vitepress/dist"
@@ -118,24 +125,24 @@ ensure_vitepress() {
         git clone --filter=blob:none --quiet "$VITEPRESS_REPO" "$VITEPRESS_DIR"
     fi
 
-    if [ "${LIMOOO_VITEPRESS_FETCH:-1}" = 1 ]; then
+    if [ "${COMICINE_VITEPRESS_FETCH:-1}" = 1 ]; then
         echo "[docs] fetching VitePress fork: $VITEPRESS_REF"
         git -C "$VITEPRESS_DIR" fetch --quiet --depth 1 origin "$VITEPRESS_REF"
         git -C "$VITEPRESS_DIR" reset --hard --quiet FETCH_HEAD
     else
-        echo "[docs] LIMOOO_VITEPRESS_FETCH=0, using the working tree at $VITEPRESS_DIR"
+        echo "[docs] COMICINE_VITEPRESS_FETCH=0, using the working tree at $VITEPRESS_DIR"
     fi
     local sha
     sha="$(git -C "$VITEPRESS_DIR" rev-parse HEAD)"
     echo "[docs] VitePress fork commit: $sha"
 
-    if [ "${LIMOOO_SKIP_VITEPRESS_BUILD:-0}" = 1 ] && [ -f "$TARBALL" ]; then
-        echo "[docs] LIMOOO_SKIP_VITEPRESS_BUILD=1, reusing cached tarball"
+    if [ "${COMICINE_SKIP_VITEPRESS_BUILD:-0}" = 1 ] && [ -f "$TARBALL" ]; then
+        echo "[docs] COMICINE_SKIP_VITEPRESS_BUILD=1, reusing cached tarball"
         return 0
     fi
     # FETCH=0 means developing in the fork's working tree. It may be dirty, so rebuild even
     # when the commit SHA has not changed.
-    if [ "${LIMOOO_VITEPRESS_FETCH:-1}" = 1 ] && [ -f "$TARBALL" ] \
+    if [ "${COMICINE_VITEPRESS_FETCH:-1}" = 1 ] && [ -f "$TARBALL" ] \
         && [ "$(cat "$SHA_MARKER" 2>/dev/null || true)" = "$sha" ]; then
         echo "[docs] VitePress fork already built for this commit, reusing tarball"
         return 0
@@ -176,7 +183,7 @@ rsync -a --delete \
 
 cat > "$SRC_DIR/package.json" <<JSON
 {
-  "name": "limooo-docs",
+  "name": "comicine-docs",
   "private": true,
   "type": "module",
   "scripts": {

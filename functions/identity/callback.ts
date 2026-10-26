@@ -1,13 +1,13 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
-/** Validate and consume the one-time callback for a registered Limooo site. */
+/** Validate and consume the one-time callback for a registered ComiCine site. */
 
 import {
   configErrorResponse,
@@ -26,7 +26,8 @@ import type { Env } from "../_lib/env";
 import { getCookie } from "../_lib/routing";
 import { logEvent } from "../_lib/logging";
 
-const IDENTITY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
+const IDENTITY_STATE_COOKIE_PREFIX = "comicine_identity_state_";
+const LEGACY_IDENTITY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
 const LEGACY_IDENTITY_STATE_COOKIE = "limooo_identity_state";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -76,14 +77,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   ) return response(401, "Invalid identity callback");
 
   const stateCookieName = `${IDENTITY_STATE_COOKIE_PREFIX}${states[0]}`;
+  const legacyStateCookieName = `${LEGACY_IDENTITY_STATE_COOKIE_PREFIX}${states[0]}`;
   const cookieHeader = request.headers.get("Cookie");
   const stateCookie = getCookie(stateCookieName, cookieHeader);
+  const legacyPrefixedStateCookie = getCookie(legacyStateCookieName, cookieHeader);
   const legacyStateCookie = getCookie(LEGACY_IDENTITY_STATE_COOKIE, cookieHeader);
   const matchingCookieName = stateCookie && timingSafeEqual(states[0], stateCookie)
     ? stateCookieName
-    : legacyStateCookie && timingSafeEqual(states[0], legacyStateCookie)
-      ? LEGACY_IDENTITY_STATE_COOKIE
-      : null;
+    : legacyPrefixedStateCookie && timingSafeEqual(states[0], legacyPrefixedStateCookie)
+      ? legacyStateCookieName
+      : legacyStateCookie && timingSafeEqual(states[0], legacyStateCookie)
+        ? LEGACY_IDENTITY_STATE_COOKIE
+        : null;
   if (!matchingCookieName) return response(401, "Invalid identity callback");
 
   const callbackResponse = (status: number, body: string) =>

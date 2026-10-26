@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -32,7 +32,7 @@
 # ruff, mypy, and pytest-cov are installed by ensure_gate_tools when missing.
 # If installation fails, the affected check reports NOT VERIFIED locally.
 #
-# Build output isolation: LIMOOO_PUBLIC_DIR / LIMOOO_PREVIEW_DIR point the build at a
+# Build output isolation: COMICINE_PUBLIC_DIR / COMICINE_PREVIEW_DIR point the build at a
 # scratch dir instead of the iCloud-synced tree. Export them to pin the location: the
 # value is used exactly as given and is never removed. Left unset, every run gets its
 # own mktemp -d directory (removed on exit), so two concurrent runs cannot delete each
@@ -50,6 +50,13 @@
 # Exit code 0 = CI would pass; non-zero = CI would fail, do not push.
 
 set -euo pipefail
+
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -92,23 +99,23 @@ CI_TMP_PREVIEW=""
 # macOS TMPDIR ends in /; strip it to avoid producing a double slash in paths.
 SCRATCH_ROOT="${TMPDIR:-/tmp}"
 SCRATCH_ROOT="${SCRATCH_ROOT%/}"
-if [ -z "${LIMOOO_PUBLIC_DIR:-}" ]; then
-    LIMOOO_PUBLIC_DIR="$(mktemp -d "$SCRATCH_ROOT/limooo-ci-public.XXXXXX")" || {
+if [ -z "${COMICINE_PUBLIC_DIR:-}" ]; then
+    COMICINE_PUBLIC_DIR="$(mktemp -d "$SCRATCH_ROOT/comicine-ci-public.XXXXXX")" || {
         echo "FATAL: cannot create a temporary public dir under $SCRATCH_ROOT" >&2
         exit 2
     }
-    CI_TMP_PUBLIC="$LIMOOO_PUBLIC_DIR"
+    CI_TMP_PUBLIC="$COMICINE_PUBLIC_DIR"
 fi
-if [ -z "${LIMOOO_PREVIEW_DIR:-}" ]; then
-    LIMOOO_PREVIEW_DIR="$(mktemp -d "$SCRATCH_ROOT/limooo-ci-preview.XXXXXX")" || {
+if [ -z "${COMICINE_PREVIEW_DIR:-}" ]; then
+    COMICINE_PREVIEW_DIR="$(mktemp -d "$SCRATCH_ROOT/comicine-ci-preview.XXXXXX")" || {
         echo "FATAL: cannot create a temporary preview dir under $SCRATCH_ROOT" >&2
         exit 2
     }
-    CI_TMP_PREVIEW="$LIMOOO_PREVIEW_DIR"
+    CI_TMP_PREVIEW="$COMICINE_PREVIEW_DIR"
 fi
-export LIMOOO_PUBLIC_DIR LIMOOO_PREVIEW_DIR
+export COMICINE_PUBLIC_DIR COMICINE_PREVIEW_DIR
 if [ -n "$CI_TMP_PUBLIC" ] || [ -n "$CI_TMP_PREVIEW" ]; then
-    echo "[ci] scratch dirs: public=$LIMOOO_PUBLIC_DIR preview=$LIMOOO_PREVIEW_DIR (temporary, removed on exit)"
+    echo "[ci] scratch dirs: public=$COMICINE_PUBLIC_DIR preview=$COMICINE_PREVIEW_DIR (temporary, removed on exit)"
 fi
 
 # Prefer an existing external build venv, then fall back to python3.
@@ -129,7 +136,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 # failed after a push. Install missing tools into the same interpreter CI uses; only fall back to
 # SKIP if installation fails, such as when offline, and make clear that the check was not run.
 ensure_gate_tools() {
-    [ "${LIMOOO_SKIP_TOOL_INSTALL:-0}" = 1 ] && return 0
+    [ "${COMICINE_SKIP_TOOL_INSTALL:-0}" = 1 ] && return 0
     local missing=()
     "$PYTHON_BIN" -m ruff --version >/dev/null 2>&1 || missing+=(ruff)
     "$PYTHON_BIN" -m mypy --version >/dev/null 2>&1 || missing+=(mypy)
@@ -284,7 +291,7 @@ NODE
 
     if [ "$DO_BUILD" = 1 ]; then
         echo "[ci] npm run build"
-        (cd "$TARGET" && LIMOOO_VENV_PYTHON="$PYTHON_BIN" npm run build)
+        (cd "$TARGET" && COMICINE_VENV_PYTHON="$PYTHON_BIN" npm run build)
     fi
 
     if [ -n "$REF" ]; then
@@ -365,7 +372,7 @@ if [ "$RUN_PY" = 1 ]; then
     rm -rf "$GIT_HOSTILE_HOME"
     echo "[ci] python ops/check_config_contract.py"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_config_contract.py)
-    # Added 2026-10-11: Dependabot upgraded cairosvg to 2.9.1 while requirements.lock still
+    # Added 2026-10-11: guard against runtime dependency pins drifting from requirements.lock
     # pinned 2.8.2, so the upgrade had no effect because build.sh installs from the lock file.
     # CI stayed green without noticing; this guard checks for that mismatch.
     echo "[ci] python ops/check_requirements_lock.py --check"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -11,20 +11,27 @@
 # Check the commit, not the working tree: even with unrelated local changes, validate the tree that will be pushed.
 #
 # Emergency bypass:
-#   LIMOOO_SKIP_CI_CHECK=1 git push
-# The same commit already checked by deploy.sh is skipped automatically (LIMOOO_CI_CHECKED_SHA).
+#   COMICINE_SKIP_CI_CHECK=1 git push
+# The same commit already checked by deploy.sh is skipped automatically (COMICINE_CI_CHECKED_SHA).
 
 set -uo pipefail
+
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [ "${LIMOOO_SKIP_CI_CHECK:-0}" = 1 ]; then
-    echo "[pre-push] LIMOOO_SKIP_CI_CHECK=1; skipping the local CI check" >&2
+if [ "${COMICINE_SKIP_CI_CHECK:-0}" = 1 ]; then
+    echo "[pre-push] COMICINE_SKIP_CI_CHECK=1; skipping the local CI check" >&2
     exit 0
 fi
 
-CHECKED_SHA="${LIMOOO_CI_CHECKED_SHA:-}"
+CHECKED_SHA="${COMICINE_CI_CHECKED_SHA:-}"
 status=0
 
 while read -r local_ref local_sha remote_ref remote_sha; do

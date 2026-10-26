@@ -1,14 +1,14 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
 /**
- * Limooo visitor and Ray tracking with minimal fields.
+ * ComiCine visitor and Ray tracking with minimal fields.
  *
  * Privacy rules:
  * - visitors_v2 and ray_log_v2 do not store full IPs, user agents, or queries.
@@ -142,7 +142,9 @@ export function shouldTrackVisit(request: Request, url: URL): boolean {
     p.startsWith("/static/") ||
     p.startsWith("/__gate") ||
     p.startsWith("/favicon") ||
-    p === "/Limooo-xtext.svg"
+    p === "/comicine.svg" ||
+    p === "/Limooo-xtext.svg" ||
+    p === "/ComiCine-xtext.svg"
   ) {
     return false;
   }
@@ -204,7 +206,12 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
     return false;
   }
   if (isGateEndpointPath(p)) return false;
-  if (p.startsWith("/favicon") || p === "/Limooo-xtext.svg") return false;
+  if (
+    p.startsWith("/favicon") ||
+    p === "/comicine.svg" ||
+    p === "/Limooo-xtext.svg" ||
+    p === "/ComiCine-xtext.svg"
+  ) return false;
   if (/\.(png|webp|jpg|jpeg|gif|ico|svg|css|js|json|webmanifest|txt|xml)$/i.test(p)) return false;
   return true;
 }

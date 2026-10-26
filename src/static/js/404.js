@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -10,7 +10,7 @@
     var homeLink = document.querySelector('.not-found-home');
     if (!countdown || !homeLink) return;
 
-    var marker = '__LIMOOO_SECONDS__';
+    var marker = '__COMICINE_SECONDS__';
     var visualCountdown;
     var digitSlot;
     var digitCurrent;
@@ -18,8 +18,9 @@
     var afterText;
 
     function translatedMessage(seconds) {
-        if (typeof window.limoooTranslate !== 'function') return null;
-        return window.limoooTranslate('not_found_redirect', { seconds: seconds });
+        var translate = window.comicineTranslate || window.limoooTranslate;
+        if (typeof translate !== 'function') return null;
+        return translate('not_found_redirect', { seconds: seconds });
     }
 
     function renderCountdown(seconds, animate) {

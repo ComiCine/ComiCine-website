@@ -4,7 +4,7 @@ title: 公開プラットフォーム一覧
 description: 『風行迷踪』の許諾範囲に含まれる中国本土内・海外のプラットフォーム。運営主体、所在地、プライバシーポリシー、および海外プラットフォームの連絡先と権利行使の窓口。
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -21,7 +21,7 @@ See ADDITIONAL_TERMS.txt.
 - 今後プラットフォームを追加する場合は、事前にお知らせし、同意をいただいてから公開します。
 :::
 
-**バージョン：v2026.10.03**　署名の際は、署名日時点のバージョンが適用されます。このページの変更履歴はすべてプロジェクトの[リポジトリ](https://github.com/Limooooo-Studio/Limooo-Website)のコミット履歴に残っており、過去のバージョンをいつでも確認できます。
+**バージョン：v2026.10.03**　署名の際は、署名日時点のバージョンが適用されます。このページの変更履歴はすべてプロジェクトの[リポジトリ](https://github.com/ComiCine/ComiCine-website)のコミット履歴に残っており、過去のバージョンをいつでも確認できます。
 
 > 確認日：中国本土内は 2026-09-27、海外は 2026-10-03。運営主体やポリシー URL は変更されることがあるため、
 > 引用前に必ず公式ページを確認してください。本ページは索引であり、法的助言ではありません。

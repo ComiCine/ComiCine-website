@@ -1,6 +1,6 @@
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -103,7 +103,7 @@ def test_visitor_inherits_base_nav_logo():
     logo_start = html.index('id="nav-logo"')
     logo_open_end = html.index(">", logo_start) + 1
 
-    assert "Limooo" in html[logo_start:html.index("</a>", logo_open_end)]
+    assert "ComiCine" in html[logo_start:html.index("</a>", logo_open_end)]
     assert 'href="https://limooo.cn"' in html[html.rindex("<a", 0, logo_start):logo_open_end]
 
 
@@ -177,7 +177,7 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
     assert "Disallow: /api/\n" in source
 
     llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
-    assert llms.startswith("# Limooo\n")
+    assert llms.startswith("# ComiCine\n")
     assert "https://docs.limooo.cn/sitemap.xml" in llms
     sitemap = (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
     for host in (
@@ -306,7 +306,7 @@ def test_frontend_reads_contract_facts_from_data_attributes():
     assert f'data-supported-langs="{" ".join(build.LANGS)}"' in body_open
     assert f'data-root-domain="{build.ROOT_DOMAIN}"' in body_open
     assert 'data-lang-cookie="user_lang_preference"' in body_open
-    assert 'data-theme-cookie="limooo_theme"' in body_open
+    assert 'data-theme-cookie="comicine_theme"' in body_open
     assert 'data-lang-cookie-max-age="31536000"' in body_open
     assert 'data-theme-cookie-max-age="31536000"' in body_open
     assert 'data-default-lang="en-us"' in body_open
@@ -346,7 +346,7 @@ def test_frontend_js_has_no_hardcoded_language_list_or_cookie_ttl():
         assert "['zh-cn', 'en-us', 'ja-jp', 'ko-kr']" not in source, name
         assert "max-age=31536000; SameSite=Lax" not in source, name
         assert "'user_lang_preference='" not in source, name
-        assert "'limooo_theme='" not in source, name
+        assert "'comicine_theme='" not in source, name
     # Only base.js needs the language list for prefetching; it also comes from data-*.
     assert "data-supported-langs" in base_js
 
@@ -355,14 +355,14 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
     """W1-5: Preview rewrites use contract constants, so domain changes propagate instead of hard-coding limooo.cn."""
     patterns = build.preview_localization_patterns()
     sample = (
-        '<img src="https://limooo.cn/static/icons/Limooo.svg">'
-        '<img src="https://images.limooo.cn/static/icons/Limooo.svg">'
+        '<img src="https://limooo.cn/static/icons/comicine.svg">'
+        '<img src="https://images.limooo.cn/static/icons/comicine.svg">'
         '<img src="https://image.limooo.cn/portfolio/IMG_0115.webp">'
         '<a href="https://services.limooo.cn/services">x</a>'
         '<a href="https://limooo.cn/services">y</a>'
     )
     localized = patterns["asset"].sub(r'\1="../static/', sample)
-    assert 'src="../static/icons/Limooo.svg"' in localized
+    assert 'src="../static/icons/comicine.svg"' in localized
     assert 'src="../static/portfolio/IMG_0115.webp"' in localized
     assert "https://" not in localized.split("<a")[0]
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -29,20 +29,20 @@
  * `locales`，改用 `additionalConfig`（按**源目录**分层）+ `rewrites`：
  * 每个页面拿到自己那份 lang / themeConfig（导航、侧栏、UI 文案都跟着语言走）。
  *
- * 主题：fork Limooooo-Studio/vitepress —— 页头/页脚在 fork 里改。
+ * 主题：fork ComiCine/vitepress —— 页头/页脚在 fork 里改。
  */
 import { readFileSync } from 'node:fs'
 
 import { defineConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress'
 
-import { THEME_BOOTSTRAP_SCRIPT } from './theme/limooo.ts'
+import { THEME_BOOTSTRAP_SCRIPT } from './theme/comicine.ts'
 
 const SITE_URL = 'https://docs.limooo.cn'
 const MAIN_SITE = 'https://limooo.cn'
 const SERVICES_SITE = 'https://services.limooo.cn'
 const CONTACT_SITE = 'https://contact.limooo.cn'
-const REPO = 'https://github.com/Limooooo-Studio/Limooo-Website'
+const REPO = 'https://github.com/ComiCine/ComiCine-website'
 
 interface LangDef {
   code: string
@@ -110,7 +110,7 @@ interface Labels {
 const labels: Record<string, Labels> = {
   'zh-cn': {
     title: '文档',
-    description: 'Limooo 的公开文档：平台清单、隐私与合规参考。',
+    description: 'ComiCine 的公开文档：平台清单、隐私与合规参考。',
     navHome: '主页',
     navServices: '服务',
     navContact: '联系方式',
@@ -132,7 +132,7 @@ const labels: Record<string, Labels> = {
   },
   'en-us': {
     title: 'Docs',
-    description: 'Public Limooo documentation: platform inventories, privacy and compliance references.',
+    description: 'Public ComiCine documentation: platform inventories, privacy and compliance references.',
     navHome: 'Home',
     navServices: 'Services',
     navContact: 'Contact',
@@ -154,7 +154,7 @@ const labels: Record<string, Labels> = {
   },
   'ja-jp': {
     title: 'ドキュメント',
-    description: 'Limooo の公開ドキュメント：プラットフォーム一覧、プライバシーとコンプライアンスの参考資料。',
+    description: 'ComiCine の公開ドキュメント：プラットフォーム一覧、プライバシーとコンプライアンスの参考資料。',
     navHome: 'ホーム',
     navServices: 'サービス',
     navContact: 'お問い合わせ',
@@ -176,7 +176,7 @@ const labels: Record<string, Labels> = {
   },
   'ko-kr': {
     title: '문서',
-    description: 'Limooo 공개 문서: 플랫폼 목록, 개인정보 및 컴플라이언스 참고 자료.',
+    description: 'ComiCine 공개 문서: 플랫폼 목록, 개인정보 및 컴플라이언스 참고 자료.',
     navHome: '홈',
     navServices: '서비스',
     navContact: '문의',
@@ -207,8 +207,8 @@ function themeFor(code: string): DefaultTheme.Config {
   const video = contentPath('/video-platform', code)
   const license = contentPath('/LICENSE', code)
   return {
-    // 页头/页脚由 fork 的 Limooo 组件渲染（与主站 base.html 一致）
-    // 页头就是主站那三个入口（跟 limooo.cn 完全一致），文档自己的导航在侧栏
+    // 页头/页脚由 fork 的 ComiCine 组件渲染（与主站 base.html 一致）
+    // 页头展示主站的三个相同入口，文档自己的导航在侧栏
     nav: [
       { text: L.navHome, link: MAIN_SITE },
       { text: L.navServices, link: SERVICES_SITE },
@@ -233,11 +233,11 @@ function themeFor(code: string): DefaultTheme.Config {
     navMenuLabel: L.navMenuLabel,
     docFooter: { prev: L.prev, next: L.next },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Limooooo-Studio' },
+      { icon: 'github', link: 'https://github.com/ComiCine/ComiCine-website' },
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
     ],
     footer: {
-      copyright: '© 2026 <span class="footer-brand">Limooo</span> Studio',
+      copyright: '© 2026 <span class="footer-brand">ComiCine</span>',
       items: [
         { text: L.footerRights },
         { text: 'AGPL-3.0' },
@@ -246,7 +246,7 @@ function themeFor(code: string): DefaultTheme.Config {
     },
     // langSegmentAlways：内容页路径总是带语言段（含 zh-cn），
     // fork 的语言浮层据此把「中文」指向 /README/zh-cn 而不是 /README（后者会 404）
-    limooo: { languages: LANGS, langSegmentAlways: true }
+    comicine: { languages: LANGS, langSegmentAlways: true }
   } as DefaultTheme.Config
 }
 
@@ -300,11 +300,11 @@ export default defineConfig({
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
-    ['link', { rel: 'apple-touch-icon', href: '/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine.svg?v=1' }],
+    ['link', { rel: 'apple-touch-icon', href: '/comicine.png?v=1' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
-    ['meta', { property: 'og:site_name', content: 'Limooo Docs' }],
+    ['meta', { property: 'og:site_name', content: 'ComiCine Docs' }],
     [
       'link',
       {
@@ -318,7 +318,7 @@ export default defineConfig({
     ['link', { rel: 'stylesheet', href: '/fonts.css' }],
     // 必须在 VitePress 的 check-dark-mode 之前执行：把主站 limooo_theme cookie
     // 灌进 localStorage，避免与主站深浅模式不一致造成的首屏闪烁。
-    ['script', { id: 'limooo-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
+    ['script', { id: 'comicine-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
   ],
   sitemap: {
     hostname: SITE_URL,
@@ -339,9 +339,9 @@ export default defineConfig({
       ['meta', { property: 'og:url', content: canonicalUrl }],
       ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE }],
       ['meta', { property: 'og:image:type', content: 'image/png' }],
-      ['meta', { property: 'og:image:width', content: '1280' }],
-      ['meta', { property: 'og:image:height', content: '640' }],
-      ['meta', { property: 'og:image:alt', content: 'Limooo Studio preview' }],
+      ['meta', { property: 'og:image:width', content: '6687' }],
+      ['meta', { property: 'og:image:height', content: '3760' }],
+      ['meta', { property: 'og:image:alt', content: 'ComiCine preview' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
       ['meta', { name: 'twitter:title', content: title }],
       ['meta', { name: 'twitter:description', content: description }],

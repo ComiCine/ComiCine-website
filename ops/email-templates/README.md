@@ -1,13 +1,13 @@
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
-# Limooo email templates
+# ComiCine email templates
 
-Transactional-mail layout and four-language copy for Limooo.
+Transactional-mail layout and four-language copy for ComiCine.
 
 **Status: deprecated (2026-10-11, tasks/22 W7-13).** Nothing in the running system
 calls the Python renderer any more: the VPS Flask app that used it was retired and
@@ -40,7 +40,7 @@ add a third copy of the same copy.
   html, plain = render_email(
       lang="en-us",                    # zh-cn / en-us / ja-jp / ko-kr
       title="Your verification code",
-      body="Thanks for using Limooo Studio.",
+      body="Thanks for using ComiCine.",
       code="654321",                   # optional: highlight block
       cta_label="Open",                # optional: primary button
       cta_url="https://limooo.cn",
@@ -73,7 +73,7 @@ login), so this case is kept for reference only.
   record is untouched.
 - Recipients are injected with `wrangler secret put ALERT_TO` and never committed;
   with no recipient configured an alert is only logged and does not fail.
-- The `Limooo` footer wordmark uses Baloo 2 (`font-size:1.21em` compensates the
+- The `ComiCine` footer wordmark uses Baloo 2 (`font-size:1.21em` compensates the
   small glyphs); the TTF is embedded as a `cid` attachment.
 - The header logo comes from `images.limooo.cn` (keeps the alpha channel);
   `image.limooo.cn` drops alpha and renders a black background.
@@ -81,7 +81,7 @@ login), so this case is kept for reference only.
 ## History (pre-migration, retired)
 
 - SMTP: `smtp.feishu.cn:465` (SSL), accounts `no-reply-<N>@limooo.cn` /
-  `Limooo-no-reply-N`.
+  `ComiCine-no-reply-N`.
 - Credentials lived in the server's `secrets/smtp-relay.env`; the relay at
   `/opt/smtp-relay/relay.py` read that file.
 - Both went away with the VPS lease; the relay no longer exists.

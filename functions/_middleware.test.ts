@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -88,7 +88,7 @@ describe("shared identity navigation", () => {
     expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const cookies = response.headers.getSetCookie?.() ?? [response.headers.get("Set-Cookie") ?? ""];
-    expect(cookies.join("; ")).toContain(`limooo_identity_state_${state}=${state};`);
+    expect(cookies.join("; ")).toContain(`comicine_identity_state_${state}=${state};`);
   });
 
   it("keeps API authentication failures as JSON 401 responses", async () => {
@@ -194,14 +194,14 @@ describe("force theme challenge", () => {
     expect(forced.headers.get("Location")).toBeNull();
   });
 
-  it("ignores client-supplied X-Limooo-Client-IP when deciding trust", async () => {
+  it("ignores client-supplied X-ComiCine-Client-IP when deciding trust", async () => {
     const resp = await handleOnRequest(
       context(
         new Request("https://limooo.cn/", {
           headers: {
             "CF-Connecting-IP": "203.0.113.9",
-            "X-Limooo-Client-IP": "97.64.18.11",
-            "X-Limooo-Client-Country": "CN",
+            "X-ComiCine-Client-IP": "97.64.18.11",
+            "X-ComiCine-Client-Country": "CN",
           },
         }),
         {
@@ -461,6 +461,20 @@ describe("legacy HTML redirects", () => {
 
     expect(resp.status).toBe(403);
     expect(resp.headers.get("Location")).toBeNull();
+  });
+});
+
+describe("Feishu path aliases", () => {
+  it.each([
+    ["https://limooo.cn/feishu", "https://comicine.feishu.cn/"],
+    ["https://limooo.cn/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
+    ["https://limooo.cn/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
+  ])("redirects %s to the ComiCine Feishu site", async (requestUrl, target) => {
+    const resp = await handleOnRequest(context(new Request(requestUrl)));
+
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe(target);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
   });
 });
 

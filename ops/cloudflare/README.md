@@ -1,13 +1,13 @@
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
-# Limooo Cloudflare resource inventory
+# ComiCine Cloudflare resource inventory
 
-This directory is the declarative description of Limooo's Cloudflare resources, used
+This directory is the declarative description of ComiCine's Cloudflare resources, used
 for deploys, rollbacks and external audits. Real tokens, secrets and reproducible IDs
 are **not** written here; they come from the sources listed below.
 
@@ -26,7 +26,7 @@ are **not** written here; they come from the sources listed below.
 | WAF IP List | `limooo_blocklist` | `ops/sync-worker` | Cloudflare List, referenced by WAF rules |
 | DNS zone | `limooo.cn` | Cloudflare Dashboard | CNAMEs to `limooo.pages.dev`, see AGENTS.md |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
-| Cache Rules | `Limooo public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
+| Cache Rules | `ComiCine public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
 | Zone settings | `limooo.cn` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
 | AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
@@ -153,7 +153,7 @@ echoed). There is no server-side credential source any more.
 
 ## Shared Access identity application
 
-`Limooo-Identity` protects only `identity.limooo.cn/login`. Cloudflare Access sends
+`ComiCine-Identity` protects only `identity.limooo.cn/login`. Cloudflare Access sends
 the browser through the `limooo.cloudflareaccess.com` team domain and back to that
 route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
@@ -173,7 +173,7 @@ navigates to the shared identity URL. Cloudflare Access then redirects the brows
 through its team-domain login. API authentication failures remain JSON 401 responses.
 Manage the Access application and its policy in Cloudflare Zero Trust → Access controls →
 Applications. Source-host role mappings stay in `site/config-contract.json`; there is no
-Limooo-hosted administration page for this identity flow.
+ComiCine-hosted administration page for this identity flow.
 
 ## Blocklist chain
 
@@ -474,7 +474,7 @@ bash ops/workers_deploy.sh
 
 ## Cache Rules
 
-`Limooo public cache` exists in the `limooo.cn` zone. **Since 2026-09-26 both HTML
+`ComiCine public cache` exists in the `limooo.cn` zone. **Since 2026-09-26 both HTML
 cache rules are disabled** (`Cache public HTML for returning visitors`,
 `Cache images gallery page for returning visitors`, `enabled=false`): their
 `cache_key` was empty, so the edge cached by URL only, while the public page language
@@ -594,11 +594,11 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   and the zone DNS (proxied `CNAME` to `limooo.pages.dev`). It returned 404 and nothing in
   the repository, the contract or the docs referenced it (authentik-era leftover). The
   other ten hostnames were re-checked and still answer.
-- **Configured 2026-10-18: shared Access identity**. The former `Limooo-Visitor` app was
-  repurposed as `Limooo-Identity` for `identity.limooo.cn/login`, retaining its admin policy
-  and AUD. Its `Limooo-Admins` policy now also allows the `account.limooo.cn` email domain,
-  preserving the existing includes and exclusions. The old `Limooo-Apple` app for
+- **Configured 2026-10-18: shared Access identity**. The former `ComiCine-Visitor` app was
+  repurposed as `ComiCine-Identity` for `identity.limooo.cn/login`, retaining its admin policy
+  and AUD. Its `ComiCine-Admins` policy now also allows the `account.limooo.cn` email domain,
+  preserving the existing includes and exclusions. The old `ComiCine-Apple` app for
   `account.limooo.cn` was deleted; visitor and account
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
-  legacy `Limooo-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
+  legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.

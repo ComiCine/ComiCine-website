@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -152,9 +152,9 @@ describe("blocklist invariant (daily check step 2)", () => {
     const text = String(sent[0].text);
     expect(text).toContain("desired=2 actual=1 to_add=1 to_remove=0");
     expect(text).toContain("203.0.113.7");
-    // The subject is fixed as `Blocklist drift · Limooo` (user decision on 2026-10-11);
+    // The subject is fixed as `Blocklist drift · ComiCine` (user decision on 2026-10-11);
     // diff counts appear only in the body.
-    expect(String(sent[0].subject)).toBe("Blocklist drift · Limooo");
+    expect(String(sent[0].subject)).toBe("Blocklist drift · ComiCine");
     expect(String(sent[0].text)).toContain("to_add=1 to_remove=0");
   });
 

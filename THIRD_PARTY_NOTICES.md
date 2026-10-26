@@ -8,7 +8,7 @@ This notice identifies third-party fonts and software dependencies used or distr
 
 Baloo 2 is by The Baloo 2 Project Authors and is distributed under the SIL Open Font License, Version 1.1 (OFL-1.1). The upstream project is [EkType/Baloo2](https://github.com/EkType/Baloo2). The license text is included at [src/static/fonts/baloo2/OFL.txt](src/static/fonts/baloo2/OFL.txt).
 
-The project includes Baloo 2 font files and subsets under src/static/fonts/baloo2/ and docs/docs/public/fonts/. It also includes a project-generated bracket-glyph subset derived from Baloo 2 SemiBold in src/static/fonts/baloo2/limooo-brackets-600-subset-baloo2.ttf and an embedded copy in src/static/fonts-round75.css. These font files remain subject to OFL-1.1. Keep the font copyright and license notices with redistributed copies, do not sell the font software by itself, and follow the OFL requirements for modified fonts and reserved font names.
+The project includes Baloo 2 font files and subsets under src/static/fonts/baloo2/ and docs/docs/public/fonts/. It also includes a project-generated bracket-glyph subset derived from Baloo 2 SemiBold in src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf and an embedded copy in src/static/fonts-round75.css. These font files remain subject to OFL-1.1. Keep the font copyright and license notices with redistributed copies, do not sell the font software by itself, and follow the OFL requirements for modified fonts and reserved font names.
 
 ### Inter
 

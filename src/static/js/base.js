@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -17,7 +17,9 @@ var SUPPORTED_LANGS = bodyAttr('data-supported-langs').split(/\s+/).filter(funct
 var ROOT_DOMAIN = bodyAttr('data-root-domain', 'limooo.cn');
 var LANG_COOKIE = bodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = bodyAttr('data-lang-cookie-max-age', '31536000');
-var THEME_COOKIE = bodyAttr('data-theme-cookie', 'limooo_theme');
+var THEME_COOKIE = bodyAttr('data-theme-cookie', 'comicine_theme');
+/* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
+var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = bodyAttr('data-theme-cookie-max-age', '31536000');
 function sharedCookieDomain() {
     return location.hostname === ROOT_DOMAIN || location.hostname.endsWith('.' + ROOT_DOMAIN)
@@ -65,11 +67,18 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     }
 
     /* Use the localStorage theme when present; otherwise follow the system, as in VitePress. */
+    function themeCookieValue() {
+        var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
+        if (!match && LEGACY_THEME_COOKIE !== THEME_COOKIE) {
+            match = document.cookie.match(new RegExp('(?:^|;\\s*)' + LEGACY_THEME_COOKIE + '=(light|dark)'));
+        }
+        return match ? match[1] : null;
+    }
+
     function effectiveTheme() {
         var saved = localStorage.getItem('theme');
         if (saved === 'light' || saved === 'dark') return saved;
-        var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
-        return match ? match[1] : getSystemTheme();
+        return themeCookieValue() || getSystemTheme();
     }
 
     /* Write a shared cross-subdomain cookie so the main, auth, and redirect pages use one theme. */
@@ -78,6 +87,10 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var secure = location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
             + '; SameSite=Lax' + secure + sharedCookieDomain();
+        if (LEGACY_THEME_COOKIE !== THEME_COOKIE) {
+            document.cookie = LEGACY_THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
+                + '; SameSite=Lax' + secure + sharedCookieDomain();
+        }
     }
 
     /* Detect rapid toggles: more than three in one second sends the user to the gate page.
@@ -146,6 +159,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         }
         return s;
     }
+    window.comicineTranslate = t;
+    // Keep the old global as an alias for cached pages and third-party embeds.
     window.limoooTranslate = t;
 
     /* Fetch a language dictionary, or call back immediately if it is cached. */

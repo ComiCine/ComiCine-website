@@ -1,9 +1,9 @@
 /**
- * Limooo status-page wrapper code around an embedded Baloo 2 font subset.
+ * ComiCine status-page wrapper code around an embedded Baloo 2 font subset.
  *
- * Copyright (C) 2026-Present Limooo Studio (wrapper code only)
+ * Copyright (C) 2026-Present ComiCine (wrapper code only)
  * SPDX-License-Identifier: AGPL-3.0-or-later
- * Additional terms under Section 7 apply to Limooo Studio's wrapper code.
+ * Additional terms under Section 7 apply to ComiCine's wrapper code.
  * See ADDITIONAL_TERMS.txt.
  *
  * The embedded Baloo 2 font subset is third-party material licensed under SIL OFL 1.1;
@@ -11,12 +11,12 @@
  */
 
 /**
- * Brand font subset (**generated artifact; do not edit manually**): Baloo 2 glyphs used by "Limooo Studio" only.
+ * Brand font subset (**generated artifact; do not edit manually**): Baloo 2 glyphs used by "ComiCine" only.
  *
  * Regenerate (requires fonttools + brotli; install them in a temporary local venv, not in the repository):
  *   python3 -m venv /tmp/ft-venv && /tmp/ft-venv/bin/pip install fonttools brotli
  *   /tmp/ft-venv/bin/pyftsubset site/src/static/fonts/baloo2/Baloo2-VariableFont_wght.ttf \
- *     --text="Limooo Studio" --flavor=woff2 --no-hinting --desubroutinize \
+ *     --text="ComiCine" --flavor=woff2 --no-hinting --desubroutinize \
  *     --output-file=/tmp/baloo2-wordmark.woff2
  *   Then run: base64 -i /tmp/baloo2-wordmark.woff2 | tr -d '\n'
  *

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -220,7 +220,7 @@ def render(directory: str, data_only: bool, replace: bool) -> tuple[str, list[st
         rendered_rows += len(rows)
 
     header = [
-        "-- Limooo D1 restore script, rendered by ops/d1-archive/restore.py",
+        "-- ComiCine D1 restore script, rendered by ops/d1-archive/restore.py",
         f"-- source directory: {directory}",
         f"-- tables: {rendered_tables}  rows: {rendered_rows}  mode: "
         + ("data only" if data_only else "schema + data")

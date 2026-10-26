@@ -1,9 +1,9 @@
--- Copyright (C) 2026-Present Limooo Studio
+-- Copyright (C) 2026-Present ComiCine
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Limooo docs/10: single source of truth for blocking (D1 -> Cloudflare IP List).
+-- ComiCine docs/10: single source of truth for blocking (D1 -> Cloudflare IP List).
 -- Apply with: wrangler d1 execute limooo --file=./migrations/004_blocklist_sync.sql
 -- Back up D1 before applying: this migration rebuilds the old blocked_ips table with a new schema.
 

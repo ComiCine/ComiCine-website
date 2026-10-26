@@ -1,17 +1,17 @@
 ---
 aside: false
 title: Project README
-description: "The Limooo website and admin system (fully serverless on Cloudflare) - project README"
+description: "The ComiCine website and admin system (fully serverless on Cloudflare) - project README"
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
 
-# Limooo
+# ComiCine
 
 A fully serverless personal website and admin system running at [limooo.cn](https://limooo.cn). Public pages, the human-verification gate, the visitor panel, the Apple Account manager, monitoring and the status page all run on Cloudflare (Pages Functions, Workers, D1, R2).
 
@@ -22,7 +22,7 @@ A fully serverless personal website and admin system running at [limooo.cn](http
 - **Visitor panel** (`visitor.limooo.cn`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.limooo.cn/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
-- **Auth & roles**: one `Limooo-Identity` Access application protects `identity.limooo.cn/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
+- **Auth & roles**: one `ComiCine-Identity` Access application protects `identity.limooo.cn/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
 - **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.limooo.cn/login`; Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
 - **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.limooo.cn`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
@@ -150,12 +150,11 @@ npm run build
 ```
 
 `npm run build` is `ops/build.sh`: it creates the external build virtualenv
-`/tmp/limooo-build-venv`,
-runs the contract checks and exports
-`DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib` before rendering, so no manual
-setup is needed. Running `python3 src/build.py` directly skips all three — it fails
-with `RuntimeError: SVG watermarking requires cairosvg` unless you export that
-Homebrew cairo path yourself.
+`/tmp/comicine-build-venv`, installs the pinned dependencies from `requirements.lock`,
+and validates the cross-runtime configuration before rendering. Portfolio watermarks
+use Pillow and `src/static/icons/watermark.png`; no system Cairo library is required.
+To run the renderer directly, install the locked Python dependencies and use
+`COMICINE_BUILD=1 python3 src/build.py`.
 
 For a local preview of the generated site, build and open the output from `preview/`.
 
@@ -287,13 +286,13 @@ directory, plus a rewrites entry and a 302 in `public/_redirects` for the
 suffix-less path — `ops/docs_check_output.py` fails the build if any markdown file
 has no HTML.
 
-The site is built with VitePress from the fork `Limooooo-Studio/vitepress`: the header
-and footer live in the fork (`VPLimoooNav.vue` / `VPLimoooFooter.vue`) and mirror the
+The site is built with VitePress from the fork `ComiCine/vitepress`: the header
+and footer live in the fork (`VPComiCineNav.vue` / `VPComiCineFooter.vue`) and mirror the
 main site's `base.html` / `_footer.html` — edit them there and the next deploy picks it
-up (the fork is rebuilt only when its commit changes; use `LIMOOO_VITEPRESS_FETCH=0` to
+up (the fork is rebuilt only when its commit changes; use `COMICINE_VITEPRESS_FETCH=0` to
 build from a fork working tree). The site is a separate Cloudflare Pages project
 (`limooo-docs`) so it never touches the main `limooo` artifact, and it shares the
-`user_lang_preference` / `limooo_theme` cookies with the main site.
+`user_lang_preference` / `comicine_theme` cookies with the main site.
 
 ```bash
 bash ops/docs_deploy.sh --build-only   # build + validate only
@@ -322,7 +321,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Whitelist
 
-Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt) and copied to the generated [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt) during deployment:
+Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt) and copied to the generated [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt) during deployment:
 
 | Entry | Effect |
 | --- | --- |
@@ -374,7 +373,7 @@ Configured under **Pages project settings → Environment variables → Encrypt 
 | `TURNSTILE_SECRET` | Server-side siteverify secret |
 | `GATE_HMAC_KEY` | HMAC-SHA256 signing key for the `__gate` cookie (`openssl rand -hex 32`) |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access team domain; also the JWT `iss` used for verification |
-| `ACCESS_IDENTITY_AUD` | AUD for the single `Limooo-Identity` Access application; source-host roles are applied by each site callback from `config-contract.json` |
+| `ACCESS_IDENTITY_AUD` | AUD for the single `ComiCine-Identity` Access application; source-host roles are applied by each site callback from `config-contract.json` |
 | `VISITOR_IP_KEY` | Fernet key for the encrypted full visitor IP column (`visitor_rollups.ip_enc`) |
 | `OBSERVABILITY_HMAC_KEY` | HMAC key for the privacy-minimized visitor IP hash (`functions/_lib/tracking.ts`); the gate fails closed without it |
 | `SESSION_HMAC_KEY` | Pages session-cookie signing key (separate from `GATE_HMAC_KEY`) |
@@ -500,7 +499,7 @@ The shape of the live deployment, re-read any time with
 1. **Pages**: project `limooo` (`limooo.pages.dev`) serves `limooo.cn`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; the docs site is the separate `limooo-docs` project behind `docs.limooo.cn`, and `fonts.limooo.cn` is backed by R2
 2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; the schema from `ops/migrations/` is present and `schema_version` tracks the applied versions; `apple_accounts` holds the Apple Account rows, and `blocked_ips` is the blocking authority (83 rows, 1 active — soft-deleted rows stay for audit)
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `Limooo-Identity` protects only `identity.limooo.cn/login`; `visitor.limooo.cn` and `account.limooo.cn` use the shared identity handoff and their own host-only Pages sessions. The unused `Limooo-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
+4. **Access**: `ComiCine-Identity` protects only `identity.limooo.cn/login`; `visitor.limooo.cn` and `account.limooo.cn` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.limooo.cn` and `sink.limooo.cn` are Worker custom domains
 6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the dynamic-redirect phase is empty, and `ops/waf/rules.snapshot.json` is a refresh-time mirror of that empty phase (removed rules live only in git history)
 7. **Smoke checks**: `https://limooo.cn/_health` → 200, `https://limooo.cn/?challenge=1` → 403, `https://docs.limooo.cn/` → 302 to `https://limooo.cn`, `https://status.limooo.cn/` → 200
@@ -510,10 +509,10 @@ and logs, and Access remains the only identity source.
 
 ## License
 
-Original materials owned and licensed by Limooo Studio are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
+Original materials owned and licensed by ComiCine are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
 
-Limooo Studio is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
+ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
 For additional authorization or trademark permission inquiries, contact [contact@limooo.cn](mailto:contact@limooo.cn). No additional authorization is required for commercial use that complies with the applicable GNU AGPL version.
 
-See [Third-Party Notices](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party fonts, dependencies, and platform marks in QR-code images, and [Copyright](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT.md) for copyright scope.
+See [Third-Party Notices](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party fonts, dependencies, and platform marks in QR-code images, and [Copyright](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) for copyright scope.

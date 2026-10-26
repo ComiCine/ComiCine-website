@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -15,7 +15,7 @@ import { isIdentitySite, safeIdentityTarget } from "./identity";
 import { logEvent } from "./logging";
 import { clearLegacySharedSessionCookie, randomToken } from "./session";
 
-const IDENTITY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
+const IDENTITY_STATE_COOKIE_PREFIX = "comicine_identity_state_";
 const IDENTITY_STATE_MAX_AGE_SECONDS = 600;
 
 export interface IdentityLoginStart {

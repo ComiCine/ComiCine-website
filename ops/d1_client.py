@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
 
-"""Shared client for Limooo and the Cloudflare D1 API.
+"""Shared client for ComiCine and the Cloudflare D1 API.
 
 Handles environment-variable loading and HTTP queries only; never echoes token/value pairs.
 Reused by operations scripts such as prune_d1.py, check_visitor_id.py, check_ray_id.py, and

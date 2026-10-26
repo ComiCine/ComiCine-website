@@ -1,6 +1,6 @@
 # https://docs.limooo.cn/robots.txt
 #
-# Documentation site for limooo.cn. Every page is public and is meant to be
+# ComiCine documentation site. Every page is public and is meant to be
 # readable by search engines, crawlers and AI agents: nothing is disallowed.
 # Language is the last path segment (/README/zh-cn, /video-platform/en-us).
 # The bare docs root redirects to limooo.cn; translated home routes are /en-us,

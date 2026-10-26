@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -321,7 +321,7 @@ export function buildDdl(rows: SchemaRow[], generatedAt: number): { sql: string;
   }
   const iso = new Date(generatedAt * 1000).toISOString();
   const header = [
-    "-- Limooo D1 configuration & schema snapshot",
+    "-- ComiCine D1 configuration & schema snapshot",
     `-- generated_at: ${iso}  (unix ${generatedAt})`,
     "-- source: ops/d1-archive, scheduled job config_backup",
     "--         SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL",

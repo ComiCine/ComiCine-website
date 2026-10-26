@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo - deploy the standalone Cloudflare Workers through one entry point.
+# ComiCine - deploy the standalone Cloudflare Workers through one entry point.
 #
 # Covers:
 #   - ops/sync-worker       (D1 blocked_ips -> Cloudflare IP List, cron 03:30)
@@ -31,6 +31,13 @@
 # `--config <dir>/wrangler.toml`.
 
 set -euo pipefail
+
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
@@ -80,7 +87,7 @@ if [ -n "$SELECTED" ]; then
     esac
 fi
 
-if [ "$DRY_RUN" = 0 ] && [ "${LIMOOO_DEPLOY_GATE_PASSED:-0}" != 1 ]; then
+if [ "$DRY_RUN" = 0 ] && [ "${COMICINE_DEPLOY_GATE_PASSED:-0}" != 1 ]; then
     if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         branch="$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null || git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
         if [ "$branch" != main ]; then
@@ -88,14 +95,14 @@ if [ "$DRY_RUN" = 0 ] && [ "${LIMOOO_DEPLOY_GATE_PASSED:-0}" != 1 ]; then
             exit 2
         fi
         dirty_paths="$(git -C "$ROOT" status --porcelain)"
-        if [ -n "$dirty_paths" ] && [ "${LIMOOO_ALLOW_DIRTY:-0}" != 1 ]; then
+        if [ -n "$dirty_paths" ] && [ "${COMICINE_ALLOW_DIRTY:-0}" != 1 ]; then
             echo "FATAL: working tree has uncommitted changes; Worker deploy uses the working tree" >&2
             printf '%s\n' "$dirty_paths" | sed 's/^/       /' >&2
             exit 1
         fi
     fi
-    if [ "${LIMOOO_SKIP_CHECKS:-0}" = 1 ]; then
-        echo "[workers] checks skipped (LIMOOO_SKIP_CHECKS=1)"
+    if [ "${COMICINE_SKIP_CHECKS:-0}" = 1 ]; then
+        echo "[workers] checks skipped (COMICINE_SKIP_CHECKS=1)"
     else
         echo "[workers] running local CI gate"
         bash "$ROOT/ops/ci_check.sh"

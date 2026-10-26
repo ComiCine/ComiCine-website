@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -29,7 +29,9 @@ let lastLoadedAt = 0;
 // base.js exposes the translator through a classic script, whose execution order relative to modules can vary by browser.
 // This adapter falls back to the key until the translator is ready, without causing a ReferenceError.
 function t(key, params) {
-  const translator = typeof window !== 'undefined' ? window.limoooTranslate : undefined;
+  const translator = typeof window !== 'undefined'
+    ? (window.comicineTranslate || window.limoooTranslate)
+    : undefined;
   return typeof translator === 'function' ? translator(key, params) : key;
 }
 

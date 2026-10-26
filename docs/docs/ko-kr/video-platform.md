@@ -4,7 +4,7 @@ title: 게시 플랫폼 목록
 description: 《풍행미종》 허락 범위에 포함된 중국 본토 내·해외 플랫폼. 운영 주체, 소재지, 개인정보 처리방침, 그리고 해외 플랫폼의 연락처와 권리 행사 경로.
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -21,7 +21,7 @@ See ADDITIONAL_TERMS.txt.
 - 앞으로 플랫폼을 추가하게 되면 먼저 알려 드리고, 동의해 주신 뒤에 게시합니다.
 :::
 
-**버전: v2026.10.03**　서명하실 때는 서명하신 날의 버전이 적용됩니다. 이 페이지의 모든 변경 내역은 프로젝트 [저장소](https://github.com/Limooooo-Studio/Limooo-Website)의 커밋 기록에 남아 있어, 이전 버전을 언제든 확인할 수 있습니다.
+**버전: v2026.10.03**　서명하실 때는 서명하신 날의 버전이 적용됩니다. 이 페이지의 모든 변경 내역은 프로젝트 [저장소](https://github.com/ComiCine/ComiCine-website)의 커밋 기록에 남아 있어, 이전 버전을 언제든 확인할 수 있습니다.
 
 > 확인일: 중국 본토 내 플랫폼 2026-09-27, 해외 플랫폼 2026-10-03. 운영 주체와 정책 URL은 변경될 수 있으므로 인용 전 반드시
 > 공식 페이지를 확인하세요. 이 페이지는 색인일 뿐 법률 자문이 아닙니다.

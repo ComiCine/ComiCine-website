@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -35,7 +35,7 @@
 #   Release: done            <- Pages + Docs + Workers
 #   Deploy: done
 # Only success lines are collapsed; skips still print themselves and a failing step
-# dumps its full log. Pass --full (or LIMOOO_DEPLOY_VERBOSE=1) to get one line per
+# dumps its full log. Pass --full (or COMICINE_DEPLOY_VERBOSE=1) to get one line per
 # step plus every command.
 # Ctrl-C stops the active step, cleans temporary files, and exits 130. Staged changes remain staged;
 # completed commits, pushes, or deployments are not rolled back.
@@ -58,7 +58,7 @@
 #
 # --pages and --docs build the WORKING TREE, so they run ops/ci_check.sh first and
 # refuse to deploy when the tree has uncommitted changes. Emergency override:
-#   LIMOOO_ALLOW_DIRTY=1 bash ops/deploy.sh --pages
+#   COMICINE_ALLOW_DIRTY=1 bash ops/deploy.sh --pages
 #
 # --workers (all of them) and --worker=<one> are mutually exclusive; passing both is a
 # FATAL, because "deploy everything" and "deploy just this one" cannot both be meant.
@@ -73,7 +73,7 @@
 # (git add happens first) and the staged tree hash is compared before committing, so
 # a file changed by another tool during the checks cannot slip in unchecked.
 # Emergency skip:
-#   LIMOOO_SKIP_CHECKS=1 bash ops/deploy.sh --all
+#   COMICINE_SKIP_CHECKS=1 bash ops/deploy.sh --all
 #
 # Two list-maintenance steps run FIRST, before the dirty-tree gate and CI (both
 # can produce changes, so running them later would trip the gate and skip CI):
@@ -81,24 +81,31 @@
 #   2. ops/reconcile_blocklist.sh  -- reconcile the ban list with D1 `blocked_ips`
 #                                     (the authority)
 # Blocklist reconciliation is best-effort by default; make it fatal with
-# LIMOOO_STRICT_BLOCKLIST=1 or skip it with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1.
+# COMICINE_STRICT_BLOCKLIST=1 or skip it with COMICINE_SKIP_BLOCKLIST_RECONCILE=1.
 # Zone-level ASN Access Rules are managed manually with ops/waf_whitelist.sh --apply;
 # a full deploy does not change those live rules.
 #
 # A failed git push aborts BEFORE the Pages deploy (never let the edge run ahead of
 # GitHub). Emergency override:
-#   LIMOOO_ALLOW_PUSH_FAIL=1 bash ops/deploy.sh --all
+#   COMICINE_ALLOW_PUSH_FAIL=1 bash ops/deploy.sh --all
 #
 # Environment:
-#   LIMOOO_DEPLOY_VERBOSE=1   same as --full
-#   LIMOOO_SKIP_DOCS=1        drop the docs.limooo.cn step
-#   LIMOOO_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
-#   LIMOOO_ALLOW_DIRTY=1      deploy release artifacts with a dirty working tree
-#   LIMOOO_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
+#   COMICINE_DEPLOY_VERBOSE=1   same as --full
+#   COMICINE_SKIP_DOCS=1        drop the docs.limooo.cn step
+#   COMICINE_SKIP_CHECKS=1      skip the local CI replica before commit / push / Pages / docs
+#   COMICINE_ALLOW_DIRTY=1      deploy release artifacts with a dirty working tree
+#   COMICINE_ALLOW_PUSH_FAIL=1  deploy even when git push fails (emergency only)
 # Credentials are read from local secrets/webauthn.env; never written to disk or echoed.
 # END-USAGE
 
 set -euo pipefail
+
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
 
 ACTIVE_LOG=""
 ACTIVE_TMP_INDEX=""
@@ -135,7 +142,7 @@ DO_DOCS=0
 WORKER=""
 DRY_RUN=0
 COMMIT_MESSAGE=""
-VERBOSE="${LIMOOO_DEPLOY_VERBOSE:-0}"
+VERBOSE="${COMICINE_DEPLOY_VERBOSE:-0}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -199,7 +206,7 @@ if [ "$DO_COMMIT" = 0 ] && [ "$DO_PUSH" = 0 ] && [ "$DO_PAGES" = 0 ] && [ "$DO_D
     DO_WORKERS=1
 fi
 
-if [ "${LIMOOO_SKIP_DOCS:-0}" = 1 ]; then
+if [ "${COMICINE_SKIP_DOCS:-0}" = 1 ]; then
     DO_DOCS=0
 fi
 
@@ -252,7 +259,7 @@ fi
 #   Pages + Docs + Workers -> `Release: done`
 # Skips and failures still print separately, so only successful steps are combined. A quiet run
 # therefore does not show which gates ran; infer that from the absence of skip/fail lines.
-# `--full` and LIMOOO_DEPLOY_VERBOSE=1 keep per-step output.
+# `--full` and COMICINE_DEPLOY_VERBOSE=1 keep per-step output.
 DEFERRED_STEPS=()
 DEFERRED_LABEL="Steps"
 flush_steps() {
@@ -291,12 +298,12 @@ if [ "$DRY_RUN" = 1 ]; then
     [ "$DO_COMMIT" = 1 ] && echo "  would-run: git add -A && git commit"
     [ "$DO_PUSH" = 1 ] && echo "  would-run: git push origin main"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ]; } && echo "  requires: branch main (FATAL exit 2 on any other branch)"
-    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with LIMOOO_SKIP_CHECKS=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  would-run: bash ops/ci_check.sh (skip with COMICINE_SKIP_CHECKS=1)"
     [ "$DO_PAGES" = 1 ] && echo "  would-run: bash ops/pages_deploy.sh"
     { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: python3 ops/sync_whitelist.py"
-    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
+    { [ "$DO_COMMIT" = 1 ] || [ "$DO_PUSH" = 1 ] || [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ]; } && echo "  would-run: bash ops/reconcile_blocklist.sh   (two-way ban-list reconcile with D1; skip with COMICINE_SKIP_BLOCKLIST_RECONCILE=1)"
     [ "$DO_DOCS" = 1 ] && echo "  would-run: bash ops/docs_deploy.sh"
-    { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  requires: clean working tree (override with LIMOOO_ALLOW_DIRTY=1)"
+    { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  requires: clean working tree (override with COMICINE_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
     [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
     echo "Deploy: dry-run done"
@@ -311,11 +318,11 @@ echo "Deploy: start"
 # deploy would report "build venv not found" or "wrangler not found". Those errors look like
 # configuration problems but only mean the tools were removed; both happened in one deploy on
 # 2026-10-11. Restore only missing tools, skip those already present, and do this only when a
-# build or deploy is needed. Skip with LIMOOO_SKIP_TOOL_BOOTSTRAP=1.
+# build or deploy is needed. Skip with COMICINE_SKIP_TOOL_BOOTSTRAP=1.
 ensure_tooling() {
-    [ "${LIMOOO_SKIP_TOOL_BOOTSTRAP:-0}" = 1 ] && return 0
+    [ "${COMICINE_SKIP_TOOL_BOOTSTRAP:-0}" = 1 ] && return 0
 
-    local venv="${LIMOOO_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
+    local venv="${COMICINE_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
     if [ ! -x "$venv" ]; then
         echo "Tools: recreating the build venv at $(dirname "$(dirname "$venv")")"
         python3 -m venv "$(dirname "$(dirname "$venv")")" >/dev/null 2>&1 || true
@@ -443,13 +450,13 @@ dirty_tree_gate() {
     if [ -z "$dirty_paths" ]; then
         return 0
     fi
-    if [ "${LIMOOO_ALLOW_DIRTY:-0}" = 1 ]; then
-        echo "Warning: deploying a dirty working tree (LIMOOO_ALLOW_DIRTY=1)"
+    if [ "${COMICINE_ALLOW_DIRTY:-0}" = 1 ]; then
+        echo "Warning: deploying a dirty working tree (COMICINE_ALLOW_DIRTY=1)"
         return 0
     fi
     echo "FATAL: working tree has uncommitted changes; release helpers use the working tree" >&2
     printf '%s\n' "$dirty_paths" | sed 's/^/       /' >&2
-    echo "       commit them first, or set LIMOOO_ALLOW_DIRTY=1 to deploy them on purpose" >&2
+    echo "       commit them first, or set COMICINE_ALLOW_DIRTY=1 to deploy them on purpose" >&2
     exit 1
 }
 
@@ -472,13 +479,13 @@ fi
 # files.
 #
 # Failures do not block by default because source, network, or credential issues should not prevent
-# a code release. Set LIMOOO_STRICT_BLOCKLIST=1 to make failures fatal, or
-# LIMOOO_SKIP_BLOCKLIST_RECONCILE=1 to skip the step. This needs D1 access and reads credentials
+# a code release. Set COMICINE_STRICT_BLOCKLIST=1 to make failures fatal, or
+# COMICINE_SKIP_BLOCKLIST_RECONCILE=1 to skip the step. This needs D1 access and reads credentials
 # from secrets/webauthn.env, like the other scripts.
 if [ "$NEED_PREPARATION" = 1 ]; then
-    if [ "${LIMOOO_SKIP_BLOCKLIST_RECONCILE:-0}" = 1 ]; then
-        echo "Bans: skipped D1 reconcile (LIMOOO_SKIP_BLOCKLIST_RECONCILE=1)"
-    elif [ "${LIMOOO_STRICT_BLOCKLIST:-0}" = 1 ]; then
+    if [ "${COMICINE_SKIP_BLOCKLIST_RECONCILE:-0}" = 1 ]; then
+        echo "Bans: skipped D1 reconcile (COMICINE_SKIP_BLOCKLIST_RECONCILE=1)"
+    elif [ "${COMICINE_STRICT_BLOCKLIST:-0}" = 1 ]; then
         run_step "Bans" bash ops/reconcile_blocklist.sh
     else
         # In non-strict mode, warn on failure and use a subshell to let deployment continue.
@@ -500,8 +507,8 @@ if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
 fi
 
 if [ "$NEED_CHECKS" = 1 ]; then
-    if [ "${LIMOOO_SKIP_CHECKS:-0}" = 1 ]; then
-        echo "Check: skipped (LIMOOO_SKIP_CHECKS=1)"
+    if [ "${COMICINE_SKIP_CHECKS:-0}" = 1 ]; then
+        echo "Check: skipped (COMICINE_SKIP_CHECKS=1)"
     elif [ "$DO_COMMIT" = 1 ]; then
         run_step "Check" bash ops/ci_check.sh
     elif [ "$DO_PUSH" = 1 ]; then
@@ -568,7 +575,7 @@ if [ "$DO_COMMIT" = 1 ]; then
             done
         fi
         # The new commit is the tree checked in Stage 0, so the pre-push hook does not need to run again.
-        export LIMOOO_CI_CHECKED_SHA="$(git rev-parse HEAD)"
+        export COMICINE_CI_CHECKED_SHA="$(git rev-parse HEAD)"
     fi
 fi
 
@@ -593,13 +600,13 @@ if [ "$DO_PUSH" = 1 ]; then
             show_cmd git push origin main
             if git push origin main >/dev/null 2>&1; then
                 echo "Git: pushed to GitHub"
-            elif [ "${LIMOOO_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
+            elif [ "${COMICINE_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
                 # Emergency override: production will get ahead of GitHub. The final output must
                 # state this clearly instead of continuing silently.
                 PUSH_FAILED=1
             else
                 echo "FATAL: git push failed; aborting before Pages deploy" >&2
-                echo "       fix the remote/credentials and rerun, or set LIMOOO_ALLOW_PUSH_FAIL=1 to deploy anyway" >&2
+                echo "       fix the remote/credentials and rerun, or set COMICINE_ALLOW_PUSH_FAIL=1 to deploy anyway" >&2
                 exit 1
             fi
         else
@@ -633,14 +640,14 @@ fi
 
 # Stage 4: deploy an individual Worker (optional; independent of Pages).
 if [ -n "$WORKER" ]; then
-    run_step "Worker: $WORKER" env LIMOOO_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh "--worker=$WORKER"
+    run_step "Worker: $WORKER" env COMICINE_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh "--worker=$WORKER"
 fi
 
 if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     # Deploy every Worker in the list; workers_deploy.sh without arguments deploys all listed Workers.
     # The label `Workers` was chosen on 2026-10-11 to match `Pages` and `Docs`; all three are
     # combined into one `Pages+Docs+Workers: done` line.
-    run_step "Workers" env LIMOOO_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh
+    run_step "Workers" env COMICINE_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh
 fi
 
 # End of release phase: print `Release: done` (also used when only Pages is deployed).

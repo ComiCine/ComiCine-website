@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Limooo D1 migration entry point.
+# ComiCine D1 migration entry point.
 #
 # Usage:
 #   bash ops/migrate_d1.sh --dry-run                 # print the plan only; fully offline
@@ -23,13 +23,20 @@
 
 set -euo pipefail
 
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MIGRATIONS_DIR="$ROOT/ops/migrations"
 STATE_FILE="${D1_STATE_FILE:-$ROOT/.d1-migrations/applied}"
 LEGACY_STATE_FILE="/tmp/limooo-d1-schema-state"
 D1_DATABASE_NAME="${D1_DATABASE_NAME:-limooo}"
 # A saved wrangler --json payload makes --check-schema fully offline (for debugging and tests).
-SCHEMA_JSON_FILE="${LIMOOO_D1_SCHEMA_JSON:-}"
+SCHEMA_JSON_FILE="${COMICINE_D1_SCHEMA_JSON:-}"
 WRANGLER_BIN="${WRANGLER_BIN:-}"
 if [ -n "$WRANGLER_BIN" ]; then
     WRANGLER_CMD=("$WRANGLER_BIN")
@@ -59,7 +66,7 @@ version number and still count as applied for every file with that number. New
 migrations must use the next free number (the highest number in ops/migrations/ plus
 one): duplicate numbers are reported, and a legacy row can never tell them apart.
 
-Offline schema check: set LIMOOO_D1_SCHEMA_JSON=<file> to the payload of
+Offline schema check: set COMICINE_D1_SCHEMA_JSON=<file> to the payload of
   wrangler d1 execute limooo --command "SELECT name FROM sqlite_master WHERE type='table'" --json
 and --check-schema validates that payload without contacting D1 (debug and tests).
 EOF
@@ -86,14 +93,14 @@ fi
 #     applied, so reject it.
 #   * --check-schema without --remote would inspect only the local database and can fail on
 #     empty array expansion in bash versions earlier than 4.4, so require an explicit target.
-#     For an offline check, set LIMOOO_D1_SCHEMA_JSON.
+#     For an offline check, set COMICINE_D1_SCHEMA_JSON.
 #   * --dry-run is fully offline and is not affected by this restriction.
 if [ "$DRY_RUN" = 0 ] && [ "$REMOTE" = 0 ]; then
     if [ "$CHECK_SCHEMA" = 1 ] && [ -n "$SCHEMA_JSON_FILE" ]; then
         : # Validate a saved sqlite_master payload offline without contacting D1.
     else
         echo "FATAL: --remote is required for --check-schema and for applying migrations" >&2
-        echo "       use --dry-run for an offline plan, or set LIMOOO_D1_SCHEMA_JSON=<file>" >&2
+        echo "       use --dry-run for an offline plan, or set COMICINE_D1_SCHEMA_JSON=<file>" >&2
         echo "       to validate a saved sqlite_master payload without contacting D1" >&2
         exit 2
     fi
@@ -232,7 +239,7 @@ if [ "$CHECK_SCHEMA" = 1 ]; then
     fi
     if [ -n "$SCHEMA_JSON_FILE" ]; then
         if [ ! -f "$SCHEMA_JSON_FILE" ]; then
-            echo "FATAL: LIMOOO_D1_SCHEMA_JSON file not found: $SCHEMA_JSON_FILE" >&2
+            echo "FATAL: COMICINE_D1_SCHEMA_JSON file not found: $SCHEMA_JSON_FILE" >&2
             exit 1
         fi
         echo "[d1] schema source: offline payload $SCHEMA_JSON_FILE"

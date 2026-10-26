@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Limooo - Flask Web Application
+# ComiCine - Flask Web Application
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Reproducible Limooo build entry point.
+# Reproducible ComiCine build entry point.
 #
 # Run in a clean environment:
 #   npm ci
@@ -16,27 +16,25 @@
 # This script installs and isolates the Python dependencies used by npm's build command:
 # 1. Create an external build venv and install locked dependencies.
 # 2. Validate the cross-runtime configuration contract.
-# 3. Run a render-only build with LIMOOO_BUILD=1 (no database initialization or production secrets).
+# 3. Run a render-only build with COMICINE_BUILD=1 (no database initialization or production secrets).
 # 4. Generate public/manifest.json.
 set -euo pipefail
 
-# Homebrew's cairosvg/cairocffi on macOS needs an explicit search path for the Cairo shared library.
-if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
-    CAIRO_PREFIX="$(brew --prefix cairo 2>/dev/null || true)"
-    if [ -n "$CAIRO_PREFIX" ] && [ -d "$CAIRO_PREFIX/lib" ]; then
-        export DYLD_LIBRARY_PATH="$CAIRO_PREFIX/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
-        export DYLD_FALLBACK_LIBRARY_PATH="$CAIRO_PREFIX/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
-    fi
+_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
+elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
+    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PYTHON="${PYTHON:-python3}"
-VENV="${LIMOOO_BUILD_VENV:-/tmp/limooo-build-venv}"
+VENV="${COMICINE_BUILD_VENV:-/tmp/comicine-build-venv}"
 
-if [ -n "${LIMOOO_VENV_PYTHON:-}" ]; then
-    VENV_PY="$LIMOOO_VENV_PYTHON"
+if [ -n "${COMICINE_VENV_PYTHON:-}" ]; then
+    VENV_PY="$COMICINE_VENV_PYTHON"
     if [ ! -x "$VENV_PY" ]; then
         echo "FATAL: configured Python is not executable: $VENV_PY" >&2
         exit 1
@@ -60,7 +58,7 @@ echo "[build] validating config contract"
 "$VENV_PY" ops/check_config_contract.py --skip-ts
 
 echo "[build] rendering static pages (build mode)"
-LIMOOO_BUILD=1 "$VENV_PY" src/build.py
+COMICINE_BUILD=1 "$VENV_PY" src/build.py
 
 echo "[build] validating generated config contract"
 "$VENV_PY" ops/check_config_contract.py

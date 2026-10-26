@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -104,7 +104,11 @@ def git_paths() -> list[str]:
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"FATAL: cannot list repository files with git ({exc})", file=sys.stderr)
         raise SystemExit(2) from exc
-    return sorted(name for name in completed.stdout.decode("utf-8", "replace").split("\0") if name)
+    return sorted(
+        name
+        for name in completed.stdout.decode("utf-8", "replace").split("\0")
+        if name and (ROOT / name).is_file()
+    )
 
 
 def rule_of(path: str) -> str | None:

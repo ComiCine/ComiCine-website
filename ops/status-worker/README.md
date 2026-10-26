@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -83,7 +83,7 @@ implementation is **self-contained on purpose**: `status.limooo.cn` is a separat
 origin, so linking the main site's `/static/**` would need a relaxed CSP *and* would
 make the status page depend on the very site it monitors being reachable. The
 trade-off is that this markup is duplicated by hand — the docs fork
-(`VPLimoooNav.vue` / `VPLimoooFooter.vue`) is the second copy. Change both when the
+(`VPComiCineNav.vue` / `VPComiCineFooter.vue`) is the second copy. Change both when the
 main site header changes.
 
 ### Error text is table-driven, and complete

@@ -4,7 +4,7 @@ title: 发布平台清单
 description: 《风行迷踪》授权范围内的境内、境外发布平台：运营主体、所在地、隐私政策，以及境外平台的联系方式与行使权利的途径。
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -21,7 +21,7 @@ See ADDITIONAL_TERMS.txt.
 - 以后想新增平台，我们会另行告诉你，取得你同意后才会发布。
 :::
 
-**版本：v2026.10.03**　签署确认书时，请以你签署当天的版本为准。本页每一次修改都留存在项目[仓库](https://github.com/Limooooo-Studio/Limooo-Website)的提交历史里，随时可以翻看旧版本。
+**版本：v2026.10.03**　签署确认书时，请以你签署当天的版本为准。本页每一次修改都留存在项目[仓库](https://github.com/ComiCine/ComiCine-website)的提交历史里，随时可以翻看旧版本。
 
 > 核对日期：境内平台 2026-09-27，境外平台 2026-10-03。平台主体与政策链接会变更，引用前请以官方页面为准；
 > 本页只做索引，不构成法律意见。

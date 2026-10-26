@@ -1,6 +1,6 @@
-# Limooo - shared configuration and utilities
+# ComiCine - shared configuration and utilities
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -23,13 +23,19 @@ import sqlite3
 # Path constants
 # Repository root (this file is in src/, one level below the root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _configured_env(name: str, default: str | None = None) -> str | None:
+    """Read the ComiCine environment name, falling back to its former name for existing callers."""
+    legacy = "LIMOOO_" + name.removeprefix("COMICINE_")
+    return os.environ.get(name) or os.environ.get(legacy) or default
 DATA_DIR = os.path.join(BASE_DIR, "data")
 SOURCE_DIR = os.path.join(BASE_DIR, "src")
 STATIC_DIR = os.path.join(SOURCE_DIR, "static")
 TEMPLATES_DIR = os.path.join(SOURCE_DIR, "templates")
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
-PUBLIC_DIR = os.environ.get("LIMOOO_PUBLIC_DIR") or os.path.join(BASE_DIR, "public")
-PREVIEW_DIR = os.environ.get("LIMOOO_PREVIEW_DIR") or os.path.join(BASE_DIR, "preview")
+PUBLIC_DIR = _configured_env("COMICINE_PUBLIC_DIR") or os.path.join(BASE_DIR, "public")
+PREVIEW_DIR = _configured_env("COMICINE_PREVIEW_DIR") or os.path.join(BASE_DIR, "preview")
 
 # Single source of truth for shared configuration: config.py and the generated
 # functions/_lib/config.ts both read from here. Change domains, languages,
@@ -127,10 +133,10 @@ def _contract_identity_site_roles() -> dict[str, str]:
 
 
 # On a fresh deployment, data/ may not exist yet; importing this module ensures
-# the directory is ready. Build mode (LIMOOO_BUILD=1) only renders output and
+# the directory is ready. Build mode (COMICINE_BUILD=1) only renders output and
 # does not create the runtime database directory. The Python service creates it
 # at startup, so build.py has no data/ side effects on a clean machine.
-BUILD_MODE = os.environ.get("LIMOOO_BUILD") == "1"
+BUILD_MODE = _configured_env("COMICINE_BUILD") == "1"
 if not BUILD_MODE:
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -187,7 +193,7 @@ OBSERVABILITY_HMAC_ENV = _contract_str("observability_hmac_env")
 
 # Open-source repository
 # Repository linked by the AGPL-3.0 "Source code" links in the header and footer.
-SOURCE_REPO_URL = "https://github.com/Limooooo-Studio/Limooo-Website"
+SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website"
 
 # Languages
 # Language codes are lowercase to match Cloudflare Turnstile's language parameter.

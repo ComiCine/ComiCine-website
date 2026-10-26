@@ -1,6 +1,6 @@
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -31,6 +31,7 @@ BASH = "/bin/bash"
 DEPLOY = ROOT / "ops" / "deploy.sh"
 WORKERS_DEPLOY = ROOT / "ops" / "workers_deploy.sh"
 MIGRATE = ROOT / "ops" / "migrate_d1.sh"
+ENV_COMPAT = ROOT / "ops" / "env_compat.sh"
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
 
@@ -40,7 +41,33 @@ MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 # These cases test deploy.sh **gate logic**, not the toolchain. Tool bootstrap (added 2026-10-11)
 # tries to create a venv and install wrangler in a temporary repository. It has no requirements.lock, so it fails,
 # making the whole test fail spuriously. Disable bootstrap by default; tests for bootstrap can enable it explicitly.
-_GUARD_ENV = {"LIMOOO_SKIP_TOOL_BOOTSTRAP": "1"}
+_GUARD_ENV = {"COMICINE_SKIP_TOOL_BOOTSTRAP": "1"}
+
+
+def test_legacy_operational_environment_name_maps_to_comicine() -> None:
+    env = dict(os.environ)
+    env.pop("COMICINE_TEST_ALIAS", None)
+    env["LIMOOO_TEST_ALIAS"] = "legacy-value"
+    result = subprocess.run(
+        [BASH, "-c", 'source "$1"; [[ "$COMICINE_TEST_ALIAS" == "legacy-value" ]]', "bash", str(ENV_COMPAT)],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_comicine_operational_environment_name_mirrors_legacy_alias() -> None:
+    env = dict(os.environ)
+    env.pop("LIMOOO_TEST_ALIAS", None)
+    env["COMICINE_TEST_ALIAS"] = "current-value"
+    result = subprocess.run(
+        [BASH, "-c", 'source "$1"; [[ "$LIMOOO_TEST_ALIAS" == "current-value" ]]', "bash", str(ENV_COMPAT)],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture(scope="session")
@@ -50,7 +77,7 @@ def deploy_test_signing_key(request):
     assert gpg, "gpg is required for deploy commit-signature tests"
     home = Path(tempfile.mkdtemp(prefix="limooo-gpg-", dir="/tmp"))
     request.addfinalizer(lambda: shutil.rmtree(home))
-    user_id = "Limooo Deploy Test <deploy-test@example.test>"
+    user_id = "ComiCine Deploy Test <deploy-test@example.test>"
     generated = subprocess.run(
         [gpg, "--homedir", str(home), "--batch", "--pinentry-mode", "loopback",
          "--passphrase", "", "--quick-generate-key", user_id, "ed25519", "sign", "0"],
@@ -103,6 +130,7 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
     repo = tmp_path / "repo"
     (repo / "ops").mkdir(parents=True)
     shutil.copy2(DEPLOY, repo / "ops" / "deploy.sh")
+    shutil.copy2(ENV_COMPAT, repo / "ops" / "env_compat.sh")
     for name, body in (
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
@@ -427,10 +455,10 @@ def test_deploy_pages_allows_a_dirty_tree_with_the_escape_hatch(tmp_path):
     repo = make_repo(tmp_path)
     (repo / "tracked.txt").write_text("v1\nuncommitted\n")
     result = run(
-        [BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"LIMOOO_ALLOW_DIRTY": "1"}
+        [BASH, "ops/deploy.sh", "--pages"], cwd=repo, env={"COMICINE_ALLOW_DIRTY": "1"}
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Warning: deploying a dirty working tree (LIMOOO_ALLOW_DIRTY=1)" in result.stdout
+    assert "Warning: deploying a dirty working tree (COMICINE_ALLOW_DIRTY=1)" in result.stdout
     # Stage order: Prepare (including Check), then Release.
     assert result.stdout.index("Prepare: done") < result.stdout.index("Release: done")
 
@@ -564,7 +592,7 @@ def test_check_schema_does_not_accept_a_prefix_table(tmp_path):
     payload.write_text(wrangler_payload(tables))
     result = run(
         [BASH, "ops/migrate_d1.sh", "--check-schema"],
-        env={"LIMOOO_D1_SCHEMA_JSON": str(payload)},
+        env={"COMICINE_D1_SCHEMA_JSON": str(payload)},
     )
     assert result.returncode == 1, result.stdout + result.stderr
     assert "FATAL: D1 missing expected tables: visitors ray_log" in result.stderr
@@ -576,7 +604,7 @@ def test_check_schema_passes_when_every_table_is_present(tmp_path):
     payload.write_text(wrangler_payload(expected_tables() + ["gate_assets", "probes"]))
     result = run(
         [BASH, "ops/migrate_d1.sh", "--check-schema"],
-        env={"LIMOOO_D1_SCHEMA_JSON": str(payload)},
+        env={"COMICINE_D1_SCHEMA_JSON": str(payload)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "schema check: OK" in result.stdout
@@ -725,11 +753,11 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
 
     env = {
         "PATH": f"{bindir}:{os.environ['PATH']}",
-        "LIMOOO_VENV_PYTHON": str(fake_venv / "bin" / "python"),
+        "COMICINE_VENV_PYTHON": str(fake_venv / "bin" / "python"),
         "WRANGLER_BIN": str(tmp_path / "wrangler" / "node_modules" / ".bin" / "wrangler"),
-        "LIMOOO_SKIP_CHECKS": "1",
+        "COMICINE_SKIP_CHECKS": "1",
         # run() disables bootstrap by default (see _GUARD_ENV); this case tests bootstrap, so enable it explicitly.
-        "LIMOOO_SKIP_TOOL_BOOTSTRAP": "0",
+        "COMICINE_SKIP_TOOL_BOOTSTRAP": "0",
     }
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
 
@@ -742,7 +770,7 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
 
 
 def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
-    """`LIMOOO_SKIP_TOOL_BOOTSTRAP=1` disables all bootstrap attempts."""
+    """`COMICINE_SKIP_TOOL_BOOTSTRAP=1` disables all bootstrap attempts."""
     repo = make_repo(tmp_path)
     venv_marker = tmp_path / "venv-created"
     bindir = tmp_path / "bin"
@@ -758,9 +786,9 @@ def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
 
     env = {
         "PATH": f"{bindir}:{os.environ['PATH']}",
-        "LIMOOO_VENV_PYTHON": str(tmp_path / "nope" / "bin" / "python"),
-        "LIMOOO_SKIP_CHECKS": "1",
-        "LIMOOO_SKIP_TOOL_BOOTSTRAP": "1",
+        "COMICINE_VENV_PYTHON": str(tmp_path / "nope" / "bin" / "python"),
+        "COMICINE_SKIP_CHECKS": "1",
+        "COMICINE_SKIP_TOOL_BOOTSTRAP": "1",
     }
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
 

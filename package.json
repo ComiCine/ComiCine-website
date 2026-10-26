@@ -1,13 +1,13 @@
 {
-  "name": "limooo-functions-tests",
+  "name": "comicine-functions-tests",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Limooo Cloudflare Pages Functions unit tests",
+  "description": "ComiCine Cloudflare Pages Functions unit tests",
   "scripts": {
     "test": "vitest run && node --test ops/image-watermark/src/index.test.js",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage --coverage.include='functions/**/*.ts' --coverage.include='ops/sync-worker/src/**/*.ts' --coverage.include='ops/status-worker/src/**/*.ts' --coverage.include='ops/d1-archive/src/**/*.ts' --coverage.exclude='**/*.test.ts' --coverage.exclude='functions/_data/**' --coverage.exclude='**/__mocks__/**' --coverage.reporter=text --coverage.reporter=json-summary --coverage.reportsDirectory=/tmp/limooo-coverage",
+    "test:coverage": "vitest run --coverage --coverage.include='functions/**/*.ts' --coverage.include='ops/sync-worker/src/**/*.ts' --coverage.include='ops/status-worker/src/**/*.ts' --coverage.include='ops/d1-archive/src/**/*.ts' --coverage.exclude='**/*.test.ts' --coverage.exclude='functions/_data/**' --coverage.exclude='**/__mocks__/**' --coverage.reporter=text --coverage.reporter=json-summary --coverage.reportsDirectory=/tmp/comicine-coverage",
     "typecheck": "tsc --noEmit",
     "build": "bash ops/build.sh"
   },

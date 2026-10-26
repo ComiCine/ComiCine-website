@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -65,14 +65,14 @@ var animSeq = 0; // Increment for each animation so pending timers from older an
 var touchStartY = 0;
 
 /*
- * Scroll down: brackets fade out (233ms), fly to the navigation (200ms), fade, then show nav-logo.
- * Scroll up: hide nav-logo, fly back to center, and restore the brackets.
+ * Scroll down: the hero logo flies to the navigation (200ms), fades, then reveals nav-logo.
+ * Scroll up: hide nav-logo, fly back to center, and return the ComiCine logo to the center.
  */
 
 function morphHeroToNav() {
     if (!heroTitle) return;
     var seq = animSeq;
-    // Fade out the brackets.
+    // Disable clicks while the logo is moving into the navigation.
     heroTitle.classList.add('hero-closed');
     // Fly to the upper-left after 233ms.
     setTimeout(function() {

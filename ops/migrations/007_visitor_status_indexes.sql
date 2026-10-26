@@ -1,9 +1,9 @@
--- Copyright (C) 2026-Present Limooo Studio
+-- Copyright (C) 2026-Present ComiCine
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Limooo D1 visitor status filter indexes (docs/15).
+-- ComiCine D1 visitor status filter indexes (docs/15).
 --
 -- Keep the ?status=<3-digit number> compatibility parameter for /api/visitors. Add composite
 -- indexes on (status, ts) and (status, ip_hash, ts) to visitors_v2 to avoid full scans when filtering.

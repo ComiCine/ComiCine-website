@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -188,7 +188,7 @@ describe("sendViaSmtp", () => {
   it("wraps base64 payloads at 76 columns and round-trips the text", async () => {
     const { socket, written } = scriptedSocket();
     vi.mocked(connect).mockReturnValue(socket as never);
-    const text = "Limooo probe down. ".repeat(40);
+    const text = "ComiCine probe down. ".repeat(40);
 
     await sendViaSmtp(CONFIG, { to: "ops@example.com", subject: "down", text });
 
@@ -226,7 +226,7 @@ describe("sendViaSmtp", () => {
     });
 
     const stream = written();
-    const boundary = /boundary="(limooo-[0-9a-f]+)"/.exec(stream);
+    const boundary = /boundary="(comicine-[0-9a-f]+)"/.exec(stream);
     expect(boundary).not.toBeNull();
     expect(stream).toContain(`--${boundary![1]}${CRLF}Content-Type: text/plain`);
     expect(stream).toContain(`--${boundary![1]}${CRLF}Content-Type: text/html`);

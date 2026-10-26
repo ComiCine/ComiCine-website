@@ -1,6 +1,6 @@
-{# Limooo - Flask Web Application
+{# ComiCine - Flask Web Application
 
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -14,19 +14,19 @@ See ADDITIONAL_TERMS.txt.
 <link rel="canonical" href="https://{{ contact_host }}/">
 <meta name="description" itemprop="description" content="{{ _('meta_description_contact') }}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Limooo">
+<meta property="og:site_name" content="ComiCine">
 <meta property="og:title" itemprop="name" content="{{ _('page_title_contact') }}">
 <meta property="og:description" content="{{ _('meta_description_contact') }}">
 <meta property="og:url" content="https://{{ contact_host }}/">
-<meta property="og:image" itemprop="image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta property="og:image" itemprop="image" content="{{ image_asset_base }}/static/icons/social-preview.png?v=3">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="Limooo Studio preview">
+<meta property="og:image:width" content="6687">
+<meta property="og:image:height" content="3760">
+<meta property="og:image:alt" content="ComiCine social preview">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ _('page_title_contact') }}">
 <meta name="twitter:description" content="{{ _('meta_description_contact') }}">
-<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png?v=3">
     <!-- Preload QR codes during HTML parsing so the hover overlay does not wait for the Worker.
          Mobile does not show the overlay, so media conditions skip the extra download. -->
     <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/bilibili.webp"
@@ -70,7 +70,7 @@ See ADDITIONAL_TERMS.txt.
             data-qr="{{ image_watermark_base }}/qr-codes/bilibili.webp">
             <div class="bubble-tip" data-i18n="visit_bilibili">{{ _('visit_bilibili') }}</div>
             <p class="text-[11px] opacity-40 mb-1 tracking-[calc(0.3em*var(--ls-scale))]" data-i18n="platform_bilibili">{{ _('platform_bilibili') }}</p>
-            <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium">-Limooo-</p>
+            <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium">-ComiCine-</p>
             <div class="hover-line"></div>
         </a>
 

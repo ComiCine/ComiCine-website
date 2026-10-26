@@ -1,16 +1,16 @@
 /*
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
  */
 
 /**
- * Cookie bridge shared with the main site (docs.limooo.cn and limooo.cn).
+ * Cookie bridge shared with the main site and documentation site.
  *
  * Main-site cookies (see site/src/static/js/base.js and functions/_lib/routing.ts):
  *   user_lang_preference = zh-cn | en-us | ja-jp | ko-kr   Domain=.limooo.cn
- *   limooo_theme         = light | dark                     Domain=.limooo.cn
+ *   comicine_theme       = light | dark                     Domain=.limooo.cn
  *
  * Language URL convention: the language code is the final path segment. Every
  * content page includes it explicitly, including the default zh-cn. Paths without
@@ -22,14 +22,15 @@
  *
  * This bridge has three responsibilities:
  *   1. Read the main site's theme cookie and initialize VitePress appearance on first visit.
- *   2. Watch VitePress theme changes and write the selected theme to limooo_theme.
+ *   2. Watch VitePress theme changes and write the selected theme to comicine_theme.
  *   3. Write the current language to user_lang_preference after route changes. On a page
  *      without a language suffix, redirect once per session when the cookie selects a
  *      different language and the target page exists.
  */
 
 export const LANG_COOKIE = 'user_lang_preference'
-export const THEME_COOKIE = 'limooo_theme'
+export const THEME_COOKIE = 'comicine_theme'
+export const LEGACY_THEME_COOKIE = 'limooo_theme'
 export const APPEARANCE_KEY = 'vitepress-theme-appearance'
 
 export const DEFAULT_LANG = 'zh-cn'
@@ -44,6 +45,7 @@ export const THEME_BOOTSTRAP_SCRIPT = `;(() => {
   try {
     if (localStorage.getItem('${APPEARANCE_KEY}')) return
     var m = document.cookie.match(/(?:^|;\\s*)${THEME_COOKIE}=(light|dark)/)
+    if (!m) m = document.cookie.match(/(?:^|;\\s*)${LEGACY_THEME_COOKIE}=(light|dark)/)
     if (m) localStorage.setItem('${APPEARANCE_KEY}', m[1])
   } catch (e) {}
 })()`
@@ -72,6 +74,10 @@ export function readCookie(name: string): string | null {
 
 export function writeCookie(name: string, value: string): void {
   document.cookie = `${name}=${encodeURIComponent(value)}${cookieAttributes()}`
+}
+
+export function readThemeCookie(): string | null {
+  return readCookie(THEME_COOKIE) ?? readCookie(LEGACY_THEME_COOKIE)
 }
 
 function pathSegments(path: string): string[] {
@@ -120,6 +126,8 @@ function syncThemeCookie(): void {
     ? 'dark'
     : 'light'
   if (readCookie(THEME_COOKIE) !== value) writeCookie(THEME_COOKIE, value)
+  // Keep the previous cookie in sync for pages and tabs that have not refreshed yet.
+  if (readCookie(LEGACY_THEME_COOKIE) !== value) writeCookie(LEGACY_THEME_COOKIE, value)
 }
 
 function watchAppearance(): void {

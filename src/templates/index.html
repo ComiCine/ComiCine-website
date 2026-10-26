@@ -1,6 +1,6 @@
-{# Limooo - Flask Web Application
+{# ComiCine - Flask Web Application
 
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
@@ -8,27 +8,27 @@ See ADDITIONAL_TERMS.txt.
 
 {% extends "base.html" %}
 
-{% block title %}Limooo{% endblock %}
+{% block title %}ComiCine{% endblock %}
 
 {% block head_links %}
 <link rel="canonical" href="https://{{ root_domain }}/">
 <meta name="description" itemprop="description" content="{{ _('meta_description_home') }}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Limooo">
+<meta property="og:site_name" content="ComiCine">
 <meta property="og:title" itemprop="name" content="{{ _('page_title_home') }}">
 <meta property="og:description" content="{{ _('meta_description_home') }}">
 <meta property="og:url" content="https://{{ root_domain }}/">
-<meta property="og:image" itemprop="image" content="{{ image_asset_base }}/static/icons/social-preview.png">
+<meta property="og:image" itemprop="image" content="{{ image_asset_base }}/static/icons/social-preview.png?v=3">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="Limooo Studio preview">
+<meta property="og:image:width" content="6687">
+<meta property="og:image:height" content="3760">
+<meta property="og:image:alt" content="ComiCine social preview">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ _('page_title_home') }}">
 <meta name="twitter:description" content="{{ _('meta_description_home') }}">
-<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png">
-<link rel="preload" as="script" href="/static/js/index.js?v=5">
-<link rel="stylesheet" href="/static/css/index.css?v=10">
+<meta name="twitter:image" content="{{ image_asset_base }}/static/icons/social-preview.png?v=3">
+<link rel="preload" as="script" href="/static/js/index.js?v=6">
+<link rel="stylesheet" href="/static/css/index.css?v=11">
 {% endblock %}
 
 {% block footer %}{% endblock %}
@@ -36,7 +36,7 @@ See ADDITIONAL_TERMS.txt.
 {% block flash %}{% endblock %}
 
 {% block content %}
-<h1 id="hero-title" class="hero-title text-4xl md:text-7xl tracking-[0.05em]"><span class="bracket">「</span>Limooo<span class="bracket">」</span></h1>
+<h1 id="hero-title" class="hero-title" aria-label="ComiCine"><img class="hero-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=1" alt="ComiCine" width="192" height="192"></h1>
 <!-- Initial home view. -->
 <div id="home-screen" class="page-layer">
     <section class="flex-grow flex flex-col justify-center items-center text-center px-6"></section>
@@ -82,5 +82,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/index.js?v=5" defer></script>
+    <script src="/static/js/index.js?v=6" defer></script>
 {% endblock %}

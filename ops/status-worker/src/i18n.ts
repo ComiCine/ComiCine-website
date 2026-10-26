@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -42,7 +42,8 @@ export function isLang(v: unknown): v is Lang {
  */
 export const ROOT_DOMAIN = "limooo.cn";
 export const LANG_COOKIE = "user_lang_preference";
-export const THEME_COOKIE = "limooo_theme";
+export const THEME_COOKIE = "comicine_theme";
+export const LEGACY_THEME_COOKIE = "limooo_theme";
 export const COOKIE_MAX_AGE = 31536000;
 
 /** Each language's own name in the overlay; must match `lang_<primary>` in `site/locales/*.json`. */
@@ -134,7 +135,7 @@ export function fmt(template: string, params: Record<string, string>): string {
 const ZH_CN = {
   // Page content
   title: "服务状态",
-  sub: "Limooo 各项服务的实时可用性。",
+  sub: "ComiCine 各项服务的实时可用性。",
   overall_all: "全部系统运行正常",
   overall_partial: "部分系统异常",
   overall_down: "系统中断",
@@ -146,11 +147,11 @@ const ZH_CN = {
   uptime: "7 天在线率",
   updated: "最后更新",
   refresh: "自动刷新",
-  note: "数据来源：limooo-status Worker · Cloudflare D1",
+  note: "数据来源：ComiCine Status Worker · Cloudflare D1",
   reason_line: "原因：{detail}",
   no_probes: "暂无探针配置。",
-  card_website: "Limooo 网站",
-  card_d1: "Limooo D1 健康检查",
+  card_website: "ComiCine 网站",
+  card_d1: "ComiCine D1 健康检查",
   card_status: "边缘静态资源",
 
   // Page-level errors (render failure or missing route)
@@ -218,7 +219,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
   "zh-cn": ZH_CN,
   "en-us": {
     title: "Service Status",
-    sub: "Live availability for Limooo services.",
+    sub: "Live availability for ComiCine services.",
     overall_all: "All Systems Operational",
     overall_partial: "Partially Operational",
     overall_down: "Systems Down",
@@ -230,11 +231,11 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     uptime: "7-day uptime",
     updated: "Last updated",
     refresh: "Auto refresh in",
-    note: "Data source: limooo-status Worker · Cloudflare D1",
+    note: "Data source: ComiCine Status Worker · Cloudflare D1",
     reason_line: "Reason: {detail}",
     no_probes: "No probes configured yet.",
-    card_website: "Limooo Website",
-    card_d1: "Limooo D1 Health Check",
+    card_website: "ComiCine Website",
+    card_d1: "ComiCine D1 Health Check",
     card_status: "Edge Static Assets",
 
     err_title: "Status data is temporarily unavailable",
@@ -294,7 +295,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
   },
   "ja-jp": {
     title: "サービスステータス",
-    sub: "Limooo 各サービスのリアルタイム稼働状況。",
+    sub: "ComiCine 各サービスのリアルタイム稼働状況。",
     overall_all: "すべてのシステム正常稼働",
     overall_partial: "一部システムに問題",
     overall_down: "システム停止中",
@@ -306,11 +307,11 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     uptime: "7 日間の稼働率",
     updated: "最終更新",
     refresh: "自動更新",
-    note: "データソース：limooo-status Worker · Cloudflare D1",
+    note: "データソース：ComiCine Status Worker · Cloudflare D1",
     reason_line: "理由：{detail}",
     no_probes: "プローブが未設定です。",
-    card_website: "Limooo ウェブサイト",
-    card_d1: "Limooo D1 ヘルスチェック",
+    card_website: "ComiCine ウェブサイト",
+    card_d1: "ComiCine D1 ヘルスチェック",
     card_status: "エッジ静的アセット",
 
     err_title: "ステータスデータを一時的に取得できません",
@@ -370,7 +371,7 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
   },
   "ko-kr": {
     title: "서비스 상태",
-    sub: "Limooo 서비스의 실시간 가용성.",
+    sub: "ComiCine 서비스의 실시간 가용성.",
     overall_all: "모든 시스템 정상 작동",
     overall_partial: "일부 시스템 문제",
     overall_down: "시스템 중단",
@@ -382,11 +383,11 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     uptime: "7일 가동률",
     updated: "마지막 업데이트",
     refresh: "자동 새로고침",
-    note: "데이터 출처: limooo-status Worker · Cloudflare D1",
+    note: "데이터 출처: ComiCine Status Worker · Cloudflare D1",
     reason_line: "원인: {detail}",
     no_probes: "구성된 프로브가 없습니다.",
-    card_website: "Limooo 웹사이트",
-    card_d1: "Limooo D1 상태 확인",
+    card_website: "ComiCine 웹사이트",
+    card_d1: "ComiCine D1 상태 확인",
     card_status: "엣지 정적 자산",
 
     err_title: "상태 데이터를 일시적으로 사용할 수 없습니다",

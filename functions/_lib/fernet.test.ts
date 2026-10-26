@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -23,7 +23,7 @@ const tsFixturePath = fileURLToPath(
 describe("fernet", () => {
   it("decrypts the Python-generated fixture", async () => {
     const token = readFileSync(fixturePath, "utf8").trim();
-    expect(await fernetDecrypt(token, TEST_KEY)).toBe("hello-limooo");
+    expect(await fernetDecrypt(token, TEST_KEY)).toBe("hello-comicine");
   });
 
   /**
@@ -51,12 +51,12 @@ describe("fernet", () => {
   });
 
   it("encrypts and decrypts round-trip", async () => {
-    const token = await fernetEncrypt("hello-limooo", TEST_KEY);
-    expect(await fernetDecrypt(token, TEST_KEY)).toBe("hello-limooo");
+    const token = await fernetEncrypt("hello-comicine", TEST_KEY);
+    expect(await fernetDecrypt(token, TEST_KEY)).toBe("hello-comicine");
   });
 
   it("rejects a wrong key", async () => {
-    const token = await fernetEncrypt("hello-limooo", TEST_KEY);
+    const token = await fernetEncrypt("hello-comicine", TEST_KEY);
     await expect(fernetDecrypt(token, "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWZ9")).rejects.toThrow();
   });
 });

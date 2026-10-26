@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -50,7 +50,7 @@ function headerSafe(value: string): string {
 }
 
 function buildMime(cfg: SmtpConfig, msg: SmtpMessage): string {
-  const boundary = `limooo-${crypto.randomUUID().replace(/-/g, "")}`;
+  const boundary = `comicine-${crypto.randomUUID().replace(/-/g, "")}`;
   const headers = [
     `From: ${headerSafe(cfg.from)}`,
     `To: ${headerSafe(msg.to)}`,

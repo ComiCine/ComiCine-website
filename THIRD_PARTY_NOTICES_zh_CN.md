@@ -8,7 +8,7 @@
 
 Baloo 2 的版权声明为 The Baloo 2 Project Authors，依据 SIL Open Font License 第 1.1 版（OFL-1.1）提供。上游项目为 [EkType/Baloo2](https://github.com/EkType/Baloo2)。仓库内许可证副本位于 [src/static/fonts/baloo2/OFL.txt](src/static/fonts/baloo2/OFL.txt)。
 
-项目在 src/static/fonts/baloo2/ 和 docs/docs/public/fonts/ 中包含 Baloo 2 字体及其子集。项目还包含从 Baloo 2 SemiBold 派生并生成的括号字形子集：src/static/fonts/baloo2/limooo-brackets-600-subset-baloo2.ttf，以及嵌入 src/static/fonts-round75.css 的副本。这些字体文件仍受 OFL-1.1 约束。再分发字体副本时须保留字体版权及许可证声明；不得单独出售字体软件；修改字体及保留字体名称须遵守 OFL 条款。
+项目在 src/static/fonts/baloo2/ 和 docs/docs/public/fonts/ 中包含 Baloo 2 字体及其子集。项目还包含从 Baloo 2 SemiBold 派生并生成的括号字形子集：src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf，以及嵌入 src/static/fonts-round75.css 的副本。这些字体文件仍受 OFL-1.1 约束。再分发字体副本时须保留字体版权及许可证声明；不得单独出售字体软件；修改字体及保留字体名称须遵守 OFL 条款。
 
 ### Inter
 

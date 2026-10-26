@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
 """Keep `requirements.lock` honest about what it is actually installing.
 
-Why this exists (tasks/22, 2026-10-11): a Dependabot PR bumped `cairosvg` in
-`ops/requirements.txt` to 2.9.1, CI went green, and the change was merged — but
-`requirements.lock` still pinned 2.8.2, and `ops/build.sh:56` installs **the lock**.
-So the upgrade was a no-op that nothing detected. Six other packages had drifted the
-same way. This script is the missing detector.
+Runtime dependencies are installed from `requirements.lock`, while
+`ops/requirements.txt` declares the direct pins. This check catches missing entries
+and version drift between those two sources before CI or deployment uses the lock.
 
 Two modes, because the two questions are different:
 

@@ -1,17 +1,17 @@
 ---
 aside: false
 title: プロジェクト README
-description: "Limooo のウェブサイトと管理システム（Cloudflare 完全サーバーレス構成）のプロジェクト README"
+description: "ComiCine のウェブサイトと管理システム（Cloudflare 完全サーバーレス構成）のプロジェクト README"
 ---
 <!--
-Copyright (C) 2026-Present Limooo Studio
+Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
 
-# Limooo
+# ComiCine
 
 [limooo.cn](https://limooo.cn) で稼働する、完全サーバーレスの個人ウェブサイト兼管理システムです。公開ページ、人間検証ゲート、ビジターパネル、Apple Account マネージャー、監視、ステータスページは、すべて Cloudflare（Pages Functions、Workers、D1、R2）上で動作します。
 
@@ -22,7 +22,7 @@ See ADDITIONAL_TERMS.txt.
 - **ビジターパネル（visitor panel）**（`visitor.limooo.cn`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
 - **Apple Account マネージャー**（`account.limooo.cn/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
-- **認証とロール**：単一の `Limooo-Identity` Access アプリが `identity.limooo.cn/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
+- **認証とロール**：単一の `ComiCine-Identity` Access アプリが `identity.limooo.cn/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
 - **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと HTTP 401 HTML を返し、同一オリジンの外部スクリプトが `identity.limooo.cn/login` へ遷移します。その後 Cloudflare Access が `limooo.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。
 - **監視（monitoring）**：`limooo-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
 - **ステータスページ**（`status.limooo.cn`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
@@ -149,13 +149,12 @@ npm ci
 npm run build
 ```
 
-`npm run build` は `ops/build.sh` です。リポジトリ外にビルド用仮想環境
-`/tmp/limooo-build-venv` を作成し、
-コントラクト検証を実行し、レンダリング前に
-`DYLD_LIBRARY_PATH=$(brew --prefix cairo)/lib` をエクスポートするため、
-手動での準備は不要です。`python3 src/build.py` を直接実行するとこの 3 つがすべて
-省略され、Homebrew の cairo パスを自分でエクスポートしない限り
-`RuntimeError: SVG watermarking requires cairosvg` で失敗します。
+`npm run build` は `ops/build.sh` です。リポジトリ外に
+`/tmp/comicine-build-venv` を作成し、`requirements.lock` の固定依存関係をインストールして、
+レンダリング前に実行環境間の設定を検証します。作品の透かしは Pillow と
+`src/static/icons/watermark.png` で生成するため、システムの Cairo ライブラリは不要です。
+レンダラーを直接実行する場合は、固定された Python 依存関係をインストールしてから
+`COMICINE_BUILD=1 python3 src/build.py` を実行してください。
 
 生成されたサイトをローカルでプレビューするには、ビルドして `preview/` の出力を開きます。
 
@@ -285,13 +284,13 @@ Cloudflare API か Git 経由で実行されます。
 rewrites のエントリと `public/_redirects` のサフィックスなしパス用 302 を 1 行足します —
 markdown ファイルに HTML が出力されないと `ops/docs_check_output.py` がビルドを失敗させます。
 
-サイトはフォーク `Limooooo-Studio/vitepress` の VitePress でビルドします。ヘッダーとフッターはフォーク側
-（`VPLimoooNav.vue` / `VPLimoooFooter.vue`）にあり、メインサイトの `base.html` / `_footer.html` を忠実に再現しています —
+サイトはフォーク `ComiCine/vitepress` の VitePress でビルドします。ヘッダーとフッターはフォーク側
+（`VPComiCineNav.vue` / `VPComiCineFooter.vue`）にあり、メインサイトの `base.html` / `_footer.html` を忠実に再現しています —
  編集はフォークで行えば次のデプロイが反映します（フォークはコミットが変わったときだけ再ビルドされます。
-フォークの作業ツリーからビルドするには `LIMOOO_VITEPRESS_FETCH=0` を使います）。
+フォークの作業ツリーからビルドするには `COMICINE_VITEPRESS_FETCH=0` を使います）。
 サイトは独立した Cloudflare Pages プロジェクト（`limooo-docs`）なので
 メインの `limooo` 成果物には一切触れず、
-`user_lang_preference` / `limooo_theme` cookie をメインサイトと共有します。
+`user_lang_preference` / `comicine_theme` cookie をメインサイトと共有します。
 
 ```bash
 bash ops/docs_deploy.sh --build-only   # build + validate only
@@ -320,7 +319,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## ホワイトリスト
 
-信頼するソースは [`docs/lists/own-ips.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/own-ips.txt) で手動管理し、デプロイ時に生成ファイル [`docs/lists/whitelist.txt`](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/docs/lists/whitelist.txt) へ反映します。
+信頼するソースは [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt) で手動管理し、デプロイ時に生成ファイル [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt) へ反映します。
 
 | エントリ | 効果 |
 | --- | --- |
@@ -372,7 +371,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `TURNSTILE_SECRET` | サーバー側 siteverify のシークレット |
 | `GATE_HMAC_KEY` | `__gate` cookie 用の HMAC-SHA256 署名鍵（`openssl rand -hex 32`） |
 | `ACCESS_TEAM_DOMAIN` | Cloudflare Access のチームドメイン。検証に使う JWT の `iss` でもあります |
-| `ACCESS_IDENTITY_AUD` | 単一 `Limooo-Identity` Access アプリの AUD。ロールは `config-contract.json` の送信元ホストマップで決まります |
+| `ACCESS_IDENTITY_AUD` | 単一 `ComiCine-Identity` Access アプリの AUD。ロールは `config-contract.json` の送信元ホストマップで決まります |
 | `VISITOR_IP_KEY` | 暗号化された訪問者 IP 完全版カラム（`visitor_rollups.ip_enc`）用の Fernet 鍵 |
 | `OBSERVABILITY_HMAC_KEY` | プライバシー最小化された訪問者 IP ハッシュの HMAC 鍵（`functions/_lib/tracking.ts`）。未設定だとゲートがフェイルクローズします |
 | `SESSION_HMAC_KEY` | Pages のセッション cookie 署名鍵（`GATE_HMAC_KEY` とは別） |
@@ -496,7 +495,7 @@ docs.limooo.cn に公開されることはありません。
 1. **Pages**：プロジェクト `limooo`（`limooo.pages.dev`）が `limooo.cn`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image`、`redirect` を配信します。ドキュメントサイトは別プロジェクト `limooo-docs`（`docs.limooo.cn`）で、`fonts.limooo.cn` は R2 が支えます
 2. **D1**：データベース `limooo`（APAC）が `DB` としてプロジェクトに接続されています。`ops/migrations/` のスキーマは適用済みで、適用バージョンは `schema_version` が記録します。`apple_accounts` が Apple Account の行を保持し、`blocked_ips` がブロックの権威です（83 行、有効 1 行。ソフト削除した行は監査用に残ります）
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
-4. **Access**：`Limooo-Identity` が `identity.limooo.cn/login` のみを保護します。`visitor.limooo.cn` と `account.limooo.cn` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `Limooo-Admin` アプリが残っていますが、`admin.limooo.cn` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
+4. **Access**：`ComiCine-Identity` が `identity.limooo.cn/login` のみを保護します。`visitor.limooo.cn` と `account.limooo.cn` は共有 identity handoff の後、それぞれの Pages ホスト専用セッションを使います。Dashboard には未使用の `ComiCine-Admin` アプリが残っていますが、`admin.limooo.cn` には DNS レコードも Pages カスタムドメインもありません。自前の IdP も独自のログインフォームもありません
 5. **Worker** は独立して動作します：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive`、`image-watermark`。`status.limooo.cn` と `sink.limooo.cn` は Worker のカスタムドメインです
 6. **Cloudflare のルール**：カスタムファイアウォールのフェーズは空です（`limooo_blocklist` IP List はルールを待っている状態）。キャッシュのフェーズでは静的アセット、旧画像パス、ウォーターマーク Worker の応答を 1 年間キャッシュし、2 つの HTML ページキャッシュルールは無効です。動的リダイレクトのフェーズは空で、`ops/waf/rules.snapshot.json` はその空のフェーズを更新時点で写したものです（削除されたルールは git の履歴にのみ残ります）
 7. **スモークチェック**：`https://limooo.cn/_health` → 200、`https://limooo.cn/?challenge=1` → 403、`https://docs.limooo.cn/` → `https://limooo.cn` へ 302、`https://status.limooo.cn/` → 200
@@ -504,10 +503,10 @@ docs.limooo.cn に公開されることはありません。
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス
 
-Limooo Studio が著作権を有し、ライセンスする権限を有するオリジナル資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS_ja_JP.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/ADDITIONAL_TERMS_ja_JP.txt) を、GNU AGPL v3 の本文は [LICENSE.txt](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/LICENSE.txt) を参照してください。追加条項は GNU AGPL v3 を選択する場合に適用され、後続バージョンでの適用はそのバージョンの条件によります。
+ComiCine が著作権を有し、ライセンスする権限を有するオリジナル資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS_ja_JP.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt) を、GNU AGPL v3 の本文は [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt) を参照してください。追加条項は GNU AGPL v3 を選択する場合に適用され、後続バージョンでの適用はそのバージョンの条件によります。
 
-Limooo Studio は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
+ComiCine は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
 追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
 
-第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/Limooooo-Studio/Limooo-Website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。
+第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。

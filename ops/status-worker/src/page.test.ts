@@ -1,7 +1,7 @@
 /**
- * Limooo - serverless personal website and admin system
+ * ComiCine - serverless personal website and admin system
  *
- * Copyright (C) 2026-Present Limooo Studio
+ * Copyright (C) 2026-Present ComiCine
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Section 7 additional terms apply when the work is used under GNU AGPL v3.
  * See ADDITIONAL_TERMS.txt.
@@ -55,7 +55,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
     for (const needle of [
       'class="site-nav"',
-      'class="nav-brand">Limooo',
+      'class="nav-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1"',
       'href="https://limooo.cn"',
       'href="https://services.limooo.cn"',
       'href="https://contact.limooo.cn"',
@@ -64,7 +64,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
       'id="langMenu"',
       'id="theme-switch"',
       'class="appearance-switch"',
-      "https://github.com/Limooooo-Studio",
+      "https://github.com/ComiCine",
       "https://space.bilibili.com/1234163143",
       'class="icon-svg"',
     ]) {
@@ -100,11 +100,11 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-brand">Limooo',
+      'class="footer-brand">ComiCine</span></span>',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
-      "https://github.com/Limooooo-Studio/Limooo-Website",
+      "https://github.com/ComiCine/ComiCine-website",
       'rel="noopener noreferrer"',
     ]) {
       expect(html, needle).toContain(needle);
@@ -144,7 +144,7 @@ describe("status content", () => {
   });
 
   it("translates the probe label via label_key and falls back to the DB name", () => {
-    expect(statusPageHtml(payload(), "ja-jp")).toContain("Limooo ウェブサイト");
+    expect(statusPageHtml(payload(), "ja-jp")).toContain("ComiCine ウェブサイト");
     expect(statusPageHtml(payload(), "ko-kr")).toContain("D1 Health"); // Without label_key, use the database name.
   });
 
@@ -196,7 +196,7 @@ describe("failure pages", () => {
   it("the render-failure page is localized and explains itself", () => {
     expect(renderErrorHtml("zh-cn")).toContain("状态数据暂时不可用");
     expect(renderErrorHtml("en-us")).toContain("Status data is temporarily unavailable");
-    expect(renderErrorHtml("en-us")).toContain("limooo-status Worker");
+    expect(renderErrorHtml("en-us")).toContain("ComiCine Status Worker");
   });
 });
 
@@ -227,6 +227,7 @@ describe("assets", () => {
 
   it("preloads the theme before paint, from localStorage then the shared cookie", () => {
     expect(THEME_JS).toContain("localStorage.getItem('theme')");
+    expect(THEME_JS).toContain("comicine_theme");
     expect(THEME_JS).toContain("limooo_theme");
     expect(THEME_JS).toContain("prefers-color-scheme: light");
     expect(THEME_JS).toContain("classList.add('light-mode')");
@@ -234,7 +235,9 @@ describe("assets", () => {
 
   it("wires the flyout, the theme pill, the countdown and the cookie bridge", () => {
     expect(STATUS_JS).toContain("user_lang_preference");
+    expect(STATUS_JS).toContain("comicine_theme");
     expect(STATUS_JS).toContain("limooo_theme");
+    expect(STATUS_JS).toContain("comicine_status_lang_synced");
     expect(STATUS_JS).toContain("domain=.'+ROOT");
     expect(STATUS_JS).toContain("refresh-count");
     expect(STATUS_JS).toContain("location.reload()");

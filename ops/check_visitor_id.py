@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# Limooo - serverless personal website and admin system
+# ComiCine - serverless personal website and admin system
 #
-# Copyright (C) 2026-Present Limooo Studio
+# Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
@@ -41,7 +41,11 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(os.environ.get("LIMOOO_ROOT") or Path(__file__).resolve().parents[1])
+ROOT = Path(
+    os.environ.get("COMICINE_ROOT")
+    or os.environ.get("LIMOOO_ROOT")
+    or Path(__file__).resolve().parents[1]
+)
 sys.path.insert(0, str(ROOT))
 
 from ops import d1_client  # noqa: E402
@@ -81,7 +85,7 @@ def decrypt_ip(token: str, key: str) -> str:
             "  use an interpreter that has it: /tmp/limooo-venv/bin/python "
             f"{Path(__file__).name} <ID>\n"
             "  (recreate: python3 -m venv /tmp/limooo-venv && "
-            "/tmp/limooo-venv/bin/pip install -r ops/requirements.txt)"
+            "/tmp/comicine-venv/bin/pip install -r ops/requirements.txt)"
         ) from exc
     return Fernet(key.encode("ascii")).decrypt(token.encode("ascii")).decode("utf-8")
 
