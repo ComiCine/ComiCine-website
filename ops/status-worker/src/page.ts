@@ -236,7 +236,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-screen-social-link svg{width:24px;height:24px;fill:currentColor}
 .nav-screen-social-link:hover{opacity:1}
 @media(min-width:768px){.nav-screen{display:none}}
-@media(max-width:767px){.nav-divider,.nav-desktop-language,.nav-right>.appearance-switch,.nav-desktop-social{display:none}.nav-brand{font-size:1.125rem}}
+@media(max-width:767px){.nav-divider,.nav-divider.nav-divider-lang-theme,.nav-desktop-language,.nav-right>.appearance-switch,.nav-desktop-social{display:none}.nav-brand{font-size:1.125rem}}
 html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 @media(prefers-reduced-motion:reduce){.nav-screen,.nav-screen-container,.nav-hamburger>span,.nav-screen-chevron{transition:none}}
 
