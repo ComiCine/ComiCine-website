@@ -10,8 +10,8 @@
 # ComiCine - Cloudflare Pages build and deploy (tasks/17, zero-VPS)
 #
 # The VPS was retired on 2026-09-17: no ssh, no remote secrets, no rsync.
-# Credentials are read from local secrets/webauthn.env only (never committed); the
-# token is never written to disk or echoed.
+# Credentials come from the environment when supplied by CI, or from local
+# secrets/webauthn.env otherwise; values are never committed, written to logs, or echoed.
 #
 # Usage:
 #   bash ops/pages_deploy.sh --dry-run      # print what would happen only
@@ -102,26 +102,29 @@ if [ "$BUILD_ONLY" = 1 ]; then
     exit 0
 fi
 
-# Credentials.
-if [ ! -f "$SECRETS_FILE" ]; then
-    echo "FATAL: missing $SECRETS_FILE" >&2
-    exit 1
-fi
 if [ ! -x "$WRANGLER_BIN" ]; then
     echo "FATAL: wrangler not found: $WRANGLER_BIN" >&2
     echo "       recreate: mkdir -p /tmp/wrangler-env && cd /tmp/wrangler-env && npm i wrangler@4" >&2
     exit 1
 fi
 
-if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
-    CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
-    export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+if [ -f "$SECRETS_FILE" ]; then
+    if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+        CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
+    fi
+    if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+        CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
+    fi
 fi
 if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    echo "FATAL: CLOUDFLARE_API_TOKEN not found in $SECRETS_FILE" >&2
+    echo "FATAL: CLOUDFLARE_API_TOKEN is missing from the environment and $SECRETS_FILE" >&2
     exit 1
 fi
+if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+    echo "FATAL: CLOUDFLARE_ACCOUNT_ID is missing from the environment and $SECRETS_FILE" >&2
+    exit 1
+fi
+export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 
 # Wrangler adds emoji to its output; remove only emoji and preserve all other output.
 strip_emoji() {

@@ -237,7 +237,7 @@ function themeFor(code: string): DefaultTheme.Config {
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
     ],
     footer: {
-      copyright: '© 2026 <span class="footer-brand">ComiCine</span>',
+      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.limooo.cn/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
       items: [
         { text: L.footerRights },
         { text: 'AGPL-3.0' },

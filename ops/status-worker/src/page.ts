@@ -36,6 +36,7 @@ export function esc(v: unknown): string {
 
 /** Main-site asset host for the favicon and logo; matches `image_asset_host` in `config-contract.json`. */
 const IMAGE_ASSET_BASE = "https://images.limooo.cn";
+const COMICINE_LOGO_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=1`;
 /** Repository linked by "Source" in the footer; matches `SOURCE_REPO_URL` in `src/config.py`. */
 const SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website";
 const GITHUB_URL = "https://github.com/ComiCine";
@@ -128,7 +129,7 @@ export function footerHtml(lang: Lang): string {
   const copyrightYears = currentYear === 2026 ? "2026" : `2026-${currentYear}`;
   return (
     '<footer class="global-footer" id="global-footer"><div class="footer-link"><div class="footer-text">' +
-    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <span class="footer-brand">ComiCine</span></span>` +
+    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <img class="footer-brand-logo" src="${COMICINE_LOGO_URL}" alt="ComiCine" width="16" height="16"></span>` +
     `<span class="footer-item">${esc(t(lang, "footer_rights"))}</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_source"))}</span>` +
     `<span class="footer-item"><a class="footer-source-link" href="${SOURCE_REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(t(lang, "footer_source_link"))}</a></span>` +
@@ -250,7 +251,7 @@ html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 .footer-text>.footer-item{display:inline-block}
 .footer-text>.footer-item:not(:first-child)::before{content:"\\00b7";margin:0 .55em;opacity:.7}
 @media(max-width:559px){.footer-text>.footer-copyright{flex:0 0 100%;white-space:nowrap}.footer-text>.footer-copyright+.footer-item::before{content:none}}
-.footer-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;letter-spacing:.02em;font-size:10px;font-size-adjust:.6552}
+.footer-brand-logo{display:inline-block;width:1.6em;height:1.6em;margin-inline-start:.25em;object-fit:contain;vertical-align:-.3em}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
 /* Status content */
