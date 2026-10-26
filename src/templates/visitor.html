@@ -41,31 +41,20 @@ See ADDITIONAL_TERMS.txt.
 
 
 
+{% block nav_screen_links %}
+        <a class="nav-screen-link" href="{{ home_url }}"><span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+        <a class="nav-screen-link" href="{{ services_url }}"><span data-i18n="nav_services">{{ _('nav_services') }}</span>{% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+        <a class="nav-screen-link" href="{{ contact_url }}"><span data-i18n="nav_contact">{{ _('nav_contact') }}</span>{% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+        <a class="nav-screen-link" href="{{ status_url }}"><span data-i18n="nav_admin">{{ _('nav_admin') }}</span>{% if status_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+        <a class="nav-screen-link active" href="https://visitor.limooo.cn"><span data-i18n="nav_visitor">{{ _('nav_visitor') }}</span><svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg></a>
+        <a class="nav-screen-link" href="https://account.limooo.cn/apple"><span data-i18n="nav_apple_account">{{ _('nav_apple_account') }}</span><svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg></a>
+{% endblock %}
+
 {% block nav_dropdown %}
     <div class="nav-mobile-menu">
-        <button class="icon-btn nav-menu-button" type="button" data-action="toggleMobileMenu" data-needs-event aria-label="{{ _('nav_menu_aria') }}" data-i18n-attr="aria-label:nav_menu_aria" aria-haspopup="true" aria-expanded="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <button class="icon-btn nav-menu-button" type="button" data-action="toggleMobileMenu" data-needs-event data-stop aria-label="{{ _('nav_menu_aria') }}" data-i18n-attr="aria-label:nav_menu_aria" aria-haspopup="true" aria-controls="nav-screen" aria-expanded="false">
+            <span class="nav-hamburger" aria-hidden="true"><span class="top"></span><span class="middle"></span><span class="bottom"></span></span>
         </button>
-        <div id="navLinksDropdown" class="nav-menu" role="menu">
-            <a class="nav-menu-item" role="menuitem" href="{{ home_url }}">
-                <span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
-            </a>
-            <a class="nav-menu-item" role="menuitem" href="{{ services_url }}">
-                <span data-i18n="nav_services">{{ _('nav_services') }}</span>{% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
-            </a>
-            <a class="nav-menu-item" role="menuitem" href="{{ contact_url }}">
-                <span data-i18n="nav_contact">{{ _('nav_contact') }}</span>{% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
-            </a>
-            <a class="nav-menu-item" role="menuitem" href="{{ status_url }}">
-                <span data-i18n="nav_admin">{{ _('nav_admin') }}</span>{% if status_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
-            </a>
-            <a class="nav-menu-item" role="menuitem" href="https://visitor.limooo.cn">
-                <span data-i18n="nav_visitor">{{ _('nav_visitor') }}</span><svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>
-            </a>
-            <a class="nav-menu-item" role="menuitem" href="https://account.limooo.cn/apple">
-                <span data-i18n="nav_apple_account">{{ _('nav_apple_account') }}</span><svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>
-            </a>
-        </div>
     </div>
 {% endblock %}
 

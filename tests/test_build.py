@@ -398,8 +398,12 @@ def test_lang_options_follow_the_contract_at_call_time(monkeypatch):
     html = build.render_page(render_app.RENDER_APP, "index.html", "/", "aa-aa")
 
     assert 'data-supported-langs="aa-aa bb-bb"' in html
-    assert html.count('data-action="setLang"') == 2
-    assert 'data-lang="aa-aa"' in html and 'data-lang="bb-bb"' in html
+    assert html.count('class="theme-option') == 2
+    assert html.count('class="nav-screen-language-option') == 2
+    assert 'class="theme-option selected" data-lang="aa-aa"' in html
+    assert 'class="theme-option" data-lang="bb-bb"' in html
+    assert 'class="nav-screen-language-option selected" data-lang="aa-aa"' in html
+    assert 'class="nav-screen-language-option" data-lang="bb-bb"' in html
     # Derive the flag from the region subtag and use the primary-language subtag for the copy key.
     options = render_app._cached_lang_options(("aa-aa", "bb-bb"))
     assert [o["code"] for o in options] == ["aa-aa", "bb-bb"]
