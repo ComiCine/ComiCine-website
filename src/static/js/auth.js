@@ -76,8 +76,9 @@ function applyTheme(theme) {
   if (schemeMeta) schemeMeta.content = theme;
   var themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
-  var sw = document.querySelector('.appearance-switch');
-  if (sw) sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+  document.querySelectorAll('.appearance-switch').forEach(function (sw) {
+    sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+  });
 }
 
 function loadTurnstileScript() {
@@ -279,6 +280,9 @@ function fetchI18n(lang, cb) {
         var map = {
           title: 'gate_title', heading: 'gate_heading', location: 'gate_location',
           ip: 'gate_ip', ray: 'gate_ray', foot: 'gate_foot',
+          nav_home: 'nav_home', nav_services: 'nav_services', nav_contact: 'nav_contact',
+          nav_menu_aria: 'nav_menu_aria', nav_appearance: 'nav_appearance', visit_bilibili: 'visit_bilibili',
+          lang_zh: 'lang_zh', lang_en: 'lang_en', lang_ja: 'lang_ja', lang_ko: 'lang_ko',
           lang_aria: 'gate_lang_aria', theme_aria: 'gate_theme_aria',
           footer_rights: 'footer_rights', footer_source: 'footer_source', footer_source_link: 'footer_source_link',
           error_sitekey: 'gate_error_sitekey', error_invalid: 'gate_error_invalid',
@@ -313,7 +317,7 @@ function applyLang(lang) {
     CURRENT_LANG = lang;
     document.documentElement.lang = lang;
     renderI18n();
-    document.querySelectorAll('#langMenu .theme-option').forEach(function (opt) {
+    document.querySelectorAll('#langMenu .theme-option, .nav-screen-language-option').forEach(function (opt) {
       opt.classList.toggle('selected', opt.dataset.lang === lang);
     });
   }
@@ -324,16 +328,100 @@ function applyLang(lang) {
 function toggleLangMenu(e) {
   if (e) e.stopPropagation();
   var m = document.getElementById('langMenu');
-  if (m) m.classList.toggle('open');
+  var button = document.getElementById('lang-btn');
+  if (!m) return;
+  var open = !m.classList.contains('open');
+  m.classList.toggle('open', open);
+  if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 function closeLangMenu() {
   var m = document.getElementById('langMenu');
   if (m) m.classList.remove('open');
+  var button = document.getElementById('lang-btn');
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+function toggleNavLanguages(e) {
+  if (e) e.stopPropagation();
+  var list = document.getElementById('nav-screen-language-list');
+  var toggle = document.getElementById('nav-screen-languages-toggle');
+  var group = document.querySelector('.nav-screen-translations');
+  if (!list || !toggle) return;
+  var open = list.inert;
+  list.classList.toggle('open', open);
+  list.setAttribute('aria-hidden', open ? 'false' : 'true');
+  list.inert = !open;
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (group) group.classList.toggle('open', open);
+}
+
+function closeNavLanguages() {
+  var list = document.getElementById('nav-screen-language-list');
+  var toggle = document.getElementById('nav-screen-languages-toggle');
+  var group = document.querySelector('.nav-screen-translations');
+  if (list) {
+    list.classList.remove('open');
+    list.setAttribute('aria-hidden', 'true');
+    list.inert = true;
+  }
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  if (group) group.classList.remove('open');
+}
+
+var navScreenBackground = [];
+
+function setNavScreenBackgroundInert(inert) {
+  if (inert) {
+    navScreenBackground = [];
+    Array.prototype.forEach.call(document.body.children, function (child) {
+      if (child.classList.contains('site-nav') || child.id === 'nav-screen' || child.inert) return;
+      child.inert = true;
+      navScreenBackground.push(child);
+    });
+    return;
+  }
+  navScreenBackground.forEach(function (child) { child.inert = false; });
+  navScreenBackground = [];
+}
+
+function toggleMobileMenu(e) {
+  if (e) e.stopPropagation();
+  var screen = document.getElementById('nav-screen');
+  if (!screen) return;
+  var open = !screen.classList.contains('open');
+  screen.classList.toggle('open', open);
+  screen.setAttribute('aria-hidden', open ? 'false' : 'true');
+  screen.inert = !open;
+  setNavScreenBackgroundInert(open);
+  document.documentElement.classList.toggle('nav-screen-open', open);
+  document.body.classList.toggle('nav-screen-open', open);
+  var button = document.querySelector('.nav-menu-button');
+  if (button) button.classList.toggle('active', open);
+  if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  closeLangMenu();
+  closeNavLanguages();
+}
+
+function closeNavMenu() {
+  var screen = document.getElementById('nav-screen');
+  if (screen) {
+    screen.classList.remove('open');
+    screen.setAttribute('aria-hidden', 'true');
+    screen.inert = true;
+  }
+  setNavScreenBackgroundInert(false);
+  document.documentElement.classList.remove('nav-screen-open');
+  document.body.classList.remove('nav-screen-open');
+  var button = document.querySelector('.nav-menu-button');
+  if (button) button.classList.remove('active');
+  if (button) button.setAttribute('aria-expanded', 'false');
+  closeNavLanguages();
 }
 
 function setLang(code) {
   closeLangMenu();
+  closeNavMenu();
   applyLang(code);
 }
 
@@ -376,14 +464,35 @@ function initGateConfig(cfg) {
   if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
     fly.addEventListener('mouseenter', function () {
       var m = document.getElementById('langMenu');
+      var button = document.getElementById('lang-btn');
       if (m) m.classList.add('open');
+      if (button) button.setAttribute('aria-expanded', 'true');
     });
     fly.addEventListener('mouseleave', closeLangMenu);
   }
 })();
 
 document.addEventListener('click', function (e) {
-  if (!e.target.closest('.theme-toggle')) closeLangMenu();
+  if (!e.target.closest('.lang-flyout')) closeLangMenu();
+  var screen = document.getElementById('nav-screen');
+  if (screen && e.target === screen) closeNavMenu();
+  if (e.target.closest('.nav-screen-link')) closeNavMenu();
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  var screen = document.getElementById('nav-screen');
+  if (screen && screen.classList.contains('open')) {
+    closeNavMenu();
+    var button = document.querySelector('.nav-menu-button');
+    if (button) button.focus();
+  } else {
+    closeLangMenu();
+  }
+});
+
+window.addEventListener('resize', function () {
+  if (window.matchMedia('(min-width: 768px)').matches) closeNavMenu();
 });
 
 /* Render static copy in the build language first; runtime config adds Turnstile and language switching. */

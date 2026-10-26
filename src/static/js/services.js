@@ -133,7 +133,6 @@ setTimeout(function() {
 (function() {
     var API_PATH = '/api/currency-rates';
     var CACHE_KEY = 'limooo-services-fx-v2';
-    var PREFERENCE_KEY = 'limooo-services-currency-v1';
     var FRESH_MS = 6 * 60 * 60 * 1000;
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
     var PRIORITY = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'HKD', 'TWD', 'SGD', 'AUD', 'CAD', 'CHF', 'INR', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'NZD', 'ZAR', 'BRL', 'MXN', 'AED', 'SAR'];
@@ -158,7 +157,7 @@ setTimeout(function() {
     var search = document.getElementById('currency-search');
     var options = document.getElementById('currency-options');
     var status = document.getElementById('currency-picker-status');
-    var selected = readPreference();
+    var selected = null;
     var activeTrigger = null;
     var optionsRenderScheduled = false;
     var currencyData = readCache();
@@ -180,16 +179,8 @@ setTimeout(function() {
         return typeof window.limoooTranslate === 'function' ? window.limoooTranslate(key, params) : key;
     }
 
-    function readPreference() {
-        try {
-            var value = localStorage.getItem(PREFERENCE_KEY);
-            return /^[A-Z]{3}$/.test(value || '') ? value : 'CNY';
-        } catch (_) { return 'CNY'; }
-    }
-
-    function savePreference(code) {
+    function setSelectedCurrency(code) {
         selected = code;
-        try { localStorage.setItem(PREFERENCE_KEY, code); } catch (_) { /* Private browsing may disable storage. */ }
     }
 
     function validCache(data) {
@@ -258,9 +249,8 @@ setTimeout(function() {
     }
 
     function reconcileSelection(data) {
-        if (selected === 'CNY' || (data && Number.isFinite(data.rates[selected]) && data.rates[selected] > 0)) return;
-        selected = 'CNY';
-        try { localStorage.removeItem(PREFERENCE_KEY); } catch (_) { /* Ignore unavailable storage. */ }
+        if (!selected || selected === 'CNY' || (data && Number.isFinite(data.rates[selected]) && data.rates[selected] > 0)) return;
+        selected = null;
     }
 
     function refreshData() {
@@ -532,7 +522,7 @@ setTimeout(function() {
             if (!reference || !reference.matches('[data-currency-reference]')) return;
             var text = '';
             var label = '';
-            if (selected !== 'CNY' && box.dataset.cnyPrice !== undefined && currencyData) {
+            if (selected && selected !== 'CNY' && box.dataset.cnyPrice !== undefined && currencyData) {
                 var cny = Number(box.dataset.cnyPrice);
                 var rate = currencyData.rates[selected];
                 if (Number.isFinite(cny) && cny >= 0 && Number.isFinite(rate) && rate > 0) {
@@ -623,7 +613,7 @@ setTimeout(function() {
         }
         var code = option.dataset.currencyCode;
         if (!/^[A-Z]{3}$/.test(code || '') || (code !== 'CNY' && ratesFailed && (!currencyData || !Number.isFinite(currencyData.rates[code])))) return;
-        savePreference(code);
+        setSelectedCurrency(code);
         syncRenderedSelection();
         applyReferences();
         closePicker();

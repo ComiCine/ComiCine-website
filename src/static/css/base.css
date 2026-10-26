@@ -292,8 +292,12 @@
             transition: transform 250ms var(--ease-out);
         }
         .nav-screen-translations.open .nav-screen-chevron { transform: rotate(-90deg); }
-        .nav-screen-language-list { margin: 0; padding: 0.25rem 0 0; padding-inline-start: 1.5rem; }
-        .nav-screen-language-list[hidden] { display: none; }
+        .nav-screen-language-list {
+            margin: 0; padding: 0.25rem 0 0; padding-inline-start: 1.5rem;
+            max-height: 0; overflow: hidden; opacity: 0;
+            transition: max-height 250ms var(--ease-out), opacity 180ms var(--ease-out);
+        }
+        .nav-screen-language-list.open { max-height: 12rem; opacity: 1; }
         .nav-screen-language-list li { list-style: none; }
         .nav-screen-language-option {
             display: block; line-height: 2.4615385; font-size: 0.8125rem;
@@ -330,7 +334,7 @@
         body.nav-screen-open #hero-title { opacity: 0 !important; visibility: hidden !important; }
         body.nav-screen-open #nav-logo.is-hidden { opacity: 1 !important; pointer-events: auto; }
         @media (prefers-reduced-motion: reduce) {
-            .nav-screen, .nav-screen-container, .nav-hamburger > span, .nav-screen-chevron { transition: none; }
+            .nav-screen, .nav-screen-container, .nav-hamburger > span, .nav-screen-chevron, .nav-screen-language-list { transition: none; }
         }
 
         /* Entrance animation: reveal-item to show. */

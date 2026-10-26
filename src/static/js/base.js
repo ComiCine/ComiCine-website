@@ -415,8 +415,10 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var toggle = document.getElementById('nav-screen-languages-toggle');
         var group = document.querySelector('.nav-screen-translations');
         if (!list || !toggle) return;
-        var open = list.hidden;
-        list.hidden = !open;
+        var open = list.inert;
+        list.classList.toggle('open', open);
+        list.setAttribute('aria-hidden', open ? 'false' : 'true');
+        list.inert = !open;
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (group) group.classList.toggle('open', open);
     }
@@ -425,7 +427,11 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var list = document.getElementById('nav-screen-language-list');
         var toggle = document.getElementById('nav-screen-languages-toggle');
         var group = document.querySelector('.nav-screen-translations');
-        if (list) list.hidden = true;
+        if (list) {
+            list.classList.remove('open');
+            list.setAttribute('aria-hidden', 'true');
+            list.inert = true;
+        }
         if (toggle) toggle.setAttribute('aria-expanded', 'false');
         if (group) group.classList.remove('open');
     }

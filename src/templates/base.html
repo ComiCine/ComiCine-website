@@ -27,7 +27,7 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=14" as="script">
+    <link rel="preload" href="/static/js/base.js?v=15" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
@@ -52,7 +52,7 @@ See ADDITIONAL_TERMS.txt.
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- Site base styles extracted and optimized from the former inline template styles. -->
-    <link rel="stylesheet" href="/static/css/base.css?v=24">
+    <link rel="stylesheet" href="/static/css/base.css?v=25">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -151,12 +151,11 @@ See ADDITIONAL_TERMS.txt.
                 {% endblock %}
             </nav>
             <div class="nav-screen-translations">
-                <button id="nav-screen-languages-toggle" class="nav-screen-language-toggle" type="button" data-action="toggleNavLanguages" data-needs-event data-stop aria-expanded="false" aria-controls="nav-screen-language-list">
+                <button id="nav-screen-languages-toggle" class="nav-screen-language-toggle" type="button" data-action="toggleNavLanguages" data-needs-event data-stop aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-expanded="false" aria-controls="nav-screen-language-list">
                     <svg class="nav-screen-language-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
-                    {% for option in lang_options %}{% if g.lang == option.code %}<span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span>{% endif %}{% endfor %}
                     <svg class="nav-screen-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
-                <ul id="nav-screen-language-list" class="nav-screen-language-list" hidden>
+                <ul id="nav-screen-language-list" class="nav-screen-language-list" aria-hidden="true" inert>
                     {% for option in lang_options %}
                     <li><a href="{{ request.path }}" class="nav-screen-language-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a></li>
                     {% endfor %}
@@ -187,7 +186,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=14" defer></script>
+    <script src="/static/js/base.js?v=15" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>
