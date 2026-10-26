@@ -122,6 +122,18 @@
     transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
   }
   .logo { display: block; margin: 0 auto 22px; max-width: 220px; height: auto; }
+  /* Match the homepage's centered mobile logo so the verification card stays compact. */
+  @media (max-width: 767px) {
+    .logo { width: 96px; height: 96px; max-width: 96px; }
+    html.gate-page {
+      height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto;
+    }
+    body.gate-page {
+      height: auto; min-height: 100vh; min-height: 100dvh; overflow: visible;
+      align-items: flex-start;
+      padding: calc(70px + 16px + env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
+    }
+  }
   h1 {
     font-size: 17px; font-weight: 600; text-align: center;
     color: var(--text); line-height: 1.5; margin-bottom: 24px;
@@ -220,7 +232,7 @@
   /* Show the footer on mobile and touch devices as well. */
   @media (max-width: 559px) {
     .card {
-      width: min(calc(100% - 32px), 340px);
+      width: min(100%, 340px);
       padding: 28px 18px 21px;
     }
   }

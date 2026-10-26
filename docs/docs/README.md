@@ -245,7 +245,7 @@ TLS 证书由 Cloudflare 为 Pages 自定义域名签发与续期。
 
 ## 部署
 
-部署目标就是 Cloudflare Pages（`limooo`）以及各个独立 Worker，全部走 Cloudflare API。
+部署目标就是 Cloudflare Pages 项目 `comicine`（默认别名 `limooo.pages.dev`）以及各个独立 Worker，全部走 Cloudflare API。
 在仓库根目录下执行：
 
 ```bash
@@ -335,7 +335,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。Pages 各主机的 DNS 都指向 `comicine.pages.dev`。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。主 Pages 项目名称为 `comicine`，当前默认别名仍是 `limooo.pages.dev`；文档项目 `comicine-docs` 的默认别名仍是 `limooo-docs.pages.dev`，子域迁移尚未完成。
 
 运行时划分：
 
@@ -383,7 +383,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 每个渲染门禁的主机都由同一份边缘代码提供服务，因此不存在需要保持同步的第二套门禁实现。
 
-中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile 组件必须列出所有渲染它的主机（`comicine.com` 的门禁子域，包括 `auth`、`status`、`visitor`、`apple` 与 `images`）。
+中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile widget 的主机名授权必须覆盖实际使用它的站点。当前 `.com` 门禁仍存在验证故障：配置接口和 Turnstile 脚本都能加载，但挑战在 `/gate/verify` 收到 token 前失败；`auth.js` 现在会显示手动重试按钮并在浏览器控制台记录 Turnstile 数字错误码。现有 Cloudflare API 凭据修改 widget 时返回 HTTP 403 / error `10000`，因此授权主机名尚未核验或修复。不要关闭门禁；排查时先看客户端错误码，并用有 Turnstile Sites Write 权限的凭据核对主机授权。
 
 ### 页面服务（干净 URL，无语言路径前缀）
 
@@ -483,13 +483,15 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：项目 `comicine`（`comicine.pages.dev`）承载 `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档站是独立的 `comicine-docs` 项目（`docs.comicine.com`），`fonts.comicine.com` 由 R2 提供
-2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到该项目；`ops/migrations/` 的 schema 已就位，已应用版本记录在 `schema_version`；`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威（83 行、1 行生效 —— 软删除行保留用于审计）
+1. **Pages**：主项目 `comicine` 当前仍通过 `limooo.pages.dev` 提供服务；文档项目 `comicine-docs` 的默认别名仍是 `limooo-docs.pages.dev`。主项目承载 `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档主机为 `docs.comicine.com`，`fonts.comicine.com` 由 R2 提供
+2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到项目，`schema_version` 记录已应用迁移。迁移 022 已应用；迁移 021 会重写现有 Apple Account 标识符，因此仍按设计暂缓。`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威，软删除行保留用于审计
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
-4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；`visitor.comicine.com` 与 `account.comicine.com` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.comicine.com`。没有自建 IdP，也没有自定义登录页
+4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；`visitor.comicine.com` 与 `account.comicine.com` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
 5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名
-6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等着规则来用）；缓存阶段把静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则处于停用状态；`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳转到对应 `.com` 主机，并保留路径和查询参数
+6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等待规则）；缓存阶段将静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则均未启用；`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳转到对应 `.com` 主机，并保留路径和查询参数。`/feishu/<path>` 先按同一规则 301 到 `comicine.com/feishu/<path>`，再由 Pages 转发到 `https://comicine.feishu.cn/<path>`。
 7. **冒烟检查**：`https://comicine.com/_health` → 200，`https://comicine.com/?challenge=1` → 403，`https://docs.comicine.com/` → 302 到 `https://comicine.com`，`https://status.comicine.com/` → 200
+
+注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；应在浏览器完成挑战并确认 `/gate/verify` 成功。当前 `.com` 挑战还未恢复。
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证
@@ -498,6 +500,6 @@ ComiCine 拥有并有权授权的原创材料依据 GNU Affero 通用公共许�
 
 ComiCine 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
 
-额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
+额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)（该旧邮箱继续使用）。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
 
 关于第三方字体、依赖及二维码图片中的平台标识，请参阅[第三方声明](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_zh_CN.md)；版权范围说明见[版权声明](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_zh_CN.md)。

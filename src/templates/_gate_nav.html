@@ -4,11 +4,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 
-ComiCine navigation for the standalone verification page, aligned with base.html.
+ComiCine navigation for the standalone verification page. Its centered gate logo replaces the
+base navigation logo so two brand marks are never visible on the same page state.
 #}
 <nav class="site-nav">
   <div class="nav-inner">
-    <a href="{{ home_url }}" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=2" alt="" width="64" height="64"></a>
     <div class="nav-right">
       <div class="global-nav">
         <a href="{{ home_url }}" class="nav-link"><span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>

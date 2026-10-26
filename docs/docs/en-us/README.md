@@ -248,7 +248,7 @@ from Cloudflare.
 
 ## Deployment
 
-The deploy target is Cloudflare Pages (`limooo`) plus the standalone Workers, all
+The deploy target is Cloudflare Pages project `comicine` (default alias `limooo.pages.dev`) plus the standalone Workers, all
 through the Cloudflare API. From the repository root:
 
 ```bash
@@ -341,7 +341,7 @@ The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full depl
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. DNS for the Pages hosts points at `comicine.pages.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. The main Pages project is named `comicine` but still uses `limooo.pages.dev`; the docs project is `comicine-docs` and still uses `limooo-docs.pages.dev` while alias migration is pending.
 
 Runtime split:
 
@@ -389,7 +389,7 @@ Unverified requests get the Turnstile gate page **in place**: the host and path 
 
 Every host that renders the gate is served by the same edge code, so there is no second gate implementation to keep in sync.
 
-The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget must list every host that renders it (the `comicine.com` gate subdomains, including `auth`, `status`, `visitor`, `apple` and `images`).
+The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget hostname allowlist must cover the sites where it is rendered. The `.com` gate currently has a verification failure: its config endpoint and Turnstile script load, but the challenge fails before `/gate/verify` receives a token. `auth.js` now exposes a manual retry button and logs Turnstile’s numeric client error code in the browser console. The configured Cloudflare API credentials receive HTTP 403 / error `10000` when updating the widget, so its authorized hostnames have not yet been inspected or fixed. Do not disable the gate; inspect the client error code and verify hostname authorization with credentials that have Turnstile Sites Write access.
 
 ### Page serving (clean URLs, no language path prefix)
 
@@ -496,13 +496,15 @@ published to docs.comicine.com.
 The shape of the live deployment, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: project `comicine` (`comicine.pages.dev`) serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; the docs site is the separate `comicine-docs` project behind `docs.comicine.com`, and `fonts.comicine.com` is backed by R2
-2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; the schema from `ops/migrations/` is present and `schema_version` tracks the applied versions; `apple_accounts` holds the Apple Account rows, and `blocked_ips` is the blocking authority (83 rows, 1 active — soft-deleted rows stay for audit)
+1. **Pages**: the main project `comicine` currently serves through `limooo.pages.dev`; the docs project is `comicine-docs` and still has `limooo-docs.pages.dev`. The main project serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; `docs.comicine.com` is the docs host, and `fonts.comicine.com` is backed by R2
+2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; `schema_version` records applied migrations. Migration 022 is applied; migration 021 remains pending because it rewrites existing Apple Account identifiers. `apple_accounts` holds Apple Account rows, and `blocked_ips` is the blocking authority; soft-deleted rows remain for audit
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `ComiCine` protects only `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.comicine.com`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
+4. **Access**: `ComiCine` protects only `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.comicine.com` and `sink.comicine.com` are Worker custom domains
-6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone sends GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving the path and query
+6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone sends GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving path and query. `/feishu/<path>` follows the same `.cn` 301 to `comicine.com/feishu/<path>`, then Pages forwards it to `https://comicine.feishu.cn/<path>`.
 7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200
+
+Note: the `?challenge=1` 403 confirms only that the gate page rendered; it does not prove Turnstile verification works. Complete a real browser challenge and confirm `/gate/verify` succeeds. The `.com` challenge is not yet restored.
 
 The gate renders in place on every host, the real visitor IP is shown in the gate page
 and logs, and Access remains the only identity source.
@@ -513,6 +515,6 @@ Original materials owned and licensed by ComiCine are made available under the G
 
 ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
-For additional authorization or trademark permission inquiries, contact [contact@limooo.cn](mailto:contact@limooo.cn). No additional authorization is required for commercial use that complies with the applicable GNU AGPL version.
+For additional authorization or trademark permission inquiries, contact [contact@limooo.cn](mailto:contact@limooo.cn) (this legacy mailbox remains active). No additional authorization is required for commercial use that complies with the applicable GNU AGPL version.
 
 See [Third-Party Notices](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party fonts, dependencies, and platform marks in QR-code images, and [Copyright](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) for copyright scope.
