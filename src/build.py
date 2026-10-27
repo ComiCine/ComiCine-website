@@ -59,6 +59,7 @@ from config import (
 from config import (
     SUPPORTED_LANGS as LANGS,
 )
+from portfolio import FALLBACK_PORTFOLIO_IMAGES, list_portfolio_images
 
 FUNCTIONS_DIR = os.path.join(BASE_DIR, "functions")
 
@@ -87,21 +88,30 @@ def preview_localization_patterns() -> dict[str, re.Pattern[str]]:
     ROOT_DOMAIN, IMAGE_ASSET_HOST, and IMAGE_WATERMARK_HOST on each call, so changing
     config-contract.json is sufficient for previews too.
     """
+    asset_hosts = "|".join(
+        [
+            re.escape(ROOT_DOMAIN) + r"/static",
+            re.escape(IMAGE_ASSET_HOST) + r"/static",
+            re.escape(IMAGE_WATERMARK_HOST),
+        ]
+    )
     return {
-        "asset": re.compile(
-            r'(src|href|data-qr)="https://(?:'
-            + "|".join(
-                [
-                    re.escape(ROOT_DOMAIN) + r"/static",
-                    re.escape(IMAGE_ASSET_HOST) + r"/static",
-                    re.escape(IMAGE_WATERMARK_HOST),
-                ]
-            )
-            + r")/"
-        ),
+        "asset": re.compile(r'(src|href|data-qr)="https://(?:' + asset_hosts + r")/"),
+        "asset_url": re.compile(r"https://(?:" + asset_hosts + r")/"),
         "root_href": re.compile(rf'href="https://{re.escape(ROOT_DOMAIN)}/?'),
         "root_url": re.compile(rf"url=https://{re.escape(ROOT_DOMAIN)}/"),
     }
+
+
+def rewrite_preview_srcsets(html: str, patterns: dict[str, re.Pattern[str]]) -> str:
+    """Rewrite every URL in each srcset attribute to its local preview asset path."""
+    return re.sub(
+        r'srcset="([^"]*)"',
+        lambda match: 'srcset="'
+        + patterns["asset_url"].sub("../static/", match.group(1))
+        + '"',
+        html,
+    )
 
 
 def preview_subdomain_pages() -> tuple[tuple[str, str], ...]:
@@ -127,7 +137,7 @@ _PARALLEL_ARTIFACT_RE = re.compile(r"\s\d+\.(?:ts|js|py|sql|json|md|map)$")
 # Source file used only as Tailwind CLI input; do not publish it with the site.
 # The live /static/tailwind.input.css would contain only a 59-byte @tailwind directive,
 # which is useless to visitors and exposes build details. The precompiled asset is tailwind.css.
-_STATIC_EXCLUDE_NAMES = frozenset({"tailwind.input.css"})
+_STATIC_EXCLUDE_NAMES = frozenset({"tailwind.input.css", "portfolio-thumbs"})
 
 
 def _static_ignore(dirpath: str, names: list[str]) -> set[str]:
@@ -813,6 +823,31 @@ def generate_portfolio_thumbs(source_dir=None, output_dir=None) -> int:
     return count
 
 
+def copy_portfolio_thumb_fallbacks(seed_dir=None, output_dir=None) -> int:
+    """Copy tracked public thumbnail variants for clean builds without private originals."""
+    seed_dir = seed_dir or os.path.join(STATIC_DIR, "portfolio-thumbs")
+    output_dir = output_dir or os.path.join(
+        PUBLIC_DIR, "static", "portfolio", "thumbs"
+    )
+    expected = [
+        f"{os.path.splitext(name)[0]}-{width}.{extension}"
+        for name in FALLBACK_PORTFOLIO_IMAGES
+        for width in PORTFOLIO_THUMB_WIDTHS
+        for extension in ("webp", "avif")
+    ]
+    missing = [name for name in expected if not os.path.isfile(os.path.join(seed_dir, name))]
+    if missing:
+        raise FileNotFoundError(
+            "missing tracked portfolio thumbnail variants: " + ", ".join(missing)
+        )
+
+    os.makedirs(output_dir, exist_ok=True)
+    for name in expected:
+        shutil.copy2(os.path.join(seed_dir, name), os.path.join(output_dir, name))
+    print(f"[build] copied fallback portfolio thumbnails: {len(expected)} files", flush=True)
+    return len(expected)
+
+
 def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> bool:
     """Validate image prerequisites before touching public/; return whether portfolio sources exist.
 
@@ -1129,10 +1164,14 @@ def main() -> int:
         os.path.join(PUBLIC_DIR, "static", "qr-codes")
     )
     # 3.1) Portfolio card thumbnails (the home page loads these instead of 1080×1440 originals)
-    generate_portfolio_thumbs(
-        os.path.join(STATIC_DIR, "portfolio"),
-        os.path.join(PUBLIC_DIR, "static", "portfolio", "thumbs"),
+    portfolio_source_dir = os.path.join(STATIC_DIR, "portfolio")
+    portfolio_output_dir = os.path.join(
+        PUBLIC_DIR, "static", "portfolio", "thumbs"
     )
+    if list_portfolio_images(portfolio_source_dir):
+        generate_portfolio_thumbs(portfolio_source_dir, portfolio_output_dir)
+    else:
+        copy_portfolio_thumb_fallbacks(output_dir=portfolio_output_dir)
     # 3.2) Watermarked variants (A2: the public bundle contains only full-size watermarked images at /static/wm/portfolio/*)
     generate_watermarks(STATIC_DIR, os.path.join(PUBLIC_DIR, "static", "wm"))
     # 3.3) Fallback cleanup in case originals or parallel copies reappear during the build; stay quiet if nothing is removed.
@@ -1195,6 +1234,7 @@ def main() -> int:
             # Replace HTML tag attributes only; leave absolute URLs in JavaScript untouched.
             #   Construct all three hostnames from contract values; do not hardcode comicine.com.
             html = re.sub(preview_patterns["asset"], r'\1="../static/', html)
+            html = rewrite_preview_srcsets(html, preview_patterns)
             # Also localize root-relative assets in inline CSS, such as the gate page @font-face url(/static/...).
             html = html.replace("url(/static/", "url(../static/")
             html = html.replace(

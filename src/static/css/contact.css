@@ -81,3 +81,15 @@
 @media (max-width: 767px) {
     .qr-display { display: none !important; }
 }
+/* Keep contact content clear of the fixed navigation and footer on short screens. */
+.contact-main {
+    inset: 70px 0 calc(4.75rem + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+@media (min-width: 768px) {
+    .contact-main { top: 100px; }
+}
+@media (max-height: 700px) {
+    .contact-main { justify-content: flex-start; padding-block: 2rem; }
+}

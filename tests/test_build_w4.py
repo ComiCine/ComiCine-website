@@ -175,6 +175,9 @@ def test_static_ignore_excludes_private_portfolio_source(tmp_path, monkeypatch):
 
     assert "portfolio" in root_ignored
     assert "original.webp" not in nested_ignored
+    assert "portfolio-thumbs" in build._static_ignore(
+        str(static), ["portfolio-thumbs"]
+    )
 
 
 # W4-6: Thumbnails may be downscaled but never enlarged.
@@ -221,6 +224,38 @@ def test_thumbnails_still_generate_all_widths_for_normal_source(tmp_path):
     for width in build.PORTFOLIO_THUMB_WIDTHS:
         assert (output / f"shot-{width}.webp").exists()
         assert (output / f"shot-{width}.avif").exists()
+
+
+def test_fallback_portfolio_thumbnails_are_copied_for_clean_builds(tmp_path):
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    output = tmp_path / "out"
+    expected = [
+        f"{name.rsplit('.', 1)[0]}-{width}.{extension}"
+        for name in build.FALLBACK_PORTFOLIO_IMAGES
+        for width in build.PORTFOLIO_THUMB_WIDTHS
+        for extension in ("webp", "avif")
+    ]
+    for name in expected:
+        (seed / name).write_bytes(name.encode("ascii"))
+
+    assert build.copy_portfolio_thumb_fallbacks(str(seed), str(output)) == len(
+        expected
+    )
+    assert sorted(path.name for path in output.iterdir()) == sorted(expected)
+    assert all(
+        (output / name).read_bytes() == name.encode("ascii") for name in expected
+    )
+
+
+def test_fallback_portfolio_thumbnails_fail_when_a_variant_is_missing(tmp_path):
+    seed = tmp_path / "seed"
+    seed.mkdir()
+
+    with pytest.raises(
+        FileNotFoundError, match="missing tracked portfolio thumbnail variants"
+    ):
+        build.copy_portfolio_thumb_fallbacks(str(seed), str(tmp_path / "out"))
 
 
 # W4-5: The manifest must match the build artifacts.
@@ -351,6 +386,7 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     static_dir = tmp_path / "static"
     (static_dir / "portfolio").mkdir(parents=True)
     (static_dir / "icons").mkdir(parents=True)
+    (static_dir / "portfolio" / "source.webp").write_bytes(b"test source")
     # main() publishes the canonical root brand assets, so the stub build needs their source files.
     for icon_name in ("comicine.svg", "comicine-xtext.svg", "comicine-favicon.svg"):
         (static_dir / "icons" / icon_name).write_text("<svg/>", encoding="utf-8")
@@ -365,6 +401,11 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     monkeypatch.setattr(build, "render_page", lambda *a, **k: "<html></html>")
     monkeypatch.setattr(build, "render_gate", lambda *a, **k: "<html></html>")
     monkeypatch.setattr(build, "generate_portfolio_thumbs", lambda *a, **k: order.append("thumbs") or 0)
+    monkeypatch.setattr(
+        build,
+        "copy_portfolio_thumb_fallbacks",
+        lambda *a, **k: order.append("fallback-thumbs") or 36,
+    )
     monkeypatch.setattr(build, "generate_watermarks", lambda *a, **k: order.append("watermarks") or 0)
     monkeypatch.setattr(
         build,

@@ -91,7 +91,7 @@ h1 { font-weight: 600 !important; }
 
 /* Home page title. */
 .hero-title {
-    width: 192px;
+    width: 288px;
     aspect-ratio: 1 / 1;
     margin: 0;
 }
@@ -115,7 +115,9 @@ h1 { font-weight: 600 !important; }
     white-space: nowrap;
 }
 #hero-title.visible { opacity: 1; transform: translate(-50%, -50%); }
-#hero-title.flying { transition: transform 267ms var(--ease-out); }
+#hero-title.flying {
+    transition: left 267ms var(--ease-out), top 267ms var(--ease-out), transform 267ms var(--ease-out);
+}
 .hero-closed { pointer-events: none; }
 
 /* Scroll indicator. */
@@ -134,7 +136,7 @@ h1 { font-weight: 600 !important; }
     font-size: 12px; letter-spacing: calc(0.12em*var(--ls-scale)); text-transform: uppercase; font-weight: 600;
 }
 @media (max-width: 767px) {
-    .hero-title { width: 96px; }
+    .hero-title { width: 144px; }
 }
 @keyframes scroll-bob {
     0%, 100% { transform: translateY(0); opacity: 0.25; }

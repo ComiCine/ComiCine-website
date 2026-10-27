@@ -121,7 +121,7 @@
         @media (max-width: 768px) {
             html, body { overflow-y: auto; height: auto; min-height: 100%; }
             .main-layout { position: relative; top: auto; left: auto; right: auto; bottom: auto; margin-top: 70px; flex-direction: column; }
-            .left-panel { flex: none; padding: 2px 14px 8px 14px; }
+            .left-panel { flex: none; padding: 2px 14px calc(4.75rem + env(safe-area-inset-bottom)) 14px; }
             .visitor-list { overflow-y: visible; }
             .stats-row { padding-bottom: 10px; }
             .stat-card { padding: 10px 12px; }

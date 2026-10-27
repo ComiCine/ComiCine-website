@@ -10,6 +10,8 @@ See ADDITIONAL_TERMS.txt.
 
 {% block title %}{{ _('page_title_contact') }}{% endblock %}
 
+{% block body_class %}contact-page{% endblock %}
+
 {% block head_links %}
 <link rel="canonical" href="https://{{ contact_host }}/">
 <meta name="description" itemprop="description" content="{{ _('meta_description_contact') }}">
@@ -45,7 +47,7 @@ See ADDITIONAL_TERMS.txt.
     <link rel="preload" as="image" type="image/webp" href="{{ _('survey_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
 <link rel="preload" as="script" href="/static/js/contact.js?v=2">
-<link rel="stylesheet" href="/static/css/contact.css?v=6">
+<link rel="stylesheet" href="/static/css/contact.css?v=8">
 {% endblock %}
 
 
@@ -54,7 +56,7 @@ See ADDITIONAL_TERMS.txt.
 
 {% block content %}
 <!-- Main content: fixed and centered. -->
-<main class="fixed inset-0 flex flex-col justify-center items-center text-center px-6">
+<main class="fixed inset-0 flex flex-col justify-center items-center text-center px-6 contact-main">
     <h1 class="contact-title reveal-item text-4xl md:text-7xl mb-16 tracking-[calc(0.1em*var(--ls-scale))] uppercase" data-i18n="contact_title">{{ _('contact_title') }}</h1>
 
     <div class="flex flex-col items-center space-y-10 w-full max-w-lg">

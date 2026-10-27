@@ -30,11 +30,9 @@ from math import gcd
 
 from config import STATIC_DIR
 
-#: Fallback portfolio entries used when source images are missing or dimensions
-#: cannot be read. The order matches the manually maintained template.
-#: ``src/static/portfolio/`` is excluded by .gitignore in a clean CI checkout.
-#: Keep rendering the full card structure so the home page is not empty and
-#: build output remains deterministic.
+#: Fallback portfolio entries used when private source images are absent. Their
+#: public thumbnail variants are tracked under ``src/static/portfolio-thumbs/``.
+#: Keep the list stable so clean CI builds render the same public portfolio.
 FALLBACK_PORTFOLIO_IMAGES = (
     "IMG_0203.webp",
     "IMG_0146.webp",

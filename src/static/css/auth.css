@@ -122,9 +122,9 @@
     transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
   }
   .logo { display: block; margin: 0 auto 22px; max-width: 220px; height: auto; }
-  /* Match the homepage's centered mobile logo so the verification card stays compact. */
+  /* Match the homepage's centered mobile logo while keeping the card within the viewport. */
   @media (max-width: 767px) {
-    .logo { width: 96px; height: auto; max-width: 96px; }
+    .logo { width: 144px; height: auto; max-width: 144px; }
     html.gate-page {
       height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto;
     }
