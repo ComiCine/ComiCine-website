@@ -625,8 +625,8 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   active, but widget-detail reads and updates return HTTP 403 /
   error `10000`; Cloudflare requires `Turnstile Sites Write` or `Account Settings Write` for updates.
   Do not weaken the gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
-  `/feishu/<path>` follows that 301 to `comicine.com/feishu/<path>` and then Pages forwards to
-  `https://comicine.feishu.cn/<path>`.
+  `/feishu/<path>` and `/lark/<path>` on `comicine.com` return 302 through Pages to
+  `https://comicine.feishu.cn/<path>`, preserving path and query.
 - **Checked 2026-10-27: Cloudflare account rename**. `GET /accounts/{account_id}` succeeds, but
   updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
   the configured API token lacks `Account Settings Write`. The account remains named `Limooo` until

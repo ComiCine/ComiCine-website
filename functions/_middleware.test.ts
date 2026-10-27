@@ -469,6 +469,8 @@ describe("Feishu path aliases", () => {
     ["https://limooo.cn/feishu", "https://comicine.feishu.cn/"],
     ["https://limooo.cn/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
     ["https://limooo.cn/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
+    ["https://comicine.com/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
+    ["https://comicine.com/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
   ])("redirects %s to the ComiCine Feishu site", async (requestUrl, target) => {
     const resp = await handleOnRequest(context(new Request(requestUrl)));
 

@@ -152,7 +152,7 @@ npm run build
 `npm run build`는 `ops/build.sh`입니다. 저장소 외부에
 `/tmp/comicine-build-venv`를 만들고 `requirements.lock`의 고정 의존성을 설치한 뒤,
 렌더링 전에 런타임 간 설정을 검증합니다. 작품 워터마크는 Pillow와
-`src/static/icons/watermark.png`로 생성하므로 시스템 Cairo 라이브러리가 필요하지 않습니다.
+`src/static/icons/comicine-watermark.png`로 생성하므로 시스템 Cairo 라이브러리가 필요하지 않습니다.
 렌더러를 직접 실행하려면 고정된 Python 의존성을 설치한 다음
 `COMICINE_BUILD=1 python3 src/build.py`를 사용하세요.
 
@@ -484,7 +484,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
 4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱 이름은 이미 새 브랜드지만 DNS와 Pages 도메인이 없는 기존 `admin.limooo.cn` 호스트를 가리킵니다.
 5. **Worker**는 독립 실행됩니다: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark`, `comicine-sink`. Workers 계정 하위 도메인은 `comicine.workers.dev`입니다. `status.comicine.com`, `image.comicine.com`, `sink.comicine.com`은 Worker 사용자 지정 도메인입니다. 상태 보존을 위해 Status Durable Object의 기존 기술 네임스페이스는 유지합니다.
-6. **Cloudflare 규칙**: 현재 활성화된 WAF 또는 Cache Rules가 없습니다. IP List는 `comicine_blocklist`이며 참조하는 WAF 필터가 없습니다. `.com` 동적 리디렉션 단계는 비어 있습니다. 기존 `.cn` 영역은 GET/HEAD는 301, 다른 메서드는 308로 해당 `.com` 호스트에 리디렉션하며 경로와 쿼리를 유지합니다. `/feishu/<path>`는 Pages를 거쳐 `https://comicine.feishu.cn/<path>`로 전달됩니다.
+6. **Cloudflare 규칙**: 현재 활성화된 WAF 또는 Cache Rules가 없습니다. IP List는 `comicine_blocklist`이며 참조하는 WAF 필터가 없습니다. `.com` 동적 리디렉션 단계는 비어 있습니다. 기존 `.cn` 영역은 요청을 해당 `.com` URL로 리디렉션합니다(GET/HEAD 301, 다른 메서드 308). 경로와 쿼리는 유지됩니다. 이어서 `comicine.com/feishu/<path>`와 `/lark/<path>`는 Pages를 통해 302로 `https://comicine.feishu.cn/<path>`에 전달되며 경로와 쿼리를 유지합니다.
 7. **스모크 검사**: 각 배포 후 `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/`, `https://sink.comicine.com/`을 확인합니다. 스크린샷에는 Turnstile `.com` 호스트가 등록되어 있으나 실제 브라우저 챌린지가 `/gate/verify`에 도달하는지 확인해야 합니다.
 
 > Cloudflare 계정 표시 이름은 `Limooo`로 남아 있습니다. 이름 변경은 권한 부족으로 거부되었습니다. 현재 API Token은 Turnstile 설정을 읽지 못합니다. 스크린샷에는 `.com` 호스트가 등록되어 있으나 검증 성공은 확인하지 못했습니다.

@@ -106,8 +106,9 @@ def test_gate_mobile_logo_matches_home_and_page_can_scroll():
     auth_css = (root / "src/static/css/auth.css").read_text(encoding="utf-8")
     home_css = (root / "src/static/css/index.css").read_text(encoding="utf-8")
 
-    assert ".hero-title { width: 96px; height: 96px; }" in home_css
-    assert ".logo { width: 96px; height: 96px; max-width: 96px; }" in auth_css
+    assert ".hero-title { width: 96px; }" in home_css
+    assert "aspect-ratio: 1 / 1;" in home_css
+    assert ".logo { width: 96px; height: auto; max-width: 96px; }" in auth_css
     assert "html.gate-page" in auth_css
     assert "body.gate-page" in auth_css
     assert "overflow-y: auto" in auth_css
@@ -196,12 +197,14 @@ def test_templates_use_the_correct_logo_variant():
     home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
 
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=1"' in home
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=3"' in home
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=1"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=3"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=4"' in home
+    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=4" alt="ComiCine" width="192" height="192"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in home
+    assert 'content="https://images.comicine.com/static/icons/comicine.png?v=4"' in home
+    assert 'href="/static/icons/comicine-favicon.svg?v=2"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=4"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in gate
 
 
 def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):

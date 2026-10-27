@@ -78,19 +78,25 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
 
   const icon = routeFor(new URL("https://image.limooo.cn/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
-  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg`);
+  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg?v=4`);
+
+  const canonicalWordmark = routeFor(new URL("https://image.comicine.com/icons/comicine-xtext.svg"), { headers: new Headers() }, ORIGIN);
+  assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=2`);
+
+  const canonicalFavicon = routeFor(new URL("https://image.comicine.com/icons/comicine-favicon.svg"), { headers: new Headers() }, ORIGIN);
+  assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=2`);
 
   const legacyIcon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(legacyIcon.watermarked, false);
-  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg`);
+  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg?v=4`);
 
   const legacyWordmark = routeFor(new URL("https://image.limooo.cn/icons/Limooo-xtext.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(legacyWordmark.watermarked, false);
-  assert.equal(legacyWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg`);
+  assert.equal(legacyWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=2`);
 
   const favicon = routeFor(new URL("https://image.comicine.com/icons/favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(favicon.watermarked, false);
-  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg`);
+  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=2`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {
@@ -153,5 +159,17 @@ test("rejects non-GET/HEAD methods without contacting the origin", async () => {
 test("watermark origin URL hits /static/wm/ with a version param", () => {
   const target = wmTarget(ORIGIN, "/portfolio/a.webp", "?v=1");
   assert.equal(new URL(target).pathname, "/static/wm/portfolio/a.webp");
-  assert.ok(target.includes("__wmver=5"));
+  assert.ok(target.includes("__wmver=6"));
+});
+
+test("brand aliases use current SVG versions and preserve non-version query params", () => {
+  const route = routeFor(
+    new URL("https://image.comicine.com/icons/Limooo-xtext.svg?lang=zh-cn&v=1"),
+    { headers: new Headers() },
+    ORIGIN,
+  );
+  const target = new URL(route.target);
+  assert.equal(target.pathname, "/static/icons/comicine-xtext.svg");
+  assert.equal(target.searchParams.get("lang"), "zh-cn");
+  assert.equal(target.searchParams.get("v"), "2");
 });

@@ -50,10 +50,13 @@ const CLIENT_CACHE =
 
 // Increment after changing watermark appearance or build.py parameters so the Worker fetches a
 // new origin URL and bypasses old watermark images in CDN and local caches.
-const WM_VERSION = "5";
+const WM_VERSION = "6";
 
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
 const BRAND_ICON_ALIASES = new Map([
+  ["/icons/comicine.svg", "/static/icons/comicine.svg"],
+  ["/icons/comicine-xtext.svg", "/static/icons/comicine-xtext.svg"],
+  ["/icons/comicine-favicon.svg", "/static/icons/comicine-favicon.svg"],
   ["/icons/Limooo.svg", "/static/icons/comicine.svg"],
   ["/icons/Limooo-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/ComiCine.svg", "/static/icons/comicine.svg"],
@@ -96,7 +99,17 @@ export function routeFor(url, request, origin) {
 
   const brandIconTarget = BRAND_ICON_ALIASES.get(path);
   if (brandIconTarget) {
-    const target = base + brandIconTarget + url.search;
+    const targetUrl = new URL(base + brandIconTarget);
+    url.searchParams.forEach((value, key) => {
+      if (key !== "v") targetUrl.searchParams.append(key, value);
+    });
+    const assetVersion = path.toLowerCase().includes("xtext")
+      ? "2"
+      : path.toLowerCase().includes("favicon")
+        ? "2"
+        : "4";
+    targetUrl.searchParams.set("v", assetVersion);
+    const target = targetUrl.toString();
     return { target, originalUrl: target, watermarked: false, image: true };
   }
 

@@ -152,7 +152,7 @@ npm run build
 `npm run build` は `ops/build.sh` です。リポジトリ外に
 `/tmp/comicine-build-venv` を作成し、`requirements.lock` の固定依存関係をインストールして、
 レンダリング前に実行環境間の設定を検証します。作品の透かしは Pillow と
-`src/static/icons/watermark.png` で生成するため、システムの Cairo ライブラリは不要です。
+`src/static/icons/comicine-watermark.png` で生成するため、システムの Cairo ライブラリは不要です。
 レンダラーを直接実行する場合は、固定された Python 依存関係をインストールしてから
 `COMICINE_BUILD=1 python3 src/build.py` を実行してください。
 
@@ -497,7 +497,7 @@ docs.comicine.com に公開されることはありません。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリ名はすでに新ブランドですが、DNS と Pages ドメインのない旧 `admin.limooo.cn` ホストを参照しています。
 5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。状態を保護するため、Status Durable Object の既存技術名前空間は維持します。
-6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` に転送し、パスとクエリを保持します。`/feishu/<path>` は Pages 経由で `https://comicine.feishu.cn/<path>` に届きます。
+6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
 7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。スクリーンショットでは Turnstile に `.com` ホストが登録済みですが、実際のブラウザーチャレンジが `/gate/verify` に届くことを確認してください。
 
 > Cloudflare アカウントの表示名は `Limooo` のままです。名前の更新は権限不足で拒否されました。現在の API Token は Turnstile 設定を読み取れません。スクリーンショットでは `.com` ホストが登録済みですが、検証成功は未確認です。

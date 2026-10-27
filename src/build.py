@@ -822,7 +822,7 @@ def check_image_prerequisites(source_root=None, wm_path: str | None = None) -> b
     Run checks at the start of main() so a failure writes nothing.
     """
     source_root = source_root or STATIC_DIR
-    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "watermark.png")
+    wm_path = wm_path or os.path.join(STATIC_DIR, "icons", "comicine-watermark.png")
     portfolio_dir = os.path.join(source_root, "portfolio")
     has_portfolio = os.path.isdir(portfolio_dir) and any(
         name.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
@@ -847,11 +847,11 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
     Rules, matching shouldWatermark in the Worker:
       - Process only top-level png, jpg, jpeg, and webp files under portfolio/.
       - Do not create watermarked variants for other paths such as icons/ or qr-codes/.
-    Use watermark.png, preserve its transparency, and overlay it at the lower-left
+    Use comicine-watermark.png, preserve its transparency, and overlay it at the lower-left
     corner without a background. The watermark is 25% of the image's shorter side
     (minimum 96px), with a margin of 2% of that side (minimum 12px).
     """
-    # Size parameters; watermark.png defines the logo color and opacity.
+    # Size parameters; comicine-watermark.png defines the logo color and opacity.
     WATERMARK_SCALE = 0.25       # Watermark width as a fraction of the image short edge
     WATERMARK_MIN_W = 96         # Minimum watermark width in pixels
 
@@ -862,7 +862,7 @@ def generate_watermarks(source_root=None, out_root=None) -> int:
 
     # A clean CI checkout has no gitignored src/static/portfolio directory. Without source images, watermarking is unnecessary,
     # so skip it instead of failing. Fail only when watermarking is required but assets or dependencies are missing.
-    wm_path = os.path.join(STATIC_DIR, "icons", "watermark.png")
+    wm_path = os.path.join(STATIC_DIR, "icons", "comicine-watermark.png")
     if not check_image_prerequisites(source_root, wm_path):
         print("[build] no portfolio files to watermark, skipping watermark generation", flush=True)
         return 0

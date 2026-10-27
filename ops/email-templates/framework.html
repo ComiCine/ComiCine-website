@@ -6,9 +6,8 @@
       BODY message paragraphs (HTML allowed) / CODE_BLOCK optional highlighted value; omitted when empty
       CTA_LABEL / CTA_URL optional primary button / HINT optional secondary note
       FOOTER_RIGHTS localized copyright suffix
-  - Branding: top logo uses images.comicine.com with transparency; footer ComiCine uses Baloo 2
-    (font-size:1.21em compensates for its small glyph proportions)
-  - Embeds the Baloo 2 variable font as a footer CID; omit the attachment when not sending email
+  - Branding: use the regular logo in the header and xtext wordmark in the copyright footer.
+    PNG is used in email because SVG rendering is inconsistent across mail clients.
 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <!--
@@ -36,7 +35,7 @@ See ADDITIONAL_TERMS.txt.
           <tbody><tr><td style="padding:32px">
 
             <!-- Top logo with transparency. -->
-            <img alt="ComiCine" src="https://images.comicine.com/static/icons/comicine.svg?v=2"
+            <img alt="ComiCine" src="https://images.comicine.com/static/icons/comicine.png?v=4"
               style="display:block;outline:none;border:none;text-decoration:none;margin:0 auto 2rem;width:160px;height:auto"/>
 
             <!-- Title. -->
@@ -57,10 +56,9 @@ See ADDITIONAL_TERMS.txt.
             <!-- Divider. -->
             <hr style="border:none;border-top:1px solid #eaeaea;margin:24px 0"/>
 
-            <!-- Footer. -->
-            <p style="font-size:12px;line-height:20px;color:#a1a1aa;text-align:center;margin:16px 0">&copy; 2026
-              <span style="font-family:Baloo;font-weight:700;font-size:1.21em;letter-spacing:1px;color:#a1a1aa">ComiCine</span>
-              Studio | __FOOTER_RIGHTS__</p>
+  <!-- Footer. -->
+  <p style="font-size:12px;line-height:20px;color:#a1a1aa;text-align:center;margin:16px 0">&copy; 2026
+              <img alt="ComiCine" src="https://images.comicine.com/static/icons/comicine-xtext.png?v=2" width="60" height="15" style="display:inline-block;vertical-align:-3px;border:0;outline:none;text-decoration:none"/> | __FOOTER_RIGHTS__</p>
 
           </td></tr></tbody></table>
       </td>

@@ -237,7 +237,7 @@ function themeFor(code: string): DefaultTheme.Config {
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
     ],
     footer: {
-      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1" alt="ComiCine" width="48" height="10">',
+      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2" alt="ComiCine" width="48" height="12">',
       items: [
         { text: L.footerRights },
         { text: 'AGPL-3.0' },
@@ -271,7 +271,8 @@ const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
 )
 
-const SOCIAL_IMAGE = 'https://images.comicine.com/static/icons/social-preview.png'
+const SOCIAL_IMAGE_SVG = 'https://images.comicine.com/static/icons/comicine.svg?v=4'
+const SOCIAL_IMAGE_PNG = 'https://images.comicine.com/static/icons/comicine.png?v=4'
 
 function canonicalUrlForPage(page: string): string | null {
   const sourcePage = page.startsWith('/') ? page.slice(1) : page
@@ -300,8 +301,8 @@ export default defineConfig({
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=1' }],
-    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=1' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=2' }],
+    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=2' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:site_name', content: 'ComiCine Docs' }],
@@ -337,15 +338,20 @@ export default defineConfig({
       ['meta', { property: 'og:title', itemprop: 'name', content: title }],
       ['meta', { property: 'og:description', itemprop: 'description', content: description }],
       ['meta', { property: 'og:url', content: canonicalUrl }],
-      ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE }],
+      ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE_SVG }],
+      ['meta', { property: 'og:image:type', content: 'image/svg+xml' }],
+      ['meta', { property: 'og:image:width', content: '4000' }],
+      ['meta', { property: 'og:image:height', content: '4000' }],
+      ['meta', { property: 'og:image:alt', content: 'ComiCine logo' }],
+      ['meta', { property: 'og:image', content: SOCIAL_IMAGE_PNG }],
       ['meta', { property: 'og:image:type', content: 'image/png' }],
-      ['meta', { property: 'og:image:width', content: '6687' }],
-      ['meta', { property: 'og:image:height', content: '3760' }],
-      ['meta', { property: 'og:image:alt', content: 'ComiCine preview' }],
+      ['meta', { property: 'og:image:width', content: '4000' }],
+      ['meta', { property: 'og:image:height', content: '4000' }],
+      ['meta', { property: 'og:image:alt', content: 'ComiCine logo' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
       ['meta', { name: 'twitter:title', content: title }],
       ['meta', { name: 'twitter:description', content: description }],
-      ['meta', { name: 'twitter:image', content: SOCIAL_IMAGE }]
+      ['meta', { name: 'twitter:image', content: SOCIAL_IMAGE_PNG }]
     ]
   },
   rewrites: REWRITES,
