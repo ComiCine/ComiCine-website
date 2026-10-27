@@ -288,7 +288,7 @@ services.comicine.com 가격표 CSV가 들어 있습니다. 언어 코드는 URL
 `base.html` / `_footer.html`을 그대로 반영합니다 — 포크에서 고치면 다음 배포에서
 반영됩니다(포크는 커밋이 바뀔 때만 다시 빌드하며, 포크 작업 트리에서 빌드하려면
 `COMICINE_VITEPRESS_FETCH=0`을 사용하세요). 이 사이트는 별도의 Cloudflare Pages
-프로젝트(`comicine-docs`)이므로 메인 `limooo` 산출물을 절대 건드리지 않으며, 메인
+프로젝트(`comicine-docs`)이므로 메인 사이트 산출물을 절대 건드리지 않으며, 메인
 사이트와 `user_lang_preference` / `comicine_theme` 쿠키를 공유합니다.
 
 ```bash
@@ -480,14 +480,14 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 배포된 구성입니다. `python3 ops/readme_facts.py --live`로 언제든 다시 읽을 수 있습니다:
 
 1. **Pages**: 프로덕션 프로젝트 `comicine-production`이 메인 사이트 Pages 호스트를 제공하며 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도 `comicine` 프로젝트가 `comicine.pages.dev`를 제공하고 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs 프로젝트는 `comicine-docs`이며 `comicine-docs.pages.dev`와 `docs.comicine.com`에서 제공됩니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
-2. **D1**: 활성 메인 DB는 `limooo`(APAC), Sink DB는 `sink-limooo`, 기존 Analytics Engine dataset은 `sink_limooo`입니다. 상태 Durable Object는 기존 상태 네임스페이스를 유지합니다. 이 값은 표시 이름이 아닌 실제 기술 ID입니다. D1은 제자리에서 이름을 바꿀 수 없으며 변경하려면 데이터 보존 마이그레이션과 전환이 필요합니다. 마이그레이션 022는 적용되었고 021은 의도적으로 보류 중입니다.
+2. **D1**: 활성 메인 DB는 `limooo`(APAC), Sink DB는 `sink-limooo`, 기존 Analytics Engine dataset은 `sink_limooo`입니다. 상태 Durable Object는 기존 상태 네임스페이스를 유지합니다. 이 값은 표시 이름이 아닌 실제 기술 ID입니다. D1은 제자리에서 이름을 바꿀 수 없으며 변경하려면 데이터 보존 마이그레이션과 전환이 필요합니다. 마이그레이션 022는 적용되었고 021은 미적용 상태입니다. 023에서 Apple Account 이메일 주소를 새 도메인으로 이전합니다.
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
 4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱 이름은 이미 새 브랜드지만 DNS와 Pages 도메인이 없는 기존 `admin.limooo.cn` 호스트를 가리킵니다.
 5. **Worker**는 독립 실행됩니다: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark`, `comicine-sink`. Workers 계정 하위 도메인은 `comicine.workers.dev`입니다. `status.comicine.com`, `image.comicine.com`, `sink.comicine.com`은 Worker 사용자 지정 도메인입니다. 상태 보존을 위해 Status Durable Object의 기존 기술 네임스페이스는 유지합니다.
 6. **Cloudflare 규칙**: 현재 활성화된 WAF 또는 Cache Rules가 없습니다. IP List는 `comicine_blocklist`이며 참조하는 WAF 필터가 없습니다. `.com` 동적 리디렉션 단계는 비어 있습니다. 기존 `.cn` 영역은 요청을 해당 `.com` URL로 리디렉션합니다(GET/HEAD 301, 다른 메서드 308). 경로와 쿼리는 유지됩니다. 이어서 `comicine.com/feishu/<path>`와 `/lark/<path>`는 Pages를 통해 302로 `https://comicine.feishu.cn/<path>`에 전달되며 경로와 쿼리를 유지합니다.
 7. **스모크 검사**: 각 배포 후 `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/`, `https://sink.comicine.com/`을 확인합니다. 스크린샷에는 Turnstile `.com` 호스트가 등록되어 있으나 실제 브라우저 챌린지가 `/gate/verify`에 도달하는지 확인해야 합니다.
 
-> Cloudflare 계정 표시 이름은 `Limooo`로 남아 있습니다. 이름 변경은 권한 부족으로 거부되었습니다. 현재 API Token은 Turnstile 설정을 읽지 못합니다. 스크린샷에는 `.com` 호스트가 등록되어 있으나 검증 성공은 확인하지 못했습니다.
+> Cloudflare 계정 표시 이름은 아직 업데이트되지 않았습니다. 권한 부족으로 이름 변경이 거부되었습니다. 현재 API Token은 Turnstile 설정을 읽지 못합니다. 스크린샷에는 `.com` 호스트가 등록되어 있으나 검증 성공은 확인하지 못했습니다.
 참고: `?challenge=1`의 403은 게이트 페이지가 렌더링됐다는 뜻일 뿐 Turnstile 검증 성공을 증명하지 않습니다. 브라우저에서 실제 챌린지를 완료하고 `/gate/verify`가 성공하는지 확인해야 합니다.
 
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
@@ -497,6 +497,6 @@ ComiCine가 저작권을 보유하고 라이선스할 권한이 있는 독창적
 
 ComiCine는 프로젝트에서 사용하는 개발 브랜드이자 공개 표기입니다. 저작권은 법적으로 해당 권리를 보유한 실제 권리자에게 있습니다. 재배포 시 적용되는 저자 표시와 저작권 고지(합리적인 출처 고지 포함)를 보존해야 합니다. 적용되는 AGPL 버전의 조건을 준수하면 상업적 이용이 허용됩니다.
 
-추가 승인 또는 상표 사용 허가 문의: [contact@limooo.cn](mailto:contact@limooo.cn) (기존 주소는 계속 사용합니다). 적용되는 GNU AGPL 버전을 준수하는 상업적 이용에는 별도 승인이 필요하지 않습니다.
+추가 승인 또는 상표 사용 허가 문의: [contact@comicine.com](mailto:contact@comicine.com). 적용되는 GNU AGPL 버전을 준수하는 상업적 이용에는 별도 승인이 필요하지 않습니다.
 
 제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 표장은 [제3자 고지](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ko_KR.md)를, 저작권 범위는 [저작권 안내](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ko_KR.md)를 참조하세요.

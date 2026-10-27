@@ -2,8 +2,8 @@
   "meta": {
     "template": "verification-code",
     "description": "验证码邮件模板的四语种文案（zh-cn / en-us / ja-jp / ko-kr）。",
-    "sender": "no-reply-<N>@limooo.cn",
-    "default_reply_to": "contact@limooo.cn",
+    "sender": "no-reply-<N>@comicine.com",
+    "default_reply_to": "contact@comicine.com",
     "code_valid_minutes": 30,
     "footer_brand": "ComiCine",
     "footer_suffix": "| All rights reserved"

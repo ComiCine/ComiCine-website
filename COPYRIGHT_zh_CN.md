@@ -47,7 +47,7 @@ ComiCine 名称、Logo、图形标识及相关品牌元素可能受到适用商�
 
 ## 许可与授权咨询
 
-邮箱：[contact@limooo.cn](mailto:contact@limooo.cn)
+邮箱：[contact@comicine.com](mailto:contact@comicine.com)
 网站：<https://comicine.com/>
 
 可通过该邮箱向相关权利人咨询额外授权，包括单独申请商标许可或超出开源许可证范围的特殊使用。发送邮件本身不构成授权。符合适用 AGPL 许可证条件的商业使用无需额外许可。

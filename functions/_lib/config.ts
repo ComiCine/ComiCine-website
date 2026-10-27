@@ -186,7 +186,7 @@ export const CONTRACT = {
     }
   },
   "identity_host": "identity.comicine.com",
-  "apple_account_email_domain": "apple.account.limooo.cn",
+  "apple_account_email_domain": "apple.account.comicine.com",
   "identity_sites": {
     "visitor.comicine.com": "admin",
     "account.comicine.com": "admin",

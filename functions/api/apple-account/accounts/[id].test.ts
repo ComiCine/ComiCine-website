@@ -80,7 +80,7 @@ describe("apple-account account id API", () => {
     vi.mocked(queryAll).mockResolvedValueOnce([{ password: "old-cipher" }]);
     const ok = await onRequestPut(
       context(request("PUT", {
-        email: "alice@account.limooo.cn",
+        email: "alice@apple.account.comicine.com",
         password: "",
         notes: "",
         password_changed: false,
@@ -99,7 +99,7 @@ describe("apple-account account id API", () => {
     vi.mocked(queryAll).mockResolvedValueOnce([]);
     const missing = await onRequestPut(
       context(request("PUT", {
-        email: "alice@account.limooo.cn",
+        email: "alice@apple.account.comicine.com",
         password: "",
         notes: "",
         password_changed: false,
@@ -138,7 +138,7 @@ describe("apple-account account id API", () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestPut(
       context(request("PUT", {
-        email: "alice@account.limooo.cn",
+        email: "alice@apple.account.comicine.com",
         password: "",
         notes: "",
         password_changed: false,
@@ -166,7 +166,7 @@ describe("apple-account account id API", () => {
    */
   describe("audit and error classification", () => {
     const updateBody = {
-      email: "alice@account.limooo.cn",
+      email: "alice@apple.account.comicine.com",
       password: "",
       notes: "",
       password_changed: false,
@@ -202,7 +202,7 @@ describe("apple-account account id API", () => {
       const resp = await onRequestPut(context(request("PUT", updateBody)) as never);
       expect(resp.status).toBe(200);
       const values = vi.mocked(execute).mock.calls.at(-1)?.slice(2);
-      expect(values).toEqual(["alice@apple.account.limooo.cn", stored, "", 1]);
+      expect(values).toEqual(["alice@apple.account.comicine.com", stored, "", 1]);
       expect(values?.[1]).not.toBe("");
     });
 
@@ -211,7 +211,7 @@ describe("apple-account account id API", () => {
       const resp = await onRequestPut(
         context(
           request("PUT", {
-            email: "alice@account.limooo.cn",
+            email: "alice@apple.account.comicine.com",
             password: "brand-new-secret",
             notes: "",
             password_changed: true,
