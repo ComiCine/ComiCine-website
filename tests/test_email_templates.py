@@ -56,6 +56,8 @@ def test_framework_still_renders_all_four_languages() -> None:
         assert "123456" in html and "123456" in plain, lang
         assert "__TITLE__" not in html and "__BODY__" not in html, lang
         assert "https://comicine.com/" in html, lang
+        assert "comicine.png?v=4" in html, lang
+        assert "comicine-xtext.png?v=2" in html, lang
 
 
 def test_renderer_escapes_html() -> None:

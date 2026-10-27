@@ -73,8 +73,8 @@ login), so this case is kept for reference only.
   record is untouched.
 - Recipients are injected with `wrangler secret put ALERT_TO` and never committed;
   with no recipient configured an alert is only logged and does not fail.
-- The `ComiCine` footer wordmark uses Baloo 2 (`font-size:1.21em` compensates the
-  small glyphs); the TTF is embedded as a `cid` attachment.
+- The email copyright footer uses the xtext PNG fallback because SVG rendering is
+  inconsistent across email clients.
 - The header logo comes from `images.comicine.com` (keeps the alpha channel);
   `image.comicine.com` drops alpha and renders a black background.
 

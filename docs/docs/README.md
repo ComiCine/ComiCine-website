@@ -152,7 +152,7 @@ npm run build
 `npm run build` 就是 `ops/build.sh`：它会在仓库外创建构建虚拟环境
 `/tmp/comicine-build-venv`，从 `requirements.lock` 安装锁定的依赖，
 并在渲染前校验跨运行时配置。作品水印由 Pillow 使用
-`src/static/icons/watermark.png` 生成，不需要系统 Cairo 库。
+`src/static/icons/comicine-watermark.png` 生成，不需要系统 Cairo 库。
 若要直接运行渲染器，请先安装锁定的 Python 依赖，再执行
 `COMICINE_BUILD=1 python3 src/build.py`。
 
@@ -488,7 +488,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用名已是新品牌，但仍关联没有 DNS 记录或 Pages 域名的旧 `admin.limooo.cn` 主机。
 5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 DO 的底层命名空间保留旧技术 ID，以免丢失现有状态。
-6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` 主机并保留路径和查询参数。`/feishu/<path>` 再由 Pages 转发到 `https://comicine.feishu.cn/<path>`。
+6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` URL，并保留路径和查询参数。随后 `comicine.com/feishu/<path>` 与 `/lark/<path>` 由 Pages 返回 302，转到 `https://comicine.feishu.cn/<path>` 并保留路径和查询参数。
 7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。控制台截图显示 Turnstile 已列出 `.com` 主机；仍需完成真实浏览器挑战并确认 `/gate/verify` 成功。
 
 > 账号显示名目前仍为 `Limooo`：更新账号名的 API 请求被 Cloudflare 以权限不足拒绝。当前 API Token 也无法读取 Turnstile 配置；控制台截图显示 `.com` 主机已列入，但挑战结果仍待验证。

@@ -156,7 +156,7 @@ npm run build
 `npm run build` is `ops/build.sh`: it creates the external build virtualenv
 `/tmp/comicine-build-venv`, installs the pinned dependencies from `requirements.lock`,
 and validates the cross-runtime configuration before rendering. Portfolio watermarks
-use Pillow and `src/static/icons/watermark.png`; no system Cairo library is required.
+use Pillow and `src/static/icons/comicine-watermark.png`; no system Cairo library is required.
 To run the renderer directly, install the locked Python dependencies and use
 `COMICINE_BUILD=1 python3 src/build.py`.
 
@@ -567,7 +567,7 @@ The shape of the live deployment, re-read any time with
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
 4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The already ComiCine-branded but unused `ComiCine-Admin` app remains associated with the legacy `admin.limooo.cn` hostname, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains
-6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone sends GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving path and query. `/feishu/<path>` follows the same `.cn` 301 to `comicine.com/feishu/<path>`, then Pages forwards it to `https://comicine.feishu.cn/<path>`.
+6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
 7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200
 
 The Cloudflare account display name still reads `Limooo`; the configured API token is denied `Account Settings Write`. The active D1 database identifiers remain `limooo` and `sink-limooo`, Sink's Analytics Engine dataset remains `sink_limooo`, and the status Durable Object namespace retains its existing stateful identifier. Cloudflare does not offer an in-place D1 rename; replacing these identifiers requires a data-preserving migration and coordinated cutover.

@@ -6,7 +6,7 @@
     "default_reply_to": "contact@limooo.cn",
     "code_valid_minutes": 30,
     "footer_brand": "ComiCine",
-    "footer_suffix": "Studio | All rights reserved"
+    "footer_suffix": "| All rights reserved"
   },
   "zh-cn": {
     "subject": "您的验证码：__CODE__",

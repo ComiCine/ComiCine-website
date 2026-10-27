@@ -287,7 +287,7 @@ def test_check_image_prerequisites_requires_pillow_and_watermark_png(tmp_path, m
     source = tmp_path / "src"
     (source / "portfolio").mkdir(parents=True)
     _write_image(source / "portfolio" / "shot.webp", (1080, 1440))
-    watermark = source / "icons" / "watermark.png"
+    watermark = source / "icons" / "comicine-watermark.png"
     watermark.parent.mkdir(parents=True)
     _write_image(watermark, (150, 150))
 

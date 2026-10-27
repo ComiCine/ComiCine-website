@@ -92,7 +92,7 @@ h1 { font-weight: 600 !important; }
 /* Home page title. */
 .hero-title {
     width: 192px;
-    height: 192px;
+    aspect-ratio: 1 / 1;
     margin: 0;
 }
 .hero-logo {
@@ -134,7 +134,7 @@ h1 { font-weight: 600 !important; }
     font-size: 12px; letter-spacing: calc(0.12em*var(--ls-scale)); text-transform: uppercase; font-weight: 600;
 }
 @media (max-width: 767px) {
-    .hero-title { width: 96px; height: 96px; }
+    .hero-title { width: 96px; }
 }
 @keyframes scroll-bob {
     0%, 100% { transform: translateY(0); opacity: 0.25; }

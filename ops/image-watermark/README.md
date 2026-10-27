@@ -91,7 +91,7 @@ rewrite the live route set, which this repository cannot diff or roll back.
 
 ## Publishing a watermark appearance change
 
-`src/build.py` composites `src/static/icons/watermark.png` directly onto each
+`src/build.py` composites `src/static/icons/comicine-watermark.png` directly onto each
 portfolio image. The SVG's own opacity is preserved and no backing plate is added.
 After changing the SVG or composite placement/size:
 
