@@ -184,7 +184,7 @@ bash ops/pages_deploy.sh --build-only
 # build + validate + deploy Pages + smoke test (/_health must be 200)
 bash ops/pages_deploy.sh
 
-# full deploy: (1) commit (2) push (3) deploy Pages + docs
+# full deploy: (1) commit (2) push (3) deploy Pages + docs + Workers
 bash ops/deploy.sh --all
 ```
 
@@ -245,14 +245,14 @@ TLS 证书由 Cloudflare 为 Pages 自定义域名签发与续期。
 
 ## 部署
 
-部署目标是 Pages 项目 `comicine`、`comicine-docs` 以及各个独立 Worker。文档默认别名已是 `comicine-docs.pages.dev`；主项目默认别名仍是 `limooo.pages.dev`。Cloudflare 只能通过删除并重建项目更改 `pages.dev` 别名，而现有生产密钥无法读取并安全复制，因此保留当前主项目。Worker 账号子域已改为 `comicine.workers.dev`。
+部署目标是生产 Pages 项目 `comicine-production`、别名项目 `comicine` 和文档项目 `comicine-docs`，以及独立 Workers。生产项目继续保留 `limooo.pages.dev`、全部自定义域名和加密运行配置；`comicine.pages.dev` 由独立项目提供，并以 308 跳转至 `https://comicine.com`，保留路径、查询参数和请求方法。文档默认别名为 `comicine-docs.pages.dev`。Worker 账号子域为 `comicine.workers.dev`。
 在仓库根目录下执行：
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
-bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
-bash ops/deploy.sh --pages      # deploy the main Pages project only
+bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
+bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -335,7 +335,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。文档 Pages 项目已使用 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目仍使用 `limooo.pages.dev`：Cloudflare 要求删除并重建项目才能更改 `pages.dev` 别名，而现有生产密钥无法读取并安全复制，因此暂不重建。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在生产 Pages 项目 `comicine-production` 的 Pages Functions 上，状态页与所有定时任务也是如此。生产项目保留 `limooo.pages.dev`、现有自定义域名和加密运行配置。独立 Pages 项目 `comicine` 的 `comicine.pages.dev` 以 308 跳转到 `https://comicine.com`，保留路径、查询参数和请求方法。文档项目 `comicine-docs` 使用 `comicine-docs.pages.dev`。
 
 运行时划分：
 
@@ -483,7 +483,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目绑定的主站域名仍由 `comicine` Pages 项目提供，默认别名是 `limooo.pages.dev`；Cloudflare 要求删除并重建项目才能更改别名，而现有生产密钥无法安全复制，因此保留当前项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
+1. **Pages**：生产项目 `comicine-production` 提供主站 Pages 主机，并保留 `limooo.pages.dev`、现有自定义域名和加密运行配置。独立项目 `comicine` 提供 `comicine.pages.dev`，并以 308 跳转至 `https://comicine.com`，保留路径、查询参数和请求方法。文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
 2. **D1**：主数据库 `limooo`（APAC）以 `DB` 绑定到 Pages 和相关 Worker；Sink 使用 `sink-limooo` 与历史 Analytics Engine dataset `sink_limooo`，状态页 Durable Object 保留现有状态命名空间。它们是承载线上数据的技术标识，Cloudflare 不支持原位改名，迁移需要完整数据复制及协调切换。迁移 022 已应用；迁移 021 仍按设计暂缓。
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用名已是新品牌，但仍关联没有 DNS 记录或 Pages 域名的旧 `admin.limooo.cn` 主机。

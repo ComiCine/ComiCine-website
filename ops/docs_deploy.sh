@@ -22,7 +22,7 @@
 # by commit sha: the fork is only rebuilt when COMICINE_VITEPRESS_REF moves.
 #
 # The docs site is its own Cloudflare Pages project (default: comicine-docs), so a
-# heavy VitePress build never touches the main comicine Pages artifact.
+# heavy VitePress build never touches the main comicine-production Pages artifact.
 #
 # Usage:
 #   bash ops/docs_deploy.sh --dry-run      # print the plan only

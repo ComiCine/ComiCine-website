@@ -388,7 +388,16 @@ def live_facts() -> dict:
             return {"error": out.get("errors")}
         return out["result"][0].get("results", [])
 
-    facts: dict = {"d1": {}, "pages": {}, "workers": [], "dns": [], "waf": [], "lists": [], "crons": {}}
+    facts: dict = {
+        "d1": {},
+        "pages": {},
+        "pages_alias": {},
+        "workers": [],
+        "dns": [],
+        "waf": [],
+        "lists": [],
+        "crons": {},
+    }
     for label, sql in [
         ("tables", "select count(*) n from sqlite_master where type='table'"),
         ("schema_version_rows", "select count(*) n from schema_version"),
@@ -403,7 +412,7 @@ def live_facts() -> dict:
         elif rows:
             facts["d1"][label] = list(rows[0].values())[0]
 
-    project = api("GET", f"/accounts/{account}/pages/projects/comicine")
+    project = api("GET", f"/accounts/{account}/pages/projects/comicine-production")
     if project.get("success"):
         result = project["result"]
         facts["pages"] = {
@@ -413,6 +422,14 @@ def live_facts() -> dict:
             "secrets": sorted(
                 ((result.get("deployment_configs") or {}).get("production") or {}).get("env_vars", {}).keys()
             ),
+        }
+    alias_project = api("GET", f"/accounts/{account}/pages/projects/comicine")
+    if alias_project.get("success"):
+        result = alias_project["result"]
+        facts["pages_alias"] = {
+            "name": result.get("name"),
+            "subdomain": result.get("subdomain"),
+            "domains": sorted(d if isinstance(d, str) else d.get("name", "?") for d in result.get("domains", [])),
         }
 
     scripts = api("GET", f"/accounts/{account}/workers/scripts")
@@ -453,6 +470,11 @@ def print_live_facts(facts: dict) -> None:
     print(f"  {'project':<22} {facts['pages'].get('name')} ({facts['pages'].get('subdomain')})")
     print(f"  {'domains':<22} {', '.join(facts['pages'].get('domains', []))}")
     print(f"  {'production secrets':<22} {', '.join(facts['pages'].get('secrets', []))}")
+    print(
+        f"  {'alias project':<22} {facts['pages_alias'].get('name')} "
+        f"({facts['pages_alias'].get('subdomain')})"
+    )
+    print(f"  {'alias domains':<22} {', '.join(facts['pages_alias'].get('domains', []))}")
     print("Workers")
     print(f"  {', '.join(facts['workers'])}")
     print("DNS (proxied records)")

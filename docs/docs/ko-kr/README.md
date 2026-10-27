@@ -184,7 +184,7 @@ bash ops/pages_deploy.sh --build-only
 # build + validate + deploy Pages + smoke test (/_health must be 200)
 bash ops/pages_deploy.sh
 
-# full deploy: (1) commit (2) push (3) deploy Pages + docs
+# full deploy: (1) commit (2) push (3) deploy Pages + docs + Workers
 bash ops/deploy.sh --all
 ```
 
@@ -246,14 +246,14 @@ TLS 인증서는 Pages 사용자 지정 도메인에 대해 Cloudflare가 발급
 
 ## 배포
 
-배포 대상은 Pages 프로젝트 `comicine`, `comicine-docs`와 독립 Worker입니다. Docs 별칭은 `comicine-docs.pages.dev`입니다. 메인 프로젝트는 `limooo.pages.dev` 기본 별칭을 유지합니다. Cloudflare는 별칭 변경 시 프로젝트를 삭제하고 다시 만들어야 하며, 프로덕션 시크릿을 안전하게 복사할 수 없어 현재 프로젝트를 유지합니다. Workers 계정 하위 도메인은 `comicine.workers.dev`로 변경했습니다.
+배포 대상은 프로덕션 Pages 프로젝트 `comicine-production`, 별칭 프로젝트 `comicine`, Docs 프로젝트 `comicine-docs` 및 독립 Worker입니다. 프로덕션 프로젝트는 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도의 `comicine.pages.dev` 프로젝트는 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs 별칭은 `comicine-docs.pages.dev`이며 Workers 계정 하위 도메인은 `comicine.workers.dev`입니다.
 저장소 루트에서:
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
-bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
-bash ops/deploy.sh --pages      # deploy the main Pages project only
+bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
+bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -338,7 +338,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 런타임
 
-공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리다이렉트 릴레이)는 Cloudflare Pages Functions에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. Docs Pages 프로젝트는 `comicine-docs.pages.dev`를 사용하며 `docs.comicine.com`이 이 프로젝트를 제공합니다. 메인 프로젝트는 `limooo.pages.dev`를 유지합니다. Cloudflare는 별칭 변경을 위해 프로젝트를 삭제하고 다시 만들어야 하며 프로덕션 시크릿을 안전하게 복사할 수 없습니다.
+공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리디렉션 릴레이)는 프로덕션 Pages 프로젝트 `comicine-production`에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. 프로덕션 프로젝트는 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도 `comicine` Pages 프로젝트의 `comicine.pages.dev`는 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs Pages 프로젝트는 `comicine-docs.pages.dev`를 사용합니다.
 
 런타임 구성:
 
@@ -479,7 +479,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 배포된 구성입니다. `python3 ops/readme_facts.py --live`로 언제든 다시 읽을 수 있습니다:
 
-1. **Pages**: 문서 프로젝트 `comicine-docs`는 `comicine-docs.pages.dev`이며 `docs.comicine.com`이 제공합니다. 메인 `comicine` 프로젝트는 메인 사이트 Pages 호스트를 제공하고 기본 별칭 `limooo.pages.dev`를 유지합니다. Cloudflare는 별칭 변경 시 프로젝트를 삭제하고 다시 만들어야 하며 프로덕션 시크릿을 안전하게 복사할 수 없어 현재 프로젝트를 유지합니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
+1. **Pages**: 프로덕션 프로젝트 `comicine-production`이 메인 사이트 Pages 호스트를 제공하며 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도 `comicine` 프로젝트가 `comicine.pages.dev`를 제공하고 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs 프로젝트는 `comicine-docs`이며 `comicine-docs.pages.dev`와 `docs.comicine.com`에서 제공됩니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
 2. **D1**: 활성 메인 DB는 `limooo`(APAC), Sink DB는 `sink-limooo`, 기존 Analytics Engine dataset은 `sink_limooo`입니다. 상태 Durable Object는 기존 상태 네임스페이스를 유지합니다. 이 값은 표시 이름이 아닌 실제 기술 ID입니다. D1은 제자리에서 이름을 바꿀 수 없으며 변경하려면 데이터 보존 마이그레이션과 전환이 필요합니다. 마이그레이션 022는 적용되었고 021은 의도적으로 보류 중입니다.
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
 4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱 이름은 이미 새 브랜드지만 DNS와 Pages 도메인이 없는 기존 `admin.limooo.cn` 호스트를 가리킵니다.

@@ -184,7 +184,7 @@ bash ops/pages_deploy.sh --build-only
 # build + validate + deploy Pages + smoke test (/_health must be 200)
 bash ops/pages_deploy.sh
 
-# full deploy: (1) commit (2) push (3) deploy Pages + docs
+# full deploy: (1) commit (2) push (3) deploy Pages + docs + Workers
 bash ops/deploy.sh --all
 ```
 
@@ -247,14 +247,14 @@ TLS 証明書は Cloudflare が Pages のカスタムドメイン向けに発行
 
 ## デプロイ
 
-デプロイ対象は Pages プロジェクト `comicine`、`comicine-docs` と独立した Workers です。Docs のエイリアスは `comicine-docs.pages.dev` です。メインは `limooo.pages.dev` の既定エイリアスを維持しています。Cloudflare ではエイリアス変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できないため、現在のプロジェクトを維持しています。Workers のアカウントサブドメインは `comicine.workers.dev` に変更済みです。
+デプロイ対象は本番 Pages プロジェクト `comicine-production`、エイリアス用プロジェクト `comicine`、Docs プロジェクト `comicine-docs`、および独立した Workers です。本番プロジェクトは `limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine.pages.dev` プロジェクトは、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs のエイリアスは `comicine-docs.pages.dev`、Workers のアカウントサブドメインは `comicine.workers.dev` です。
 リポジトリのルートから：
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
-bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
-bash ops/deploy.sh --pages      # deploy the main Pages project only
+bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
+bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -339,7 +339,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使い、`docs.comicine.com` がそこを提供します。メインは `limooo.pages.dev` を維持しています。Cloudflare ではエイリアス変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できません。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、訪問者パネル、Apple Account 管理、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は本番 Pages プロジェクト `comicine-production` で動作し、ステータスページとすべての定期ジョブも同様です。本番プロジェクトは `limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` Pages プロジェクトの `comicine.pages.dev` は、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使用します。
 
 ランタイムの分担：
 
@@ -492,7 +492,7 @@ docs.comicine.com に公開されることはありません。
 
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：Docs プロジェクト `comicine-docs` は `comicine-docs.pages.dev` にあり、`docs.comicine.com` が配信します。メインの `comicine` プロジェクトはメインサイトの Pages ホストを配信し、既定エイリアスは `limooo.pages.dev` のままです。Cloudflare では変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できないため、現在のプロジェクトを維持します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
+1. **Pages**：本番プロジェクト `comicine-production` がメインサイトの Pages ホストを提供し、`limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` プロジェクトが `comicine.pages.dev` を提供し、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
 2. **D1**：メイン DB は `limooo`（APAC）、Sink は `sink-limooo` と既存 Analytics Engine dataset `sink_limooo` です。ステータス Durable Object は既存の状態名前空間を保持します。これらは表示用名称ではなく稼働中の技術 ID で、D1 はその場で改名できず、変更にはデータ移行と切り替えが必要です。022 は適用済み、021 は設計どおり保留中です。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリ名はすでに新ブランドですが、DNS と Pages ドメインのない旧 `admin.limooo.cn` ホストを参照しています。

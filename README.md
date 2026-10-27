@@ -188,7 +188,7 @@ bash ops/pages_deploy.sh --build-only
 # build + validate + deploy Pages + smoke test (/_health must be 200)
 bash ops/pages_deploy.sh
 
-# full deploy: (1) commit (2) push (3) deploy Pages + docs
+# full deploy: (1) commit (2) push (3) deploy Pages + docs + Workers
 bash ops/deploy.sh --all
 ```
 
@@ -252,21 +252,20 @@ from Cloudflare.
 
 ## Deployment
 
-The deploy targets are Pages projects `comicine` and `comicine-docs` plus the standalone Workers. The docs alias is `comicine-docs.pages.dev`; the main project still uses `limooo.pages.dev` because Cloudflare requires deleting and recreating a project to change its `pages.dev` alias, and the existing write-only production secrets cannot be copied safely. Worker URLs use `comicine.workers.dev`. All
-through the Cloudflare API. From the repository root:
+The deploy targets are Pages projects `comicine-production`, `comicine` (the `comicine.pages.dev` alias), and `comicine-docs`, plus the standalone Workers. The production project retains its existing `limooo.pages.dev` alias, custom domains, and encrypted configuration; `comicine.pages.dev` permanently redirects to `https://comicine.com` with status 308. The docs alias is `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`. Cloudflare deploys use the configured API token. From the repository root:
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
-bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
-bash ops/deploy.sh --pages      # deploy the main Pages project only
+bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
+bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
 
 Running `ops/deploy.sh` with **no arguments is exactly `--all`**: commit + push +
-Pages + docs, the "full deploy" contract. To ship only what is already committed
+Pages + docs + Workers, the "full deploy" contract. To ship only what is already committed
 locally, pass `--pages` / `--docs` explicitly.
 
 Output is quiet by default (one status line per step); add `--full` to watch the whole
@@ -295,7 +294,7 @@ and footer live in the fork (`VPComiCineNav.vue` / `VPComiCineFooter.vue`) and m
 main site's `base.html` / `_footer.html` — edit them there and the next deploy picks it
 up (the fork is rebuilt only when its commit changes; use `COMICINE_VITEPRESS_FETCH=0` to
 build from a fork working tree). The site is a separate Cloudflare Pages project
-(`comicine-docs`) so it never touches the main `comicine` artifact, and it shares the
+(`comicine-docs`) so it never touches the main `comicine-production` artifact, and it shares the
 `user_lang_preference` / `comicine_theme` cookies with the main site.
 
 ```bash
@@ -370,7 +369,7 @@ with a build (`bash ops/build.sh`, which runs
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. The docs Pages project now uses `comicine-docs.pages.dev`; the main project retains `limooo.pages.dev` because Cloudflare requires deleting and recreating a project to change that alias, and its write-only production secrets cannot be copied safely. Worker URLs use `comicine.workers.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on the `comicine-production` Cloudflare Pages project, as do the status page and every scheduled job. The production project retains `limooo.pages.dev` and all existing custom domains and encrypted configuration. A separate `comicine` Pages project at `comicine.pages.dev` redirects every path and query to `https://comicine.com` with status 308. The docs Pages project uses `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`.
 
 Runtime split:
 
@@ -562,7 +561,7 @@ published to docs.comicine.com.
 The shape of the live deployment, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: the docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. The main project serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images` and `redirect`; its default alias remains `limooo.pages.dev` because Cloudflare requires deleting and recreating the project to change its `pages.dev` alias, and its write-only production secrets cannot be copied safely. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains
+1. **Pages**: the production project is `comicine-production`; it serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images` and `redirect`, retaining its `limooo.pages.dev` alias and existing encrypted configuration. The separate `comicine` project owns `comicine.pages.dev` and returns a 308 redirect to `https://comicine.com`, preserving the path and query. The docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains
 2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; `schema_version` records applied migrations. Migration 022 is applied; migration 021 remains pending because it rewrites existing Apple Account identifiers. `apple_accounts` holds Apple Account rows, and `blocked_ips` is the blocking authority; soft-deleted rows remain for audit
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
 4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The already ComiCine-branded but unused `ComiCine-Admin` app remains associated with the legacy `admin.limooo.cn` hostname, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form

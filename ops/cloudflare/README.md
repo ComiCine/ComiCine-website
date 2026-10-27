@@ -13,7 +13,8 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages project | `comicine` (`limooo.pages.dev`) | Cloudflare Pages | Build output `public`; custom domains remain live. Cloudflare requires delete/recreate to change a `pages.dev` alias; current write-only production secrets cannot be copied safely |
+| Pages production project | `comicine-production` (`limooo.pages.dev`) | `site/ops/pages_deploy.sh` | Existing custom domains and encrypted runtime configuration retained in place |
+| Pages alias project | `comicine` (`comicine.pages.dev`) | `site/ops/pages-alias/public/_worker.js` | Returns a 308 redirect to `https://comicine.com`, preserving path, query and method |
 | Docs Pages project | `comicine-docs` (`comicine-docs.pages.dev`) | `site/ops/docs_deploy.sh` | Recreated and deployed under the ComiCine alias; `docs.comicine.com` now serves this project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
@@ -31,7 +32,7 @@ are **not** written here; they come from the sources listed below.
 | D1 database (Sink) | `sink-limooo` | Sink Worker binding | Existing live link data; renaming requires copying records and coordinating a cutover |
 | Durable Object namespace | `limooo-status_ProbeState` | `ops/status-worker/wrangler.toml` | Existing status/probe state namespace; retain until a state-preserving migration is verified |
 | WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
-| DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev` |
+| DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev`; this Pages alias change did not modify DNS |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | none | Cloudflare API / Dashboard | No Cache Rules are currently active; cache behavior comes from Worker logic and response headers |
 | Cloudflare account display name | `Limooo` | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
@@ -610,13 +611,15 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
   legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.
-- **Checked 2026-10-27: Pages aliases and gate migration**. Cloudflare documents that a
-  `pages.dev` subdomain cannot be changed in place and requires deleting and recreating the
-  project. The docs project was recreated as
-  `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias. Its custom domain
-  `docs.comicine.com` serves the new project. The main project still uses `limooo.pages.dev`:
-  Cloudflare requires deleting and recreating the project to change a `pages.dev` alias, and the
-  current API token cannot retrieve the 11 write-only production secrets needed to recreate it.
+- **Checked 2026-10-27: Pages aliases and gate migration**. The docs project was recreated as
+  `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias; its custom domain
+  `docs.comicine.com` serves it. The production project was renamed in place to
+  `comicine-production`; it retains `limooo.pages.dev`, its production domains, and all 11 encrypted
+  environment entries. A separate `comicine` project now owns `comicine.pages.dev` and deploys the
+  redirect Worker in `site/ops/pages-alias/public/_worker.js`; the Worker returns 308 to
+  `https://comicine.com`, preserving path, query, and method. `site/ops/pages_deploy.sh` and the
+  GitHub Actions Pages job deploy both projects. The Cloudflare Pages token had account-level Edit
+  permission; no secrets were read or copied, and DNS/custom-domain bindings were not changed.
   The main gate currently fails on `comicine.com` before it submits a token to
   `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. An earlier production
   headless-browser run captured client error `110200` (Cloudflare: domain not authorized). The
