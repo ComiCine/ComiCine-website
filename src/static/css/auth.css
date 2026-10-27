@@ -221,10 +221,10 @@
     }
   .footer-brand-logo {
     display: inline-block;
-    width: 1.6em; height: 1.6em;
+    width: 4.8em; height: 1em;
     margin-inline-start: 0.25em;
     object-fit: contain;
-    vertical-align: -0.3em;
+    vertical-align: -0.15em;
   }
   .footer-source-link { color: inherit; text-decoration: underline; white-space: nowrap; }
   /* The old English-only spacing patch was removed. The "·" now provides spacing for

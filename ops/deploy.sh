@@ -23,7 +23,7 @@
 #   bash ops/deploy.sh --pages                  # deploy the main Pages project only
 #   bash ops/deploy.sh --docs                   # build + deploy docs.comicine.com only
 #   bash ops/deploy.sh --workers                # deploy every standalone Worker only
-#   bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker only
+#   bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker only
 #   bash ops/deploy.sh --full ...               # same flags, but stream every step's output
 #
 # Default output is QUIET, and each phase collapses into a single word (2026-10-13):
@@ -163,7 +163,7 @@ while [ $# -gt 0 ]; do
             # An empty value (`--worker=$W` when $W is empty) would satisfy the "no arguments =
             # --all" branch below and silently trigger a full commit + push + Pages + docs deploy (W3-2).
             if [ -z "$WORKER" ]; then
-                echo "FATAL: --worker= needs a Worker name (for example --worker=status-worker)" >&2
+                echo "FATAL: --worker= needs a Worker name (for example --worker=comicine-status)" >&2
                 exit 2
             fi
             case "$WORKER" in

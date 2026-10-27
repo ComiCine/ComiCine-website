@@ -103,6 +103,8 @@ export const SKIP_PATHS = new Set<string>([
   "/__gate/diag",
   "/__gate/config",
   "/comicine.svg",
+  "/comicine-xtext.svg",
+  "/comicine-favicon.svg",
   "/Limooo-xtext.svg",
   "/ComiCine-xtext.svg",
   "/favicon.svg",
@@ -362,6 +364,8 @@ export function isPublicAssetPath(pathname: string): boolean {
     pathname.startsWith(PUBLIC_FILES_PREFIX) ||
     pathname === "/favicon.svg" ||
     pathname === "/comicine.svg" ||
+    pathname === "/comicine-xtext.svg" ||
+    pathname === "/comicine-favicon.svg" ||
     pathname === "/Limooo-xtext.svg" ||
     pathname === "/ComiCine-xtext.svg"
   );

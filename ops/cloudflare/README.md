@@ -13,21 +13,27 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages project | `comicine` (`limooo.pages.dev`) | `site/wrangler.toml` | Build output `public`, serves `comicine.com` and its subdomains; the default alias is still inherited from the old project |
-| Docs Pages project | `comicine-docs` (`limooo-docs.pages.dev`) | `site/ops/docs_deploy.sh` | VitePress output for `docs.comicine.com`; default alias is still inherited from the old project |
+| Pages project | `comicine` (`limooo.pages.dev`) | `site/wrangler.toml` | Build output `public`; custom domains remain live. Recreating this project is unsafe until its write-only production Turnstile secret can be rotated or recovered |
+| Docs Pages project | `comicine-docs` (`comicine-docs.pages.dev`) | `site/ops/docs_deploy.sh` | Recreated and deployed under the ComiCine alias; `docs.comicine.com` now serves this project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
 | D1 migrations | `ops/migrations/*.sql` | Git | Entry point `ops/migrate_d1.sh`; `018_worker_runs.sql` / `019_worker_runs_dry_run.sql` hold the Worker run history |
-| Worker: probes / status page | `limooo-status` | `ops/status-worker/wrangler.toml` | Probes every minute + 10 s re-check after down; `status.comicine.com`; D1 retention **and the daily checks** (run history + blocklist invariant) daily at 03:47 |
-| Worker: blocklist sync | `limooo-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
-| Worker: image watermark | `image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
-| Worker: D1 archive | `limooo-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `limooo-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
-| R2 private bucket (originals) | `limooo-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
-| R2 bucket (fonts) | `limooo-fonts` | `ops/fonts/README.md` | Public gate-font subset at `fonts.comicine.com` |
-| WAF IP List | `limooo_blocklist` | `ops/sync-worker` | Cloudflare List, referenced by WAF rules |
-| DNS zone | `comicine.com` | Cloudflare Dashboard | Pages CNAMEs currently target `limooo.pages.dev`; see AGENTS.md before replacing the Pages project |
+| Worker: probes / status page | `comicine-status` | `ops/status-worker/wrangler.toml` | Probes every minute + 10 s re-check after down; `status.comicine.com`; D1 retention **and the daily checks** (run history + blocklist invariant) daily at 03:47 |
+| Worker: blocklist sync | `comicine-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
+| Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
+| Worker: D1 archive | `comicine-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `comicine-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
+| Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; keeps the existing `sink-limooo` D1, `sink_limooo` analytics dataset, and KV namespace binding to preserve active data |
+| R2 private bucket (originals) | `comicine-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
+| R2 bucket (fonts) | `comicine-fonts` | `ops/fonts/README.md` | Public font objects copied and verified; `fonts.comicine.com` serves the new bucket |
+| R2 bucket (analytics / archive) | `comicine-analytics` | `ops/d1-archive/wrangler.toml` | D1 snapshots and daily analytics archives |
+| D1 database (main) | `limooo` | Pages and Worker D1 bindings | Existing live database identifier; it cannot be renamed in place |
+| D1 database (Sink) | `sink-limooo` | Sink Worker binding | Existing live link data; renaming requires copying records and coordinating a cutover |
+| Durable Object namespace | `limooo-status_ProbeState` | `ops/status-worker/wrangler.toml` | Existing status/probe state namespace; retain until a state-preserving migration is verified |
+| WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
+| DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev` |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
-| Cache Rules | `ComiCine public cache` | Cloudflare API / Dashboard | Public HTML 300 s; `/static` and favicon 1 year |
+| Cache Rules | none | Cloudflare API / Dashboard | No Cache Rules are currently active; cache behavior comes from Worker logic and response headers |
+| Cloudflare account display name | `Limooo` | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
 | Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
 | AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
@@ -37,8 +43,8 @@ Everything below exists **only in the Cloudflare Dashboard**. The files listed a
 declare the Worker code and its bindings, but they do **not** declare the routes, so a
 fresh `wrangler deploy` will not recreate them:
 
-- Worker **custom domains and routes**: `image.comicine.com/*` -> `image-watermark`,
-  `status.comicine.com/*` -> `limooo-status`, plus the `sync-worker` route. They live
+- Worker **custom domains and routes**: `image.comicine.com/*` -> `comicine-image-watermark`,
+  `status.comicine.com/*` -> `comicine-status`, plus the `sync-worker` route. They live
   under Workers & Pages -> (worker) -> Settings -> Domains & Routes and are
   deliberately absent from every `wrangler.toml` (`ops/image-watermark/wrangler.toml`
   says so explicitly): a `routes` block would make each deploy rewrite the live route
@@ -46,7 +52,7 @@ fresh `wrangler deploy` will not recreate them:
 - Pages **custom domains** (`comicine.com`, `www`, `services`, `contact`, `visitor`,
   `account`, `admin`, ...) and their certificates.
 - **DNS records** in `comicine.com`.
-- **WAF custom rules** and the access rules for the `limooo_blocklist` IP List.
+- **WAF custom rules** and the access rules for the `comicine_blocklist` IP List.
 - **Cache Rules** and any manual edge cache purge.
 - **AI bot policies** (`Security > Settings > Configure AI bot policies`): they decide
   whether a crawler is answered with `403` by the managed ruleset, which no Pages
@@ -155,7 +161,7 @@ echoed). There is no server-side credential source any more.
 ## Shared Access identity application
 
 `ComiCine` protects only `identity.comicine.com/login`. Cloudflare Access sends
-the browser through the `limooo.cloudflareaccess.com` team domain and back to that
+the browser through the `comicine.cloudflareaccess.com` team domain and back to that
 route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
 registered source host. The source host consumes that code server-to-server, applies
@@ -183,7 +189,7 @@ Banning is carried by three layers, all driven by the same D1 table:
 | Layer | Source | What it does |
 | --- | --- | --- |
 | Authority | D1 `blocked_ips` | The only authoritative record; `active = 1` means banned, `active = 0` is a soft-delete tombstone |
-| Edge | Cloudflare IP List `limooo_blocklist` | Written by `ops/sync-worker` (cron `30 3 * * *`); referenced by the WAF rules |
+| Edge | Cloudflare IP List `comicine_blocklist` | Written by `ops/sync-worker` (cron `30 3 * * *`); no live WAF rule currently references it, so D1-backed Worker checks remain the active block path |
 | Worker | `functions/_lib/gate.ts` | `BLOCKED_LIST_SQL` also filters `WHERE active = 1`, so both layers agree; returns 403 |
 
 `data/blocklist.txt` is a snapshot for auditing only. The WAF custom-firewall phase is
@@ -254,7 +260,7 @@ keeps the D1 read budget untouched (see AGENTS.md "D1 read budget").
 
 **Somebody is now watching.** A record nobody reads is not visibility. Since the
 daily checks landed in `ops/status-worker`, cron failures no longer just sit in the
-table: `limooo-status` reads the latest row per job at 03:47 UTC -- after the archive
+table: `comicine-status` reads the latest row per job at 03:47 UTC -- after the archive
 (`0 0 * * *`) and the sync (`30 3 * * *`) have both recorded their run -- and pushes
 **one** alert through the normal channel (webhook -> Email binding -> SMTP) whenever
 the outcome is not `ok`/`skipped`, or a row is stuck in `running` for more than two
@@ -271,11 +277,11 @@ with 401 when the secret is unset):
 ```sh
 # blocklist sync: last run only, does NOT trigger a sync
 curl -H "Authorization: Bearer $SYNC_TOKEN" \
-  'https://limooo-blocklist-sync.limooo.workers.dev/?health=1'
+  'https://comicine-blocklist-sync.limooo.workers.dev/?health=1'
 
 # d1 archive: last run only, does NOT archive anything
 curl -H "Authorization: Bearer $SYNC_TOKEN" \
-  'https://limooo-d1-archive.limooo.workers.dev/?health=1'
+  'https://comicine-d1-archive.limooo.workers.dev/?health=1'
 ```
 
 Both return `{ ok, job, lastRun }`; the archive Worker also returns
@@ -409,11 +415,11 @@ mkdir -p "$DEST"
 # 1. download the day (12 objects; the table names are the ones listed in the table above)
 for t in schema_version blocked_ips apple_accounts auth_credentials probes \
          probe_state retention_state blocklist_audit worker_runs; do
-  wrangler r2 object get "limooo-analytics/backup/$DAY/$t.jsonl.gz" --remote --file "$DEST/$t.jsonl.gz"
+  wrangler r2 object get "comicine-analytics/backup/$DAY/$t.jsonl.gz" --remote --file "$DEST/$t.jsonl.gz"
 done
-wrangler r2 object get "limooo-analytics/backup/$DAY/ddl.sql"        --remote --file "$DEST/ddl.sql"
-wrangler r2 object get "limooo-analytics/backup/$DAY/schema.jsonl.gz" --remote --file "$DEST/schema.jsonl.gz"
-wrangler r2 object get "limooo-analytics/backup/$DAY/manifest.json"  --remote --file "$DEST/manifest.json"
+wrangler r2 object get "comicine-analytics/backup/$DAY/ddl.sql"        --remote --file "$DEST/ddl.sql"
+wrangler r2 object get "comicine-analytics/backup/$DAY/schema.jsonl.gz" --remote --file "$DEST/schema.jsonl.gz"
+wrangler r2 object get "comicine-analytics/backup/$DAY/manifest.json"  --remote --file "$DEST/manifest.json"
 
 # 2. check what you got before touching anything (row counts, gaps, byte sizes)
 cat "$DEST/manifest.json"
@@ -475,9 +481,9 @@ bash ops/workers_deploy.sh
 
 ## Cache Rules
 
-`ComiCine public cache` exists in the `comicine.com` zone. **Since 2026-09-26 both HTML
-cache rules are disabled** (`Cache public HTML for returning visitors`,
-`Cache images gallery page for returning visitors`, `enabled=false`): their
+No Cloudflare Cache Rules are active in the `comicine.com` zone (verified 2026-10-27). The former
+`Limooo public cache` ruleset and its HTML rules are historical records, not live configuration.
+Those HTML rules were disabled because their
 `cache_key` was empty, so the edge cached by URL only, while the public page language
 is decided by the `user_lang_preference` cookie. The first visitor's language was then
 served to everyone at the same URL, and switching language still returned the old one.
@@ -493,7 +499,7 @@ Historical records:
   `services.comicine.com`, `contact.comicine.com` when the request carried the
   `user_lang_preference` cookie; edge/browser TTL 300 s.
 - Static assets: used to match `/static/*` on the hosts above plus the main-site
-  favicon and `limooo-xtext.svg`; edge/browser TTL 1 year.
+  favicon and ComiCine copyright wordmark; edge/browser TTL 1 year.
 
 > After A2, `/static/portfolio/**` is no longer a public image path (the originals
 > were removed; only `/static/wm/portfolio/**` watermarks and
@@ -502,10 +508,9 @@ Historical records:
 > **purging the Cloudflare edge cache for `/static/portfolio/*` by hand**, otherwise
 > the edge can keep serving the old clean originals.
 
-The rules are managed through the Rulesets API phase
-`http_request_cache_settings`; token permissions are documented by Cloudflare's Cache
-Rules docs. Change or delete them in the Dashboard under `Rules -> Cache Rules` to
-avoid fighting the Pages code.
+If cache rules are recreated, manage them through the Rulesets API phase
+`http_request_cache_settings` or the Dashboard under `Rules -> Cache Rules`, and keep
+them consistent with the language-aware Worker cache. No such rules are active now.
 
 ## D1 retention and cleanup
 
@@ -582,7 +587,7 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   the VPS lease ended.
 - WAF custom rules and DNS records should be changed through the Cloudflare API or the
   Dashboard; this file only keeps those states traceable.
-- A2 image ownership is live: originals are private (`limooo-originals`), the public
+- A2 image ownership is live: originals are private (`comicine-originals`), the public
   side serves only watermark variants and thumbnails.
 - **Resolved 2026-10-11: `security_level` raised from `essentially_off` to `medium`.**
   `essentially_off` had disabled Cloudflare's threat score, IP reputation and Browser
@@ -591,10 +596,11 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   Cloudflare default (challenge suspicious traffic, do not block outright). The zone
   snapshot now reads `medium` and the `--show` review note is gone. If legitimate traffic
   ever gets challenged, the value is one PATCH away and the snapshot will show the diff.
-- **Resolved 2026-10-11: `identity.comicine.com` removed** from both the Pages custom domains
+- **Historical change 2026-10-11: `identity.comicine.com` was temporarily removed** from both the Pages custom domains
   and the zone DNS (proxied `CNAME` to `comicine.pages.dev`). It returned 404 and nothing in
   the repository, the contract or the docs referenced it (authentik-era leftover). The
-  other ten hostnames were re-checked and still answer.
+  other ten hostnames were re-checked and still answer. The host was later restored for the shared
+  Access identity flow documented below.
 - **Configured 2026-10-18: shared Access identity**. The former `ComiCine-Visitor` app was
   repurposed as `ComiCine` for `identity.comicine.com/login`, retaining its admin policy
   and AUD. Its `ComiCine-Admins` policy now also allows the `account.comicine.com` email domain,
@@ -603,11 +609,11 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
   legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.
-- **Checked 2026-10-27: Pages aliases and gate migration**. The active project names are `comicine`
-  and `comicine-docs`, but their default aliases remain `limooo.pages.dev` and `limooo-docs.pages.dev`.
-  Pages does not support editing an alias in place. Keep the current projects as rollback targets,
-  stage replacement projects and verify their runtime configuration before moving any custom domain
-  or DNS record. The main gate currently fails on `comicine.com` before it submits a token to
+- **Checked 2026-10-27: Pages aliases and gate migration**. The docs project was recreated as
+  `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias. Its custom domain
+  `docs.comicine.com` serves the new project. The main project still uses `limooo.pages.dev`:
+  recreating it would lose its 11 write-only production secrets, including the Turnstile secret,
+  which this API token cannot retrieve or rotate. The main gate currently fails on `comicine.com` before it submits a token to
   `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. A production
   headless-browser run captured client error `110200` (Cloudflare: domain not authorized). Recent
   D1 gate-verification events succeeded on `limooo.cn` but none reached verification from `.com`.
@@ -617,3 +623,10 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   Do not weaken the gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
   `/feishu/<path>` follows that 301 to `comicine.com/feishu/<path>` and then Pages forwards to
   `https://comicine.feishu.cn/<path>`.
+- **Checked 2026-10-27: Cloudflare account rename**. `GET /accounts/{account_id}` succeeds, but
+  updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
+  the configured API token lacks `Account Settings Write`. The account remains named `Limooo` until
+  a token with that permission is available. R2 now contains only `comicine-analytics`,
+  `comicine-fonts` and `comicine-originals`; the legacy `limooo-*` buckets are absent. The active
+  D1 and Durable Object identifiers remain documented above because they hold live data/state and
+  require a separately validated migration rather than a display-name replacement.

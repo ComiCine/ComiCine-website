@@ -117,11 +117,11 @@ describe("logout next validation", () => {
 
   it("wraps the sanitised target in the Access logout URL when configured", async () => {
     const resp = await logout("?next=https://evil.example/phish", {
-      ACCESS_TEAM_DOMAIN: "limooo.cloudflareaccess.com",
+      ACCESS_TEAM_DOMAIN: "comicine.cloudflareaccess.com",
     });
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe(
-      "https://limooo.cloudflareaccess.com/cdn-cgi/access/logout?redirect_url=" +
+      "https://comicine.cloudflareaccess.com/cdn-cgi/access/logout?redirect_url=" +
         encodeURIComponent("https://comicine.com/"),
     );
   });

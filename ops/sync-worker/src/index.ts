@@ -68,7 +68,7 @@ interface Env {
   SYNC_TOKEN: string;
 }
 
-const LIST_NAME = "limooo_blocklist";
+const LIST_NAME = "comicine_blocklist";
 const API = "https://api.cloudflare.com/client/v4";
 const BATCH = 200;
 // The list-item API caps per_page at 500. Passing 1000 returns HTTP 400

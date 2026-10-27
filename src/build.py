@@ -179,6 +179,8 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/public/files/*",
                     "/favicon.svg",
                     "/comicine.svg",
+                    "/comicine-xtext.svg",
+                    "/comicine-favicon.svg",
                     # These historical URLs remain aliases to the current brand artwork.
                     "/Limooo-xtext.svg",
                     "/ComiCine-xtext.svg",
@@ -229,6 +231,25 @@ def write_pages_edge_config(out_dir: str) -> None:
             "  Cache-Control: public, max-age=86400\n"
             "/sitemap.xml\n"
             "  Cache-Control: public, max-age=86400\n"
+        )
+
+
+def publish_brand_assets(out_dir: str) -> None:
+    """Publish canonical root-level brand assets and current-art legacy aliases."""
+    icon_dir = os.path.join(STATIC_DIR, "icons")
+    root_brand_assets = {
+        "comicine.svg": "comicine.svg",
+        "comicine-xtext.svg": "comicine-xtext.svg",
+        "comicine-favicon.svg": "comicine-favicon.svg",
+        "favicon.svg": "comicine-favicon.svg",
+        "Limooo-xtext.svg": "comicine-xtext.svg",
+        "ComiCine-xtext.svg": "comicine-xtext.svg",
+    }
+    os.makedirs(out_dir, exist_ok=True)
+    for public_name, source_name in root_brand_assets.items():
+        shutil.copy2(
+            os.path.join(icon_dir, source_name),
+            os.path.join(out_dir, public_name),
         )
 
 
@@ -1118,10 +1139,8 @@ def main() -> int:
     remove_public_portfolio_originals(
         os.path.join(PUBLIC_DIR, "static", "portfolio")
     )
-    # Publish the canonical root logo and keep historical root URLs as aliases to this new artwork.
-    logo_path = os.path.join(STATIC_DIR, "icons", "comicine.svg")
-    for public_name in ("comicine.svg", "Limooo-xtext.svg", "ComiCine-xtext.svg"):
-        shutil.copy2(logo_path, os.path.join(PUBLIC_DIR, public_name))
+    # Keep legacy root URLs available, but serve current brand artwork from them.
+    publish_brand_assets(PUBLIC_DIR)
 
     # 4) i18n Functions (frontend language-switching endpoint)
     write_config_functions()

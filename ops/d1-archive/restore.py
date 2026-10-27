@@ -21,7 +21,7 @@ Usage:
     python3 ops/d1-archive/restore.py --dir <snapshot dir> --replace --out restore.sql
 
 Get a snapshot out of R2 first (the Worker only ever writes it):
-    wrangler r2 object get limooo-analytics/backup/2026_10_11/ddl.sql --file ddl.sql
+    wrangler r2 object get comicine-analytics/backup/2026_10_11/ddl.sql --file ddl.sql
     for f in manifest.json schema.jsonl.gz blocked_ips.jsonl.gz ...; do ...; done
 
 Then:

@@ -108,10 +108,10 @@
         }
         .footer-brand-logo {
             display: inline-block;
-            width: 1.6em; height: 1.6em;
+            width: 4.8em; height: 1em;
             margin-inline-start: 0.25em;
             object-fit: contain;
-            vertical-align: -0.3em;
+            vertical-align: -0.15em;
         }
         /* Apply Baloo 2 consistently to the ComiCine brand name in body text. */
         .brand-word {

@@ -23,8 +23,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.comicine.com/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
 - **Auth & roles**: one `ComiCine` Access application protects `identity.comicine.com/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
-- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.comicine.com/login`; Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
-- **Monitoring**: the `limooo-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
+- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.comicine.com/login`; Cloudflare Access sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
+- **Monitoring**: the `comicine-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.comicine.com`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
   - D1 `blocked_ips` is the authority; `sync-worker` mirrors active rows to a Cloudflare IP List for edge interception (no origin, so no ipset/iptables)
@@ -44,7 +44,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 | D1 archive | `ops/d1-archive` (daily cron) | Cloudflare Workers |
 | Blocklist sync | `ops/sync-worker` (daily cron → Cloudflare IP List) | Cloudflare Workers |
 | Image watermarking | `ops/image-watermark` (path-normalizing proxy) | Cloudflare Workers |
-| Static assets / originals backup | Pages asset server + private R2 bucket `limooo-originals` | Cloudflare |
+| Static assets / originals backup | Pages asset server + private R2 bucket `comicine-originals` | Cloudflare |
 | Deployment | `ops/deploy.sh` (git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`) | local |
 
 ## Project structure
@@ -234,7 +234,7 @@ windows and every path in the tree below:
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | HTTP/D1 probes every minute; a Durable Object alarm re-checks every 10s while a probe is down, and alerts on state change |
 | `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d) |
-| `30 3 * * *` | `ops/sync-worker` | Mirrors active D1 `blocked_ips` rows to the Cloudflare IP List `limooo_blocklist` |
+| `30 3 * * *` | `ops/sync-worker` | Mirrors active D1 `blocked_ips` rows to the Cloudflare IP List `comicine_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 snapshot/archive run |
 
 TLS certificates are issued and renewed by Cloudflare for the Pages custom domains.
@@ -248,7 +248,7 @@ from Cloudflare.
 
 ## Deployment
 
-The deploy target is Cloudflare Pages project `comicine` (default alias `limooo.pages.dev`) plus the standalone Workers, all
+The deploy targets are Pages projects `comicine` and `comicine-docs` plus the standalone Workers. The docs alias is `comicine-docs.pages.dev`; the main project still uses `limooo.pages.dev` because its write-only production Turnstile secret cannot be rotated with the current token. All
 through the Cloudflare API. From the repository root:
 
 ```bash
@@ -257,7 +257,7 @@ bash ops/deploy.sh              # with no arguments = --all (full deploy, see be
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
-bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
+bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
 
@@ -310,10 +310,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   issuing unsigned cookies.
 - The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   `Domain=.comicine.com`), minted and validated entirely at the edge.
-- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML and sets the short-lived state cookie; a same-origin external script then navigates to `identity.comicine.com/login`. Cloudflare Access sends the browser through `limooo.cloudflareaccess.com`, while API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML and sets the short-lived state cookie; a same-origin external script then navigates to `identity.comicine.com/login`. Cloudflare Access sends the browser through `comicine.cloudflareaccess.com`, while API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
-  `ops/sync-worker` keeps the Cloudflare IP List `limooo_blocklist` in step with the
+  `ops/sync-worker` keeps the Cloudflare IP List `comicine_blocklist` in step with the
   active rows for a WAF rule to consume (that custom rule is not deployed right now)
 - Admin writes (create/update/delete) require the admin role; viewer is read-only
 - Visitor IPs are never returned by list APIs; the full IP is Fernet-encrypted in
@@ -341,7 +341,7 @@ The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full depl
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. The main Pages project is named `comicine` but still uses `limooo.pages.dev`; the docs project is `comicine-docs` and still uses `limooo-docs.pages.dev` while alias migration is pending.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on Cloudflare Pages Functions, as do the status page and every scheduled job. The docs Pages project now uses `comicine-docs.pages.dev`; `docs.comicine.com` serves this project. The main project retains `limooo.pages.dev` because its production Turnstile secret is write-only and the current token cannot rotate it for a safe project recreation.
 
 Runtime split:
 
@@ -351,7 +351,7 @@ Runtime split:
 | Pages | Pre-rendered static HTML at build time (multi-language) |
 | Data | D1 (visitor analytics, blocklist, Apple Account management, auth sessions) |
 | Human verification | Cloudflare Turnstile, gate page rendered in place |
-| Independent Workers | `status.comicine.com` (`limooo-status`: probes, status page, retention), `image.comicine.com` (`image-watermark`), `limooo-blocklist-sync` |
+| Independent Workers | `status.comicine.com` (`comicine-status`: probes, status page, retention), `image.comicine.com` (`comicine-image-watermark`), `comicine-blocklist-sync` |
 
 ### Build & directory layout
 
@@ -486,7 +486,7 @@ published to docs.comicine.com.
   Only clean thumbnails (`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)
   and the normalized, watermarked `/portfolio/<img>` on `image.comicine.com` are public;
   originals stay in the git-ignored `src/static/portfolio/` and the private R2 bucket
-  `limooo-originals` (`ops/upload_originals.sh`).
+  `comicine-originals` (`ops/upload_originals.sh`).
 - Turnstile verification has a 3-second server-side timeout so Cloudflare
   challenge-platform incidents fail closed quickly instead of stalling users
   for up to 8 seconds.
@@ -496,14 +496,15 @@ published to docs.comicine.com.
 The shape of the live deployment, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: the main project `comicine` currently serves through `limooo.pages.dev`; the docs project is `comicine-docs` and still has `limooo-docs.pages.dev`. The main project serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image` and `redirect`; `docs.comicine.com` is the docs host, and `fonts.comicine.com` is backed by R2
-2. **D1**: database `limooo` (APAC) is bound to the project as `DB`; `schema_version` records applied migrations. Migration 022 is applied; migration 021 remains pending because it rewrites existing Apple Account identifiers. `apple_accounts` holds Apple Account rows, and `blocked_ips` is the blocking authority; soft-deleted rows remain for audit
+1. **Pages**: the docs project is `comicine-docs` at `comicine-docs.pages.dev`, served on `docs.comicine.com`. The main `comicine` project serves the main-site Pages hosts and retains the `limooo.pages.dev` default alias; Cloudflare does not rename that alias in place, and safe recreation still requires rotating the write-only production Turnstile secret. `image.comicine.com` uses the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains.
+2. **D1**: the active main database is `limooo` (APAC), bound to Pages and related Workers; Sink uses `sink-limooo` and its historical Analytics Engine dataset `sink_limooo`. The status Durable Object retains its existing stateful namespace identifier. These are live technical identifiers, not display names; Cloudflare has no in-place D1 rename, so changing them requires a data-preserving migration and coordinated cutover. Migration 022 is applied; 021 remains intentionally pending.
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `ComiCine` protects only `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
-5. **Workers** run standalone: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive` and `image-watermark`; `status.comicine.com` and `sink.comicine.com` are Worker custom domains
-6. **Cloudflare rules**: the custom-firewall phase is empty (the `limooo_blocklist` IP List is ready for a rule); the cache phase serves static assets, legacy image paths and watermark-Worker responses for a year while both HTML page-cache rules are disabled; the `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone sends GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving path and query. `/feishu/<path>` follows the same `.cn` 301 to `comicine.com/feishu/<path>`, then Pages forwards it to `https://comicine.feishu.cn/<path>`.
-7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200
+4. **Access**: `ComiCine` protects `identity.comicine.com/login`; visitor and account use the shared identity handoff. The unused `ComiCine-Admin` application is already ComiCine-branded but still refers to the legacy `admin.limooo.cn` hostname, which has no DNS record or Pages custom domain.
+5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Durable Object keeps its existing technical namespace to preserve state.
+6. **Cloudflare rules**: no WAF or Cache Rules are active. The IP List is `comicine_blocklist` and currently has no WAF filter referencing it. The `.com` dynamic-redirect phase is empty. The legacy `.cn` zone redirects GET/HEAD requests to matching `.com` hosts with 301 and other methods with 308, preserving path and query; `/feishu/<path>` then reaches `https://comicine.feishu.cn/<path>` through Pages.
+7. **Smoke checks**: verify `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/` and `https://sink.comicine.com/` after each release. Turnstile still needs the `.com` host authorized in the existing widget.
 
+> The Cloudflare account display name remains `Limooo`: Cloudflare denied the account-name update for insufficient permission. The Turnstile hostname update is also blocked by the current token.
 Note: the `?challenge=1` 403 confirms only that the gate page rendered; it does not prove Turnstile verification works. Complete a real browser challenge and confirm `/gate/verify` succeeds. The `.com` challenge is not yet restored.
 
 The gate renders in place on every host, the real visitor IP is shown in the gate page

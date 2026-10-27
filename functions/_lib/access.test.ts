@@ -26,7 +26,7 @@ import {
 } from "./access";
 import type { Env } from "./env";
 
-const TEAM = "https://limooo.cloudflareaccess.com";
+const TEAM = "https://comicine.cloudflareaccess.com";
 const KID = "access-kid";
 const IDENTITY_AUD = "identity-aud-0000";
 
@@ -118,7 +118,7 @@ afterEach(() => {
 
 describe("access helpers", () => {
   it("team domain gains a scheme and loses the trailing slash", () => {
-    expect(accessTeamDomain({ ...baseEnv, ACCESS_TEAM_DOMAIN: "limooo.cloudflareaccess.com/" })).toBe(
+    expect(accessTeamDomain({ ...baseEnv, ACCESS_TEAM_DOMAIN: "comicine.cloudflareaccess.com/" })).toBe(
       TEAM,
     );
     expect(accessTeamDomain({ ...baseEnv, ACCESS_TEAM_DOMAIN: "" })).toBe("");

@@ -48,7 +48,7 @@ public/*
 preview/*
 !preview/.gitkeep
 
-# Portfolio originals (large and not tracked; kept locally and in the private limooo-originals R2 bucket)
+# Portfolio originals (large and not tracked; kept locally and in the private comicine-originals R2 bucket)
 src/static/portfolio/
 
 # Migration exports (may contain sensitive data such as encrypted passwords; never track)

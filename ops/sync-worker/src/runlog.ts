@@ -10,7 +10,7 @@
 /**
  * Shared library for `worker_runs` records (schema in ops/migrations/018_worker_runs.sql).
  *
- * This module exists because limooo-blocklist-sync and limooo-d1-archive both use
+ * This module exists because comicine-blocklist-sync and comicine-d1-archive both use
  * `ctx.waitUntil(asyncWork(env))`, which silently swallows promise rejections and leaves no trace
  * on failure. Both Workers must write the same record shape, or operations scripts would need two
  * parsers. Keep the implementation here once and let d1-archive import it directly; Wrangler

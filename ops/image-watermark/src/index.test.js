@@ -7,7 +7,7 @@
  * See ADDITIONAL_TERMS.txt.
 
 /**
- * Pure-function route tests for image-watermark (tasks/14, A2 normalization proxy).
+ * Pure-function route tests for comicine-image-watermark (tasks/14, A2 normalization proxy).
  * Run with: `node --test ops/image-watermark/src/index.test.js`.
  */
 
@@ -83,6 +83,14 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
   const legacyIcon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(legacyIcon.watermarked, false);
   assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg`);
+
+  const legacyWordmark = routeFor(new URL("https://image.limooo.cn/icons/Limooo-xtext.svg"), { headers: new Headers() }, ORIGIN);
+  assert.equal(legacyWordmark.watermarked, false);
+  assert.equal(legacyWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg`);
+
+  const favicon = routeFor(new URL("https://image.comicine.com/icons/favicon.svg"), { headers: new Headers() }, ORIGIN);
+  assert.equal(favicon.watermarked, false);
+  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {

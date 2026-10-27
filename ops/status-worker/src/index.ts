@@ -969,7 +969,7 @@ export default {
       );
     }
     if (url.pathname === "/_health") {
-      return Response.json({ ok: true, service: "limooo-status" });
+      return Response.json({ ok: true, service: "comicine-status" });
     }
     if (url.pathname === "/status.css") {
       return new Response(STATUS_CSS, {

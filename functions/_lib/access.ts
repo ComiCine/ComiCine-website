@@ -69,7 +69,7 @@ function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-/** Return the team domain, such as https://limooo.cloudflareaccess.com, or an empty string if missing. */
+/** Return the team domain, such as https://comicine.cloudflareaccess.com, or an empty string if missing. */
 export function accessTeamDomain(env: Env): string {
   const raw = (env.ACCESS_TEAM_DOMAIN ?? "").trim();
   if (!raw) return "";

@@ -438,7 +438,7 @@ def live_facts() -> dict:
     lists = api("GET", f"/accounts/{account}/rules/lists")
     if lists.get("success"):
         facts["lists"] = sorted(f"{entry.get('name')} ({entry.get('kind')})" for entry in lists["result"])
-    for name in ("limooo-status", "limooo-blocklist-sync", "limooo-d1-archive"):
+    for name in ("comicine-status", "comicine-blocklist-sync", "comicine-d1-archive"):
         schedules = api("GET", f"/accounts/{account}/workers/scripts/{name}/schedules")
         if schedules.get("success"):
             facts["crons"][name] = sorted(s["cron"] for s in schedules["result"].get("schedules", []))

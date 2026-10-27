@@ -8,8 +8,8 @@
 #   - Cron Trigger runs HTTP/D1 probes every minute and writes to D1.
 #   - Durable Object alarms recheck every 10 seconds after a down result and record recovery.
 #   - GET /api/status provides data to the status page; GET /_health serves external and self-checks.
-# Deploy with: bash ops/workers_deploy.sh status-worker
-name = "limooo-status"
+# Deploy with: bash ops/workers_deploy.sh --worker=comicine-status
+name = "comicine-status"
 main = "src/index.ts"
 compatibility_date = "2026-08-15"
 account_id = "4a7fd8c8f1a59a265981a73e631b9e3f"

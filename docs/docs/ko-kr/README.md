@@ -23,8 +23,8 @@ See ADDITIONAL_TERMS.txt.
 - 최초 로드 후 방문자 상태 칩은 새 `/api/visitors` 요청 없이 로컬에서 필터링합니다. 딥 링크를 위해 API는 여전히 `?status=<3-digit>`을 받습니다.
 - **Apple Account 관리자**(`account.comicine.com/apple`): 드래그 앤 드롭 정렬을 지원하는 Pages Function + D1 CRUD. 비밀번호는 Fernet으로 암호화해 저장하고, 목록에는 마스킹된 비밀번호만 표시하며 임시로 평문을 공개할 수 있습니다
 - **인증 및 역할**: 하나의 `ComiCine` Access 앱이 `identity.comicine.com/login`을 보호합니다. identity 호스트의 Pages Function은 JWT를 검증하고 등록된 원본 호스트에 바인딩된 짧은 수명의 일회용 D1 전달로 사용자 신원을 반환합니다. 원본 사이트의 callback이 로컬 설정에서 역할을 적용합니다. 현재 보호되는 두 사이트 모두 admin 세션이 필요합니다.
-- **공유 로그인 이동**: 인증되지 않은 브라우저 페이지 요청은 HTTP 401 HTML을 반환하고, 같은 출처의 외부 스크립트가 `identity.comicine.com/login`으로 이동합니다. 이후 Cloudflare Access가 브라우저를 `limooo.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다.
-- **모니터링**: `limooo-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
+- **공유 로그인 이동**: 인증되지 않은 브라우저 페이지 요청은 HTTP 401 HTML을 반환하고, 같은 출처의 외부 스크립트가 `identity.comicine.com/login`으로 이동합니다. 이후 Cloudflare Access가 브라우저를 `comicine.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다.
+- **모니터링**: `comicine-status` Worker가 매분 HTTP/D1 대상을 프로브(probe)하고, 프로브가 다운된 동안에는 10초마다 다시 확인하며 결과를 D1에 저장합니다. 알림은 webhook으로 나가고 Email binding이 대체 수단입니다
 - **상태 페이지**(`status.comicine.com`): 같은 Worker가 D1에서 서버 렌더링하며, 4개 언어와 명시적 `?lang=` 재정의를 지원하고, 프로브 오류 코드에 대한 4개 언어 대조표와 브랜드가 적용된 404/503 장애 페이지를 제공합니다. 일별 가동률은 `probe_uptime_daily` 롤업(rollup)에서 가져옵니다
 - **자동 IP 차단**:
   - D1 `blocked_ips`가 권위 데이터이고, `sync-worker`가 활성 행을 Cloudflare IP List로 미러링해 엣지에서 차단합니다(원본 서버가 없으므로 ipset/iptables도 없음)
@@ -44,7 +44,7 @@ See ADDITIONAL_TERMS.txt.
 | D1 아카이브 | `ops/d1-archive`(매일 cron) | Cloudflare Workers |
 | 차단 목록 동기화 | `ops/sync-worker` (일일 cron → Cloudflare IP List) | Cloudflare Workers |
 | 이미지 워터마킹 | `ops/image-watermark` (경로 정규화 프록시) | Cloudflare Workers |
-| 정적 자산 / 원본 백업 | Pages 자산 서버 + 비공개 R2 버킷 `limooo-originals` | Cloudflare |
+| 정적 자산 / 원본 백업 | Pages 자산 서버 + 비공개 R2 버킷 `comicine-originals` | Cloudflare |
 | 배포 | `ops/deploy.sh` (git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`) | 로컬 |
 
 ## 프로젝트 구조
@@ -233,7 +233,7 @@ Worker Cron Triggers로 동작합니다:
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 매분 HTTP/D1 프로브; 프로브가 다운된 동안 Durable Object 알람이 10초마다 다시 확인하고 상태가 바뀌면 알립니다 |
 | `47 3 * * *` | `ops/status-worker` | D1 보존(`src/retention.ts`): `ray_log_v2`(7일), `visitors_v2`(30일), `visitor_rollups`(30일), `heartbeats`(30일), `events`(90일), `probe_uptime_daily`(90일), `auth_sessions`(60일), `identity_handoffs`(1일) 정리 |
-| `30 3 * * *` | `ops/sync-worker` | 활성 D1 `blocked_ips` 행을 Cloudflare IP List `limooo_blocklist`로 미러링 |
+| `30 3 * * *` | `ops/sync-worker` | 활성 D1 `blocked_ips` 행을 Cloudflare IP List `comicine_blocklist`로 미러링 |
 | `0 0 * * *` | `ops/d1-archive` | D1 스냅샷/아카이브 |
 
 `python3 ops/readme_facts.py --check`는 위 스케줄, 보존 기간, TTL, 디렉터리 트리를
@@ -246,7 +246,7 @@ TLS 인증서는 Pages 사용자 지정 도메인에 대해 Cloudflare가 발급
 
 ## 배포
 
-배포 대상은 Cloudflare Pages 프로젝트 `comicine`(기본 별칭 `limooo.pages.dev`)과 독립 Worker들이며, 모두 Cloudflare API를 거칩니다.
+배포 대상은 Pages 프로젝트 `comicine`, `comicine-docs`와 독립 Worker입니다. Docs 별칭은 `comicine-docs.pages.dev`로 변경했습니다. 메인 프로젝트는 읽기 전용인 프로덕션 Turnstile 시크릿을 현재 토큰으로 재발급할 수 없어 안전하게 재생성할 수 없으므로 `limooo.pages.dev`를 유지합니다.
 저장소 루트에서:
 
 ```bash
@@ -255,7 +255,7 @@ bash ops/deploy.sh              # with no arguments = --all (full deploy, see be
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
-bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
+bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
 
@@ -307,10 +307,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   발급하는 대신 503을 응답합니다.
 - `__gate` 쿠키는 `<unix-expiry>.<HMAC-SHA256 hex>`(TTL 1시간, `HttpOnly`,
   `Domain=.comicine.com`)이며 전적으로 엣지에서 발급하고 검증합니다.
-- 인증되지 않은 브라우저가 보호 페이지를 열면 원본 사이트가 짧은 state 쿠키를 설정한 HTTP 401 HTML을 반환합니다. 같은 출처의 외부 스크립트가 `identity.comicine.com/login`으로 이동하고, Cloudflare Access가 브라우저를 `limooo.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다. identity 호스트의 Pages Function이 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
+- 인증되지 않은 브라우저가 보호 페이지를 열면 원본 사이트가 짧은 state 쿠키를 설정한 HTTP 401 HTML을 반환합니다. 같은 출처의 외부 스크립트가 `identity.comicine.com/login`으로 이동하고, Cloudflare Access가 브라우저를 `comicine.cloudflareaccess.com` 로그인으로 보냅니다. API 인증 실패는 JSON 401로 유지됩니다. identity 호스트의 Pages Function이 `Cf-Access-Jwt-Assertion`(RS256, JWKS 1시간 캐시)을 검증하고 원본 호스트와 state에 바인딩된 해시 일회용 D1 코드를 만듭니다. 원본 사이트 callback이 서버 간 요청으로 코드를 소비하고 로컬 설정의 역할을 적용합니다. 전달 데이터에는 역할이 포함되지 않습니다. 현재 visitor 및 account 사이트의 API는 모두 admin 세션을 요구합니다.
 - 키와 암호문은 분리해 보관하며 저장소에 절대 커밋하지 않습니다
 - 차단 계층: 애플리케이션 계층의 D1 차단 목록이 엣지에서 403을 반환하고,
-  `ops/sync-worker`가 활성 행을 Cloudflare IP List `limooo_blocklist`에 맞춰 둡니다
+  `ops/sync-worker`가 활성 행을 Cloudflare IP List `comicine_blocklist`에 맞춰 둡니다
   (WAF 규칙이 쓰도록 되어 있지만 그 사용자 지정 규칙은 현재 배포되어 있지 않습니다)
 - 관리자 쓰기(생성/수정/삭제)에는 admin 역할이 필요하며, viewer는 읽기 전용입니다
 - 방문자 IP는 목록 API에서 절대 반환하지 않습니다. 전체 IP는
@@ -338,7 +338,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 런타임
 
-공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리다이렉트 릴레이)는 Cloudflare Pages Functions에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. 메인 Pages 프로젝트 이름은 `comicine`이지만 기본 별칭은 아직 `limooo.pages.dev`입니다. 문서 프로젝트 `comicine-docs`도 `limooo-docs.pages.dev`를 사용 중이며 별칭 이전은 아직 완료되지 않았습니다.
+공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리다이렉트 릴레이)는 Cloudflare Pages Functions에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. Docs Pages 프로젝트는 `comicine-docs.pages.dev`를 사용하며 `docs.comicine.com`이 이 프로젝트를 제공합니다. 프로덕션 Turnstile 시크릿은 읽기 전용이고 현재 토큰으로 재발급할 수 없어 메인 프로젝트를 안전하게 재생성할 수 없으므로 `limooo.pages.dev`를 유지합니다.
 
 런타임 구성:
 
@@ -348,7 +348,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | Pages | 빌드 시 사전 렌더링된 정적 HTML (다국어) |
 | 데이터 | D1 (방문자 분석, 차단 목록, Apple Account 관리, 인증 세션) |
 | 사람 확인 | Cloudflare Turnstile, 게이트 페이지를 그 자리에서 렌더링 |
-| 독립 Worker | `status.comicine.com` (`limooo-status`: 프로브, 상태 페이지, 보존), `image.comicine.com` (`image-watermark`), `limooo-blocklist-sync` |
+| 독립 Worker | `status.comicine.com` (`comicine-status`: 프로브, 상태 페이지, 보존), `image.comicine.com` (`comicine-image-watermark`), `comicine-blocklist-sync` |
 
 ### 빌드 및 디렉터리 구조
 
@@ -470,7 +470,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   깨끗한 썸네일(`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)과
   `image.comicine.com`의 정규화·워터마크된 `/portfolio/<img>`만 공개되며,
   원본은 git에서 제외된 `src/static/portfolio/`와 비공개 R2 버킷
-  `limooo-originals`(`ops/upload_originals.sh`)에 남습니다.
+  `comicine-originals`(`ops/upload_originals.sh`)에 남습니다.
 - Turnstile 검증에는 3초의 서버 측 타임아웃이 있어, Cloudflare
   챌린지 플랫폼 장애 시 사용자를 최대 8초까지 붙잡아 두는 대신 빠르게
   fail closed 합니다.
@@ -479,14 +479,15 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 배포된 구성입니다. `python3 ops/readme_facts.py --live`로 언제든 다시 읽을 수 있습니다:
 
-1. **Pages**: 메인 프로젝트 `comicine`은 현재 `limooo.pages.dev`를 통해 서비스됩니다. 문서 프로젝트 `comicine-docs`의 기본 별칭은 아직 `limooo-docs.pages.dev`입니다. 메인 프로젝트는 `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images`, `image`, `redirect`를 제공합니다. 문서 호스트는 `docs.comicine.com`이며 `fonts.comicine.com`은 R2가 받칩니다
-2. **D1**: 데이터베이스 `limooo`(APAC)가 프로젝트에 `DB`로 바인딩되어 있고 `schema_version`이 적용된 마이그레이션을 기록합니다. 마이그레이션 022는 적용되었습니다. 021은 기존 Apple Account 식별자를 다시 쓰므로 의도적으로 보류 중입니다. `apple_accounts`가 Apple Account 데이터를 저장하고 `blocked_ips`가 차단 권한의 기준이며, 소프트 삭제 행은 감사용으로 보존됩니다
+1. **Pages**: 문서 프로젝트 `comicine-docs`는 `comicine-docs.pages.dev`이며 `docs.comicine.com`이 제공합니다. 메인 `comicine` 프로젝트는 메인 사이트 Pages 호스트를 제공하고 기본 별칭 `limooo.pages.dev`를 유지합니다. Cloudflare는 이 별칭을 제자리에서 변경할 수 없고, 안전한 재생성에는 읽기 전용 프로덕션 Turnstile 시크릿의 교체가 필요합니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
+2. **D1**: 활성 메인 DB는 `limooo`(APAC), Sink DB는 `sink-limooo`, 기존 Analytics Engine dataset은 `sink_limooo`입니다. 상태 Durable Object는 기존 상태 네임스페이스를 유지합니다. 이 값은 표시 이름이 아닌 실제 기술 ID입니다. D1은 제자리에서 이름을 바꿀 수 없으며 변경하려면 데이터 보존 마이그레이션과 전환이 필요합니다. 마이그레이션 022는 적용되었고 021은 의도적으로 보류 중입니다.
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
-4. **Access**: `ComiCine`는 `identity.comicine.com/login`만 보호합니다. `visitor.comicine.com`과 `account.comicine.com`은 공유 identity handoff 후 각 Pages 호스트 전용 세션을 사용합니다. Dashboard에 사용되지 않는 `ComiCine-Admin` 앱이 남아 있지만 `admin.limooo.cn`에는 DNS 레코드나 Pages 사용자 지정 도메인이 없습니다. 자체 IdP나 사용자 지정 로그인 폼은 없습니다
-5. **Worker**는 독립적으로 실행됩니다: `limooo-status`, `limooo-blocklist-sync`, `limooo-d1-archive`, `image-watermark`. `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다
-6. **Cloudflare 규칙**: 사용자 지정 방화벽 단계는 비어 있습니다(`limooo_blocklist` IP List가 규칙을 기다리는 상태). 캐시 단계는 정적 자산, 레거시 이미지 경로, 워터마크 Worker 응답을 1년간 캐시하고 두 개의 HTML 페이지 캐시 규칙은 비활성입니다. 동적 리다이렉트 단계는 비어 있고, `ops/waf/rules.snapshot.json`은 그 빈 단계를 갱신 시점에 그대로 반영합니다(삭제된 규칙은 git 기록에만 남습니다) `limooo.cn/feishu/<path>`는 301로 `comicine.com/feishu/<path>`에 이동한 뒤 Pages가 `https://comicine.feishu.cn/<path>`로 전달합니다.
-7. **스모크 검사**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → `https://comicine.com`으로 302, `https://status.comicine.com/` → 200
+4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱 이름은 이미 새 브랜드지만 DNS와 Pages 도메인이 없는 기존 `admin.limooo.cn` 호스트를 가리킵니다.
+5. **Worker**는 독립 실행됩니다: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark`, `comicine-sink`. `status.comicine.com`, `image.comicine.com`, `sink.comicine.com`은 Worker 사용자 지정 도메인입니다. 상태 보존을 위해 Status Durable Object의 기존 기술 네임스페이스는 유지합니다.
+6. **Cloudflare 규칙**: 현재 활성화된 WAF 또는 Cache Rules가 없습니다. IP List는 `comicine_blocklist`이며 참조하는 WAF 필터가 없습니다. `.com` 동적 리디렉션 단계는 비어 있습니다. 기존 `.cn` 영역은 GET/HEAD는 301, 다른 메서드는 308로 해당 `.com` 호스트에 리디렉션하며 경로와 쿼리를 유지합니다. `/feishu/<path>`는 Pages를 거쳐 `https://comicine.feishu.cn/<path>`로 전달됩니다.
+7. **스모크 검사**: 각 배포 후 `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/`, `https://sink.comicine.com/`을 확인합니다. 기존 Turnstile 위젯에 `.com` 호스트를 추가하는 작업은 아직 필요합니다.
 
+> Cloudflare 계정 표시 이름은 `Limooo`로 남아 있습니다. 이름 변경은 권한 부족으로 거부되었고 Turnstile 호스트 이름 변경도 현재 토큰으로는 차단되었습니다.
 참고: `?challenge=1`의 403은 게이트 페이지가 렌더링됐다는 뜻일 뿐 Turnstile 검증 성공을 증명하지 않습니다. 브라우저에서 실제 챌린지를 완료하고 `/gate/verify`가 성공하는지 확인해야 합니다. `.com` 챌린지는 아직 복구되지 않았습니다.
 
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
