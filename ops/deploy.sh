@@ -20,7 +20,7 @@
 #   bash ops/deploy.sh --commit --push          # commit and push
 #   bash ops/deploy.sh -m "fix: thing"          # commit with message "deploy: fix: thing"
 #   bash ops/deploy.sh --message="fix: thing"   # same, long form
-#   bash ops/deploy.sh --pages                  # deploy the main Pages project only
+#   bash ops/deploy.sh --pages                  # deploy production Pages + the comicine.pages.dev alias
 #   bash ops/deploy.sh --docs                   # build + deploy docs.comicine.com only
 #   bash ops/deploy.sh --workers                # deploy every standalone Worker only
 #   bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker only

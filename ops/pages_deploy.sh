@@ -33,7 +33,9 @@ elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
 fi
 
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PAGES_PROJECT="${PAGES_PROJECT:-comicine}"
+PAGES_PROJECT="${PAGES_PROJECT:-comicine-production}"
+PAGES_ALIAS_PROJECT="${PAGES_ALIAS_PROJECT:-comicine}"
+PAGES_ALIAS_SOURCE_DIR="${PAGES_ALIAS_SOURCE_DIR:-$LOCAL_DIR/ops/pages-alias}"
 PAGES_BRANCH="${PAGES_BRANCH:-main}"
 SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 
@@ -66,6 +68,8 @@ if [ "$DRY_RUN" = 1 ]; then
     echo "[pages] will-run: $VENV_PYTHON src/build.py   (PUBLIC_DIR=$PUBLIC_DIR)"
     echo "[pages] will-run: check_config_contract.py + check_security_headers.py"
     echo "[pages] will-run: $WRANGLER_BIN pages deploy $PUBLIC_DIR --project-name $PAGES_PROJECT --branch $PAGES_BRANCH"
+    echo "[pages] will-run: deploy Pages alias project $PAGES_ALIAS_PROJECT from $PAGES_ALIAS_SOURCE_DIR/public"
+    echo "[pages] will-run: verify https://comicine.pages.dev redirects to https://comicine.com with status 308"
     echo "[pages] credentials source: ${SECRETS_FILE} (reads CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID only)"
     exit 0
 fi
@@ -149,4 +153,40 @@ if [ "$health" != "200" ]; then
     exit 1
 fi
 echo "[pages] /_health = 200 OK"
+
+# The public pages.dev name is a separate project that permanently forwards to the canonical host.
+# Stage it outside site/ so Wrangler cannot accidentally bundle the production Pages Functions.
+if [ ! -f "$PAGES_ALIAS_SOURCE_DIR/public/_worker.js" ]; then
+    echo "FATAL: Pages alias Worker not found: $PAGES_ALIAS_SOURCE_DIR/public/_worker.js" >&2
+    exit 1
+fi
+ALIAS_STAGING_DIR="$(mktemp -d /tmp/comicine-pages-alias.XXXXXX)"
+cleanup_alias_staging() {
+    [ -z "$ALIAS_STAGING_DIR" ] || rm -rf -- "$ALIAS_STAGING_DIR"
+}
+trap cleanup_alias_staging EXIT
+cp "$PAGES_ALIAS_SOURCE_DIR/public/_worker.js" "$ALIAS_STAGING_DIR/_worker.js"
+echo "[pages] deploying canonical alias project $PAGES_ALIAS_PROJECT"
+(
+    cd "$ALIAS_STAGING_DIR"
+    "$WRANGLER_BIN" pages deploy . \
+        --project-name "$PAGES_ALIAS_PROJECT" \
+        --branch "$PAGES_BRANCH" \
+        --commit-dirty=true 2>&1 | strip_emoji
+)
+
+# Verify path and query preservation on the published Pages alias.
+alias_headers="$(curl -sSI --max-time 20 'https://comicine.pages.dev/__pages_alias_check?source=deploy')" || {
+    echo "FATAL: could not reach https://comicine.pages.dev" >&2
+    exit 1
+}
+alias_status="$(printf '%s\n' "$alias_headers" | awk 'NR == 1 { print $2 }')"
+alias_location="$(printf '%s\n' "$alias_headers" | awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }')"
+if [ "$alias_status" != "308" ] || [ "$alias_location" != "https://comicine.com/__pages_alias_check?source=deploy" ]; then
+    echo "FATAL: https://comicine.pages.dev alias returned status=${alias_status:-unknown} location=${alias_location:-missing}" >&2
+    exit 1
+fi
+echo "[pages] alias path/query check = 308 to https://comicine.com"
+cleanup_alias_staging
+trap - EXIT
 echo "[pages] done. Confirm the log above contains 'Compiled Worker successfully' + 'Uploading Functions bundle'."
