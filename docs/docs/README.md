@@ -484,14 +484,14 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
 1. **Pages**：生产项目 `comicine-production` 提供主站 Pages 主机，并保留 `limooo.pages.dev`、现有自定义域名和加密运行配置。独立项目 `comicine` 提供 `comicine.pages.dev`，并以 308 跳转至 `https://comicine.com`，保留路径、查询参数和请求方法。文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
-2. **D1**：主数据库 `limooo`（APAC）以 `DB` 绑定到 Pages 和相关 Worker；Sink 使用 `sink-limooo` 与历史 Analytics Engine dataset `sink_limooo`，状态页 Durable Object 保留现有状态命名空间。它们是承载线上数据的技术标识，Cloudflare 不支持原位改名，迁移需要完整数据复制及协调切换。迁移 022 已应用；迁移 021 仍按设计暂缓。
+2. **D1**：主数据库 `limooo`（APAC）以 `DB` 绑定到 Pages 和相关 Worker；Sink 使用 `sink-limooo` 与历史 Analytics Engine dataset `sink_limooo`，状态页 Durable Object 保留现有状态命名空间。它们是承载线上数据的技术标识，Cloudflare 不支持原位改名，迁移需要完整数据复制及协调切换。迁移 022 已应用；迁移 021 仍待执行，迁移 023 将 Apple Account 邮箱迁至新域名。
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用名已是新品牌，但仍关联没有 DNS 记录或 Pages 域名的旧 `admin.limooo.cn` 主机。
 5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 DO 的底层命名空间保留旧技术 ID，以免丢失现有状态。
 6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` URL，并保留路径和查询参数。随后 `comicine.com/feishu/<path>` 与 `/lark/<path>` 由 Pages 返回 302，转到 `https://comicine.feishu.cn/<path>` 并保留路径和查询参数。
 7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。控制台截图显示 Turnstile 已列出 `.com` 主机；仍需完成真实浏览器挑战并确认 `/gate/verify` 成功。
 
-> 账号显示名目前仍为 `Limooo`：更新账号名的 API 请求被 Cloudflare 以权限不足拒绝。当前 API Token 也无法读取 Turnstile 配置；控制台截图显示 `.com` 主机已列入，但挑战结果仍待验证。
+> Cloudflare 账号显示名尚未更新：更名 API 请求被 Cloudflare 以权限不足拒绝。当前 API Token 也无法读取 Turnstile 配置；控制台截图显示 `.com` 主机已列入，但挑战结果仍待验证。
 注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；需在浏览器完成挑战并确认 `/gate/verify` 成功。
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
@@ -501,6 +501,6 @@ ComiCine 拥有并有权授权的原创材料依据 GNU Affero 通用公共许�
 
 ComiCine 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。遵守适用 GNU AGPL 版本即可进行商业使用。
 
-额外授权或商标许可咨询：[contact@limooo.cn](mailto:contact@limooo.cn)（该旧邮箱继续使用）。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
+额外授权或商标许可咨询：[contact@comicine.com](mailto:contact@comicine.com)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
 
 关于第三方字体、依赖及二维码图片中的平台标识，请参阅[第三方声明](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_zh_CN.md)；版权范围说明见[版权声明](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_zh_CN.md)。

@@ -4,8 +4,8 @@
     "description": "通用邮件框架默认可选文案（四语种）。框架本身无主题文案，各服务单独提供主题正文；此处仅提供通用提示/页脚/按钮等可选默认值。",
     "footer_brand": "ComiCine",
     "footer_suffix": "",
-    "default_reply_to": "contact@limooo.cn",
-    "sender": "no-reply-<N>@limooo.cn"
+    "default_reply_to": "contact@comicine.com",
+    "sender": "no-reply-<N>@comicine.com"
   },
   "zh-cn": {
     "default_button": "前往查看",

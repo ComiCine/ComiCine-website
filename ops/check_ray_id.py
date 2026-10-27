@@ -25,6 +25,7 @@ Data sources:
 Usage:
     python3 ops/check_ray_id.py a334352fe9806564-AMS
     RAYID=a334352fe9806564-AMS python3 ops/check_ray_id.py
+    ZONE_NAME=example.com python3 ops/check_ray_id.py a334352fe9806564-AMS
     python3 ops/check_ray_id.py <rayid> --minutes 60   # widen the edge search window
 
 Exit codes: 0 if found; 1 if not found or query failed; 2 for an invalid Ray ID.
@@ -53,7 +54,7 @@ sys.path.insert(0, str(ROOT))
 from ops import d1_client  # noqa: E402
 
 GRAPHQL_URL = "https://api.cloudflare.com/client/v4/graphql"
-ZONE_NAME = "limooo.cn"
+ZONE_NAME = os.environ.get("ZONE_NAME", "comicine.com")
 DEFAULT_WINDOW_MINUTES = 30
 
 

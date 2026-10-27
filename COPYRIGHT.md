@@ -45,7 +45,7 @@ The ComiCine name, logo, graphic marks, and related brand elements may be protec
 
 ## Licensing and Authorization Inquiries
 
-Email: [contact@limooo.cn](mailto:contact@limooo.cn)
+Email: [contact@comicine.com](mailto:contact@comicine.com)
 Website: <https://comicine.com/>
 
 Contact the relevant rights holder at this email to inquire about additional authorization, including a separate trademark permission or special use beyond the open-source license. Sending an inquiry does not itself grant authorization. Commercial use that complies with the applicable AGPL license does not require additional permission.

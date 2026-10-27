@@ -50,6 +50,6 @@ Licensing and Authorization Inquiries
 
 For inquiries about additional authorization, trademark permission, special commercial authorization, or other licensing arrangements, contact:
 
-contact@limooo.cn
+contact@comicine.com
 
 Sending an email does not automatically grant authorization. Any additional authorization must be expressly granted by the relevant rights holder. This contact requirement does not affect the rights to commercial use, modification, copying, and redistribution already granted by the GNU AGPL v3. No additional authorization is required to engage in commercial use that complies with the GNU AGPL v3.

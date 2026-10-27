@@ -82,7 +82,7 @@ describe("apple account accounts API", () => {
       authAt: 1,
     } as never);
     vi.mocked(queryAll).mockResolvedValueOnce([
-      { id: 1, email: "a@account.limooo.cn", password: "cipher", notes: "", sort_order: 0 },
+      { id: 1, email: "a@apple.account.comicine.com", password: "cipher", notes: "", sort_order: 0 },
     ]);
     const resp = await onRequestGet(context(new Request("https://account.limooo.cn/api/apple-account/accounts")) as never);
     const data = await resp.json();
@@ -153,7 +153,7 @@ describe("apple account accounts API", () => {
     expect(vi.mocked(execute)).toHaveBeenCalledWith(
       env.DB,
       expect.stringContaining("INSERT INTO apple_accounts"),
-      "alice@apple.account.limooo.cn",
+      "alice@apple.account.comicine.com",
       "encrypted",
       "note",
       2,

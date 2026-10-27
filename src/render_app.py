@@ -144,6 +144,7 @@ def create_render_app() -> Flask:
             "image_watermark_base": config.IMAGE_WATERMARK_BASE_URL,
             "services_host": config.SERVICES_HOST,
             "contact_host": config.CONTACT_HOST,
+            "apple_account_email_domain": config.APPLE_ACCOUNT_EMAIL_DOMAIN,
             "source_url": config.SOURCE_REPO_URL,
             "copyright_current_year": datetime.now(UTC).year,
             # Frontend read-only values (language list, cookie names and TTLs,

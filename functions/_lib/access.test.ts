@@ -72,7 +72,7 @@ function baseClaims(overrides: Record<string, unknown> = {}): Record<string, unk
   const now = Math.floor(Date.now() / 1000);
   return {
     sub: "user-sub-1",
-    email: "lime@limooo.cn",
+    email: "lime@comicine.com",
     iss: TEAM,
     aud: [IDENTITY_AUD],
     exp: now + 600,
@@ -154,7 +154,7 @@ describe("verifyAccessJwt", () => {
   it("a valid identity-app token returns its verified identity", async () => {
     const identity = await verifyAccessJwt(baseEnv, await signToken(baseClaims()));
     expect(identity).not.toBeNull();
-    expect(identity?.email).toBe("lime@limooo.cn");
+    expect(identity?.email).toBe("lime@comicine.com");
     expect(identity?.sub).toBe("access:user-sub-1");
   });
 

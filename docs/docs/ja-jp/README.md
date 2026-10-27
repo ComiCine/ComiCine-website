@@ -289,7 +289,7 @@ markdown ファイルに HTML が出力されないと `ops/docs_check_output.py
  編集はフォークで行えば次のデプロイが反映します（フォークはコミットが変わったときだけ再ビルドされます。
 フォークの作業ツリーからビルドするには `COMICINE_VITEPRESS_FETCH=0` を使います）。
 サイトは独立した Cloudflare Pages プロジェクト（`comicine-docs`）なので
-メインの `limooo` 成果物には一切触れず、
+メインサイトの成果物には一切触れず、
 `user_lang_preference` / `comicine_theme` cookie をメインサイトと共有します。
 
 ```bash
@@ -493,14 +493,14 @@ docs.comicine.com に公開されることはありません。
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
 1. **Pages**：本番プロジェクト `comicine-production` がメインサイトの Pages ホストを提供し、`limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` プロジェクトが `comicine.pages.dev` を提供し、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
-2. **D1**：メイン DB は `limooo`（APAC）、Sink は `sink-limooo` と既存 Analytics Engine dataset `sink_limooo` です。ステータス Durable Object は既存の状態名前空間を保持します。これらは表示用名称ではなく稼働中の技術 ID で、D1 はその場で改名できず、変更にはデータ移行と切り替えが必要です。022 は適用済み、021 は設計どおり保留中です。
+2. **D1**：メイン DB は `limooo`（APAC）、Sink は `sink-limooo` と既存 Analytics Engine dataset `sink_limooo` です。ステータス Durable Object は既存の状態名前空間を保持します。これらは表示用名称ではなく稼働中の技術 ID で、D1 はその場で改名できず、変更にはデータ移行と切り替えが必要です。022 は適用済み、021 は未適用です。023 で Apple Account のメールアドレスを新ドメインへ移行します。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリ名はすでに新ブランドですが、DNS と Pages ドメインのない旧 `admin.limooo.cn` ホストを参照しています。
 5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。状態を保護するため、Status Durable Object の既存技術名前空間は維持します。
 6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
 7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。スクリーンショットでは Turnstile に `.com` ホストが登録済みですが、実際のブラウザーチャレンジが `/gate/verify` に届くことを確認してください。
 
-> Cloudflare アカウントの表示名は `Limooo` のままです。名前の更新は権限不足で拒否されました。現在の API Token は Turnstile 設定を読み取れません。スクリーンショットでは `.com` ホストが登録済みですが、検証成功は未確認です。
+> Cloudflare アカウントの表示名はまだ更新されていません。権限不足のため名前の変更は拒否されました。現在の API Token は Turnstile 設定を読み取れません。スクリーンショットでは `.com` ホストが登録済みですが、検証成功は未確認です。
 注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。ブラウザーで実際にチャレンジを完了し、`/gate/verify` が成功することを確認してください。
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
@@ -510,6 +510,6 @@ ComiCine が著作権を有し、ライセンスする権限を有するオリ�
 
 ComiCine は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
-追加の許諾または商標許可に関するお問い合わせ：[contact@limooo.cn](mailto:contact@limooo.cn)（旧メールボックスは引き続き使用します）。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
+追加の許諾または商標許可に関するお問い合わせ：[contact@comicine.com](mailto:contact@comicine.com)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
 
 第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。

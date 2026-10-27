@@ -35,7 +35,7 @@ are **not** written here; they come from the sources listed below.
 | DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev`; this Pages alias change did not modify DNS |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | none | Cloudflare API / Dashboard | No Cache Rules are currently active; cache behavior comes from Worker logic and response headers |
-| Cloudflare account display name | `Limooo` | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
+| Cloudflare account display name | Not yet updated | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
 | Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
 | AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
@@ -632,7 +632,7 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   `https://comicine.feishu.cn/<path>`, preserving path and query.
 - **Checked 2026-10-27: Cloudflare account rename**. `GET /accounts/{account_id}` succeeds, but
   updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
-  the configured API token lacks `Account Settings Write`. The account remains named `Limooo` until
+  the configured API token lacks `Account Settings Write`. The account name remains unchanged until
   a token with that permission is available. R2 now contains only `comicine-analytics`,
   `comicine-fonts` and `comicine-originals`; the legacy `limooo-*` buckets are absent. The active
   D1 and Durable Object identifiers remain documented above because they hold live data/state and

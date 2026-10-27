@@ -47,7 +47,7 @@ ComiCine の名称、ロゴ、図形標章および関連するブランド要�
 
 ## ライセンスおよび許諾に関する問い合わせ
 
-メール：[contact@limooo.cn](mailto:contact@limooo.cn)
+メール：[contact@comicine.com](mailto:contact@comicine.com)
 ウェブサイト：<https://comicine.com/>
 
 追加の許諾、個別の商標使用許可、またはオープンソースライセンスの範囲を超える特別な利用について、関連する権利者にメールで問い合わせることができます。メールを送信しただけで許諾が成立するものではありません。適用される AGPL ライセンスの条件を満たす商用利用に、追加の許可は必要ありません。

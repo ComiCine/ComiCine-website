@@ -47,7 +47,7 @@ ComiCine 이름, 로고, 그래픽 표장 및 관련 브랜드 요소는 적용�
 
 ## 라이선스 및 권한 문의
 
-이메일: [contact@limooo.cn](mailto:contact@limooo.cn)
+이메일: [contact@comicine.com](mailto:contact@comicine.com)
 웹사이트: <https://comicine.com/>
 
 추가 권한, 별도의 상표 사용 허가 또는 오픈소스 라이선스 범위를 넘어서는 특별 사용에 관해 관련 권리자에게 문의할 수 있습니다. 이메일을 보낸 것만으로 권한이 부여되지는 않습니다. 적용되는 AGPL 라이선스 조건을 준수하는 상업적 이용에는 추가 허가가 필요하지 않습니다.
