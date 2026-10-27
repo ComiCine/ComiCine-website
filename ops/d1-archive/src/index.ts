@@ -162,8 +162,8 @@ export async function runArchive(
 /**
  * Health endpoint authentication: compare Authorization: Bearer <SYNC_TOKEN>.
  *
- * This Worker is only on *.workers.dev. Because workers.dev is not in this account, zone-level
- * mTLS/Client Certificate protection is unavailable, so it reuses comicine-blocklist-sync's shared secret.
+ * This Worker is on workers.dev rather than a custom-domain zone, so zone-level mTLS/Client
+ * Certificate protection is unavailable. It reuses comicine-blocklist-sync's shared secret.
  * If the secret is unset, fail closed and reject all HTTP calls. An unset secret must never mean open access.
  * Cron uses an internal call and does not pass through this check.
  */

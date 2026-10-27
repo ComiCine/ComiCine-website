@@ -247,7 +247,7 @@ TLS 証明書は Cloudflare が Pages のカスタムドメイン向けに発行
 
 ## デプロイ
 
-デプロイ対象は Pages プロジェクト `comicine`、`comicine-docs` と独立した Workers です。Docs のエイリアスは `comicine-docs.pages.dev` になりました。メインは、本番 Turnstile シークレットが読み取り専用で現在のトークンから再発行できず、安全に作り直せないため、`limooo.pages.dev` を維持しています。
+デプロイ対象は Pages プロジェクト `comicine`、`comicine-docs` と独立した Workers です。Docs のエイリアスは `comicine-docs.pages.dev` です。メインは `limooo.pages.dev` の既定エイリアスを維持しています。Cloudflare ではエイリアス変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できないため、現在のプロジェクトを維持しています。Workers のアカウントサブドメインは `comicine.workers.dev` に変更済みです。
 リポジトリのルートから：
 
 ```bash
@@ -339,7 +339,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使い、`docs.comicine.com` がそこを提供します。メインは、本番 Turnstile シークレットが読み取り専用で現在のトークンから再発行できないため、安全な再作成ができず `limooo.pages.dev` を維持しています。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、ビジターパネル、Apple Account マネージャー、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は Cloudflare Pages Functions 上で動作し、ステータスページとすべてのスケジュールジョブも同様です。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使い、`docs.comicine.com` がそこを提供します。メインは `limooo.pages.dev` を維持しています。Cloudflare ではエイリアス変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できません。
 
 ランタイムの分担：
 
@@ -387,7 +387,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ゲートをレンダリングするすべてのホストは同じエッジコードで配信されるため、同期させる 2 つ目のゲート実装はありません。
 
-ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットのホスト名許可リストには、実際に利用するサイトを含める必要があります。現在 `.com` のゲートでは検証に失敗しています。設定 API と Turnstile スクリプトは読み込まれますが、`/gate/verify` に token が届く前にチャレンジが失敗します。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。設定済みの Cloudflare API 資格情報では widget 更新が HTTP 403 / error `10000` となるため、許可ホスト名はまだ確認・修正できていません。ゲートを無効にせず、クライアントエラーコードを確認し、Turnstile Sites Write 権限のある資格情報でホスト名許可を確認してください。
+ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Cloudflare ダッシュボードのスクリーンショットでは Turnstile の許可ホストに `comicine.com` が表示されていますが、`.com` のチャレンジはまだ失敗し、`/gate/verify` に token が届くことを確認できていません。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。設定済み API 資格情報では widget の読み取りと更新が HTTP 403 / error `10000` となり、API から設定を確認できません。ゲートを無効にせず、実際のブラウザーチャレンジが `/gate/verify` に届くか確認してください。
 
 ### ページ配信（クリーン URL、言語パスプレフィックスなし）
 
@@ -492,16 +492,16 @@ docs.comicine.com に公開されることはありません。
 
 デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：Docs プロジェクト `comicine-docs` は `comicine-docs.pages.dev` にあり、`docs.comicine.com` が配信します。メインの `comicine` プロジェクトはメインサイトの Pages ホストを配信し、既定エイリアスは `limooo.pages.dev` のままです。Cloudflare ではこの別名をその場で変更できず、安全な再作成には書き込み専用の本番 Turnstile シークレットの再発行が必要です。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
+1. **Pages**：Docs プロジェクト `comicine-docs` は `comicine-docs.pages.dev` にあり、`docs.comicine.com` が配信します。メインの `comicine` プロジェクトはメインサイトの Pages ホストを配信し、既定エイリアスは `limooo.pages.dev` のままです。Cloudflare では変更にプロジェクトの削除と再作成が必要で、本番シークレットを安全に複製できないため、現在のプロジェクトを維持します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
 2. **D1**：メイン DB は `limooo`（APAC）、Sink は `sink-limooo` と既存 Analytics Engine dataset `sink_limooo` です。ステータス Durable Object は既存の状態名前空間を保持します。これらは表示用名称ではなく稼働中の技術 ID で、D1 はその場で改名できず、変更にはデータ移行と切り替えが必要です。022 は適用済み、021 は設計どおり保留中です。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリ名はすでに新ブランドですが、DNS と Pages ドメインのない旧 `admin.limooo.cn` ホストを参照しています。
-5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。状態を保護するため、Status Durable Object の既存技術名前空間は維持します。
+5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。状態を保護するため、Status Durable Object の既存技術名前空間は維持します。
 6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` に転送し、パスとクエリを保持します。`/feishu/<path>` は Pages 経由で `https://comicine.feishu.cn/<path>` に届きます。
-7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。Turnstile では既存 Widget に `.com` ホストを追加する作業が残っています。
+7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。スクリーンショットでは Turnstile に `.com` ホストが登録済みですが、実際のブラウザーチャレンジが `/gate/verify` に届くことを確認してください。
 
-> Cloudflare アカウントの表示名は `Limooo` のままです。名前の更新は権限不足で拒否され、Turnstile ホスト名の更新も現在のトークンではできません。
-注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。ブラウザーで実際にチャレンジを完了し、`/gate/verify` が成功することを確認してください。`.com` のチャレンジはまだ復旧していません。
+> Cloudflare アカウントの表示名は `Limooo` のままです。名前の更新は権限不足で拒否されました。現在の API Token は Turnstile 設定を読み取れません。スクリーンショットでは `.com` ホストが登録済みですが、検証成功は未確認です。
+注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。ブラウザーで実際にチャレンジを完了し、`/gate/verify` が成功することを確認してください。
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス

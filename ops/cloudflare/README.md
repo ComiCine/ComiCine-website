@@ -13,7 +13,7 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages project | `comicine` (`limooo.pages.dev`) | `site/wrangler.toml` | Build output `public`; custom domains remain live. Recreating this project is unsafe until its write-only production Turnstile secret can be rotated or recovered |
+| Pages project | `comicine` (`limooo.pages.dev`) | Cloudflare Pages | Build output `public`; custom domains remain live. Cloudflare requires delete/recreate to change a `pages.dev` alias; current write-only production secrets cannot be copied safely |
 | Docs Pages project | `comicine-docs` (`comicine-docs.pages.dev`) | `site/ops/docs_deploy.sh` | Recreated and deployed under the ComiCine alias; `docs.comicine.com` now serves this project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
@@ -23,6 +23,7 @@ are **not** written here; they come from the sources listed below.
 | Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
 | Worker: D1 archive | `comicine-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `comicine-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
 | Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; keeps the existing `sink-limooo` D1, `sink_limooo` analytics dataset, and KV namespace binding to preserve active data |
+| Workers account subdomain | `comicine.workers.dev` | Cloudflare Workers account settings | Replaced the former `limooo.workers.dev` namespace; custom domains stayed attached, and the Sink Worker keeps its workers.dev route disabled |
 | R2 private bucket (originals) | `comicine-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
 | R2 bucket (fonts) | `comicine-fonts` | `ops/fonts/README.md` | Public font objects copied and verified; `fonts.comicine.com` serves the new bucket |
 | R2 bucket (analytics / archive) | `comicine-analytics` | `ops/d1-archive/wrangler.toml` | D1 snapshots and daily analytics archives |
@@ -277,11 +278,11 @@ with 401 when the secret is unset):
 ```sh
 # blocklist sync: last run only, does NOT trigger a sync
 curl -H "Authorization: Bearer $SYNC_TOKEN" \
-  'https://comicine-blocklist-sync.limooo.workers.dev/?health=1'
+  'https://comicine-blocklist-sync.comicine.workers.dev/?health=1'
 
 # d1 archive: last run only, does NOT archive anything
 curl -H "Authorization: Bearer $SYNC_TOKEN" \
-  'https://comicine-d1-archive.limooo.workers.dev/?health=1'
+  'https://comicine-d1-archive.comicine.workers.dev/?health=1'
 ```
 
 Both return `{ ok, job, lastRun }`; the archive Worker also returns
@@ -609,16 +610,19 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   now start the shared Pages identity handoff and receive host-only sessions. The unrelated
   legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
   or Pages custom domain.
-- **Checked 2026-10-27: Pages aliases and gate migration**. The docs project was recreated as
+- **Checked 2026-10-27: Pages aliases and gate migration**. Cloudflare documents that a
+  `pages.dev` subdomain cannot be changed in place and requires deleting and recreating the
+  project. The docs project was recreated as
   `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias. Its custom domain
   `docs.comicine.com` serves the new project. The main project still uses `limooo.pages.dev`:
-  recreating it would lose its 11 write-only production secrets, including the Turnstile secret,
-  which this API token cannot retrieve or rotate. The main gate currently fails on `comicine.com` before it submits a token to
-  `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. A production
-  headless-browser run captured client error `110200` (Cloudflare: domain not authorized). Recent
-  D1 gate-verification events succeeded on `limooo.cn` but none reached verification from `.com`.
-  Add `comicine.com` under the existing widget's Hostname Management while retaining any other live
-  hosts. The configured API token is active, but widget-detail reads and updates return HTTP 403 /
+  Cloudflare requires deleting and recreating the project to change a `pages.dev` alias, and the
+  current API token cannot retrieve the 11 write-only production secrets needed to recreate it.
+  The main gate currently fails on `comicine.com` before it submits a token to
+  `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. An earlier production
+  headless-browser run captured client error `110200` (Cloudflare: domain not authorized). The
+  dashboard screenshot provided later shows `comicine.com` in the widget's Hostname Management,
+  but successful end-to-end verification has not yet been observed. The configured API token is
+  active, but widget-detail reads and updates return HTTP 403 /
   error `10000`; Cloudflare requires `Turnstile Sites Write` or `Account Settings Write` for updates.
   Do not weaken the gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
   `/feishu/<path>` follows that 301 to `comicine.com/feishu/<path>` and then Pages forwards to

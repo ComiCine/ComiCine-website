@@ -40,7 +40,7 @@ RETRY_WINDOW_S = "280"
 # Consecutive failures required to report down; prevents alerts from a single transient failure.
 FAIL_THRESHOLD = "2"
 # Alert email (stage 3): sender, language, and down-alert cooldown in seconds.
-ALERT_FROM = "no-reply@limooo.cn"
+ALERT_FROM = "no-reply@comicine.com"
 ALERT_LANG = "zh-cn"
 ALERT_COOLDOWN_S = "1800"
 # Recipients are never stored in D1. Set `ALERT_TO` with `wrangler secret put` or a Dashboard

@@ -245,7 +245,7 @@ TLS 证书由 Cloudflare 为 Pages 自定义域名签发与续期。
 
 ## 部署
 
-部署目标是 Pages 项目 `comicine`、`comicine-docs` 以及各个独立 Worker。文档默认别名已是 `comicine-docs.pages.dev`；主项目仍使用 `limooo.pages.dev`，因为当前 Token 无法轮换其只写生产 Turnstile Secret，无法安全重建主项目。
+部署目标是 Pages 项目 `comicine`、`comicine-docs` 以及各个独立 Worker。文档默认别名已是 `comicine-docs.pages.dev`；主项目默认别名仍是 `limooo.pages.dev`。Cloudflare 只能通过删除并重建项目更改 `pages.dev` 别名，而现有生产密钥无法读取并安全复制，因此保留当前主项目。Worker 账号子域已改为 `comicine.workers.dev`。
 在仓库根目录下执行：
 
 ```bash
@@ -335,7 +335,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。文档 Pages 项目已使用 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目仍使用 `limooo.pages.dev`：生产 Turnstile Secret 只能写入不能读取，而当前 Token 无法轮换它，因此暂时不能安全重建主项目。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。文档 Pages 项目已使用 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目仍使用 `limooo.pages.dev`：Cloudflare 要求删除并重建项目才能更改 `pages.dev` 别名，而现有生产密钥无法读取并安全复制，因此暂不重建。
 
 运行时划分：
 
@@ -383,7 +383,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 每个渲染门禁的主机都由同一份边缘代码提供服务，因此不存在需要保持同步的第二套门禁实现。
 
-中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile widget 的主机名授权必须覆盖实际使用它的站点。当前 `.com` 门禁仍存在验证故障：配置接口和 Turnstile 脚本都能加载，但挑战在 `/gate/verify` 收到 token 前失败；`auth.js` 现在会显示手动重试按钮并在浏览器控制台记录 Turnstile 数字错误码。现有 Cloudflare API 凭据修改 widget 时返回 HTTP 403 / error `10000`，因此授权主机名尚未核验或修复。不要关闭门禁；排查时先看客户端错误码，并用有 Turnstile Sites Write 权限的凭据核对主机授权。
+中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile 主机名授权必须覆盖实际使用它的站点。Cloudflare 控制台截图已显示 `comicine.com` 在 widget 授权主机列表中，但 `.com` 挑战仍未通过，尚未观察到 `/gate/verify` 收到 token；`auth.js` 会显示手动重试按钮并在浏览器控制台记录 Turnstile 数字错误码。现有 API 凭据读取或修改 widget 时返回 HTTP 403 / error `10000`。不要关闭门禁；继续根据客户端错误码排查网络连接和真实挑战结果。
 
 ### 页面服务（干净 URL，无语言路径前缀）
 
@@ -483,16 +483,16 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目绑定的主站域名仍由 `comicine` Pages 项目提供，默认别名是 `limooo.pages.dev`；Cloudflare 不支持原位修改该别名，而安全重建还需先解决只写 Turnstile Secret 的轮换权限。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
+1. **Pages**：文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目绑定的主站域名仍由 `comicine` Pages 项目提供，默认别名是 `limooo.pages.dev`；Cloudflare 要求删除并重建项目才能更改别名，而现有生产密钥无法安全复制，因此保留当前项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
 2. **D1**：主数据库 `limooo`（APAC）以 `DB` 绑定到 Pages 和相关 Worker；Sink 使用 `sink-limooo` 与历史 Analytics Engine dataset `sink_limooo`，状态页 Durable Object 保留现有状态命名空间。它们是承载线上数据的技术标识，Cloudflare 不支持原位改名，迁移需要完整数据复制及协调切换。迁移 022 已应用；迁移 021 仍按设计暂缓。
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用名已是新品牌，但仍关联没有 DNS 记录或 Pages 域名的旧 `admin.limooo.cn` 主机。
-5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 DO 的底层命名空间保留旧技术 ID，以免丢失现有状态。
+5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 DO 的底层命名空间保留旧技术 ID，以免丢失现有状态。
 6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` 主机并保留路径和查询参数。`/feishu/<path>` 再由 Pages 转发到 `https://comicine.feishu.cn/<path>`。
-7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。Turnstile 仍需在现有 Widget 中授权 `.com` 主机。
+7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。控制台截图显示 Turnstile 已列出 `.com` 主机；仍需完成真实浏览器挑战并确认 `/gate/verify` 成功。
 
-> 账号显示名目前仍为 `Limooo`：更新账号名的 API 请求被 Cloudflare 以权限不足拒绝；Turnstile 主机授权也被拒绝。
-注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；应在浏览器完成挑战并确认 `/gate/verify` 成功。当前 `.com` 挑战还未恢复。
+> 账号显示名目前仍为 `Limooo`：更新账号名的 API 请求被 Cloudflare 以权限不足拒绝。当前 API Token 也无法读取 Turnstile 配置；控制台截图显示 `.com` 主机已列入，但挑战结果仍待验证。
+注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；需在浏览器完成挑战并确认 `/gate/verify` 成功。
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证

@@ -678,7 +678,7 @@ describe("config backup runs inside the archive Worker", () => {
     captureConsole();
 
     const resp = await worker.fetch(
-      new Request("https://comicine-d1-archive.limooo.workers.dev/?health=1", {
+      new Request("https://comicine-d1-archive.comicine.workers.dev/?health=1", {
         headers: { Authorization: "Bearer s3cret-token" },
       }),
       { DB: db, ARCHIVE: r2Stub().bucket, SYNC_TOKEN: "s3cret-token" } as never,

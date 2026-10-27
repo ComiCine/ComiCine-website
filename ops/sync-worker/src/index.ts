@@ -307,9 +307,9 @@ export async function runSync(
 /**
  * Authenticate the manual trigger endpoint by checking Authorization: Bearer <SYNC_TOKEN>.
  *
- * This Worker is reachable only on *.workers.dev, which is not in this account, so zone-level
- * mTLS/Client Certificates cannot protect it. Use a shared secret instead. Scheduled tasks call
- * internally and do not pass through this check.
+ * This Worker is reachable on workers.dev, which is not a custom-domain zone where the
+ * zone-level mTLS/Client Certificate rules apply. Use a shared secret instead. Scheduled tasks
+ * call internally and do not pass through this check.
  *
  * Fail closed when SYNC_TOKEN is not configured, rejecting all HTTP calls so a missing secret
  * cannot leave the endpoint open.
