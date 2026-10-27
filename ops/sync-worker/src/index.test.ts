@@ -17,7 +17,7 @@ const scheduled = worker.scheduled;
 
 const envWith = (token: string) => ({ SYNC_TOKEN: token }) as never;
 const reqWith = (auth?: string) =>
-  new Request("https://comicine-blocklist-sync.limooo.workers.dev/", {
+  new Request("https://comicine-blocklist-sync.comicine.workers.dev/", {
     headers: auth ? { Authorization: auth } : {},
   });
 

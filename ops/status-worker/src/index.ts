@@ -490,7 +490,7 @@ export async function deliverAlert(
     try {
       await env.EMAIL.send({
         to: env.ALERT_TO,
-        from: { email: env.ALERT_FROM ?? "no-reply@limooo.cn", name: "ComiCine Monitor" },
+        from: { email: env.ALERT_FROM ?? "no-reply@comicine.com", name: "ComiCine Monitor" },
         subject: mail.subject,
         text: mail.text,
         html: mail.html,
@@ -512,7 +512,7 @@ export async function deliverAlert(
       port: Number.parseInt(env.SMTP_PORT ?? "465", 10) || 465,
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
-      from: env.SMTP_FROM ?? "no-reply@limooo.cn",
+      from: env.SMTP_FROM ?? "no-reply@comicine.com",
     };
     const r = await sendViaSmtp(cfg, {
       to: env.ALERT_TO,

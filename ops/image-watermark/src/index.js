@@ -146,6 +146,7 @@ export function routeFor(url, request, origin) {
 
 /** Build the client response. Under A2, responses do not vary by Referer, so omit `Vary: Referer`. */
 function clientResponse(store, watermarked) {
+  // Keep the legacy header for clients that still check it while publishing the ComiCine header.
   const headers = new Headers({
     "Content-Type": store.headers.get("Content-Type") || "application/octet-stream",
     "Cache-Control": CLIENT_CACHE,
