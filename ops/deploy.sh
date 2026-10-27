@@ -365,9 +365,21 @@ verify_head_signature() {
     signer_fingerprint="$(git show -s --format=%GF HEAD)"
     signing_key="$(printf '%s' "$signing_key" | tr '[:lower:]' '[:upper:]')"
     signer_fingerprint="$(printf '%s' "$signer_fingerprint" | tr '[:lower:]' '[:upper:]')"
-    if [ -z "$signing_key" ] || [ "$signer_fingerprint" != "$signing_key" ]; then
+    if [ -z "$signing_key" ]; then
         echo "Git: unverified"
         exit 1
+    fi
+    if [ "$signer_fingerprint" != "$signing_key" ]; then
+        case "$signing_key" in
+            *[!0-9A-F]*)
+                echo "Git: unverified"
+                exit 1
+                ;;
+        esac
+        if [ "${#signing_key}" -ne 16 ] || [[ "$signer_fingerprint" != *"$signing_key" ]]; then
+            echo "Git: unverified"
+            exit 1
+        fi
     fi
 
     GIT_VERIFIED=1
