@@ -106,9 +106,9 @@ def test_gate_mobile_logo_matches_home_and_page_can_scroll():
     auth_css = (root / "src/static/css/auth.css").read_text(encoding="utf-8")
     home_css = (root / "src/static/css/index.css").read_text(encoding="utf-8")
 
-    assert ".hero-title { width: 96px; }" in home_css
+    assert ".hero-title { width: 144px; }" in home_css
     assert "aspect-ratio: 1 / 1;" in home_css
-    assert ".logo { width: 96px; height: auto; max-width: 96px; }" in auth_css
+    assert ".logo { width: 144px; height: auto; max-width: 144px; }" in auth_css
     assert "html.gate-page" in auth_css
     assert "body.gate-page" in auth_css
     assert "overflow-y: auto" in auth_css
@@ -197,9 +197,9 @@ def test_templates_use_the_correct_logo_variant():
     home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
 
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"' not in home
     assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=4"' in home
-    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=4" alt="ComiCine" width="192" height="192"' in home
+    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=4" alt="ComiCine" width="288" height="288"' in home
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine.png?v=4"' in home
     assert 'href="/static/icons/comicine-favicon.svg?v=2"' in gate
@@ -424,9 +424,20 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
         '<a href="https://comicine.com/services">y</a>'
     )
     localized = patterns["asset"].sub(r'\1="../static/', sample)
+    localized = build.rewrite_preview_srcsets(localized, patterns)
     assert 'src="../static/icons/comicine.svg"' in localized
     assert 'src="../static/portfolio/IMG_0115.webp"' in localized
     assert "https://" not in localized.split("<a")[0]
+
+    srcset = (
+        'srcset="https://images.comicine.com/static/portfolio/thumbs/a-480.avif 480w, '
+        'https://images.comicine.com/static/portfolio/thumbs/a-640.avif 640w"'
+    )
+    localized_srcset = build.rewrite_preview_srcsets(srcset, patterns)
+    assert localized_srcset == (
+        'srcset="../static/portfolio/thumbs/a-480.avif 480w, '
+        '../static/portfolio/thumbs/a-640.avif 640w"'
+    )
 
     pages = dict(build.preview_subdomain_pages())
     assert pages[build.SERVICES_HOST] == "services.html"

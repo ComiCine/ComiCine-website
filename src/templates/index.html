@@ -32,8 +32,8 @@ See ADDITIONAL_TERMS.txt.
 <meta name="twitter:title" content="{{ _('page_title_home') }}">
 <meta name="twitter:description" content="{{ _('meta_description_home') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/comicine.png?v=4">
-<link rel="preload" as="script" href="/static/js/index.js?v=6">
-<link rel="stylesheet" href="/static/css/index.css?v=12">
+<link rel="preload" as="script" href="/static/js/index.js?v=7">
+<link rel="stylesheet" href="/static/css/index.css?v=13">
 {% endblock %}
 
 {% block footer %}{% endblock %}
@@ -41,7 +41,7 @@ See ADDITIONAL_TERMS.txt.
 {% block flash %}{% endblock %}
 
 {% block content %}
-<h1 id="hero-title" class="hero-title" aria-label="ComiCine"><img class="hero-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=4" alt="ComiCine" width="192" height="192"></h1>
+<h1 id="hero-title" class="hero-title" aria-label="ComiCine"><img class="hero-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=4" alt="ComiCine" width="288" height="288"></h1>
 <!-- Initial home view. -->
 <div id="home-screen" class="page-layer">
     <section class="flex-grow flex flex-col justify-center items-center text-center px-6"></section>
@@ -61,18 +61,20 @@ See ADDITIONAL_TERMS.txt.
             {# The card count comes from the images in src/static/portfolio, passed as portfolio_items.
                Add or remove images and rebuild; filenames are not maintained in this template. #}
             {% for item in portfolio_items %}
+            {% set thumb_sizes = '(min-width: 640px) 840px, 100vw' if item.orientation == 'landscape' else '(min-width: 1024px) 341px, (min-width: 640px) 33vw, 100vw' %}
             <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.comicine.com/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
                 {# Match each card to its image's aspect ratio (3:4, 3:2, 2:3, etc.) to avoid cropping mixed orientations. #}
                 <div class="work-frame" style="aspect-ratio: {{ item.ratio }}">
                     <picture>
                         <source type="image/avif"
-                            srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.avif 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.avif 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.avif 800w">
+                            srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.avif 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.avif 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.avif 800w"
+                            sizes="{{ thumb_sizes }}">
                         <img class="work-img"
                             src="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp"
                             srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.webp 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.webp 800w"
                             {# Portrait images use one third of the row; landscape images span the row.
                                Declare the displayed width so srcset does not select an oversized image. #}
-                            sizes="{% if item.orientation == 'landscape' %}(min-width: 640px) 840px, 100vw{% else %}(min-width: 1024px) 341px, (min-width: 640px) 33vw, 100vw{% endif %}" width="{{ item.width }}" height="{{ item.height }}" loading="lazy" decoding="async" fetchpriority="{{ 'high' if loop.index <= 3 else 'low' }}" referrerpolicy="origin"
+                            sizes="{{ thumb_sizes }}" width="{{ item.width }}" height="{{ item.height }}" loading="lazy" decoding="async" fetchpriority="{{ 'high' if loop.index <= 3 else 'low' }}" referrerpolicy="origin"
                             alt="{{ _('alt_outdoor_shot', num=item.num) }}" data-i18n-attr="alt:alt_outdoor_shot;num={{ item.num }}">
                     </picture>
                 </div>
@@ -87,5 +89,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/index.js?v=6" defer></script>
+    <script src="/static/js/index.js?v=7" defer></script>
 {% endblock %}

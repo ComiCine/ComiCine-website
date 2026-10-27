@@ -65,7 +65,7 @@ var animSeq = 0; // Increment for each animation so pending timers from older an
 var touchStartY = 0;
 
 /*
- * Scroll down: the hero logo flies to the navigation (200ms), fades, then reveals nav-logo.
+ * Scroll down: the hero logo flies to the navigation (267ms), then crossfades into nav-logo.
  * Scroll up: hide nav-logo, fly back to center, and return the ComiCine logo to the center.
  */
 
@@ -78,15 +78,15 @@ function morphHeroToNav() {
     setTimeout(function() {
         if (seq !== animSeq) return;
         var navRect = navLogo.getBoundingClientRect();
-        var vw = window.innerWidth, vh = window.innerHeight;
-        var scale = window.innerWidth >= 768 ? 0.333 : 0.5;
-        var dx = (navRect.left + navRect.width / 2) - vw / 2;
-        var dy = (navRect.top + navRect.height / 2) - vh / 2;
+        var scale = navRect.width / heroTitle.getBoundingClientRect().width;
         heroTitle.classList.add('flying');
-        heroTitle.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px)) scale(' + scale + ')';
+        heroTitle.style.left = (navRect.left + navRect.width / 2) + 'px';
+        heroTitle.style.top = (navRect.top + navRect.height / 2) + 'px';
+        heroTitle.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
         setTimeout(function() {
             if (seq !== animSeq) return;
             heroTitle.style.transition = 'opacity 67ms ease-out';
+            navLogo.style.transition = 'opacity 67ms ease-out';
             heroTitle.style.opacity = '0';
             navLogo.classList.remove('is-hidden');
             navLogo.onclick = function(e) { e.preventDefault(); reverseToHome(); };
@@ -95,8 +95,9 @@ function morphHeroToNav() {
                 heroTitle.style.display = 'none';
                 heroTitle.style.transition = '';
                 heroTitle.style.opacity = '';
+                navLogo.style.transition = '';
             }, 67);
-        }, 200);
+        }, 267);
     }, 233);
 }
 
@@ -105,14 +106,16 @@ function morphHeroBack() {
     var seq = animSeq;
     navLogo.onclick = null;
     navLogo.classList.add('is-hidden');
-    // Restore all inline styles so transition or display values from the flight do not remain.
+    // Restore visibility while keeping the flight's destination until the return transition starts.
     heroTitle.style.display = '';
     heroTitle.style.opacity = '';
     heroTitle.style.transition = '';
     heroTitle.classList.add('flying');
     void heroTitle.offsetWidth;
     heroTitle.classList.remove('hero-closed');
-    heroTitle.style.transform = 'translate(-50%, -50%)';
+    heroTitle.style.left = '50%';
+    heroTitle.style.top = '50%';
+    heroTitle.style.transform = 'translate(-50%, -50%) scale(1)';
     setTimeout(function() {
         if (seq !== animSeq) return;
         heroTitle.classList.remove('flying');
