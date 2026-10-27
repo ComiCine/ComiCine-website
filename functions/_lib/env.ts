@@ -18,7 +18,7 @@ export interface Env {
 // string if missing instead of reusing another key.
   OBSERVABILITY_HMAC_KEY?: string;
 // Login (Cloudflare Access identity broker)
-/** Zero Trust team domain, such as https://limooo.cloudflareaccess.com. */
+/** Zero Trust team domain, such as https://comicine.cloudflareaccess.com. */
   ACCESS_TEAM_DOMAIN?: string;
 /** AUD of the single Access application protecting identity.comicine.com/login. */
   ACCESS_IDENTITY_AUD?: string;

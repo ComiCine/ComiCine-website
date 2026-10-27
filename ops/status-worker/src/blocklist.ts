@@ -41,7 +41,7 @@
  */
 
 /** Must match `LIST_NAME` in `ops/sync-worker/src/index.ts`; each worker keeps its own copy. */
-export const LIST_NAME = "limooo_blocklist";
+export const LIST_NAME = "comicine_blocklist";
 /** Cloudflare API base URL; must match `ops/sync-worker/src/index.ts`. */
 export const CF_API = "https://api.cloudflare.com/client/v4";
 /** The items endpoint allows at most 500 per page; 1000 returns HTTP 400. */

@@ -10,15 +10,15 @@
 # ComiCine - deploy the standalone Cloudflare Workers through one entry point.
 #
 # Covers:
-#   - ops/sync-worker       (D1 blocked_ips -> Cloudflare IP List, cron 03:30)
-#   - ops/image-watermark   (image.comicine.com watermark route)
-#   - ops/d1-archive        (D1 export archive worker)
-#   - ops/status-worker     (probes / status page / alerts / D1 retention)
+#   - comicine-blocklist-sync (ops/sync-worker; D1 blocked_ips -> Cloudflare IP List)
+#   - comicine-image-watermark (ops/image-watermark; image.comicine.com route)
+#   - comicine-d1-archive (ops/d1-archive; D1 export archive)
+#   - comicine-status (ops/status-worker; probes / status page / alerts / D1 retention)
 #
 # Usage:
 #   bash ops/workers_deploy.sh --dry-run                 # print the exact commands, run nothing
 #   bash ops/workers_deploy.sh                           # deploy every Worker above
-#   bash ops/workers_deploy.sh --worker=status-worker    # deploy one Worker
+#   bash ops/workers_deploy.sh --worker=comicine-status  # deploy one Worker
 #
 # Credentials: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID from the environment,
 # else from the local secrets/webauthn.env (the same file pages_deploy.sh reads).
@@ -79,9 +79,12 @@ fi
 WORKERS=("$ROOT/ops/sync-worker" "$ROOT/ops/image-watermark" "$ROOT/ops/d1-archive" "$ROOT/ops/status-worker")
 if [ -n "$SELECTED" ]; then
     case "$SELECTED" in
-        sync-worker|image-watermark|d1-archive|status-worker) WORKERS=("$ROOT/ops/$SELECTED") ;;
+        comicine-blocklist-sync) WORKERS=("$ROOT/ops/sync-worker") ;;
+        comicine-image-watermark) WORKERS=("$ROOT/ops/image-watermark") ;;
+        comicine-d1-archive) WORKERS=("$ROOT/ops/d1-archive") ;;
+        comicine-status) WORKERS=("$ROOT/ops/status-worker") ;;
         *)
-            echo "FATAL: unknown Worker $SELECTED (available: sync-worker / image-watermark / d1-archive / status-worker)" >&2
+            echo "FATAL: unknown Worker $SELECTED (available: comicine-blocklist-sync / comicine-image-watermark / comicine-d1-archive / comicine-status)" >&2
             exit 2
             ;;
     esac

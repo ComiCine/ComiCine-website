@@ -167,11 +167,41 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
     assert routes["version"] == 1
     assert "/static/*" in routes["exclude"]
     assert "/favicon.svg" in routes["exclude"]
+    assert "/comicine.svg" in routes["exclude"]
+    assert "/comicine-xtext.svg" in routes["exclude"]
+    assert "/comicine-favicon.svg" in routes["exclude"]
 
     headers = (tmp_path / "_headers").read_text(encoding="utf-8")
     assert "Cache-Control: public, max-age=86400" in headers
     assert "Cache-Control: public, max-age=31536000, immutable" in headers
     assert "stale-while-revalidate=86400" in headers
+
+
+def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
+    build.publish_brand_assets(str(tmp_path))
+    source = Path(build.STATIC_DIR) / "icons"
+    expected = {
+        "comicine.svg": "comicine.svg",
+        "comicine-xtext.svg": "comicine-xtext.svg",
+        "comicine-favicon.svg": "comicine-favicon.svg",
+        "favicon.svg": "comicine-favicon.svg",
+        "Limooo-xtext.svg": "comicine-xtext.svg",
+        "ComiCine-xtext.svg": "comicine-xtext.svg",
+    }
+    for public_name, source_name in expected.items():
+        assert (tmp_path / public_name).read_bytes() == (source / source_name).read_bytes()
+
+
+def test_templates_use_the_correct_logo_variant():
+    home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
+    gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
+
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=1"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=3"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1"' in home
+    assert 'href="/static/icons/comicine-favicon.svg?v=1"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=3"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1"' in gate
 
 
 def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):

@@ -240,7 +240,7 @@ def test_deploy_dry_run_on_feature_branch_is_fatal(tmp_path):
     assert "Deploy: start (dry-run)" not in result.stdout
 
 
-@pytest.mark.parametrize("release_arg", ["--pages", "--docs", "--workers", "--worker=status-worker"])
+@pytest.mark.parametrize("release_arg", ["--pages", "--docs", "--workers", "--worker=comicine-status"])
 def test_deploy_rejects_production_release_from_feature_branch(tmp_path, release_arg):
     repo = make_repo(tmp_path, branch="tmp/release-check")
     result = run([BASH, "ops/deploy.sh", release_arg, "--dry-run"], cwd=repo)
@@ -524,7 +524,7 @@ def test_direct_workers_helper_rejects_unchecked_release_tree(tmp_path, branch, 
     if dirty:
         (repo / "dirty.txt").write_text("uncommitted\n")
 
-    result = run([BASH, "ops/workers_deploy.sh", "--worker=status-worker"], cwd=repo)
+    result = run([BASH, "ops/workers_deploy.sh", "--worker=comicine-status"], cwd=repo)
 
     assert result.returncode in {1, 2}, result.stdout + result.stderr
     assert "[workers] running local CI gate" not in result.stdout
@@ -538,7 +538,7 @@ def test_deploy_rejects_workers_together_with_a_single_worker(tmp_path):
     """`--workers` and `--worker=<name>` conflict and must fail with `FATAL`."""
     repo = make_repo(tmp_path)
     result = run(
-        [BASH, "ops/deploy.sh", "--workers", "--worker=status-worker", "--dry-run"],
+        [BASH, "ops/deploy.sh", "--workers", "--worker=comicine-status", "--dry-run"],
         cwd=repo,
     )
 

@@ -143,6 +143,8 @@ export function shouldTrackVisit(request: Request, url: URL): boolean {
     p.startsWith("/__gate") ||
     p.startsWith("/favicon") ||
     p === "/comicine.svg" ||
+    p === "/comicine-xtext.svg" ||
+    p === "/comicine-favicon.svg" ||
     p === "/Limooo-xtext.svg" ||
     p === "/ComiCine-xtext.svg"
   ) {
@@ -209,6 +211,8 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
   if (
     p.startsWith("/favicon") ||
     p === "/comicine.svg" ||
+    p === "/comicine-xtext.svg" ||
+    p === "/comicine-favicon.svg" ||
     p === "/Limooo-xtext.svg" ||
     p === "/ComiCine-xtext.svg"
   ) return false;

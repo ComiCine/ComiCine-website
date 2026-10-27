@@ -28,7 +28,7 @@ are checked there, and each step fails open (log only, no alert, never throws):
 | Step | Source | What it checks |
 | --- | --- | --- |
 | cron run failures | `runwatch.ts` | the latest `worker_runs` row for each job in `WATCHED_JOBS` (`blocklist_sync`, `d1_archive`, `config_backup`; migration 018) is `ok`/`skipped`; `failed`, an unknown outcome, or a `running` row older than `STALE_RUNNING_S` (2 h) alerts |
-| blocklist drift | `blocklist.ts` | the Cloudflare IP List `limooo_blocklist` equals the `active = 1` rows of D1 `blocked_ips`; a non-empty `to_add`/`to_remove` alerts, agreement stays silent |
+| blocklist drift | `blocklist.ts` | the Cloudflare IP List `comicine_blocklist` equals the `active = 1` rows of D1 `blocked_ips`; a non-empty `to_add`/`to_remove` alerts, agreement stays silent |
 
 Cost per day: **4 rows read** (one index seek per watched job on
 `idx_worker_runs_job_started`, one `SELECT cidr FROM blocked_ips WHERE active = 1`
@@ -189,7 +189,7 @@ that map.
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | the blocklist-drift step | that step is skipped and logged (fail open, no alert) |
 | `ALERT_TO`, `ALERT_FROM` | any alert reaching a human | alerts are logged only |
 
-`CLOUDFLARE_API_TOKEN` only needs read access to the `limooo_blocklist` IP List
+`CLOUDFLARE_API_TOKEN` only needs read access to the `comicine_blocklist` IP List
 (`Account > Account Rulesets > Read` or the equivalent). It is the same value the
 sync Worker uses; this check never writes, never creates the list and never issues
 `bulk_operations`.
@@ -197,7 +197,7 @@ sync Worker uses; this check never writes, never creates the list and never issu
 ## Deploy
 
 ```sh
-bash ops/deploy.sh --worker=status-worker
+bash ops/deploy.sh --worker=comicine-status
 ```
 
 The token is a Worker secret, not a `[vars]` entry: environment variables in

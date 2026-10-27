@@ -58,7 +58,7 @@ sys.path.insert(0, str(ROOT))
 from ops import d1_client  # noqa: E402
 
 API = "https://api.cloudflare.com/client/v4"
-LIST_NAME = "limooo_blocklist"
+LIST_NAME = "comicine_blocklist"
 PAGE_SIZE = 500
 MAX_PAGES = 20
 # Job name used by this operations script for its own records, distinct from the jobs run by the two cron Workers.

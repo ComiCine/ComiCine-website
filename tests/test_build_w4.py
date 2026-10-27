@@ -351,8 +351,9 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     static_dir = tmp_path / "static"
     (static_dir / "portfolio").mkdir(parents=True)
     (static_dir / "icons").mkdir(parents=True)
-    # main() copies the gate-page logo to the output root, so the stub build needs this file to exist.
-    (static_dir / "icons" / "comicine.svg").write_text("<svg/>", encoding="utf-8")
+    # main() publishes the canonical root brand assets, so the stub build needs their source files.
+    for icon_name in ("comicine.svg", "comicine-xtext.svg", "comicine-favicon.svg"):
+        (static_dir / "icons" / icon_name).write_text("<svg/>", encoding="utf-8")
     output_dir = tmp_path / "out"
 
     monkeypatch.setattr(build, "STATIC_DIR", str(static_dir))

@@ -205,7 +205,7 @@ describe("d1 archive", () => {
 
 describe("d1 archive health endpoint", () => {
   const healthReq = (auth?: string) =>
-    new Request("https://limooo-d1-archive.limooo.workers.dev/?health=1", {
+    new Request("https://comicine-d1-archive.limooo.workers.dev/?health=1", {
       headers: auth ? { Authorization: auth } : {},
     });
 

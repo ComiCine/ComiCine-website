@@ -17,7 +17,7 @@ const scheduled = worker.scheduled;
 
 const envWith = (token: string) => ({ SYNC_TOKEN: token }) as never;
 const reqWith = (auth?: string) =>
-  new Request("https://limooo-blocklist-sync.limooo.workers.dev/", {
+  new Request("https://comicine-blocklist-sync.limooo.workers.dev/", {
     headers: auth ? { Authorization: auth } : {},
   });
 
@@ -175,7 +175,7 @@ afterEach(() => {
 describe("waitOperation failures (W7-6)", () => {
   it("rejects when the bulk operation reports failed", async () => {
     stubFetch(({ url }) => {
-      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "limooo_blocklist", id: LIST_ID }] };
+      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "comicine_blocklist", id: LIST_ID }] };
       if (url.includes("/items?") && url.includes("cursor=") === false)
         return { result: [], result_info: {} };
       if (url.includes("/items")) return { result: { operation_id: "op-add" } };
@@ -188,7 +188,7 @@ describe("waitOperation failures (W7-6)", () => {
 
   it("returns normally when the bulk operation completes", async () => {
     const calls = stubFetch(({ method, url }) => {
-      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "limooo_blocklist", id: LIST_ID }] };
+      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "comicine_blocklist", id: LIST_ID }] };
       if (url.includes("/items") && method === "GET") return { result: [], result_info: {} };
       if (url.includes("/items") && method === "POST") return { result: { operation_id: "op-add" } };
       if (url.includes("/bulk_operations/op-add")) return { result: { status: "completed" } };
@@ -205,7 +205,7 @@ describe("waitOperation failures (W7-6)", () => {
   it("rejects when the bulk operation never finishes", async () => {
     vi.useFakeTimers();
     stubFetch(({ url }) => {
-      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "limooo_blocklist", id: LIST_ID }] };
+      if (url.includes("/rules/lists?per_page=")) return { result: [{ name: "comicine_blocklist", id: LIST_ID }] };
       if (url.includes("/items") && url.includes("operation") === false && url.endsWith("per_page=500"))
         return { result: [], result_info: {} };
       if (url.endsWith("/items")) return { result: { operation_id: "op-slow" } };
@@ -220,7 +220,7 @@ describe("waitOperation failures (W7-6)", () => {
 });
 
 describe("cursor pagination (W7-7)", () => {
-  const listResp = { result: [{ name: "limooo_blocklist", id: LIST_ID }] };
+  const listResp = { result: [{ name: "comicine_blocklist", id: LIST_ID }] };
 
   it("follows result_info.cursor and never sends page=", async () => {
     const calls = stubFetch(({ method, url }) => {
@@ -348,7 +348,7 @@ function stubCfFailAfter(failAfter: number): string[] {
       urls.push(String(input));
       if (urls.length > failAfter) throw new Error("CF API 500 (simulated upstream failure)");
       if (String(input).includes("/rules/lists?per_page=")) {
-        return json({ result: [{ name: "limooo_blocklist", id: LIST_ID }] });
+        return json({ result: [{ name: "comicine_blocklist", id: LIST_ID }] });
       }
       return json({ result: [], result_info: {} });
     }),

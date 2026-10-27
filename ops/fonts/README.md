@@ -24,6 +24,6 @@ covered by `OFL.txt` in this directory.
 
 The script writes the full Regular TTF plus a WOFF2 subset containing only the
 characters the diagnostic copy needs. The original family name is preserved. The R2
-bucket is `limooo-fonts`; the public asset is
+bucket is `comicine-fonts`; the public asset is
 `https://fonts.comicine.com/maple-mono-nf-cn-regular-subset.woff2` and the OFL text is
 published next to it. CORS allows pages to load the font cross-origin.

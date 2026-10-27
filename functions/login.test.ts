@@ -23,7 +23,7 @@ const CONFIG = {
   TURNSTILE_SECRET: "turnstile-secret",
   GATE_HMAC_KEY: "a".repeat(64),
   SESSION_HMAC_KEY: "b".repeat(64),
-  ACCESS_TEAM_DOMAIN: "https://limooo.cloudflareaccess.com",
+  ACCESS_TEAM_DOMAIN: "https://comicine.cloudflareaccess.com",
   ACCESS_IDENTITY_AUD: "identity-aud",
 };
 

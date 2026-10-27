@@ -23,8 +23,8 @@ See ADDITIONAL_TERMS.txt.
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.comicine.com/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
 - **认证与角色**：单一 `ComiCine` Access 应用保护 `identity.comicine.com/login`；identity 主机上的 Pages Function 验证 JWT 后，通过一次性 D1 交接把身份和来源主机交回来源站点，再由该站点按本地配置授权。目前两个受保护站点都需要 admin 会话。
-- **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.comicine.com/login`；Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
-- **监控**：`limooo-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
+- **共享登录跳转**：未登录浏览器打开受保护页面时，站点先返回 HTTP 401 HTML，再由同源外置脚本跳转到 `identity.comicine.com/login`；Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
+- **监控**：`comicine-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.comicine.com`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
   - D1 `blocked_ips` 是权威数据源；`sync-worker` 把生效的行同步到 Cloudflare IP List，用于边缘拦截（没有源站，因此也不需要 ipset/iptables）
@@ -44,7 +44,7 @@ See ADDITIONAL_TERMS.txt.
 | D1 归档 | `ops/d1-archive`（每日 cron） | Cloudflare Workers |
 | 黑名单同步 | `ops/sync-worker`（每日 cron → Cloudflare IP List） | Cloudflare Workers |
 | 图片水印 | `ops/image-watermark`（路径归一化代理） | Cloudflare Workers |
-| 静态资源 / 原图备份 | Pages 资源服务器 + 私有 R2 桶 `limooo-originals` | Cloudflare |
+| 静态资源 / 原图备份 | Pages 资源服务器 + 私有 R2 桶 `comicine-originals` | Cloudflare |
 | 部署 | `ops/deploy.sh`（git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`） | 本地 |
 
 ## 项目结构
@@ -232,7 +232,7 @@ Worker Cron Triggers 形式存在：
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 每分钟执行 HTTP/D1 探针；探针故障期间由 Durable Object alarm 每 10 秒复查一次，并在状态变化时告警 |
 | `47 3 * * *` | `ops/status-worker` | D1 数据保留（`src/retention.ts`）：清理 `ray_log_v2`（7 天）、`visitors_v2`（30 天）、`visitor_rollups`（30 天）、`heartbeats`（30 天）、`events`（90 天）、`probe_uptime_daily`（90 天）、`auth_sessions`（60 天）与 `identity_handoffs`（1 天） |
-| `30 3 * * *` | `ops/sync-worker` | 把生效的 D1 `blocked_ips` 行同步到 Cloudflare IP List `limooo_blocklist` |
+| `30 3 * * *` | `ops/sync-worker` | 把生效的 D1 `blocked_ips` 行同步到 Cloudflare IP List `comicine_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 快照 / 归档 |
 
 `python3 ops/readme_facts.py --check` 会从仓库重新读一遍上面的调度、保留期、TTL 与目录树，
@@ -245,7 +245,7 @@ TLS 证书由 Cloudflare 为 Pages 自定义域名签发与续期。
 
 ## 部署
 
-部署目标就是 Cloudflare Pages 项目 `comicine`（默认别名 `limooo.pages.dev`）以及各个独立 Worker，全部走 Cloudflare API。
+部署目标是 Pages 项目 `comicine`、`comicine-docs` 以及各个独立 Worker。文档默认别名已是 `comicine-docs.pages.dev`；主项目仍使用 `limooo.pages.dev`，因为当前 Token 无法轮换其只写生产 Turnstile Secret，无法安全重建主项目。
 在仓库根目录下执行：
 
 ```bash
@@ -254,7 +254,7 @@ bash ops/deploy.sh              # with no arguments = --all (full deploy, see be
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs
 bash ops/deploy.sh --pages      # deploy the main Pages project only
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
-bash ops/deploy.sh --worker=status-worker   # deploy one standalone Worker
+bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
 ```
 
@@ -305,10 +305,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<unix-expiry>.<HMAC-SHA256 hex>`（1 小时 TTL，
   `HttpOnly`，`Domain=.comicine.com`），完全在边缘签发与校验。
-- 未登录浏览器访问受保护页面时，来源站点先返回 HTTP 401 HTML，并设置短时 state cookie；同源外置脚本再跳转到 `identity.comicine.com/login`，Cloudflare Access 随后引导浏览器经 `limooo.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
+- 未登录浏览器访问受保护页面时，来源站点先返回 HTTP 401 HTML，并设置短时 state cookie；同源外置脚本再跳转到 `identity.comicine.com/login`，Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
-  Cloudflare IP List `limooo_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）
+  Cloudflare IP List `comicine_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）
 - 管理写入（创建/更新/删除）需要 admin 角色；viewer 为只读
 - 列表接口永不返回访客 IP；完整 IP 以 Fernet 加密存放在 `visitor_rollups.ip_enc` 中，
   仅对管理员逐行解密
@@ -335,7 +335,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。主 Pages 项目名称为 `comicine`，当前默认别名仍是 `limooo.pages.dev`；文档项目 `comicine-docs` 的默认别名仍是 `limooo-docs.pages.dev`，子域迁移尚未完成。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在 Cloudflare Pages Functions 上，状态页与所有定时任务也是如此。文档 Pages 项目已使用 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目仍使用 `limooo.pages.dev`：生产 Turnstile Secret 只能写入不能读取，而当前 Token 无法轮换它，因此暂时不能安全重建主项目。
 
 运行时划分：
 
@@ -345,7 +345,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | 页面 | 构建时预渲染的静态 HTML（多语言） |
 | 数据 | D1（访客分析、黑名单、Apple Account 管理、认证会话） |
 | 人类验证 | Cloudflare Turnstile，门禁页原地渲染 |
-| 独立 Worker | `status.comicine.com`（`limooo-status`：探针、状态页、数据保留）、`image.comicine.com`（`image-watermark`）、`limooo-blocklist-sync` |
+| 独立 Worker | `status.comicine.com`（`comicine-status`：探针、状态页、数据保留）、`image.comicine.com`（`comicine-image-watermark`）、`comicine-blocklist-sync` |
 
 ### 构建与目录结构
 
@@ -474,7 +474,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   只有干净的缩略图（`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）
   与 `image.comicine.com` 上归一化、加水印的 `/portfolio/<img>` 是公开的；
   原图保留在被 git 忽略的 `src/static/portfolio/` 与私有 R2 桶
-  `limooo-originals` 中（`ops/upload_originals.sh`）。
+  `comicine-originals` 中（`ops/upload_originals.sh`）。
 - Turnstile 验证有 3 秒的服务端超时，
   这样 Cloudflare 质询平台故障时会快速失败，
   而不是让用户最多卡住 8 秒。
@@ -483,14 +483,15 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：主项目 `comicine` 当前仍通过 `limooo.pages.dev` 提供服务；文档项目 `comicine-docs` 的默认别名仍是 `limooo-docs.pages.dev`。主项目承载 `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`image` 与 `redirect`；文档主机为 `docs.comicine.com`，`fonts.comicine.com` 由 R2 提供
-2. **D1**：数据库 `limooo`（APAC）以 `DB` 绑定到项目，`schema_version` 记录已应用迁移。迁移 022 已应用；迁移 021 会重写现有 Apple Account 标识符，因此仍按设计暂缓。`apple_accounts` 保存 Apple Account 数据，`blocked_ips` 是封禁权威，软删除行保留用于审计
+1. **Pages**：文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。主项目绑定的主站域名仍由 `comicine` Pages 项目提供，默认别名是 `limooo.pages.dev`；Cloudflare 不支持原位修改该别名，而安全重建还需先解决只写 Turnstile Secret 的轮换权限。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
+2. **D1**：主数据库 `limooo`（APAC）以 `DB` 绑定到 Pages 和相关 Worker；Sink 使用 `sink-limooo` 与历史 Analytics Engine dataset `sink_limooo`，状态页 Durable Object 保留现有状态命名空间。它们是承载线上数据的技术标识，Cloudflare 不支持原位改名，迁移需要完整数据复制及协调切换。迁移 022 已应用；迁移 021 仍按设计暂缓。
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
-4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；`visitor.comicine.com` 与 `account.comicine.com` 通过共享身份交接，再由各自的 Pages 主机 Cookie 保持会话。Dashboard 中仍保留未使用的 `ComiCine-Admin` 应用，指向没有 DNS 记录或 Pages 自定义域名的 `admin.limooo.cn`。没有自建 IdP，也没有自定义登录页
-5. **Worker** 独立运行：`limooo-status`、`limooo-blocklist-sync`、`limooo-d1-archive` 与 `image-watermark`；`status.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名
-6. **Cloudflare 规则**：自定义防火墙阶段为空（`limooo_blocklist` IP List 已就绪，等待规则）；缓存阶段将静态资源、旧图片路径与水印 Worker 响应缓存一年，两条 HTML 页面缓存规则均未启用；`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳转到对应 `.com` 主机，并保留路径和查询参数。`/feishu/<path>` 先按同一规则 301 到 `comicine.com/feishu/<path>`，再由 Pages 转发到 `https://comicine.feishu.cn/<path>`。
-7. **冒烟检查**：`https://comicine.com/_health` → 200，`https://comicine.com/?challenge=1` → 403，`https://docs.comicine.com/` → 302 到 `https://comicine.com`，`https://status.comicine.com/` → 200
+4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用名已是新品牌，但仍关联没有 DNS 记录或 Pages 域名的旧 `admin.limooo.cn` 主机。
+5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 DO 的底层命名空间保留旧技术 ID，以免丢失现有状态。
+6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` 主机并保留路径和查询参数。`/feishu/<path>` 再由 Pages 转发到 `https://comicine.feishu.cn/<path>`。
+7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。Turnstile 仍需在现有 Widget 中授权 `.com` 主机。
 
+> 账号显示名目前仍为 `Limooo`：更新账号名的 API 请求被 Cloudflare 以权限不足拒绝；Turnstile 主机授权也被拒绝。
 注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；应在浏览器完成挑战并确认 `/gate/verify` 成功。当前 `.com` 挑战还未恢复。
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。

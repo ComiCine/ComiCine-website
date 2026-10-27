@@ -237,7 +237,7 @@ function themeFor(code: string): DefaultTheme.Config {
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
     ],
     footer: {
-      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=1" alt="ComiCine" width="16" height="16">',
+      copyright: '© 2026 <img class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1" alt="ComiCine" width="48" height="10">',
       items: [
         { text: L.footerRights },
         { text: 'AGPL-3.0' },
@@ -300,8 +300,8 @@ export default defineConfig({
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine.svg?v=1' }],
-    ['link', { rel: 'apple-touch-icon', href: '/comicine.png?v=1' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=1' }],
+    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=1' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:site_name', content: 'ComiCine Docs' }],

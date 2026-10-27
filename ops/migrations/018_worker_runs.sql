@@ -5,8 +5,8 @@
 
 -- 018: worker_runs records each Cron Worker run so failures are visible.
 --
--- Background (observed 2026-10-11): the scheduled() handlers for limooo-blocklist-sync and
--- limooo-d1-archive both called `ctx.waitUntil(asyncWork(env))`. waitUntil silently swallowed
+-- Background (observed 2026-10-11): the scheduled() handlers for comicine-blocklist-sync and
+-- comicine-d1-archive both called `ctx.waitUntil(asyncWork(env))`. waitUntil silently swallowed
 -- promise rejections, while Cloudflare's cron panel still reported "ran/succeeded". No one could
 -- detect a real sync failure without manually inspecting Workers logs or R2.
 --

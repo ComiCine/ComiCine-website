@@ -7,7 +7,7 @@
  * See ADDITIONAL_TERMS.txt.
 
 /**
- * image-watermark — image.comicine.com image watermark Worker (A2 normalization proxy).
+ * comicine-image-watermark — image.comicine.com image watermark Worker (A2 normalization proxy).
  *
  * After A2 (portfolio originals are no longer published), the public bundle contains:
  *   - /static/wm/portfolio/*  Watermarked full-size images (already stored here; old cache entries are harmless).
@@ -55,9 +55,10 @@ const WM_VERSION = "5";
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
 const BRAND_ICON_ALIASES = new Map([
   ["/icons/Limooo.svg", "/static/icons/comicine.svg"],
-  ["/icons/Limooo-xtext.svg", "/static/icons/comicine.svg"],
+  ["/icons/Limooo-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/ComiCine.svg", "/static/icons/comicine.svg"],
-  ["/icons/ComiCine-xtext.svg", "/static/icons/comicine.svg"],
+  ["/icons/ComiCine-xtext.svg", "/static/icons/comicine-xtext.svg"],
+  ["/icons/favicon.svg", "/static/icons/comicine-favicon.svg"],
 ]);
 
 /** Remove the `images.comicine.com`-style `/static` prefix to get the logical path. */

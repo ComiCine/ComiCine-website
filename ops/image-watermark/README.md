@@ -5,7 +5,7 @@ Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
-# image-watermark
+# comicine-image-watermark
 
 Cloudflare Worker for `image.comicine.com/*`: the **A2 normalising proxy** that maps a
 "logical path" back to a public static asset and always returns the watermarked or
@@ -70,7 +70,7 @@ break scanning) and `icons/` (brand logo/favicon) are not.
 bash ops/pages_deploy.sh
 
 # 2) deploy the Worker (updates the image.comicine.com routing logic)
-bash ops/workers_deploy.sh --worker=image-watermark
+bash ops/workers_deploy.sh --worker=comicine-image-watermark
 ```
 
 `ops/workers_deploy.sh` runs
@@ -80,12 +80,12 @@ never written to the repository.
 
 ## Route and DNS
 
-`image.comicine.com/*` -> `image-watermark`, with `image.comicine.com` CNAME'd to
+`image.comicine.com/*` -> `comicine-image-watermark`, with `image.comicine.com` CNAME'd to
 `comicine.pages.dev` (proxied).
 
 **The route is not declared in `wrangler.toml` on purpose.** Custom domains and
 their routes are managed in the Cloudflare Dashboard (Workers & Pages ->
-image-watermark -> Settings -> Domains & Routes); `ops/cloudflare/README.md` is the
+comicine-image-watermark -> Settings -> Domains & Routes); `ops/cloudflare/README.md` is the
 inventory of what is Dashboard-only. Adding a `routes` block would let every deploy
 rewrite the live route set, which this repository cannot diff or roll back.
 
@@ -97,10 +97,10 @@ After changing the SVG or composite placement/size:
 
 1. `bash ops/pages_deploy.sh` (regenerate and deploy the variants)
 2. bump `WM_VERSION` in `src/index.js` (to bypass the old CDN cache), then
-   `bash ops/workers_deploy.sh --worker=image-watermark`
+   `bash ops/workers_deploy.sh --worker=comicine-image-watermark`
 
 ## Original-image backup
 
 Originals exist only in the local `src/static/portfolio/` and in the private R2
-bucket `limooo-originals`. Back up with `bash ops/upload_originals.sh` (it creates
+bucket `comicine-originals`. Back up with `bash ops/upload_originals.sh` (it creates
 the private bucket on first run).

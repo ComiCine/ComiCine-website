@@ -11,8 +11,8 @@
 #
 # After A2 the full-size portfolio originals (src/static/portfolio/*) are no longer
 # published with Pages: they live only on this machine and in the private R2 bucket
-# limooo-originals (git ignores src/static/portfolio/). This script uploads them to
-# limooo-originals/portfolio/<file> as an auditable, restorable backup.
+# comicine-originals (git ignores src/static/portfolio/). This script uploads them to
+# comicine-originals/portfolio/<file> as an auditable, restorable backup.
 #
 # Usage:
 #   bash ops/upload_originals.sh            # upload (credentials from secrets/webauthn.env)
@@ -28,7 +28,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BUCKET="${R2_BUCKET:-limooo-originals}"
+BUCKET="${R2_BUCKET:-comicine-originals}"
 SOURCE_DIR="${R2_SOURCE_DIR:-$ROOT/src/static/portfolio}"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"

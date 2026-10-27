@@ -55,7 +55,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
     for (const needle of [
       'class="site-nav"',
-      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=2"',
+      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=1"',
       'href="https://comicine.com"',
       'href="https://services.comicine.com"',
       'href="https://contact.comicine.com"',
@@ -100,7 +100,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=2" alt="ComiCine" width="16" height="16">',
+      'class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=1" alt="ComiCine" width="48" height="10">',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
@@ -109,6 +109,11 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
     ]) {
       expect(html, needle).toContain(needle);
     }
+  });
+
+  it("uses the dedicated favicon assets", () => {
+    expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=1"');
+    expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=1"');
   });
 
   it("marks the active language and lists all four options", () => {

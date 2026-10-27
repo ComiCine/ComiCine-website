@@ -34,9 +34,10 @@ export function esc(v: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Main-site asset host for the favicon and logo; matches `image_asset_host` in `config-contract.json`. */
+/** Main-site asset host; matches `image_asset_host` in `config-contract.json`. */
 const IMAGE_ASSET_BASE = "https://images.comicine.com";
-const COMICINE_LOGO_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=2`;
+const COMICINE_FAVICON_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.svg?v=1`;
+const COMICINE_XTEXT_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine-xtext.svg?v=1`;
 /** Repository linked by "Source" in the footer; matches `SOURCE_REPO_URL` in `src/config.py`. */
 const SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website";
 const GITHUB_URL = "https://github.com/ComiCine";
@@ -91,7 +92,7 @@ export function navHtml(lang: Lang): string {
     '<span class="appearance-check"><span class="appearance-icon">' + SVG_SUN + SVG_MOON + '</span></span></button>';
   return (
     '<nav class="site-nav"><div class="nav-inner">' +
-    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="' + IMAGE_ASSET_BASE + '/static/icons/comicine.svg?v=2" alt="" width="64" height="64"></a>' +
+    '<a href="' + HOME_URL + '" class="nav-brand-link" id="nav-logo" aria-label="ComiCine"><img class="nav-brand-logo" src="' + COMICINE_FAVICON_URL + '" alt="" width="64" height="64"></a>' +
     '<div class="nav-right"><div class="global-nav">' +
     links
       .map(([href, label]) => '<a class="nav-link" href="' + href + '"><span>' + esc(label) + '</span>' + SVG_EXTERNAL + '</a>')
@@ -129,7 +130,7 @@ export function footerHtml(lang: Lang): string {
   const copyrightYears = currentYear === 2026 ? "2026" : `2026-${currentYear}`;
   return (
     '<footer class="global-footer" id="global-footer"><div class="footer-link"><div class="footer-text">' +
-    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <img class="footer-brand-logo" src="${COMICINE_LOGO_URL}" alt="ComiCine" width="16" height="16"></span>` +
+    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <img class="footer-brand-logo" src="${COMICINE_XTEXT_URL}" alt="ComiCine" width="48" height="10"></span>` +
     `<span class="footer-item">${esc(t(lang, "footer_rights"))}</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_source"))}</span>` +
     `<span class="footer-item"><a class="footer-source-link" href="${SOURCE_REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(t(lang, "footer_source_link"))}</a></span>` +
@@ -251,7 +252,7 @@ html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 .footer-text>.footer-item{display:inline-block}
 .footer-text>.footer-item:not(:first-child)::before{content:"\\00b7";margin:0 .55em;opacity:.7}
 @media(max-width:559px){.footer-text>.footer-copyright{flex:0 0 100%;white-space:nowrap}.footer-text>.footer-copyright+.footer-item::before{content:none}}
-.footer-brand-logo{display:inline-block;width:1.6em;height:1.6em;margin-inline-start:.25em;object-fit:contain;vertical-align:-.3em}
+.footer-brand-logo{display:inline-block;width:4.8em;height:1em;margin-inline-start:.25em;object-fit:contain;vertical-align:-.15em}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
 /* Status content */
@@ -396,7 +397,8 @@ function shell(lang: Lang, title: string, body: string): string {
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="color-scheme" content="dark light">' +
     `<title>${esc(title)}</title><meta name="robots" content="noindex">` +
-    `<link rel="icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine.svg?v=2" type="image/svg+xml">` +
+    `<link rel="icon" href="${COMICINE_FAVICON_URL}" type="image/svg+xml">` +
+    `<link rel="apple-touch-icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.png?v=1">` +
     '<script src="/status-theme.js"></script>' +
     '<link rel="stylesheet" href="/status.css">' +
     `</head><body data-lang="${esc(lang)}">` +

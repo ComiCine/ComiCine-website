@@ -16,6 +16,13 @@
     'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
 
+/* Copyright uses the dedicated horizontal wordmark asset. */
+.footer-brand-logo {
+  width: 4.8em;
+  height: 1em;
+  vertical-align: -0.15em;
+}
+
 /* Platform directory table.
    Long content in five columns inside a roughly 690px article column is handled as follows:
    1) Make the table a horizontal scroll container (display: block + overflow-x).
