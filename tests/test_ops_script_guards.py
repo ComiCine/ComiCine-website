@@ -356,6 +356,20 @@ def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path, deploy_tes
     assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
 
 
+def test_deploy_accepts_configured_openpgp_key_id(tmp_path, deploy_test_signing_key):
+    repo = make_repo(tmp_path)
+    env = enable_test_signing(repo, deploy_test_signing_key)
+    _, fingerprint = deploy_test_signing_key
+    git(["config", "user.signingkey", fingerprint[-16:]], repo)
+    (repo / "key_id_change.txt").write_text("signed with configured key ID\n")
+
+    result = run([BASH, "ops/deploy.sh", "--commit"], cwd=repo, env=env)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Git: verified" in result.stdout
+    assert "Git: committed" in result.stdout
+
+
 def test_deploy_commit_output_lists_every_changed_file(tmp_path, deploy_test_signing_key):
     repo = make_repo(tmp_path)
     env = enable_test_signing(repo, deploy_test_signing_key)
