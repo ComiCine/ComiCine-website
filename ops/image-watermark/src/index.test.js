@@ -78,17 +78,17 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
 
   const icon = routeFor(new URL("https://image.limooo.cn/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
-  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg?v=4`);
+  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg?v=5`);
 
   const canonicalWordmark = routeFor(new URL("https://image.comicine.com/icons/comicine-xtext.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=2`);
 
   const canonicalFavicon = routeFor(new URL("https://image.comicine.com/icons/comicine-favicon.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=2`);
+  assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
 
   const legacyIcon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(legacyIcon.watermarked, false);
-  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg?v=4`);
+  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg?v=5`);
 
   const legacyWordmark = routeFor(new URL("https://image.limooo.cn/icons/Limooo-xtext.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(legacyWordmark.watermarked, false);
@@ -96,7 +96,7 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
 
   const favicon = routeFor(new URL("https://image.comicine.com/icons/favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(favicon.watermarked, false);
-  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=2`);
+  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {

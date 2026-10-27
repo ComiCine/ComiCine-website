@@ -106,8 +106,8 @@ export function routeFor(url, request, origin) {
     const assetVersion = path.toLowerCase().includes("xtext")
       ? "2"
       : path.toLowerCase().includes("favicon")
-        ? "2"
-        : "4";
+        ? "3"
+        : "5";
     targetUrl.searchParams.set("v", assetVersion);
     const target = targetUrl.toString();
     return { target, originalUrl: target, watermarked: false, image: true };

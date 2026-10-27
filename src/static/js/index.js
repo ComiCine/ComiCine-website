@@ -12,8 +12,17 @@
    */
 function loadWorkImages() {
     document.querySelectorAll('.work-img[data-src]').forEach(function (img) {
+        var picture = img.closest('picture');
+        if (picture) {
+            picture.querySelectorAll('source[data-srcset]').forEach(function (source) {
+                source.srcset = source.dataset.srcset;
+            });
+        }
+        img.loading = 'eager';
         if (img.dataset.srcset) img.srcset = img.dataset.srcset;
         img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+        img.removeAttribute('data-srcset');
     });
     document.querySelectorAll('.work-img:not([data-src])').forEach(function (img) {
         img.loading = 'eager'; /* Start loading immediately after entering the portfolio. */
@@ -65,8 +74,8 @@ var animSeq = 0; // Increment for each animation so pending timers from older an
 var touchStartY = 0;
 
 /*
- * Scroll down: the hero logo flies to the navigation (267ms), then crossfades into nav-logo.
- * Scroll up: hide nav-logo, fly back to center, and return the ComiCine logo to the center.
+ * Scroll down: the hero logo flies into the navigation and remains the visible logo.
+ * Scroll up: hide nav-logo, fly the same ComiCine logo back to the center.
  */
 
 function morphHeroToNav() {
@@ -85,18 +94,7 @@ function morphHeroToNav() {
         heroTitle.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
         setTimeout(function() {
             if (seq !== animSeq) return;
-            heroTitle.style.transition = 'opacity 67ms ease-out';
-            navLogo.style.transition = 'opacity 67ms ease-out';
-            heroTitle.style.opacity = '0';
-            navLogo.classList.remove('is-hidden');
-            navLogo.onclick = function(e) { e.preventDefault(); reverseToHome(); };
-            setTimeout(function() {
-                if (seq !== animSeq) return;
-                heroTitle.style.display = 'none';
-                heroTitle.style.transition = '';
-                heroTitle.style.opacity = '';
-                navLogo.style.transition = '';
-            }, 67);
+            heroTitle.classList.remove('hero-closed');
         }, 267);
     }, 233);
 }

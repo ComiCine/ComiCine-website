@@ -197,13 +197,13 @@ def test_templates_use_the_correct_logo_variant():
     home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
 
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"' not in home
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=4"' in home
-    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=4" alt="ComiCine" width="288" height="288"' in home
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"' not in home
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=5"' in home
+    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=5" alt="ComiCine" width="288" height="288"' in home
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in home
-    assert 'content="https://images.comicine.com/static/icons/comicine.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=2"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=4"' in gate
+    assert 'content="https://images.comicine.com/static/icons/comicine.png?v=5"' in home
+    assert 'href="/static/icons/comicine-favicon.svg?v=3"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=5"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in gate
 
 
