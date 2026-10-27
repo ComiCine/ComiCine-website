@@ -137,6 +137,23 @@ h1 { font-weight: 600 !important; }
 }
 @media (max-width: 767px) {
     .hero-title { width: 144px; }
+    .page-layer { height: 100vh; height: 100svh; }
+}
+@media (max-width: 767px) and (max-height: 700px),
+       (orientation: landscape) and (max-height: 520px) {
+    .hero-title { width: clamp(96px, 22vh, 128px); }
+    .scroll-hint { bottom: calc(24px + env(safe-area-inset-bottom)); }
+    .scroll-hint-inner { gap: 4px; }
+    .scroll-hint-arrow { width: 28px; height: 28px; }
+}
+@media (max-width: 767px) and (max-height: 460px),
+       (orientation: landscape) and (max-height: 460px) {
+    .hero-title { width: 96px; }
+    .scroll-hint { bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .scroll-hint-arrow { width: 24px; height: 24px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+    .page-layer { height: 100vh; height: 100svh; }
 }
 @keyframes scroll-bob {
     0%, 100% { transform: translateY(0); opacity: 0.25; }

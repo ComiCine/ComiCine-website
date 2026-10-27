@@ -96,20 +96,26 @@ def preview_localization_patterns() -> dict[str, re.Pattern[str]]:
         ]
     )
     return {
-        "asset": re.compile(r'(src|href|data-qr)="https://(?:' + asset_hosts + r")/"),
+        "asset": re.compile(r'(data-src|src|href|data-qr)="https://(?:' + asset_hosts + r")/"),
         "asset_url": re.compile(r"https://(?:" + asset_hosts + r")/"),
-        "root_href": re.compile(rf'href="https://{re.escape(ROOT_DOMAIN)}/?'),
+        "root_asset": re.compile(r'(?<![\w:-])(data-src|src|href|data-qr)="/static/'),
+        "root_asset_url": re.compile(r"(?<![\w:./])/(static/)"),
+        "root_href": re.compile(rf'href="https://{re.escape(ROOT_DOMAIN)}/?"'),
         "root_url": re.compile(rf"url=https://{re.escape(ROOT_DOMAIN)}/"),
     }
 
 
 def rewrite_preview_srcsets(html: str, patterns: dict[str, re.Pattern[str]]) -> str:
-    """Rewrite every URL in each srcset attribute to its local preview asset path."""
+    """Rewrite URLs in normal and deferred srcset attributes for local previews."""
     return re.sub(
-        r'srcset="([^"]*)"',
-        lambda match: 'srcset="'
-        + patterns["asset_url"].sub("../static/", match.group(1))
-        + '"',
+        r'''(?<![\w:-])((?:data-)?srcset)(\s*=\s*)(["'])(.*?)\3''',
+        lambda match: match.group(1)
+        + match.group(2)
+        + match.group(3)
+        + patterns["root_asset_url"].sub(
+            r"../\1", patterns["asset_url"].sub("../static/", match.group(4))
+        )
+        + match.group(3),
         html,
     )
 
@@ -1228,12 +1234,11 @@ def main() -> int:
     for name in os.listdir(src):
         if name.endswith(".html"):
             html = open(os.path.join(src, name), encoding="utf-8").read()
-            # Localize asset URLs: https://<root_domain>/static/... and
-            # https://<image_asset_host>/static/... and <image_watermark_host>/....
-            # → ../static/...
-            # Replace HTML tag attributes only; leave absolute URLs in JavaScript untouched.
+            # Localize eager and deferred asset attributes plus srcset candidates, while leaving
+            # absolute URLs in JavaScript untouched.
             #   Construct all three hostnames from contract values; do not hardcode comicine.com.
             html = re.sub(preview_patterns["asset"], r'\1="../static/', html)
+            html = re.sub(preview_patterns["root_asset"], r'\1="../static/', html)
             html = rewrite_preview_srcsets(html, preview_patterns)
             # Also localize root-relative assets in inline CSS, such as the gate page @font-face url(/static/...).
             html = html.replace("url(/static/", "url(../static/")
@@ -1245,7 +1250,7 @@ def main() -> int:
             # Subdomain hostnames also come from the contract; do not hardcode comicine.com.
             for host, page in preview_pages:
                 html = re.sub(
-                    rf'href="https://{re.escape(host)}/?', f'href="{page}"', html
+                    rf'href="https://{re.escape(host)}/?"', f'href="{page}"', html
                 )
             html = re.sub(preview_patterns["root_href"], 'href="index.html"', html)
             # Point the redirect preview default target to the local home page too.

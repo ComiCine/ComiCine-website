@@ -55,7 +55,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
     for (const needle of [
       'class="site-nav"',
-      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"',
+      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"',
       'href="https://comicine.com"',
       'href="https://services.comicine.com"',
       'href="https://contact.comicine.com"',
@@ -112,8 +112,8 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   });
 
   it("uses the dedicated favicon assets", () => {
-    expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=2"');
-    expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=2"');
+    expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"');
+    expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=3"');
   });
 
   it("marks the active language and lists all four options", () => {

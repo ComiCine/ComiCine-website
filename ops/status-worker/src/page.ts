@@ -36,7 +36,7 @@ export function esc(v: unknown): string {
 
 /** Main-site asset host; matches `image_asset_host` in `config-contract.json`. */
 const IMAGE_ASSET_BASE = "https://images.comicine.com";
-const COMICINE_FAVICON_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.svg?v=2`;
+const COMICINE_FAVICON_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.svg?v=3`;
 const COMICINE_XTEXT_URL = `${IMAGE_ASSET_BASE}/static/icons/comicine-xtext.svg?v=2`;
 /** Repository linked by "Source" in the footer; matches `SOURCE_REPO_URL` in `src/config.py`. */
 const SOURCE_REPO_URL = "https://github.com/ComiCine/ComiCine-website";
@@ -398,7 +398,7 @@ function shell(lang: Lang, title: string, body: string): string {
     '<meta name="color-scheme" content="dark light">' +
     `<title>${esc(title)}</title><meta name="robots" content="noindex">` +
     `<link rel="icon" href="${COMICINE_FAVICON_URL}" type="image/svg+xml">` +
-    `<link rel="apple-touch-icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.png?v=2">` +
+    `<link rel="apple-touch-icon" href="${IMAGE_ASSET_BASE}/static/icons/comicine-favicon.png?v=3">` +
     '<script src="/status-theme.js"></script>' +
     '<link rel="stylesheet" href="/status.css">' +
     `</head><body data-lang="${esc(lang)}">` +
