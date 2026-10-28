@@ -87,8 +87,24 @@ function saveTheme(theme) {
   }
 }
 
-function applyTheme(theme) {
-  document.documentElement.classList.toggle('light-mode', theme === 'light');
+var themeTransitionTimer = null;
+
+function applyTheme(theme, animate) {
+  var root = document.documentElement;
+  if (themeTransitionTimer !== null) {
+    window.clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = null;
+  }
+  if (animate) {
+    root.classList.add('theme-transitioning');
+    themeTransitionTimer = window.setTimeout(function () {
+      root.classList.remove('theme-transitioning');
+      themeTransitionTimer = null;
+    }, 300);
+  } else {
+    root.classList.remove('theme-transitioning');
+  }
+  root.classList.toggle('light-mode', theme === 'light');
   var schemeMeta = document.querySelector('meta[name="color-scheme"]');
   if (schemeMeta) schemeMeta.content = theme;
   var themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -452,7 +468,7 @@ function setLang(code) {
 function toggleTheme() {
   var next = effectiveTheme() === 'light' ? 'dark' : 'light';
   saveTheme(next);
-  applyTheme(next);
+  applyTheme(next, true);
   resetTurnstile();
 }
 
@@ -545,5 +561,5 @@ fetch('/gate/diag', { headers: { 'Accept': 'application/json' } })
   .catch(function () {});
 
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function () {
-  if (!localStorage.getItem('theme')) applyTheme(getSystemTheme());
+  if (!localStorage.getItem('theme')) applyTheme(getSystemTheme(), true);
 });

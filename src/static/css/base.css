@@ -8,6 +8,8 @@
 /* ComiCine site-wide base styles.
    Design tokens such as colors, radii, and easing live in tokens.css as the single source of truth.
    This file contains structural styles for typography, the header, and the footer. */
+        :root { --theme-transition-duration: 250ms; }
+
         /* Global base styles. */
         html, body {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -347,6 +349,27 @@
         body.nav-screen-open #nav-logo.is-hidden { opacity: 1 !important; pointer-events: auto; }
         @media (prefers-reduced-motion: reduce) {
             .nav-screen, .nav-screen-container, .nav-hamburger > span, .nav-screen-chevron, .nav-screen-language-list { transition: none; }
+        }
+
+        @media (max-width: 767px) {
+            html.theme-transitioning,
+            html.theme-transitioning *,
+            html.theme-transitioning *::before,
+            html.theme-transitioning *::after {
+                transition-property: color, background-color, border-color, outline-color, fill, stroke, text-decoration-color, box-shadow, opacity, transform !important;
+                transition-duration: var(--theme-transition-duration) !important;
+                transition-delay: 0s !important;
+                transition-timing-function: var(--ease-out) !important;
+            }
+        }
+
+        @media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+            html.theme-transitioning,
+            html.theme-transitioning *,
+            html.theme-transitioning *::before,
+            html.theme-transitioning *::after {
+                transition: none !important;
+            }
         }
 
         /* Entrance animation: reveal-item to show. */

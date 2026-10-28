@@ -23,11 +23,11 @@ See ADDITIONAL_TERMS.txt.
 <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
 <script src="/static/js/theme-preload.js?v=3" data-theme-cookie="{{ theme_cookie }}"></script>
 <link rel="preload" as="script" href="/static/js/actions.js?v=1">
-<link rel="preload" as="script" href="/static/js/auth.js?v=11">
+<link rel="preload" as="script" href="/static/js/auth.js?v=12">
 <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 <link rel="stylesheet" href="/static/css/auth.css?v=24">
 <!-- Site base styles; structural styles such as .global-footer reuse the main base.css. -->
-<link rel="stylesheet" href="/static/css/base.css?v=28">
+<link rel="stylesheet" href="/static/css/base.css?v=29">
 </head>
 <body class="gate-page" data-lang="{{ lang }}" {% include "_lang_attrs.html" %} data-gate-error="{{ error_html }}">
 {% set is_prod = request.host.endswith(root_domain) %}
@@ -56,6 +56,6 @@ See ADDITIONAL_TERMS.txt.
 {% include "_footer.html" %}
     <script id="gate-i18n" type="application/json">{{ gate_i18n_json | safe }}</script>
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/auth.js?v=11" defer></script>
+    <script src="/static/js/auth.js?v=12" defer></script>
 </body>
 </html>

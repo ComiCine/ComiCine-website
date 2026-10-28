@@ -67,8 +67,24 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     }
 
     /* Apply the theme to the DOM: toggle light-mode, update meta tags, and sync aria-checked. */
-    function applyTheme(theme) {
-        document.documentElement.classList.toggle('light-mode', theme === 'light');
+    var themeTransitionTimer = null;
+
+    function applyTheme(theme, animate) {
+        var root = document.documentElement;
+        if (themeTransitionTimer !== null) {
+            window.clearTimeout(themeTransitionTimer);
+            themeTransitionTimer = null;
+        }
+        if (animate) {
+            root.classList.add('theme-transitioning');
+            themeTransitionTimer = window.setTimeout(function() {
+                root.classList.remove('theme-transitioning');
+                themeTransitionTimer = null;
+            }, 300);
+        } else {
+            root.classList.remove('theme-transitioning');
+        }
+        root.classList.toggle('light-mode', theme === 'light');
         var themeMeta = document.querySelector('meta[name="theme-color"]');
         if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
         document.querySelector('meta[name="color-scheme"]').content = theme;
@@ -142,7 +158,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var now = Date.now();
         var next = effectiveTheme() === 'light' ? 'dark' : 'light';
         saveTheme(next);
-        applyTheme(next);
+        applyTheme(next, true);
         rememberThemeToggle(now);
         if (themeToggleTimes.length > THEME_TOGGLE_MAX_COUNT) {
             triggerThemeChallenge();
@@ -512,7 +528,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
         /* Follow system theme changes only when there is no saved choice. */
         window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
-            if (!localStorage.getItem('theme')) applyTheme(getSystemTheme());
+            if (!localStorage.getItem('theme')) applyTheme(getSystemTheme(), true);
         });
 
         /* Close the language flyout outside its control; the screen closes on its own backdrop or links. */
