@@ -138,6 +138,7 @@ export function shouldTrackVisit(request: Request, url: URL): boolean {
   const p = url.pathname;
   if (
     p.startsWith("/api/") ||
+    p === "/mcp" ||
     p === "/_health" ||
     p.startsWith("/static/") ||
     p.startsWith("/__gate") ||
@@ -202,6 +203,7 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
   if (isTraceableGatePath(p)) return true;
   if (
     p.startsWith("/api/") ||
+    p === "/mcp" ||
     p === "/_health" ||
     p.startsWith("/static/")
   ) {

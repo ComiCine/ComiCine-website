@@ -24,6 +24,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # Search engines
 User-agent: Googlebot
@@ -58,6 +59,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # AI training / retrieval / assistants
 User-agent: GPTBot
@@ -109,6 +111,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # Generic crawler markers and Tencent app previews. These are self-declared
 # UA signals, not identity checks; they only skip the human-verification gate.
@@ -133,6 +136,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # Site crawlers, archives and SEO tools
 User-agent: ia_archiver
@@ -157,6 +161,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # Link previews and social crawlers
 User-agent: facebookexternalhit
@@ -182,6 +187,7 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
 
 # Uptime and availability monitors
 User-agent: UptimeRobot
@@ -202,3 +208,4 @@ Disallow: /__gate
 Disallow: /visitor
 Disallow: /account
 Disallow: /apple
+Disallow: /mcp
