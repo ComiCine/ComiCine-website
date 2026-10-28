@@ -9,6 +9,7 @@
 
 import json
 import re
+from html import unescape
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,34 @@ def test_render_page_switches_language():
     assert "/static/" in html
     html_en = build.render_page(RENDER_APP, "index.html", "/", "en-us")
     assert '<html lang="en-us">' in html_en
+
+
+def test_not_found_page_matches_reference_copy_in_every_language(tmp_path):
+    expected_quotes = {
+        "zh-cn": "但如果你不改变方向，仍继续寻找，最终可能会到达自己正前往的地方。",
+        "en-us": "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
+        "ja-jp": "しかし、進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。",
+        "ko-kr": "하지만 방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.",
+    }
+    expected_home_labels = {
+        "zh-cn": "带我回首页",
+        "en-us": "Take me home",
+        "ja-jp": "ホームに戻る",
+        "ko-kr": "홈으로 돌아가기",
+    }
+
+    for lang, quote in expected_quotes.items():
+        html = build.render_page(RENDER_APP, "404.html", "/404", lang)
+        assert f'<html lang="{lang}">' in html
+        assert quote in unescape(html)
+        assert expected_home_labels[lang] in html
+        assert 'href="https://comicine.com/"' in html
+        assert "not-found-countdown" not in html
+        assert "/static/js/404.js" not in html
+
+    build.write_not_found_fallback(RENDER_APP, str(tmp_path))
+    fallback = (tmp_path / "404.html").read_text(encoding="utf-8")
+    assert '<html lang="en-us">' in fallback
 
 
 def test_services_page_loads_currency_metadata_before_currency_ui():

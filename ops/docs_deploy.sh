@@ -99,6 +99,7 @@ if [ "$DRY_RUN" = 1 ]; then
     echo "[docs] will-run: git clone/fetch $VITEPRESS_REPO ($VITEPRESS_REF) -> $VITEPRESS_DIR"
     echo "[docs] will-run: pnpm install && pnpm exec tsdown && pnpm pack -> $TARBALL (only when the fork commit changes)"
     echo "[docs] will-run: rsync $DOCS_DIR/ -> $SRC_DIR/ (exclude node_modules, .vitepress/dist)"
+    echo "[docs] will-run: copy $ROOT/config-contract.json into the staged VitePress root"
     echo "[docs] will-run: pnpm install && pnpm exec vitepress build . --outDir $DIST_DIR"
     echo "[docs] will-run: python3 ops/docs_headers.py $DIST_DIR"
     echo "[docs] will-run: $WRANGLER_BIN pages deploy $DIST_DIR --project-name $PAGES_PROJECT --branch $PAGES_BRANCH"
@@ -180,6 +181,7 @@ rsync -a --delete \
     --exclude '.vitepress/cache' \
     --exclude '.vitepress/dist' \
     "$DOCS_DIR/" "$SRC_DIR/"
+cp "$ROOT/config-contract.json" "$SRC_DIR/config-contract.json"
 
 cat > "$SRC_DIR/package.json" <<JSON
 {
@@ -251,11 +253,12 @@ strip_emoji() {
 }
 
 # Stage 6: deploy to Pages.
-# Run from BUILD_DIR so Wrangler does not find the main site's project name in site/wrangler.toml.
+# Run from the staged docs source so Wrangler finds this Pages project's Functions without
+# discovering the main site's wrangler.toml.
 echo "[docs] deploying Pages project: $PAGES_PROJECT"
 export CI=1 WRANGLER_SEND_METRICS=false
 (
-    cd "$BUILD_DIR"
+    cd "$SRC_DIR"
     "$WRANGLER_BIN" pages deploy "$DIST_DIR" \
         --project-name "$PAGES_PROJECT" \
         --branch "$PAGES_BRANCH" \
@@ -300,16 +303,46 @@ check_root_redirect() {
     echo "[docs] / = 302 to https://comicine.com OK"
 }
 
-# Content page paths without a language suffix must return 302 to /<page>/zh-cn.
-for path in /video-platform /README /LICENSE; do
-    check_code "$path" 302
-done
+check_language_redirect() {
+    local path="$1" expected_path="$2" cookie="${3:-}" accept="${4:-en-US}"
+    local i result code location expected_location
+    local -a curl_args=(-s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20)
+    if [ -n "$cookie" ]; then curl_args+=(-H "Cookie: $cookie"); fi
+    if [ -n "$accept" ]; then curl_args+=(-H "Accept-Language: $accept"); fi
+    expected_location="https://${DOCS_HOST}${expected_path}"
+    for i in 1 2 3 4 5 6; do
+        result="$(curl "${curl_args[@]}" "https://${DOCS_HOST}${path}" || true)"
+        code="${result%%$'\n'*}"
+        location="${result#*$'\n'}"
+        if [ "$code" = 302 ] && [ "$location" = "$expected_location" ]; then break; fi
+        sleep 10
+    done
+    if [ "$code" != 302 ] || [ "$location" != "$expected_location" ]; then
+        echo "FATAL: https://${DOCS_HOST}${path} = ${code} Location: ${location:--} (expected 302 to ${expected_location})" >&2
+        exit 1
+    fi
+    echo "[docs] ${path} = 302 to ${expected_path} OK"
+}
+
+# Language-less content entries use the shared cookie and main-site fallback order.
+check_language_redirect /video-platform /video-platform/en-us
+check_language_redirect /README /README/en-us
+check_language_redirect /LICENSE /LICENSE/en-us
+check_language_redirect /docs-home /en-us
+check_language_redirect /security/policy /security/policy/en-us
+check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
+check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
+check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
 
 check_root_redirect
 
 for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \
     /README/zh-cn /README/en-us /README/ja-jp /README/ko-kr \
-    /LICENSE/zh-cn /LICENSE/en-us /LICENSE/ja-jp /LICENSE/ko-kr; do
+    /LICENSE/zh-cn /LICENSE/en-us /LICENSE/ja-jp /LICENSE/ko-kr \
+    /docs-home/zh-cn /en-us /ja-jp /ko-kr \
+    /security/policy/zh-cn /security/policy/en-us /security/policy/ja-jp /security/policy/ko-kr \
+    /security/acknowledgments/zh-cn /security/acknowledgments/en-us \
+    /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
     check_code "$path" 200
 done
 echo "[docs] done."

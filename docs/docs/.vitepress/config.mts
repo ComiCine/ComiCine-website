@@ -6,30 +6,21 @@
  */
 
 /**
- * docs.comicine.com — VitePress 站点配置
+ * VitePress configuration for docs.comicine.com.
  *
- * 内容源：site/docs/docs/*.md（本目录，即 VitePress 根）
- *   index.md                     -> /docs-home/zh-cn
- *   video-platform.md            → /video-platform/zh-cn
- *   en-us/video-platform.md      → /video-platform/en-us
- *   README.md                    → /README/zh-cn（site/README.md 的四语副本）
- *   LICENSE.md                   → /LICENSE/zh-cn（site/LICENSE_zh_CN.md 的四语副本）
- *   en-us/index.md               → /en-us
+ * Source pages live in site/docs/docs/ and its language directories. Rewrites
+ * place zh-cn, en-us, ja-jp, or ko-kr at the end of every content URL. Every
+ * content page has all four localized source files.
  *
- * **内容页的 URL 一律带显式语言段，默认语言 zh-cn 也不例外**；不带语言段的
- * `/video-platform`、`/README`、`/LICENSE` 由 docs/public/_redirects 302 到
- * 对应的 `/.../zh-cn`（2026-10-08 定）。docs 主域根路径 `/` 由 public/_redirects
- * 302 到主站；the Chinese documentation home uses `/docs-home/zh-cn`, while
- * the other language homes remain `/en-us`、`/ja-jp`、`/ko-kr`。
+ * Language-less entry URLs are resolved by Pages Functions using the main
+ * site's preference order: cookie, Accept-Language, Cloudflare country
+ * metadata, then the config-contract fallback (currently en-us). The docs root
+ * redirects to the main site; localized home pages use /docs-home/zh-cn,
+ * /en-us, /ja-jp, and /ko-kr.
  *
- * site/docs/ 是**按子域分目录**的容器：docs/ 归 docs.comicine.com（本目录），
- * services/ 归 services.comicine.com（价目表 CSV，由 src/services_pricing.py 读取）。
- *
- * 语言码放在**页面路径最后一段**（不是 VitePress 的 locales 前缀），所以不用
- * `locales`，改用 `additionalConfig`（按**源目录**分层）+ `rewrites`：
- * 每个页面拿到自己那份 lang / themeConfig（导航、侧栏、UI 文案都跟着语言走）。
- *
- * 主题：fork ComiCine/vitepress —— 页头/页脚在 fork 里改。
+ * VitePress locales only support language prefixes, so additionalConfig and
+ * rewrites apply each page's lang and themeConfig based on its source directory.
+ * Keep additionalConfig as pure data because it is serialized for the client.
  */
 import { readFileSync } from 'node:fs'
 
@@ -43,41 +34,46 @@ const MAIN_SITE = 'https://comicine.com'
 const SERVICES_SITE = 'https://services.comicine.com'
 const CONTACT_SITE = 'https://contact.comicine.com'
 const REPO = 'https://github.com/ComiCine/ComiCine-website'
+const MAIN_SITE_CONTRACT = JSON.parse(
+  readFileSync(new URL('../config-contract.json', import.meta.url), 'utf-8')
+) as { default_lang: string }
 
 interface LangDef {
   code: string
   label: string
   flag: string
   lang: string
-  default?: boolean
+  root?: boolean
 }
 
 const LANGS: LangDef[] = [
-  { code: 'zh-cn', label: '简体中文', flag: '🇨🇳', lang: 'zh-CN', default: true },
+  { code: 'zh-cn', label: '简体中文', flag: '🇨🇳', lang: 'zh-CN', root: true },
   { code: 'en-us', label: 'English', flag: '🇺🇸', lang: 'en-US' },
   { code: 'ja-jp', label: '日本語', flag: '🇯🇵', lang: 'ja-JP' },
   { code: 'ko-kr', label: '한국어', flag: '🇰🇷', lang: 'ko-KR' }
 ]
 
 const CODES = LANGS.map((l) => l.code)
-const DEFAULT_LANG = LANGS.find((l) => l.default)?.code ?? CODES[0]
+const VITEPRESS_ROOT_LANG = LANGS.find((l) => l.root)?.code ?? CODES[0]
+const SECURITY_X_DEFAULT_LANG = MAIN_SITE_CONTRACT.default_lang
 
-/** 语言码 -> BCP 47 标签（写进 <html lang> 与 head）。 */
+/** Map a docs language code to its BCP 47 tag for HTML and metadata. */
 function langTag(code: string): string {
   return (LANGS.find((l) => l.code === code) ?? LANGS[0]).lang
 }
 
-/** 页面路径 + 语言码 → 该语言的 URL 路径。 */
+/** Return the language route for a localized page. */
 function routePath(basePath: string, code: string): string {
   const base = basePath === '/' ? '' : basePath
-  if (code === DEFAULT_LANG) return base || '/'
+  if (code === VITEPRESS_ROOT_LANG) return base || '/'
   return `${base}/${code}`
 }
 
 /**
- * 内容页路径：语言码**一律显式带上**（默认语言 zh-cn 也是），
- * 无后缀的 `/README`、`/LICENSE`、`/video-platform` 由 _redirects 302 过来。
- * The Chinese documentation home uses `/docs-home/zh-cn` to avoid the root redirect.
+ * Every content route has an explicit language suffix, including the VitePress
+ * root language zh-cn. Pages Functions resolve language-less entries with the
+ * main site's cookie and language fallback order. The Chinese home uses
+ * `/docs-home/zh-cn` to avoid the root redirect.
  */
 function contentPath(basePath: string, code: string): string {
   return `${basePath}/${code}`
@@ -95,6 +91,13 @@ interface Labels {
   sidebarReadme: string
   sidebarVideo: string
   sidebarLicense: string
+  sidebarSecurity: string
+  sidebarSecurityPolicy: string
+  sidebarSecurityAcknowledgments: string
+  notFoundTitle: string
+  notFoundQuote: string
+  notFoundLinkLabel: string
+  notFoundLinkText: string
   sidebarMain: string
   outlineTitle: string
   sidebarMenuLabel: string
@@ -119,6 +122,13 @@ const labels: Record<string, Labels> = {
     sidebarReadme: '项目说明 README',
     sidebarVideo: '视频平台',
     sidebarLicense: '开源许可证',
+    sidebarSecurity: '安全',
+    sidebarSecurityPolicy: '安全漏洞披露政策',
+    sidebarSecurityAcknowledgments: '安全致谢',
+    notFoundTitle: '页面未找到',
+    notFoundQuote: '如果不改变方向并继续寻找，你最终可能会到达自己正前往的地方。',
+    notFoundLinkLabel: '返回 ComiCine 主站',
+    notFoundLinkText: '带我回首页',
     sidebarMain: '返回主站',
     outlineTitle: '本页目录',
     sidebarMenuLabel: '菜单',
@@ -141,6 +151,13 @@ const labels: Record<string, Labels> = {
     sidebarReadme: 'Project README',
     sidebarVideo: 'Video platforms',
     sidebarLicense: 'License',
+    sidebarSecurity: 'Security',
+    sidebarSecurityPolicy: 'Security Vulnerability Disclosure Policy',
+    sidebarSecurityAcknowledgments: 'Security Acknowledgments',
+    notFoundTitle: 'PAGE NOT FOUND',
+    notFoundQuote: "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
+    notFoundLinkLabel: 'Go to the ComiCine main site',
+    notFoundLinkText: 'Take me home',
     sidebarMain: 'Main site',
     outlineTitle: 'On this page',
     sidebarMenuLabel: 'Menu',
@@ -163,6 +180,13 @@ const labels: Record<string, Labels> = {
     sidebarReadme: 'プロジェクト README',
     sidebarVideo: '動画プラットフォーム',
     sidebarLicense: 'ライセンス',
+    sidebarSecurity: 'セキュリティ',
+    sidebarSecurityPolicy: 'セキュリティ脆弱性の報告ポリシー',
+    sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
+    notFoundTitle: 'ページが見つかりません',
+    notFoundQuote: '進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。',
+    notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
+    notFoundLinkText: 'ホームに戻る',
     sidebarMain: 'メインサイト',
     outlineTitle: 'このページの目次',
     sidebarMenuLabel: 'メニュー',
@@ -185,6 +209,13 @@ const labels: Record<string, Labels> = {
     sidebarReadme: '프로젝트 README',
     sidebarVideo: '동영상 플랫폼',
     sidebarLicense: '라이선스',
+    sidebarSecurity: '보안',
+    sidebarSecurityPolicy: '보안 취약점 공개 정책',
+    sidebarSecurityAcknowledgments: '보안 감사의 글',
+    notFoundTitle: '페이지를 찾을 수 없습니다',
+    notFoundQuote: '방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.',
+    notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
+    notFoundLinkText: '홈으로 돌아가기',
     sidebarMain: '메인 사이트',
     outlineTitle: '이 페이지 목차',
     sidebarMenuLabel: '메뉴',
@@ -199,13 +230,15 @@ const labels: Record<string, Labels> = {
 }
 
 function themeFor(code: string): DefaultTheme.Config {
-  const L = labels[code] ?? labels[DEFAULT_LANG]
-  const home = code === DEFAULT_LANG
+  const L = labels[code] ?? labels[VITEPRESS_ROOT_LANG]
+  const home = code === VITEPRESS_ROOT_LANG
     ? contentPath('/docs-home', code)
     : routePath('/', code)
   const readme = contentPath('/README', code)
   const video = contentPath('/video-platform', code)
   const license = contentPath('/LICENSE', code)
+  const securityPolicy = contentPath('/security/policy', code)
+  const securityAcknowledgments = contentPath('/security/acknowledgments', code)
   return {
     // 页头/页脚由 fork 的 ComiCine 组件渲染（与主站 base.html 一致）
     // 页头展示主站的三个相同入口，文档自己的导航在侧栏
@@ -223,6 +256,13 @@ function themeFor(code: string): DefaultTheme.Config {
           { text: L.sidebarVideo, link: video },
           { text: L.sidebarLicense, link: license },
           { text: L.sidebarMain, link: MAIN_SITE }
+        ]
+      },
+      {
+        text: L.sidebarSecurity,
+        items: [
+          { text: L.sidebarSecurityPolicy, link: securityPolicy },
+          { text: L.sidebarSecurityAcknowledgments, link: securityAcknowledgments }
         ]
       }
     ],
@@ -244,15 +284,20 @@ function themeFor(code: string): DefaultTheme.Config {
         { text: L.footerSource, link: REPO }
       ]
     },
-    // langSegmentAlways：内容页路径总是带语言段（含 zh-cn），
-    // fork 的语言浮层据此把「中文」指向 /README/zh-cn 而不是 /README（后者会 404）
-    comicine: { languages: LANGS, langSegmentAlways: true }
+    comicine: { languages: LANGS, langSegmentAlways: true },
+    notFound: {
+      title: L.notFoundTitle,
+      quote: L.notFoundQuote,
+      link: MAIN_SITE,
+      linkLabel: L.notFoundLinkLabel,
+      linkText: L.notFoundLinkText
+    }
   } as DefaultTheme.Config
 }
 
 /** 每个语言的 lang / 标题 / 主题配置（纯数据，能安全序列化进客户端）。 */
 function localeConfigFor(code: string) {
-  const L = labels[code] ?? labels[DEFAULT_LANG]
+  const L = labels[code] ?? labels[VITEPRESS_ROOT_LANG]
   return {
     lang: langTag(code),
     title: L.title,
@@ -286,6 +331,28 @@ function canonicalUrlForPage(page: string): string | null {
   return new URL(route ? '/' + route : '/', SITE_URL).toString()
 }
 
+function languageAlternatesForPage(page: string): [string, Record<string, string>][] {
+  const sourcePage = page.startsWith('/') ? page.slice(1) : page
+  const outputPage = REWRITES[sourcePage] ?? sourcePage
+  const match = outputPage.match(/^security\/(policy|acknowledgments)\/(zh-cn|en-us|ja-jp|ko-kr)\.md$/)
+  if (!match) return []
+
+  const route = `/security/${match[1]}`
+  const alternates = LANGS.map(({ code, lang }) => [
+    'link',
+    { rel: 'alternate', hreflang: lang, href: new URL(`${route}/${code}`, SITE_URL).toString() }
+  ] as [string, Record<string, string>])
+  alternates.push([
+    'link',
+    {
+      rel: 'alternate',
+      hreflang: 'x-default',
+      href: new URL(`${route}/${SECURITY_X_DEFAULT_LANG}`, SITE_URL).toString()
+    }
+  ])
+  return alternates
+}
+
 /**
  * 价目表 CSV 现在在 site/docs/services/，与 VitePress 根（site/docs/docs/）
  * **同级**，本来就不会进入构建工作区，所以不再需要专门排除 services/。
@@ -294,9 +361,9 @@ function canonicalUrlForPage(page: string): string | null {
 const SRC_EXCLUDE = ['**/*.csv']
 
 export default defineConfig({
-  lang: langTag(DEFAULT_LANG),
-  title: labels[DEFAULT_LANG].title,
-  description: labels[DEFAULT_LANG].description,
+  lang: langTag(VITEPRESS_ROOT_LANG),
+  title: labels[VITEPRESS_ROOT_LANG].title,
+  description: labels[VITEPRESS_ROOT_LANG].description,
   cleanUrls: true,
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
@@ -334,6 +401,7 @@ export default defineConfig({
     const pageType = isHome ? 'website' : 'article'
     return [
       ['link', { rel: 'canonical', href: canonicalUrl }],
+      ...languageAlternatesForPage(page),
       ['meta', { property: 'og:type', content: pageType }],
       ['meta', { property: 'og:title', itemprop: 'name', content: title }],
       ['meta', { property: 'og:description', itemprop: 'description', content: description }],
@@ -355,7 +423,7 @@ export default defineConfig({
     ]
   },
   rewrites: REWRITES,
-  themeConfig: themeFor(DEFAULT_LANG),
+  themeConfig: themeFor(VITEPRESS_ROOT_LANG),
   // 按**源目录**给页面套上对应语言的 lang + themeConfig（纯数据，可序列化）
   additionalConfig: {
     '/': localeConfigFor('zh-cn'),

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "include": [
+    "/video-platform",
+    "/video-platform/",
+    "/README",
+    "/README/",
+    "/LICENSE",
+    "/LICENSE/",
+    "/docs-home",
+    "/docs-home/",
+    "/security/policy",
+    "/security/policy/",
+    "/security/acknowledgments",
+    "/security/acknowledgments/"
+  ],
+  "exclude": []
+}

@@ -23,15 +23,10 @@ See ADDITIONAL_TERMS.txt.
 <main class="not-found-main" aria-labelledby="not-found-heading">
     <section class="not-found-panel">
         <p class="not-found-code" aria-hidden="true">404</p>
-        <span class="not-found-divider" aria-hidden="true"></span>
         <h1 id="not-found-heading" data-i18n="not_found_heading">{{ _('not_found_heading') }}</h1>
+        <span class="not-found-divider" aria-hidden="true"></span>
         <p class="not-found-message" data-i18n="not_found_message">{{ _('not_found_message') }}</p>
-        <p class="not-found-redirect" id="not-found-countdown" data-i18n="not_found_redirect;seconds=3">{{ _('not_found_redirect', seconds=3) }}</p>
-        <a class="not-found-home" href="https://{{ root_domain }}/" data-i18n="nav_home">{{ _('nav_home') }}</a>
+        <a class="not-found-home" href="https://{{ root_domain }}/" data-i18n="not_found_home">{{ _('not_found_home') }}</a>
     </section>
 </main>
-{% endblock %}
-
-{% block page_scripts %}
-<script src="/static/js/404.js?v=3" defer></script>
 {% endblock %}
