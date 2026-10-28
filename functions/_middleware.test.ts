@@ -110,6 +110,42 @@ describe("shared identity navigation", () => {
   });
 });
 
+describe("localized not-found page", () => {
+  it("uses the request language selected by the main-site resolver", async () => {
+    const fetchedPaths: string[] = [];
+    const assets = {
+      fetch: async (input: string | URL | Request) => {
+        const url = input instanceof Request
+          ? new URL(input.url)
+          : input instanceof URL
+            ? input
+            : new URL(input);
+        fetchedPaths.push(url.pathname);
+        if (url.pathname === "/ja-jp/not-found.html") {
+          return new Response("localized 404", {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+        return new Response("missing", { status: 404 });
+      },
+    };
+    const request = new Request("https://images.comicine.com/missing-page", {
+      headers: {
+        Accept: "text/html",
+        Cookie: "user_lang_preference=ja-jp",
+        "Accept-Language": "en-US",
+      },
+    });
+
+    const response = await handleOnRequest(context(request, { ASSETS: assets }));
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.text()).resolves.toBe("localized 404");
+    expect(fetchedPaths).toEqual(["/static/missing-page", "/ja-jp/not-found.html"]);
+  });
+});
+
 describe("force theme challenge", () => {
   it("renders the gate at an unverified visitor's original URL", async () => {
     const resp = await handleOnRequest(

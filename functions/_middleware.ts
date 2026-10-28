@@ -118,7 +118,9 @@ async function brandedNotFoundResponse(
   const { request, env } = context;
   if (response.status !== 404 || !isHtmlNavigation(request) || !env.ASSETS) return response;
 
-  const page = await env.ASSETS.fetch(new URL("/404.html", BASE_URL));
+  const lang = detectLang(request);
+  let page = await env.ASSETS.fetch(new URL(`/${lang}/not-found.html`, BASE_URL));
+  if (!page.ok) page = await env.ASSETS.fetch(new URL("/404.html", BASE_URL));
   if (!page.ok) return response;
 
   const headers = new Headers(page.headers);
