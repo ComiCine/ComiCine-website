@@ -27,7 +27,7 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=16" as="script">
+    <link rel="preload" href="/static/js/base.js?v=17" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
@@ -52,7 +52,7 @@ See ADDITIONAL_TERMS.txt.
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- Site base styles extracted and optimized from the former inline template styles. -->
-    <link rel="stylesheet" href="/static/css/base.css?v=28">
+    <link rel="stylesheet" href="/static/css/base.css?v=29">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -186,7 +186,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=16" defer></script>
+    <script src="/static/js/base.js?v=17" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>
