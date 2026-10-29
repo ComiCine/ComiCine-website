@@ -71,9 +71,9 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
       expect(html, needle).toContain(needle);
     }
     expect(STATUS_CSS).toContain("@font-face{font-family:'Delius Swash Caps'");
-    expect(STATUS_CSS).toContain("@font-face{font-family:'Baloo 2'");
-    expect(STATUS_CSS).toContain("unicode-range:U+0020,U+0043");
-    expect(STATUS_CSS).toContain(".footer-copyright{font-family:'Delius Swash Caps'");
+    expect(STATUS_CSS).toContain("unicode-range:U+0020,U+002D,U+0030-0039,U+0043");
+    expect(STATUS_CSS).toContain(".nav-brand{font-family:'Delius Swash Caps'");
+    expect(STATUS_CSS).toContain(".footer-copyright .brand-word{font-family:'Delius Swash Caps'");
   });
 
   it("keeps the nav link order of base.html (home → services → contact)", () => {
@@ -104,7 +104,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> ComiCine</span>',
+      'class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> <span class="brand-word">ComiCine</span></span>',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
@@ -225,8 +225,10 @@ describe("assets", () => {
     // absorb the remaining stylesheet into an open declaration block, leaving only UA defaults.
     // Vitest does not render CSS, so structural assertions are the available safeguard.
     expect((STATUS_CSS.match(/\{/g) ?? []).length).toBe((STATUS_CSS.match(/\}/g) ?? []).length);
-    // The brand font once missed this closing `;}` and ended after format('woff2'), leaving @font-face unclosed.
-    expect(STATUS_CSS).toContain("format('woff2');}");
+    const fontFace = STATUS_CSS.match(/@font-face\{[^}]*\}/)?.[0];
+    expect(fontFace).toBeDefined();
+    expect(fontFace).toContain("format('woff2')");
+    expect(fontFace).toMatch(/unicode-range:[^;}]+;}$/);
     // @font-face must close at the first `}`; `:root{` can appear only afterward.
     expect(STATUS_CSS.indexOf(":root{")).toBeGreaterThan(STATUS_CSS.indexOf("}"));
     for (const needle of [".light-mode", ".global-footer", ".site-nav", "--accent:#05A5A6"]) {

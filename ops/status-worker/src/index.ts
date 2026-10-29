@@ -880,7 +880,7 @@ export const STATUS_HTML_CACHE_CONTROL =
  *
  *   - `script-src 'self'`: no unsafe-inline; header and footer interactions use external scripts;
  *   - `style-src 'self'`: styles come from /status.css, and the template has no style attributes;
- *   - `font-src 'self' data:`: the Baloo 2 navigation wordmark and Delius Swash Caps copyright subsets are embedded in CSS
+ *   - `font-src 'self' data:`: the Delius Swash Caps brand subset is embedded in CSS
  * (see brand-font.ts; the main-site font is cross-origin and requires CORS, so the status page does not depend on it);
  *   - `img-src` allows only images.comicine.com, which hosts the same favicon used by base.html.
  * Before loosening any directive, ask whether failure of that resource could take down the status page.

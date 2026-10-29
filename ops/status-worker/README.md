@@ -74,11 +74,12 @@ multiply D1 reads. Instead `/status.js` redirects once per session to
 | --- | --- |
 | `src/page.ts` | markup, CSS, client scripts, the three page shapes (status / 404 / render failure) |
 | `src/i18n.ts` | four-language table, language detection, probe-error classification |
-| `src/brand-font.ts` | generated: inlined Baloo 2 navigation wordmark and Delius Swash Caps copyright subsets |
+| `src/brand-font.ts` | generated: inlined Delius Swash Caps subset for ComiCine brand words |
 
 The header and footer mirror the main site's `src/templates/base.html` and
 `src/templates/_footer.html` (same class names, same SVG controls, same `tokens.css` palette,
-monochrome ComiCine text in the upper-left brand position, Delius Swash Caps copyright text,
+monochrome Delius Swash Caps ComiCine text in the upper-left brand position, Delius on only the
+ComiCine word in copyright text,
 language flyout, dark/light pill, GitHub/Bilibili links). The
 implementation is **self-contained on purpose**: `status.comicine.com` is a separate
 origin, so linking the main site's `/static/**` would need a relaxed CSP *and* would
@@ -122,10 +123,11 @@ The status page ships the tightest CSP in the project: `default-src 'none'`,
 data: https://images.comicine.com`, `connect-src 'self'`, `base-uri 'none'`,
 `form-action 'none'`, `frame-ancestors 'none'`. There is no inline script or
 style, so the theme class is applied before paint by the blocking
-`/status-theme.js` in `<head>`. The Baloo 2 wordmark and Delius Swash Caps copyright subsets are inlined
+`/status-theme.js` in `<head>`. The Delius Swash Caps brand subset is inlined
 in `src/brand-font.ts` because the main site's font files are cross-origin and the main site sends
-no CORS header for fonts. The file documents how to regenerate its embedded font data.
-The subsets are used only for the navigation wordmark and copyright area; the rest of the status
+no CORS header for fonts. Regenerate its data URL from the self-hosted subset at
+`src/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2`.
+The subset is used for the navigation wordmark and the ComiCine copyright name; the rest of the status
 page retains its existing font stack.
 
 ## STATUS_TOKEN

@@ -4,17 +4,11 @@
 
 ## 글꼴
 
-### Baloo 2
-
-Baloo 2의 저작권 표시는 The Baloo 2 Project Authors이며 SIL Open Font License 버전 1.1(OFL-1.1)에 따라 배포됩니다. 업스트림 프로젝트는 [EkType/Baloo2](https://github.com/EkType/Baloo2)입니다. 라이선스 전문은 [src/static/fonts/baloo2/OFL.txt](src/static/fonts/baloo2/OFL.txt)에 포함되어 있습니다.
-
-프로젝트는 src/static/fonts/baloo2/ 및 docs/docs/public/fonts/에 Baloo 2 글꼴과 서브셋을 포함합니다. 또한 Baloo 2 SemiBold에서 파생해 생성한 괄호 글리프 서브셋이 src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf와 src/static/fonts-round75.css의 임베디드 데이터에 포함되어 있습니다. 이 글꼴 파일에는 계속 OFL-1.1이 적용됩니다. 재배포할 때 저작권 및 라이선스 고지를 보존하고, 글꼴 소프트웨어 자체를 단독 판매하지 말며, 수정 글꼴과 예약 글꼴 이름에 관한 OFL 조건을 따라야 합니다.
-
 ### Delius Swash Caps
 
 Delius Swash Caps는 Natalia Raices가 디자인했습니다. 글꼴 소프트웨어의 저작권은 Natalia Raices(2010, 2011)와 Igino Marini(2011)에 있으며 SIL Open Font License 버전 1.1(OFL-1.1)에 따라 배포됩니다. 업스트림 소스는 [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps)이고, 라이선스 전문은 [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt)에 포함되어 있습니다.
 
-프로젝트는 src/static/fonts/delius-swash-caps/에 자체 호스팅 WOFF2 서브셋을 포함하며, 메인 사이트, 상태 페이지, 문서 사이트 및 Sites 소개 페이지의 저작권 표시에 사용합니다. 상태 Worker는 생성된 서브셋을 ops/status-worker/src/brand-font.ts에 임베드합니다. 재배포할 때 저작권 및 라이선스 고지를 보존하고, 글꼴 소프트웨어 자체를 단독 판매하지 말며 “Delia”, “Delia Unicase”, “Delius”, “Delius Unicase” 예약 글꼴 이름을 포함한 OFL-1.1 조건을 따라야 합니다.
+프로젝트는 src/static/fonts/delius-swash-caps/에 자체 호스팅 WOFF2 서브셋을 포함하며, 웹사이트 워드마크와 Copyright 기호·연도 뒤의 정확한 브랜드명 ComiCine에 사용합니다. 상태 Worker는 같은 서브셋을 ops/status-worker/src/brand-font.ts에 포함합니다. 재배포할 때 저작권 및 라이선스 고지를 보존하고, 글꼴 소프트웨어 자체를 단독 판매하지 말며 “Delia”, “Delia Unicase”, “Delius”, “Delius Unicase” 예약 글꼴 이름을 포함한 OFL-1.1 조건을 따라야 합니다.
 
 ### Inter
 

@@ -304,9 +304,9 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         '/':        { host: 'comicine.com',          path: '/',        images: HOME_IMAGES, assetBase: true },
         '/services':{ host: 'services.comicine.com', path: '/services', images: [] },
         '/contact': { host: 'contact.comicine.com',  path: '/contact',  images: [
-                        '/qr-codes/bilibili.webp',
-                        '/qr-codes/qq.webp',
-                        '/qr-codes/wechat.webp' ], qr: true, assetBase: false }
+                        '/qr-codes/bilibili.png',
+                        '/qr-codes/qq.png',
+                        '/qr-codes/wechat.png' ], qr: true, assetBase: false }
     };
 
     /* Identify the current home page by subdomain in production and by path in local development. */
