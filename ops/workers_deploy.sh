@@ -32,13 +32,6 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"

@@ -22,7 +22,7 @@
  * must also be copied to the docs.comicine.com VitePress fork.
  */
 
-import { type Lang, type UiKey, UI, LANG_LABELS, THEME_COOKIE, LEGACY_THEME_COOKIE, langFlag, probeDetail, t } from "./i18n";
+import { type Lang, type UiKey, UI, LANG_LABELS, THEME_COOKIE, langFlag, probeDetail, t } from "./i18n";
 import { BRAND_FONT_CSS } from "./brand-font";
 
 /** Escape HTML; apply this to every interpolated value, including probe names and language codes from D1. */
@@ -305,7 +305,7 @@ section{margin-top:32px}
  */
 export const THEME_JS =
   "(function(){var t=null;try{t=localStorage.getItem('theme')}catch(e){}" +
-  "if(t!=='light'&&t!=='dark'){var m=document.cookie.match(/(?:^|;\\s*)" + THEME_COOKIE + "=(light|dark)/);if(!m)m=document.cookie.match(/(?:^|;\\s*)" + LEGACY_THEME_COOKIE + "=(light|dark)/);t=m?m[1]:null}" +
+  "if(t!=='light'&&t!=='dark'){var m=document.cookie.match(/(?:^|;\\s*)" + THEME_COOKIE + "=(light|dark)/);t=m?m[1]:null}" +
   "if(t==='light'||(!t&&window.matchMedia('(prefers-color-scheme: light)').matches)){document.documentElement.classList.add('light-mode')}})();";
 
 /** Automatic refresh interval in seconds; shared with the initial countdown to prevent mismatched hard-coded values. */
@@ -324,7 +324,7 @@ export const REFRESH_SECONDS = 300;
 export const STATUS_JS =
   "(function(){var REFRESH=" +
   REFRESH_SECONDS +
-  ",ROOT='comicine.com',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',LEGACY_THEME_COOKIE='" + LEGACY_THEME_COOKIE + "',MAX_AGE=31536000," +
+  ",ROOT='comicine.com',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',MAX_AGE=31536000," +
   "LANGS=['zh-cn','en-us','ja-jp','ko-kr'],doc=document,html=doc.documentElement;" +
   "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
   "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
@@ -332,14 +332,14 @@ export const STATUS_JS =
   "function cookie(n){var m=doc.cookie.match(new RegExp('(?:^|;\\\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):''}" +
   "function save(n,v){var h=location.hostname,d=(h===ROOT||h.slice(-(ROOT.length+1))==='.'+ROOT)?'; domain=.'+ROOT:'',s=location.protocol==='https:'?'; Secure':'';" +
   "doc.cookie=n+'='+encodeURIComponent(v)+'; path=/; max-age='+MAX_AGE+'; SameSite=Lax'+s+d}" +
-  "function saveTheme(v){save(THEME_COOKIE,v);save(LEGACY_THEME_COOKIE,v)}" +
+  "function saveTheme(v){save(THEME_COOKIE,v)}" +
   "var up=doc.getElementById('updated-at');if(up){var ep=Number(up.getAttribute('data-epoch'));" +
   "if(ep){try{up.textContent=new Date(ep*1000).toLocaleString(html.lang||undefined)}catch(e){up.textContent=new Date(ep*1000).toISOString()}}}" +
   "var left=REFRESH,cnt=doc.getElementById('refresh-count');" +
   "setInterval(function(){left-=1;if(cnt){cnt.textContent=String(left>0?left:0)}if(left<=0){location.reload()}},1000);" +
   "var switches=doc.querySelectorAll('.appearance-switch');" +
   "function theme(){var s=null;try{s=localStorage.getItem('theme')}catch(e){}if(s==='light'||s==='dark')return s;" +
-  "var c=cookie(THEME_COOKIE);if(c!=='light'&&c!=='dark')c=cookie(LEGACY_THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
+  "var c=cookie(THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
   "return window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}" +
   "function paint(t){html.classList.toggle('light-mode',t==='light');switches.forEach(function(sw){sw.setAttribute('aria-checked',t==='dark'?'true':'false')})}" +
   "if(switches.length){paint(theme());switches.forEach(function(sw){sw.addEventListener('click',function(e){e.stopPropagation();var n=theme()==='light'?'dark':'light';" +
@@ -363,9 +363,9 @@ export const STATUS_JS =
   "if(navScreen)navScreen.addEventListener('click',function(e){if(e.target===navScreen||e.target.closest('.nav-screen-link'))openNav(false)});" +
   "doc.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(navScreen&&navScreen.classList.contains('open')){openNav(false);if(navBtn)navBtn.focus()}else open(false)});" +
   "window.addEventListener('resize',function(){if(window.matchMedia('(min-width: 768px)').matches)openNav(false)});" +
-  "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='comicine_status_lang_synced',legacyGuard='limooo_status_lang_synced';" +
+  "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='comicine_status_lang_synced';" +
   "if(pref&&LANGS.indexOf(pref)>=0&&pref!==html.lang&&!explicit){var done=false;" +
-  "try{done=sessionStorage.getItem(guard)==='1'||sessionStorage.getItem(legacyGuard)==='1'}catch(e){}if(!done){try{sessionStorage.setItem(guard,'1');sessionStorage.setItem(legacyGuard,'1')}catch(e){}" +
+  "try{done=sessionStorage.getItem(guard)==='1'}catch(e){}if(!done){try{sessionStorage.setItem(guard,'1')}catch(e){}" +
   "var v=new URL(location.href);v.searchParams.set('lang',pref);location.replace(v.toString())}}})();";
 
 /** Probe record for rendering. `detail` is a normalized error code, not raw exception text. */

@@ -41,7 +41,7 @@ const GENERIC_CLIENT_UAS = [
 ];
 
 function withUserAgent(userAgent: string): Request {
-  return new Request("https://limooo.cn/", {
+  return new Request("https://comicine.com/", {
     headers: userAgent ? { "User-Agent": userAgent } : {},
   });
 }

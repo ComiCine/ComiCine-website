@@ -64,10 +64,10 @@ beforeEach(() => {
 });
 
 function request(method: string, body?: unknown): Request {
-  return new Request("https://account.limooo.cn/api/apple-account/accounts/1", {
+  return new Request("https://account.comicine.com/api/apple-account/accounts/1", {
     method,
     headers: {
-      Origin: "https://account.limooo.cn",
+      Origin: "https://account.comicine.com",
       "X-CSRF-Token": "valid",
       "Content-Type": "application/json",
     },

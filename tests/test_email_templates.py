@@ -34,7 +34,7 @@ LANGS = ("zh-cn", "en-us", "ja-jp", "ko-kr")
 
 
 def _render_module():
-    spec = importlib.util.spec_from_file_location("limooo_email_render", EMAIL_DIR / "render.py")
+    spec = importlib.util.spec_from_file_location("comicine_email_render", EMAIL_DIR / "render.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

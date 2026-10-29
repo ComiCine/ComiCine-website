@@ -34,7 +34,7 @@ vi.mock("./d1", () => ({ queryAll: vi.fn() }));
 vi.mock("./logging", () => ({ logEvent: vi.fn() }));
 
 const env = { DB: {} } as never;
-const request = new Request("https://limooo.cn/");
+const request = new Request("https://comicine.com/");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -42,7 +42,7 @@ beforeEach(() => {
 
 describe("isBlocked", () => {
   it("ignores spoofed X-ComiCine-Client-* headers and shows the connecting IP", async () => {
-    const req = new Request("https://auth.limooo.cn/__gate/diag", {
+    const req = new Request("https://auth.comicine.com/__gate/diag", {
       headers: {
         "CF-Connecting-IP": "43.108.57.161",
         "X-ComiCine-Client-IP": "203.0.113.9",
@@ -54,7 +54,7 @@ describe("isBlocked", () => {
   });
 
   it("falls back to the connecting IP when no forwarded header is present", async () => {
-    const req = new Request("https://auth.limooo.cn/__gate/diag", {
+    const req = new Request("https://auth.comicine.com/__gate/diag", {
       headers: { "CF-Connecting-IP": "43.108.57.161", "X-ComiCine-Client-IP": "not-an-ip" },
     });
     const diag = handleGateDiag({ request: req } as RequestContext);
@@ -100,9 +100,9 @@ describe("handleVerify", () => {
   function verifyRequest(accept: string, token = "token"): Request {
     const form = new FormData();
     form.set("cf-turnstile-response", token);
-    form.set("host", "limooo.cn");
+    form.set("host", "comicine.com");
     form.set("next", "/services");
-    return new Request("https://limooo.cn/__gate/verify", {
+    return new Request("https://comicine.com/__gate/verify", {
       method: "POST",
       headers: { Accept: accept },
       body: form,
@@ -110,7 +110,7 @@ describe("handleVerify", () => {
   }
 
   it("issues the gate cookie to fetch clients without a redirect", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "limooo.cn" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
 
     const resp = await handleVerify(verifyContext(verifyRequest("application/json")));
 
@@ -128,12 +128,12 @@ describe("handleVerify", () => {
   });
 
   it("sends non-JavaScript form posts directly back to the requested host", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "limooo.cn" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
 
     const resp = await handleVerify(verifyContext(verifyRequest("text/html")));
 
     expect(resp.status).toBe(303);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/services");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/services");
     vi.unstubAllGlobals();
   });
 
@@ -142,7 +142,7 @@ describe("handleVerify", () => {
 // __gate cookie signed with an empty key when GATE_HMAC_KEY was missing. The
 // middleware runtimeConfigError currently catches this, but the fallback
 // entry point must enforce the check itself in case middleware routing is absent.
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "limooo.cn" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
     const resp = await handleVerify({
       request: verifyRequest("application/json"),
       env: { TURNSTILE_SECRET: "turnstile-secret" },
@@ -155,14 +155,14 @@ describe("handleVerify", () => {
   });
 
   it("passes CF-Connecting-IP to siteverify, ignoring spoofed forwarded headers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "limooo.cn" }));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" }));
     vi.stubGlobal("fetch", fetchMock);
 
     const form = new FormData();
     form.set("cf-turnstile-response", "token");
-    form.set("host", "limooo.cn");
+    form.set("host", "comicine.com");
     form.set("next", "/services");
-    const request = new Request("https://limooo.cn/__gate/verify", {
+    const request = new Request("https://comicine.com/__gate/verify", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -204,7 +204,7 @@ describe("handleVerify", () => {
   });
 
   it("accepts every host the contract manages", async () => {
-    for (const hostname of ["limooo.cn", "services.limooo.cn", "visitor.limooo.cn"]) {
+    for (const hostname of ["comicine.com", "services.comicine.com", "visitor.comicine.com"]) {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue(Response.json({ success: true, hostname, action: "gate" })),
@@ -219,7 +219,7 @@ describe("handleVerify", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        Response.json({ success: true, hostname: "limooo.cn", action: "newsletter" }),
+        Response.json({ success: true, hostname: "comicine.com", action: "newsletter" }),
       ),
     );
     const resp = await handleVerify(verifyContext(verifyRequest("application/json")));
@@ -323,7 +323,7 @@ describe("duplicate __gate names and issue-time cleanup", () => {
   });
 
   it("scopes legacy-host gate cookies to the legacy root", async () => {
-    await expect(mintGateCookie(KEY, "services.limooo.cn")).resolves.toContain("Domain=.limooo.cn");
+    await expect(mintGateCookie(KEY, "services.comicine.com")).resolves.toContain("Domain=.comicine.com");
   });
 
   it("validation returns a categorised failure reason for diagnostics", async () => {
@@ -673,14 +673,14 @@ describe("renderGatePage template cache", () => {
     };
   }
 
-  function render(env: never, url = "https://limooo.cn/services", cookie?: string) {
+  function render(env: never, url = "https://comicine.com/services", cookie?: string) {
     return renderGatePage(
       {
         request: new Request(url, cookie ? { headers: { Cookie: cookie } } : undefined),
         env,
         next: async () => new Response("next"),
       } as never,
-      { host: "limooo.cn", next: "/services" },
+      { host: "comicine.com", next: "/services" },
     );
   }
 
@@ -693,13 +693,13 @@ describe("renderGatePage template cache", () => {
     expect(calls[0]).toBe(`${BASE_URL}/en-us/auth.html`);
     const [a, b] = [await first.text(), await second.text()];
     expect(a).toBe(b);
-    expect(a).toContain("limooo.cn|/services|");
+    expect(a).toContain("comicine.com|/services|");
   });
 
   it("keeps one entry per language", async () => {
     const { env, calls } = assetsEnv();
-    await render(env, "https://limooo.cn/services", `${LANG_COOKIE}=zh-cn`);
-    await render(env, "https://limooo.cn/services", `${LANG_COOKIE}=ja-jp`);
+    await render(env, "https://comicine.com/services", `${LANG_COOKIE}=zh-cn`);
+    await render(env, "https://comicine.com/services", `${LANG_COOKIE}=ja-jp`);
 
     expect(calls).toEqual([`${BASE_URL}/zh-cn/auth.html`, `${BASE_URL}/ja-jp/auth.html`]);
   });
@@ -745,7 +745,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
 
   it("flags a declared crawler without marking the source trusted", async () => {
     const trust = await resolveGateTrust(
-      context(new Request("https://limooo.cn/", { headers: { "User-Agent": CRAWLER_UA } })),
+      context(new Request("https://comicine.com/", { headers: { "User-Agent": CRAWLER_UA } })),
     );
 
     expect(trust.declaredCrawler).toBe(true);
@@ -757,7 +757,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
 
   it("leaves an ordinary browser behind the gate", async () => {
     const trust = await resolveGateTrust(
-      context(new Request("https://limooo.cn/", { headers: { "User-Agent": BROWSER_UA } })),
+      context(new Request("https://comicine.com/", { headers: { "User-Agent": BROWSER_UA } })),
     );
 
     expect(trust.declaredCrawler).toBe(false);
@@ -767,7 +767,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
   it("skips the UA list for a whitelisted IP (trusted wins, no crawler token)", async () => {
     const trust = await resolveGateTrust(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: { "CF-Connecting-IP": "97.64.18.11", "User-Agent": CRAWLER_UA },
         }),
       ),
@@ -781,14 +781,14 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
   it("302s a crawler back to its target and mints no cookie", async () => {
     const resp = await handleGateEntry(
       context(
-        new Request("https://limooo.cn/gate?host=services.limooo.cn&next=%2F", {
+        new Request("https://comicine.com/gate?host=services.comicine.com&next=%2F", {
           headers: { "User-Agent": CRAWLER_UA },
         }),
       ),
     );
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://services.limooo.cn/");
+    expect(resp.headers.get("Location")).toBe("https://services.comicine.com/");
 // Only the language cookie is present; a self-reported user agent cannot obtain a signed session.
     expect(resp.headers.get("Set-Cookie") ?? "").not.toContain("__gate=");
   });
@@ -796,7 +796,7 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
   it("still mints the cookie for a whitelisted IP (unchanged behaviour)", async () => {
     const resp = await handleGateEntry(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2F", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2F", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
       ),

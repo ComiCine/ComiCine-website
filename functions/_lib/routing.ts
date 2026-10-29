@@ -105,7 +105,6 @@ export const SKIP_PATHS = new Set<string>([
   "/comicine.svg",
   "/comicine-xtext.svg",
   "/comicine-favicon.svg",
-  "/Limooo-xtext.svg",
   "/ComiCine-xtext.svg",
   "/favicon.svg",
 // Crawler and AI entry files (2026-10-12) are generated at the output root and
@@ -366,7 +365,6 @@ export function isPublicAssetPath(pathname: string): boolean {
     pathname === "/comicine.svg" ||
     pathname === "/comicine-xtext.svg" ||
     pathname === "/comicine-favicon.svg" ||
-    pathname === "/Limooo-xtext.svg" ||
     pathname === "/ComiCine-xtext.svg"
   );
 }

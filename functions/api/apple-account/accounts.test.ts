@@ -43,11 +43,11 @@ function context(request: Request) {
 }
 
 function appleAccountRequest(method: string, body?: unknown): Request {
-  return new Request("https://account.limooo.cn/api/apple-account/accounts", {
+  return new Request("https://account.comicine.com/api/apple-account/accounts", {
     method,
     headers: {
       "Content-Type": "application/json",
-      Origin: "https://account.limooo.cn",
+      Origin: "https://account.comicine.com",
       "X-CSRF-Token": "valid",
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -84,7 +84,7 @@ describe("apple account accounts API", () => {
     vi.mocked(queryAll).mockResolvedValueOnce([
       { id: 1, email: "a@apple.account.comicine.com", password: "cipher", notes: "", sort_order: 0 },
     ]);
-    const resp = await onRequestGet(context(new Request("https://account.limooo.cn/api/apple-account/accounts")) as never);
+    const resp = await onRequestGet(context(new Request("https://account.comicine.com/api/apple-account/accounts")) as never);
     const data = await resp.json();
     expect(resp.status).toBe(200);
     expect(data[0].password).toBe("·".repeat(12));

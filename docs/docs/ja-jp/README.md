@@ -273,16 +273,20 @@ Cloudflare API か Git 経由で実行されます。
 ### ドキュメントサイト（docs.comicine.com）
 
 `site/docs/` は**サブドメインごとのコンテナ**です：`docs/` には docs.comicine.com の
- VitePress ルート（1 ページ 1 言語につき 1 つの markdown ファイル）が入り、`services/` には
- services.comicine.com の価格表 CSV が入ります。言語コードは URL の**最後**のセグメントで、
-内容ページは常に明示的に付けます（`/README/zh-cn`、`/README/en-us`）。サフィックスなしの
-`/README` は `/README/zh-cn` へ 302 で転送されます。ドキュメントサイトのルート `/` は `https://comicine.com` へ 302 で転送されます。
+VitePress ルートが、`services/` には services.comicine.com の価格表 CSV が入ります。`docs/` 内の
+ソースは言語ごとに分類され、`zh-cn/`、`en-us/`、`ja-jp/`、`ko-kr/` がそれぞれ同じファイルツリー
+（`<lang>/<page>.md`）を持ち、共有の `.vitepress/`、`functions/`、`public/` ディレクトリと並びます。
+言語コードは URL の**最後**のセグメントで、内容ページは常に明示的に付けます（`/README/zh-cn`、
+`/README/en-us`）。サフィックスなしの `/README` はドキュメントサイトの Pages Function が
+メインサイトと同じ順序（言語 cookie、`Accept-Language`、Cloudflare の国情報、最後に契約の既定言語）で
+解決します。ドキュメントサイトのルート `/` は `https://comicine.com` へ 302 で転送されます。
 
-`.vitepress/rewrites.json`（コンテンツの隣）がソースをサフィックス付きルートにマッピングし、
-`.vitepress/config.mts` が `additionalConfig` を通じて各ページに固有の `lang` / `themeConfig` を与えます。
-ページを追加するには、各言語ディレクトリに markdown ファイルを 1 つ置き、
-rewrites のエントリと `public/_redirects` のサフィックスなしパス用 302 を 1 行足します —
-markdown ファイルに HTML が出力されないと `ops/docs_check_output.py` がビルドを失敗させます。
+`.vitepress/rewrites.json` が各 `<lang>/<page>.md` ソースをサフィックス付きルートにマッピングし、
+`.vitepress/config.mts` が `additionalConfig` を通じて各言語ディレクトリに固有の `lang` / `themeConfig` を与えます。
+ページを追加するには、4 つの言語ディレクトリすべてに作成し、rewrites のエントリを 4 つ追加し、
+サフィックスなしパス用に `functions/<page>.js` エントリと `_routes.json` の include を追加します。
+markdown ファイルに HTML が出力されない、言語ディレクトリの外にある、または翻訳が欠けている場合、
+`ops/docs_check_output.py` がビルドを失敗させます。
 
 サイトはフォーク `ComiCine/vitepress` の VitePress でビルドします。ヘッダーとフッターはフォーク側
 （`VPComiCineNav.vue` / `VPComiCineFooter.vue`）にあり、メインサイトの `base.html` / `_footer.html` を忠実に再現しています —

@@ -26,9 +26,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _configured_env(name: str, default: str | None = None) -> str | None:
-    """Read the ComiCine environment name, falling back to its former name for existing callers."""
-    legacy = "LIMOOO_" + name.removeprefix("COMICINE_")
-    return os.environ.get(name) or os.environ.get(legacy) or default
+    """Read a ComiCine environment variable, treating an empty value as unset."""
+    return os.environ.get(name) or default
 DATA_DIR = os.path.join(BASE_DIR, "data")
 SOURCE_DIR = os.path.join(BASE_DIR, "src")
 STATIC_DIR = os.path.join(SOURCE_DIR, "static")

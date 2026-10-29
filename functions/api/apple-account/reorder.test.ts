@@ -39,10 +39,10 @@ const env = { DB: db } as Env;
 
 function context(body: unknown) {
   return {
-    request: new Request("https://account.limooo.cn/api/apple-account/reorder", {
+    request: new Request("https://account.comicine.com/api/apple-account/reorder", {
       method: "PUT",
       headers: {
-        Origin: "https://account.limooo.cn",
+        Origin: "https://account.comicine.com",
         "X-CSRF-Token": "valid",
         "Content-Type": "application/json",
       },

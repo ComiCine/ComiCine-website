@@ -23,17 +23,9 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MIGRATIONS_DIR="$ROOT/ops/migrations"
 STATE_FILE="${D1_STATE_FILE:-$ROOT/.d1-migrations/applied}"
-LEGACY_STATE_FILE="/tmp/limooo-d1-schema-state"
 D1_DATABASE_NAME="${D1_DATABASE_NAME:-limooo}"
 # A saved wrangler --json payload makes --check-schema fully offline (for debugging and tests).
 SCHEMA_JSON_FILE="${COMICINE_D1_SCHEMA_JSON:-}"
@@ -104,14 +96,6 @@ if [ "$DRY_RUN" = 0 ] && [ "$REMOTE" = 0 ]; then
         echo "       to validate a saved sqlite_master payload without contacting D1" >&2
         exit 2
     fi
-fi
-
-# Migrate the legacy temporary state file to the persistent repository location. It is only an
-# offline plan cache and does not determine whether a migration was applied; D1 schema_version does.
-if [ -f "$LEGACY_STATE_FILE" ] && [ ! -f "$STATE_FILE" ]; then
-    mkdir -p "$(dirname "$STATE_FILE")"
-    cp "$LEGACY_STATE_FILE" "$STATE_FILE"
-    echo "[d1] migrated legacy plan cache to $STATE_FILE"
 fi
 
 MIGRATION_NAMES=()

@@ -80,7 +80,7 @@ const TABLE_ROWS: Record<string, Record<string, unknown>[]> = {
   ],
   apple_accounts: [{ id: 5, email: "a@example.test", password: "enc:v1:AAAA", notes: null, sort_order: 0, created_at: "2026-08-15 11:33:43", updated_at: "2026-08-15 11:33:43" }],
   auth_credentials: [{ email: "admin@example.test", sub: "sub-1", role: "admin", password_hash: "pbkdf2$1$aa$bb", failed_attempts: 0, locked_until: null, created_at: 1786000000, updated_at: 1786000000 }],
-  probes: [{ id: 1, name: "main", type: "http", target: "https://limooo.cn", group_key: "public", interval_s: 60, active: 1, created_at: 1786000000, label_key: null }],
+  probes: [{ id: 1, name: "main", type: "http", target: "https://comicine.com", group_key: "public", interval_s: 60, active: 1, created_at: 1786000000, label_key: null }],
   probe_state: [{ probe_id: 1, last_status: 1, consecutive_fail: 0, down_since: null, checked_at: 1791700000, last_alert_at: null }],
   retention_state: [{ name: "ray_log_v2", last_run_at: 1791700000, last_success_at: 1791700000, last_error: "" }],
   blocklist_audit: [{ id: 192, cidr: "198.51.100.7/32", network: "198.51.100.7", prefix: 32, action: "unblock", actor: "admin", reason: "", source: "manual", previous_reason: "gate flood", previous_source: "auto_block", previous_updated_at: "2026-10-02 01:02:03", created_at: "2026-10-05 04:05:06" }],

@@ -30,7 +30,7 @@ const HASH = "0123456789abcdef";
 
 function context(hash: string, env: Env) {
   return {
-    request: new Request(`https://visitor.limooo.cn/api/visitors/${hash}/ip`),
+    request: new Request(`https://visitor.comicine.com/api/visitors/${hash}/ip`),
     env,
     params: { hash },
     next: async () => new Response("next"),

@@ -272,16 +272,20 @@ Git을 거칩니다.
 ### 문서 사이트(docs.comicine.com)
 
 `site/docs/`는 **서브도메인별 컨테이너**입니다: `docs/`에는 docs.comicine.com
-VitePress 루트(언어별·페이지별 마크다운 파일 하나)가, `services/`에는
-services.comicine.com 가격표 CSV가 들어 있습니다. 언어 코드는 URL의 **마지막** 세그먼트이고,
-콘텐츠 페이지는 항상 명시적으로 붙입니다(`/README/zh-cn`, `/README/en-us`). 접미사 없는
-`/README`는 `/README/zh-cn`으로 302되며, docs 루트 `/`는 `https://comicine.com`으로 302됩니다.
+VitePress 루트가, `services/`에는 services.comicine.com 가격표 CSV가 들어 있습니다. `docs/` 안의
+소스는 언어별로 분류되어 `zh-cn/`, `en-us/`, `ja-jp/`, `ko-kr/`가 각각 같은 파일 트리
+(`<lang>/<page>.md`)를 가지며, 공용 `.vitepress/`, `functions/`, `public/` 디렉터리와 나란히 있습니다.
+언어 코드는 URL의 **마지막** 세그먼트이고, 콘텐츠 페이지는 항상 명시적으로 붙입니다
+(`/README/zh-cn`, `/README/en-us`). 접미사 없는 `/README`는 문서 사이트의 Pages Function이
+메인 사이트와 같은 순서(언어 쿠키, `Accept-Language`, Cloudflare 국가 정보, 마지막으로 계약 기본 언어)로
+결정하며, docs 루트 `/`는 `https://comicine.com`으로 302됩니다.
 
-`.vitepress/rewrites.json`(콘텐츠 옆에 있음)이 소스들을 접미사가 붙은 라우트로
-매핑하고, `.vitepress/config.mts`가 `additionalConfig`를 통해 각 페이지에 고유한
-`lang` / `themeConfig`를 부여합니다. 페이지를 추가하려면 각 언어 디렉터리에 마크다운 파일을 넣고 rewrites 항목과
-`public/_redirects`의 접미사 없는 경로용 302 한 줄을 더하면 됩니다 — 마크다운 파일에
-대응하는 HTML이 없으면 `ops/docs_check_output.py`가 빌드를 실패시킵니다.
+`.vitepress/rewrites.json`이 각 `<lang>/<page>.md` 소스를 접미사가 붙은 라우트로 매핑하고,
+`.vitepress/config.mts`가 `additionalConfig`를 통해 각 언어 디렉터리에 고유한 `lang` / `themeConfig`를
+부여합니다. 페이지를 추가하려면 네 언어 디렉터리 모두에 만들고, rewrites 항목 네 개를 추가하고,
+접미사 없는 경로용 `functions/<page>.js` 진입점과 `_routes.json` include를 추가합니다.
+마크다운 파일에 대응하는 HTML이 없거나, 언어 디렉터리 밖에 있거나, 번역이 빠져 있으면
+`ops/docs_check_output.py`가 빌드를 실패시킵니다.
 
 이 사이트는 포크 `ComiCine/vitepress`의 VitePress로 빌드합니다: 헤더와
 푸터는 포크(`VPComiCineNav.vue` / `VPComiCineFooter.vue`)에 있고 메인 사이트의

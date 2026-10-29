@@ -31,18 +31,18 @@ test("logicalPath strips the /static prefix (images.comicine.com style paths)", 
 
 test("bare domain redirects to the main site; asset paths do not", () => {
   assert.equal(
-    landingRedirect(new URL("https://image.limooo.cn/")),
+    landingRedirect(new URL("https://image.comicine.com/")),
     "https://comicine.com/",
   );
   assert.equal(
-    landingRedirect(new URL("https://image.limooo.cn/portfolio/a.webp")),
+    landingRedirect(new URL("https://image.comicine.com/portfolio/a.webp")),
     "",
   );
 });
 
 test("worker returns a permanent redirect for bare-domain requests", async () => {
   const response = await worker.fetch(
-    new Request("https://image.limooo.cn/"),
+    new Request("https://image.comicine.com/"),
     {},
     { waitUntil() {} },
   );
@@ -60,7 +60,7 @@ test("only top-level portfolio png/jpg/jpeg/webp get watermarked; thumbs do not"
 });
 
 test("portfolio root images always return the watermarked variant", () => {
-  const url = new URL("https://image.limooo.cn/portfolio/a.webp");
+  const url = new URL("https://image.comicine.com/portfolio/a.webp");
   const route = routeFor(url, { headers: new Headers() }, ORIGIN);
   assert.equal(route.watermarked, true);
   assert.ok(route.target.startsWith(`${ORIGIN}/static/wm/portfolio/a.webp`));
@@ -68,15 +68,15 @@ test("portfolio root images always return the watermarked variant", () => {
 });
 
 test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
-  const thumb = routeFor(new URL("https://image.limooo.cn/portfolio/thumbs/a.webp"), { headers: new Headers() }, ORIGIN);
+  const thumb = routeFor(new URL("https://image.comicine.com/portfolio/thumbs/a.webp"), { headers: new Headers() }, ORIGIN);
   assert.equal(thumb.watermarked, false);
   assert.equal(thumb.target, `${ORIGIN}/static/portfolio/thumbs/a.webp`);
 
-  const qr = routeFor(new URL("https://image.limooo.cn/qr-codes/a.png"), { headers: new Headers() }, ORIGIN);
+  const qr = routeFor(new URL("https://image.comicine.com/qr-codes/a.png"), { headers: new Headers() }, ORIGIN);
   assert.equal(qr.watermarked, false);
   assert.equal(qr.target, `${ORIGIN}/static/qr-codes/a.png`);
 
-  const icon = routeFor(new URL("https://image.limooo.cn/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
+  const icon = routeFor(new URL("https://image.comicine.com/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
   assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg?v=5`);
 
@@ -86,21 +86,13 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
   const canonicalFavicon = routeFor(new URL("https://image.comicine.com/icons/comicine-favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
 
-  const legacyIcon = routeFor(new URL("https://image.limooo.cn/icons/Limooo.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(legacyIcon.watermarked, false);
-  assert.equal(legacyIcon.target, `${ORIGIN}/static/icons/comicine.svg?v=5`);
-
-  const legacyWordmark = routeFor(new URL("https://image.limooo.cn/icons/Limooo-xtext.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(legacyWordmark.watermarked, false);
-  assert.equal(legacyWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=2`);
-
   const favicon = routeFor(new URL("https://image.comicine.com/icons/favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(favicon.watermarked, false);
   assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {
-  const thumb = routeFor(new URL("https://image.limooo.cn/portfolio/thumbs/a.avif"), { headers: new Headers() }, ORIGIN);
+  const thumb = routeFor(new URL("https://image.comicine.com/portfolio/thumbs/a.avif"), { headers: new Headers() }, ORIGIN);
   assert.equal(thumb.target, `${ORIGIN}/static/portfolio/thumbs/a.avif`);
   assert.equal(thumb.watermarked, false);
 
@@ -110,26 +102,26 @@ test("portfolio exposes only generated thumbs and watermarked top-level original
     "/portfolio/a.avif",
     "/portfolio/thumbs/album/a.webp",
   ]) {
-    const route = routeFor(new URL(`https://image.limooo.cn${path}`), { headers: new Headers() }, ORIGIN);
+    const route = routeFor(new URL(`https://image.comicine.com${path}`), { headers: new Headers() }, ORIGIN);
     assert.equal(route.target, "", `${path} must not be served as a clean original`);
   }
 });
 
 test("/static prefix is compatible: /static/portfolio/a.webp still watermarked", () => {
-  const route = routeFor(new URL("https://images.limooo.cn/static/portfolio/a.webp"), { headers: new Headers() }, ORIGIN);
+  const route = routeFor(new URL("https://images.comicine.com/static/portfolio/a.webp"), { headers: new Headers() }, ORIGIN);
   assert.equal(route.watermarked, true);
   assert.ok(route.target.startsWith(`${ORIGIN}/static/wm/portfolio/a.webp`));
 });
 
 test("never proxies /api/* or unknown paths", () => {
-  const api = routeFor(new URL("https://image.limooo.cn/api/secret?q=1"), { headers: new Headers() }, ORIGIN);
+  const api = routeFor(new URL("https://image.comicine.com/api/secret?q=1"), { headers: new Headers() }, ORIGIN);
   assert.equal(api.target, "");
   assert.equal(api.image, false);
 
-  const apiRoot = routeFor(new URL("https://image.limooo.cn/api"), { headers: new Headers() }, ORIGIN);
+  const apiRoot = routeFor(new URL("https://image.comicine.com/api"), { headers: new Headers() }, ORIGIN);
   assert.equal(apiRoot.target, "");
 
-  const unknown = routeFor(new URL("https://image.limooo.cn/random/thing"), { headers: new Headers() }, ORIGIN);
+  const unknown = routeFor(new URL("https://image.comicine.com/random/thing"), { headers: new Headers() }, ORIGIN);
   assert.equal(unknown.target, "");
 });
 
@@ -143,7 +135,7 @@ test("rejects non-GET/HEAD methods without contacting the origin", async () => {
   try {
     for (const path of ["/api/private", "/portfolio/a.webp"]) {
       const response = await worker.fetch(
-        new Request(`https://image.limooo.cn${path}`, { method: "POST" }),
+        new Request(`https://image.comicine.com${path}`, { method: "POST" }),
         {},
         { waitUntil() {} },
       );
@@ -164,7 +156,7 @@ test("watermark origin URL hits /static/wm/ with a version param", () => {
 
 test("brand aliases use current SVG versions and preserve non-version query params", () => {
   const route = routeFor(
-    new URL("https://image.comicine.com/icons/Limooo-xtext.svg?lang=zh-cn&v=1"),
+    new URL("https://image.comicine.com/icons/ComiCine-xtext.svg?lang=zh-cn&v=1"),
     { headers: new Headers() },
     ORIGIN,
   );

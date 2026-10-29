@@ -57,8 +57,6 @@ const BRAND_ICON_ALIASES = new Map([
   ["/icons/comicine.svg", "/static/icons/comicine.svg"],
   ["/icons/comicine-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/comicine-favicon.svg", "/static/icons/comicine-favicon.svg"],
-  ["/icons/Limooo.svg", "/static/icons/comicine.svg"],
-  ["/icons/Limooo-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/ComiCine.svg", "/static/icons/comicine.svg"],
   ["/icons/ComiCine-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/favicon.svg", "/static/icons/comicine-favicon.svg"],
@@ -159,13 +157,11 @@ export function routeFor(url, request, origin) {
 
 /** Build the client response. Under A2, responses do not vary by Referer, so omit `Vary: Referer`. */
 function clientResponse(store, watermarked) {
-  // Keep the legacy header for clients that still check it while publishing the ComiCine header.
   const headers = new Headers({
     "Content-Type": store.headers.get("Content-Type") || "application/octet-stream",
     "Cache-Control": CLIENT_CACHE,
     "Access-Control-Allow-Origin": "*",
     "X-ComiCine-Watermark": watermarked ? "1" : "0",
-    "X-Limooo-Watermark": watermarked ? "1" : "0",
   });
   const etag = store.headers.get("ETag");
   if (etag) headers.set("ETag", etag);
@@ -179,7 +175,7 @@ async function headResponse(request, origin) {
   if (!route.target) {
     return new Response(null, {
       status: 404,
-      headers: { "X-ComiCine-Watermark": "0", "X-Limooo-Watermark": "0" },
+      headers: { "X-ComiCine-Watermark": "0" },
     });
   }
   const resp = await fetch(route.target, { method: "HEAD" });
@@ -187,7 +183,6 @@ async function headResponse(request, origin) {
     "Content-Type": resp.headers.get("Content-Type") || "application/octet-stream",
     "Cache-Control": CLIENT_CACHE,
     "X-ComiCine-Watermark": route.watermarked ? "1" : "0",
-    "X-Limooo-Watermark": route.watermarked ? "1" : "0",
   });
   return new Response(null, { status: resp.status, headers });
 }

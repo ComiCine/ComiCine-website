@@ -23,7 +23,7 @@ const env = { SESSION_HMAC_KEY: "test-session" } as Env;
 
 function context() {
   return {
-    request: new Request("https://account.limooo.cn/api/auth/status"),
+    request: new Request("https://account.comicine.com/api/auth/status"),
     env,
     params: {},
     next: async () => new Response("next"),
@@ -61,7 +61,7 @@ describe("auth status", () => {
     expect(data.role).toBe("admin");
     expect(typeof data.csrf_token).toBe("string");
     expect(resp.headers.get("X-CSRF-Token")).toBe(data.csrf_token);
-    expect(resp.headers.get("Set-Cookie")).toContain("limooo_csrf=");
+    expect(resp.headers.get("Set-Cookie")).toContain("comicine_csrf=");
     expect(resp.headers.get("Set-Cookie")).not.toContain("HttpOnly");
   });
 });

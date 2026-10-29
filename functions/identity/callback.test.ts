@@ -33,10 +33,9 @@ const STATE = "S".repeat(43);
 const CODE = "C".repeat(43);
 const OTHER_STATE = "O".repeat(43);
 const STATE_COOKIE_PREFIX = "comicine_identity_state_";
-const LEGACY_STATE_COOKIE_PREFIX = "limooo_identity_state_";
 
 function callbackRequest(
-  host = "account.limooo.cn",
+  host = "account.comicine.com",
   state = STATE,
   cookie = `${STATE_COOKIE_PREFIX}${state}=${state}`,
 ) {
@@ -56,10 +55,10 @@ describe("GET /identity/callback", () => {
     vi.clearAllMocks();
     sessionMocks.runtimeConfigError.mockReturnValue(null);
     sessionMocks.createAuthSession.mockResolvedValue(true);
-    sessionMocks.createSessionCookie.mockResolvedValue("limooo_session_v3=session-token");
+    sessionMocks.createSessionCookie.mockResolvedValue("comicine_session=session-token");
     sessionMocks.randomToken.mockReturnValue("local-session-id");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      sourceHost: "account.limooo.cn",
+      sourceHost: "account.comicine.com",
       targetPath: "/apple",
       sub: "access:user-1",
       email: "admin@example.com",
@@ -73,7 +72,7 @@ describe("GET /identity/callback", () => {
     const response = await onRequestGet(context(callbackRequest(), env) as never);
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe("https://account.limooo.cn/apple");
+    expect(response.headers.get("Location")).toBe("https://account.comicine.com/apple");
     expect(sessionMocks.createAuthSession).toHaveBeenCalledWith(env, expect.objectContaining({
       sub: "access:user-1",
       role: "admin",
@@ -83,7 +82,7 @@ describe("GET /identity/callback", () => {
 
   it("clears only the matching state cookie when multiple login flows are open", async () => {
     const request = callbackRequest(
-      "account.limooo.cn",
+      "account.comicine.com",
       STATE,
       `${STATE_COOKIE_PREFIX}${STATE}=${STATE}; ${STATE_COOKIE_PREFIX}${OTHER_STATE}=${OTHER_STATE}`,
     );
@@ -96,33 +95,9 @@ describe("GET /identity/callback", () => {
     expect(response.headers.get("Set-Cookie")).not.toContain(OTHER_STATE);
   });
 
-  it("accepts a still-valid legacy state cookie during deployment rollout", async () => {
-    const request = callbackRequest("account.limooo.cn", STATE, `limooo_identity_state=${STATE}`);
-    const response = await onRequestGet(
-      context(request, { SESSION_HMAC_KEY: "session-key" } as Env) as never,
-    );
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get("Set-Cookie")).toContain(`limooo_identity_state=`);
-  });
-
-  it("accepts a still-valid prefixed legacy state cookie during deployment rollout", async () => {
-    const request = callbackRequest(
-      "account.limooo.cn",
-      STATE,
-      `${LEGACY_STATE_COOKIE_PREFIX}${STATE}=${STATE}`,
-    );
-    const response = await onRequestGet(
-      context(request, { SESSION_HMAC_KEY: "session-key" } as Env) as never,
-    );
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get("Set-Cookie")).toContain(`${LEGACY_STATE_COOKIE_PREFIX}${STATE}=`);
-  });
-
   it("rejects a callback whose state belongs to another open login flow", async () => {
     const request = callbackRequest(
-      "account.limooo.cn",
+      "account.comicine.com",
       STATE,
       `${STATE_COOKIE_PREFIX}${OTHER_STATE}=${OTHER_STATE}`,
     );
@@ -137,7 +112,7 @@ describe("GET /identity/callback", () => {
 
   it("rejects callbacks from hosts not registered in the source contract", async () => {
     const response = await onRequestGet(
-      context(callbackRequest("unknown.limooo.cn"), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+      context(callbackRequest("unknown.comicine.com"), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
     );
 
     expect(response.status).toBe(404);

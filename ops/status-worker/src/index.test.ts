@@ -178,7 +178,7 @@ describe("statusPayload", () => {
             id: 2,
             name: "Admin",
             type: "http",
-            target: "https://admin.limooo.cn/_health",
+            target: "https://admin.comicine.com/_health",
             group_key: "internal",
             active: 1,
             status: 0,

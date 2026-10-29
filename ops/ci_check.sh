@@ -51,13 +51,6 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
@@ -120,7 +113,7 @@ fi
 
 # Prefer an existing external build venv, then fall back to python3.
 if [ -z "${PYTHON_BIN:-}" ]; then
-    for candidate in /tmp/limooo-venv312/bin/python /tmp/limooo-venv/bin/python; do
+    for candidate in /tmp/comicine-venv312/bin/python /tmp/comicine-venv/bin/python; do
         if [ -x "$candidate" ]; then
             PYTHON_BIN="$candidate"
             break
@@ -213,7 +206,7 @@ fi
 # Keep these patterns in sync with the sensitive-file section of the repository's .gitignore.
 SENSITIVE_PATTERNS=(
     'secrets/*' '.dev.vars' '*.db' '*.db-shm' '*.db-wal' '*.pem' '*.key'
-    'ops/out/*' 'ops/backups/*' 'backup-limooo-*' 'backup-comicine-*' '各种密钥.txt' '*.mmdb'
+    'ops/out/*' 'ops/backups/*' 'backup-comicine-*' '各种密钥.txt' '*.mmdb'
 )
 
 sensitive_paths() {

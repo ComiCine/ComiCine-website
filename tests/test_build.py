@@ -107,7 +107,7 @@ def test_contact_prerenders_all_qr_images():
     assert html.count('(hover: hover) and (pointer: fine)') == 5
 
 
-def test_contact_survey_block_uses_limooo_shortlink_and_qr():
+def test_contact_survey_block_uses_comicine_shortlink_and_qr():
     """The survey block uses the comicine.com short link and the current language's QR code in all four locales."""
     for lang in ("zh-cn", "en-us", "ja-jp", "ko-kr"):
         html = build.render_page(RENDER_APP, "contact.html", "/contact", lang)
@@ -215,7 +215,6 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
         "comicine-xtext.svg": "comicine-xtext.svg",
         "comicine-favicon.svg": "comicine-favicon.svg",
         "favicon.svg": "comicine-favicon.svg",
-        "Limooo-xtext.svg": "comicine-xtext.svg",
         "ComiCine-xtext.svg": "comicine-xtext.svg",
     }
     for public_name, source_name in expected.items():

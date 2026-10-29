@@ -100,13 +100,6 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ACTIVE_LOG=""
 ACTIVE_TMP_INDEX=""
 
@@ -322,7 +315,7 @@ echo "Deploy: start"
 ensure_tooling() {
     [ "${COMICINE_SKIP_TOOL_BOOTSTRAP:-0}" = 1 ] && return 0
 
-    local venv="${COMICINE_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
+    local venv="${COMICINE_VENV_PYTHON:-/tmp/comicine-venv/bin/python}"
     if [ ! -x "$venv" ]; then
         echo "Tools: recreating the build venv at $(dirname "$(dirname "$venv")")"
         python3 -m venv "$(dirname "$(dirname "$venv")")" >/dev/null 2>&1 || true
@@ -458,7 +451,7 @@ dirty_tree_gate() {
         echo "Warning: not a git work tree; cannot verify that release artifacts match a commit" >&2
         return 0
     fi
-    dirty_paths="$(git status --porcelain -- . ':!limooo.cn.png')"
+    dirty_paths="$(git status --porcelain -- .)"
     if [ -z "$dirty_paths" ]; then
         return 0
     fi
@@ -512,8 +505,8 @@ fi
 # final here. Run git add -A, then take a working-tree snapshot for comparison in Stage 0c.
 STAGED_TREE_BEFORE=""
 if [ "$DO_COMMIT" = 1 ] && [ "$IN_GIT_TREE" = 1 ]; then
-    show_cmd git add -A -- . ':!limooo.cn.png'
-    git add -A -- . ':!limooo.cn.png'
+    show_cmd git add -A -- .
+    git add -A -- .
     worktree_snapshot
     STAGED_TREE_BEFORE="$WORKTREE_SNAPSHOT"
 fi

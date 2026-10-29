@@ -32,7 +32,7 @@ describe("logging privacy", () => {
   it("hashes the connecting IP, never a client-supplied X-ComiCine-Client-IP", async () => {
     const env = { OBSERVABILITY_HMAC_KEY: "obs" } as unknown as Env;
     const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const request = new Request("https://limooo.cn/", {
+    const request = new Request("https://comicine.com/", {
       headers: {
         "CF-Connecting-IP": "43.108.57.161",
         "X-ComiCine-Client-IP": "1.2.3.4",
@@ -107,7 +107,7 @@ describe("event schema bootstrap", () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const { db, preparedSql, batches } = fakeDb({ fail: true });
     const env = { DB: db, OBSERVABILITY_HMAC_KEY: "obs" } as unknown as Env;
-    const request = new Request("https://limooo.cn/");
+    const request = new Request("https://comicine.com/");
 
     for (let i = 0; i < 5; i++) await mod.logEvent(env, "gate_entry", request, {});
     consoleSpy.mockRestore();
@@ -128,7 +128,7 @@ describe("event schema bootstrap", () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const { db, batches } = fakeDb();
     const env = { DB: db } as unknown as Env;
-    const request = new Request("https://limooo.cn/");
+    const request = new Request("https://comicine.com/");
 
     for (let i = 0; i < 3; i++) await mod.logEvent(env, "gate_entry", request, {});
     consoleSpy.mockRestore();
@@ -141,7 +141,7 @@ describe("event schema bootstrap", () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const { db, batches } = fakeDb({ fail: true });
     const env = { DB: db } as unknown as Env;
-    const request = new Request("https://limooo.cn/");
+    const request = new Request("https://comicine.com/");
 
     await mod.logEvent(env, "gate_entry", request, {});
     expect(batches).toHaveLength(1);
@@ -161,7 +161,7 @@ describe("event schema bootstrap", () => {
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const { db, preparedSql, batches } = fakeDb({ batch: false, fail: true });
     const env = { DB: db } as unknown as Env;
-    const request = new Request("https://limooo.cn/");
+    const request = new Request("https://comicine.com/");
 
     await mod.logEvent(env, "gate_entry", request, {});
     consoleSpy.mockRestore();

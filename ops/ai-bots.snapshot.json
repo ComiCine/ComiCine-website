@@ -1,13 +1,13 @@
 {
-  "captured_at": "2026-10-11T21:15:04.393942+00:00",
+  "captured_at": "2026-10-29T12:32:58.448831+00:00",
   "config": {
     "ai_bots_migration_opt_out": false,
     "ai_bots_protection": "disabled",
     "ai_search": "disabled",
     "ai_training": "disabled",
     "ai_user": "disabled",
-    "bot_preference_sync_enabled": false,
-    "cf_robots_variant": "off",
+    "bot_preference_sync_enabled": true,
+    "cf_robots_variant": "policy_only",
     "content_bots_protection": "disabled",
     "crawler_protection": "disabled",
     "enable_js": false,
@@ -15,6 +15,6 @@
     "is_robots_txt_managed": false,
     "using_latest_model": true
   },
-  "zone": "limooo.cn",
-  "zone_id": "9fae48942c655fd03a4a483b4866c1c3"
+  "zone": "comicine.com",
+  "zone_id": "d22337c1b3100ec5e02e916c9f07b956"
 }

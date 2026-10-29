@@ -393,7 +393,7 @@ export default {
     const dryRun = url.searchParams.get("dry-run") === "1";
     try {
       const result = await runSync(env, { dryRun });
-      // Preserve the existing `ok:true + toAdd/toRemove` shape used by .zshrc's _limooo_sync_cf
+      // Preserve the existing `ok:true + toAdd/toRemove` shape used by .zshrc's _comicine_sync_cf
       // and other callers; add new fields only.
       return Response.json({
         ok: true,

@@ -146,7 +146,6 @@ export function shouldTrackVisit(request: Request, url: URL): boolean {
     p === "/comicine.svg" ||
     p === "/comicine-xtext.svg" ||
     p === "/comicine-favicon.svg" ||
-    p === "/Limooo-xtext.svg" ||
     p === "/ComiCine-xtext.svg"
   ) {
     return false;
@@ -215,7 +214,6 @@ export function shouldTrackRay(request: Request, url: URL): boolean {
     p === "/comicine.svg" ||
     p === "/comicine-xtext.svg" ||
     p === "/comicine-favicon.svg" ||
-    p === "/Limooo-xtext.svg" ||
     p === "/ComiCine-xtext.svg"
   ) return false;
   if (/\.(png|webp|jpg|jpeg|gif|ico|svg|css|js|json|webmanifest|txt|xml)$/i.test(p)) return false;

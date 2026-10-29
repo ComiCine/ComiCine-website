@@ -43,7 +43,6 @@ from pathlib import Path
 
 ROOT = Path(
     os.environ.get("COMICINE_ROOT")
-    or os.environ.get("LIMOOO_ROOT")
     or Path(__file__).resolve().parents[1]
 )
 sys.path.insert(0, str(ROOT))
@@ -82,9 +81,9 @@ def decrypt_ip(token: str, key: str) -> str:
     except ImportError as exc:  # pragma: no cover - Depends on the Python interpreter.
         raise RuntimeError(
             "this interpreter lacks cryptography, cannot decrypt ip_enc.\n"
-            "  use an interpreter that has it: /tmp/limooo-venv/bin/python "
+            "  use an interpreter that has it: /tmp/comicine-venv/bin/python "
             f"{Path(__file__).name} <ID>\n"
-            "  (recreate: python3 -m venv /tmp/limooo-venv && "
+            "  (recreate: python3 -m venv /tmp/comicine-venv && "
             "/tmp/comicine-venv/bin/pip install -r ops/requirements.txt)"
         ) from exc
     return Fernet(key.encode("ascii")).decrypt(token.encode("ascii")).decode("utf-8")

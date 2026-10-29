@@ -8,9 +8,10 @@
 /**
  * VitePress configuration for docs.comicine.com.
  *
- * Source pages live in site/docs/docs/ and its language directories. Rewrites
- * place zh-cn, en-us, ja-jp, or ko-kr at the end of every content URL. Every
- * content page has all four localized source files.
+ * Source pages are grouped by language: site/docs/docs/<lang>/ for zh-cn,
+ * en-us, ja-jp, and ko-kr, each holding the same relative file tree. Rewrites
+ * place the language code at the end of every content URL. Every content page
+ * has all four localized source files.
  *
  * Language-less entry URLs are resolved by Pages Functions using the main
  * site's preference order: cookie, Accept-Language, Cloudflare country
@@ -94,6 +95,8 @@ interface Labels {
   sidebarSecurity: string
   sidebarSecurityPolicy: string
   sidebarSecurityAcknowledgments: string
+  sidebarArticles: string
+  sidebarArticleUkMajors: string
   notFoundTitle: string
   notFoundQuote: string
   notFoundLinkLabel: string
@@ -125,6 +128,8 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: '安全',
     sidebarSecurityPolicy: '安全漏洞披露政策',
     sidebarSecurityAcknowledgments: '安全致谢',
+    sidebarArticles: '文章',
+    sidebarArticleUkMajors: '英国本科五个申请专业深度解析',
     notFoundTitle: '页面未找到',
     notFoundQuote: '如果不改变方向并继续寻找，你最终可能会到达自己正前往的地方。',
     notFoundLinkLabel: '返回 ComiCine 主站',
@@ -154,6 +159,8 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: 'Security',
     sidebarSecurityPolicy: 'Security Vulnerability Disclosure Policy',
     sidebarSecurityAcknowledgments: 'Security Acknowledgments',
+    sidebarArticles: 'Articles',
+    sidebarArticleUkMajors: 'An In-Depth Look at Five UK Undergraduate Programmes',
     notFoundTitle: 'PAGE NOT FOUND',
     notFoundQuote: "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
     notFoundLinkLabel: 'Go to the ComiCine main site',
@@ -183,6 +190,8 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: 'セキュリティ',
     sidebarSecurityPolicy: 'セキュリティ脆弱性の報告ポリシー',
     sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
+    sidebarArticles: '記事',
+    sidebarArticleUkMajors: '英国学部課程・5つの出願専攻の徹底解説',
     notFoundTitle: 'ページが見つかりません',
     notFoundQuote: '進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
@@ -212,6 +221,8 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: '보안',
     sidebarSecurityPolicy: '보안 취약점 공개 정책',
     sidebarSecurityAcknowledgments: '보안 감사의 글',
+    sidebarArticles: '아티클',
+    sidebarArticleUkMajors: '영국 학부 지원 전공 5개 심층 분석',
     notFoundTitle: '페이지를 찾을 수 없습니다',
     notFoundQuote: '방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
@@ -239,6 +250,7 @@ function themeFor(code: string): DefaultTheme.Config {
   const license = contentPath('/LICENSE', code)
   const securityPolicy = contentPath('/security/policy', code)
   const securityAcknowledgments = contentPath('/security/acknowledgments', code)
+  const articleUkMajors = contentPath('/articles/uk-undergraduate-majors', code)
   return {
     // 页头/页脚由 fork 的 ComiCine 组件渲染（与主站 base.html 一致）
     // 页头展示主站的三个相同入口，文档自己的导航在侧栏
@@ -263,6 +275,12 @@ function themeFor(code: string): DefaultTheme.Config {
         items: [
           { text: L.sidebarSecurityPolicy, link: securityPolicy },
           { text: L.sidebarSecurityAcknowledgments, link: securityAcknowledgments }
+        ]
+      },
+      {
+        text: L.sidebarArticles,
+        items: [
+          { text: L.sidebarArticleUkMajors, link: articleUkMajors }
         ]
       }
     ],
@@ -307,7 +325,7 @@ function localeConfigFor(code: string) {
 }
 
 /**
- * 源文件放各自的语言目录（en-us/index.md），用 rewrites 把路由改成
+ * 源文件放各自的语言目录（zh-cn/index.md、en-us/index.md），用 rewrites 把路由改成
  * 「语言码在最后一段」（/en-us、/video-platform/en-us）。
  * 不用 additionalConfig 的函数形式：函数会被序列化进客户端而丢掉闭包。
  * 映射表同时被 ops/docs_deploy.sh 的产物校验读取，保持单一事实源。
@@ -384,7 +402,7 @@ export default defineConfig({
       }
     ],
     ['link', { rel: 'stylesheet', href: '/fonts.css' }],
-    // 必须在 VitePress 的 check-dark-mode 之前执行：把主站 limooo_theme cookie
+    // 必须在 VitePress 的 check-dark-mode 之前执行：把主站 comicine_theme cookie
     // 灌进 localStorage，避免与主站深浅模式不一致造成的首屏闪烁。
     ['script', { id: 'comicine-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
   ],
@@ -426,7 +444,7 @@ export default defineConfig({
   themeConfig: themeFor(VITEPRESS_ROOT_LANG),
   // 按**源目录**给页面套上对应语言的 lang + themeConfig（纯数据，可序列化）
   additionalConfig: {
-    '/': localeConfigFor('zh-cn'),
+    '/zh-cn/': localeConfigFor('zh-cn'),
     '/en-us/': localeConfigFor('en-us'),
     '/ja-jp/': localeConfigFor('ja-jp'),
     '/ko-kr/': localeConfigFor('ko-kr')

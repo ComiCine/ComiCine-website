@@ -18,7 +18,7 @@
     var afterText;
 
     function translatedMessage(seconds) {
-        var translate = window.comicineTranslate || window.limoooTranslate;
+        var translate = window.comicineTranslate;
         if (typeof translate !== 'function') return null;
         return translate('not_found_redirect', { seconds: seconds });
     }

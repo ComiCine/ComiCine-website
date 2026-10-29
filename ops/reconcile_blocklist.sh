@@ -29,13 +29,6 @@
 
 set -uo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 
@@ -43,7 +36,7 @@ cd "$ROOT" || exit 1
 # build venv, then whatever `python3` resolves to.
 candidates=(
     "${COMICINE_PYTHON:-}"
-    "${COMICINE_VENV_PYTHON:-/tmp/limooo-venv312/bin/python}"
+    "${COMICINE_VENV_PYTHON:-/tmp/comicine-venv312/bin/python}"
     "/opt/homebrew/bin/python3"
     "$(command -v python3 2>/dev/null || true)"
 )

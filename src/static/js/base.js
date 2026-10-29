@@ -18,17 +18,10 @@ var ROOT_DOMAIN = bodyAttr('data-root-domain', 'comicine.com');
 var LANG_COOKIE = bodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = bodyAttr('data-lang-cookie-max-age', '31536000');
 var THEME_COOKIE = bodyAttr('data-theme-cookie', 'comicine_theme');
-/* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
-var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = bodyAttr('data-theme-cookie-max-age', '31536000');
-var LEGACY_ROOT_DOMAINS = ['limooo.cn'];
 function rootDomainForHost(host) {
-    var domains = [ROOT_DOMAIN].concat(LEGACY_ROOT_DOMAINS);
     host = String(host || '').toLowerCase();
-    for (var i = 0; i < domains.length; i++) {
-        if (host === domains[i] || host.endsWith('.' + domains[i])) return domains[i];
-    }
-    return null;
+    return host === ROOT_DOMAIN || host.endsWith('.' + ROOT_DOMAIN) ? ROOT_DOMAIN : null;
 }
 function isProductionDomain(host) {
     return rootDomainForHost(host) !== null;
@@ -96,9 +89,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /* Use the localStorage theme when present; otherwise follow the system, as in VitePress. */
     function themeCookieValue() {
         var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
-        if (!match && LEGACY_THEME_COOKIE !== THEME_COOKIE) {
-            match = document.cookie.match(new RegExp('(?:^|;\\s*)' + LEGACY_THEME_COOKIE + '=(light|dark)'));
-        }
         return match ? match[1] : null;
     }
 
@@ -114,10 +104,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         var secure = location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
             + '; SameSite=Lax' + secure + sharedCookieDomain();
-        if (LEGACY_THEME_COOKIE !== THEME_COOKIE) {
-            document.cookie = LEGACY_THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
-                + '; SameSite=Lax' + secure + sharedCookieDomain();
-        }
     }
 
     /* Detect rapid toggles: more than three in one second sends the user to the gate page.
@@ -187,8 +173,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         return s;
     }
     window.comicineTranslate = t;
-    // Keep the old global as an alias for cached pages and third-party embeds.
-    window.limoooTranslate = t;
 
     /* Fetch a language dictionary, or call back immediately if it is cached. */
     function fetchI18n(lang, cb) {
@@ -328,9 +312,9 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /* Identify the current home page by subdomain in production and by path in local development. */
     function currentPageKey() {
         var h = location.hostname;
-        if (h === ROOT_DOMAIN || h === 'www.' + ROOT_DOMAIN || h === 'limooo.cn' || h === 'www.limooo.cn') return '/';
-        if (h === 'services.' + ROOT_DOMAIN || h === 'services.limooo.cn') return '/services';
-        if (h === 'contact.' + ROOT_DOMAIN || h === 'contact.limooo.cn') return '/contact';
+        if (h === ROOT_DOMAIN || h === 'www.' + ROOT_DOMAIN) return '/';
+        if (h === 'services.' + ROOT_DOMAIN) return '/services';
+        if (h === 'contact.' + ROOT_DOMAIN) return '/contact';
         if (rootDomainForHost(h)) return null;   /* Do not prefetch admin or Apple Account pages. */
         return location.pathname;                    /* Local paths: '/', '/services', or '/contact'. */
     }

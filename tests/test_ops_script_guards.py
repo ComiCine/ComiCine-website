@@ -31,7 +31,6 @@ BASH = "/bin/bash"
 DEPLOY = ROOT / "ops" / "deploy.sh"
 WORKERS_DEPLOY = ROOT / "ops" / "workers_deploy.sh"
 MIGRATE = ROOT / "ops" / "migrate_d1.sh"
-ENV_COMPAT = ROOT / "ops" / "env_compat.sh"
 MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 
 
@@ -42,32 +41,6 @@ MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 # tries to create a venv and install wrangler in a temporary repository. It has no requirements.lock, so it fails,
 # making the whole test fail spuriously. Disable bootstrap by default; tests for bootstrap can enable it explicitly.
 _GUARD_ENV = {"COMICINE_SKIP_TOOL_BOOTSTRAP": "1"}
-
-
-def test_legacy_operational_environment_name_maps_to_comicine() -> None:
-    env = dict(os.environ)
-    env.pop("COMICINE_TEST_ALIAS", None)
-    env["LIMOOO_TEST_ALIAS"] = "legacy-value"
-    result = subprocess.run(
-        [BASH, "-c", 'source "$1"; [[ "$COMICINE_TEST_ALIAS" == "legacy-value" ]]', "bash", str(ENV_COMPAT)],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def test_comicine_operational_environment_name_mirrors_legacy_alias() -> None:
-    env = dict(os.environ)
-    env.pop("LIMOOO_TEST_ALIAS", None)
-    env["COMICINE_TEST_ALIAS"] = "current-value"
-    result = subprocess.run(
-        [BASH, "-c", 'source "$1"; [[ "$LIMOOO_TEST_ALIAS" == "current-value" ]]', "bash", str(ENV_COMPAT)],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture(scope="session")
@@ -130,7 +103,6 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
     repo = tmp_path / "repo"
     (repo / "ops").mkdir(parents=True)
     shutil.copy2(DEPLOY, repo / "ops" / "deploy.sh")
-    shutil.copy2(ENV_COMPAT, repo / "ops" / "env_compat.sh")
     for name, body in (
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),

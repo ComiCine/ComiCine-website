@@ -102,7 +102,7 @@ describe("visitors API", () => {
       ]);
 
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
     const data = await resp.json();
 
@@ -149,7 +149,7 @@ describe("visitors API", () => {
         ])
         .mockResolvedValueOnce(order);
       const resp = await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors")) as never,
       );
       const data = await resp.json();
       markers.push(data.markers[0]);
@@ -196,7 +196,7 @@ describe("visitors API", () => {
         .mockResolvedValueOnce(singleRowMarkers);
 
       const first = await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors")) as never,
       );
       expect(first.status).toBe(200);
       expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
@@ -207,7 +207,7 @@ describe("visitors API", () => {
       );
 
       const second = await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors")) as never,
       );
       const data = await second.json();
       expect(second.headers.get("Cache-Control")).toBe("private, no-store");
@@ -225,10 +225,10 @@ describe("visitors API", () => {
         .mockResolvedValue(singleRowMarkers);
 
       await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors?status=200")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors?status=200")) as never,
       );
       await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors?status=404")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors?status=404")) as never,
       );
       expect(puts).toHaveLength(2);
       expect(puts[0]).not.toBe(puts[1]);
@@ -240,7 +240,7 @@ describe("visitors API", () => {
       vi.stubGlobal("caches", { default: cache });
       vi.mocked(requireAuth).mockResolvedValue(null as never);
       const resp = await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors")) as never,
       );
       expect(resp.status).toBe(401);
       expect(puts).toHaveLength(0);
@@ -253,7 +253,7 @@ describe("visitors API", () => {
         .mockResolvedValueOnce(singleRowStats)
         .mockResolvedValueOnce(singleRowMarkers);
       const resp = await onRequestGet(
-        context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+        context(new Request("https://visitor.comicine.com/api/visitors")) as never,
       );
       expect(resp.status).toBe(200);
       vi.unstubAllGlobals();
@@ -277,7 +277,7 @@ describe("visitors API", () => {
       ]);
 
     await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors?status=404")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors?status=404")) as never,
     );
 
     const markerSql = vi.mocked(queryAll).mock.calls[1][1] as string;
@@ -290,7 +290,7 @@ describe("visitors API", () => {
 
   it("returns 400 for an invalid status param without querying D1", async () => {
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors?status=all")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors?status=all")) as never,
     );
     expect(resp.status).toBe(400);
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
@@ -302,7 +302,7 @@ describe("visitors API", () => {
       .mockResolvedValueOnce([]);
 
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
     const data = await resp.json();
 
@@ -314,7 +314,7 @@ describe("visitors API", () => {
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(requireAuth).mockResolvedValue(null);
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
     expect(resp.status).toBe(401);
   });
@@ -322,7 +322,7 @@ describe("visitors API", () => {
   it("returns 403 for non-admin sessions", async () => {
     vi.mocked(requireAuth).mockResolvedValue({ role: "viewer" } as never);
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
     expect(resp.status).toBe(403);
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
@@ -332,7 +332,7 @@ describe("visitors API", () => {
   it("returns 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestGet(
-      context(new Request("https://visitor.limooo.cn/api/visitors")) as never,
+      context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
     expect(resp.status).toBe(503);
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();

@@ -35,7 +35,7 @@ const MAX_LOG_MESSAGE_LENGTH = 500;
 
 const SENSITIVE_KEY_RE = /(password|passwd|token|secret|authorization|api[_-]?key|access[_-]?key|cookie|session)/i;
 const SENSITIVE_ASSIGNMENT_RE =
-  /(password|passwd|token|secret|authorization|api[_-]?key|access[_-]?key|cookie|session|__gate|limooo_session|limooo_pending)\s*=\s*[^&\s,;]+/gi;
+  /(password|passwd|token|secret|authorization|api[_-]?key|access[_-]?key|cookie|session|__gate|comicine_session|comicine_pending)\s*=\s*[^&\s,;]+/gi;
 const BEARER_RE = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const QUERY_STRING_RE = /\?[^\s"'<>]+/g;
 

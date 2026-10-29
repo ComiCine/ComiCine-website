@@ -26,7 +26,7 @@ import { DEFAULT_LANG, SUPPORTED_LANGS } from "./config";
 import { detectLang } from "./routing";
 
 function req(headers: Record<string, string> = {}): Request {
-  return new Request("https://limooo.cn/", { headers: { Host: "limooo.cn", ...headers } });
+  return new Request("https://comicine.com/", { headers: { Host: "comicine.com", ...headers } });
 }
 
 describe("detectLang fallback follows the contract DEFAULT_LANG", () => {

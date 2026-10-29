@@ -133,12 +133,11 @@ setTimeout(function() {
 (function() {
     var API_PATH = '/api/currency-rates';
     var CACHE_KEY = 'comicine-services-fx-v2';
-    var LEGACY_CACHE_KEY = 'limooo-services-fx-v2';
     var FRESH_MS = 6 * 60 * 60 * 1000;
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
     var PRIORITY = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'HKD', 'TWD', 'SGD', 'AUD', 'CAD', 'CHF', 'INR', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'NZD', 'ZAR', 'BRL', 'MXN', 'AED', 'SAR'];
 
-    var CURRENCY_SEARCH_DATA = window.ComiCineCurrencySearchData || window.LimoooCurrencySearchData || {};
+    var CURRENCY_SEARCH_DATA = window.ComiCineCurrencySearchData || {};
     var CURRENCY_META = CURRENCY_SEARCH_DATA.currencies || {};
     var TERRITORY_CURRENCIES = CURRENCY_SEARCH_DATA.territories || {};
     var TERRITORY_ALIASES = CURRENCY_SEARCH_DATA.territoryAliases || {};
@@ -177,7 +176,7 @@ setTimeout(function() {
     var renderGeneration = 0;
 
     function translate(key, params) {
-        var translate = window.comicineTranslate || window.limoooTranslate;
+        var translate = window.comicineTranslate;
         return typeof translate === 'function' ? translate(key, params) : key;
     }
 
@@ -195,7 +194,7 @@ setTimeout(function() {
 
     function readCache() {
         try {
-            var raw = localStorage.getItem(CACHE_KEY) || localStorage.getItem(LEGACY_CACHE_KEY);
+            var raw = localStorage.getItem(CACHE_KEY);
             if (!raw) return null;
             var parsed = JSON.parse(raw);
             return validCache(parsed) ? parsed : null;
@@ -204,10 +203,7 @@ setTimeout(function() {
 
     function saveCache(data) {
         try {
-            var serialized = JSON.stringify(data);
-            localStorage.setItem(CACHE_KEY, serialized);
-            /* Keep legacy cached pages compatible while all open tabs migrate. */
-            localStorage.setItem(LEGACY_CACHE_KEY, serialized);
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
         } catch (_) { /* Rates still work in memory. */ }
     }
 

@@ -26,7 +26,7 @@ const env = {} as Env;
 
 function context(id = "0123456789abcdef") {
   return {
-    request: new Request(`https://visitor.limooo.cn/api/ray/${id}`),
+    request: new Request(`https://visitor.comicine.com/api/ray/${id}`),
     env,
     params: { id },
     next: async () => new Response("next"),
@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.mocked(queryAll).mockResolvedValue([{
     ray: "0123456789abcdef-ABC",
     ts: 1,
-    host: "limooo.cn",
+    host: "comicine.com",
     path: "/",
     method: "GET",
     status: 200,
@@ -122,7 +122,7 @@ describe("ray API", () => {
     vi.mocked(queryAll).mockResolvedValueOnce([{
       ray: "0123456789abcdef-LAX",
       ts: 7,
-      host: "limooo.cn",
+      host: "comicine.com",
       path: "/x",
       method: "GET",
       status: 200,

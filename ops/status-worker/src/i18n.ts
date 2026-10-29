@@ -43,7 +43,6 @@ export function isLang(v: unknown): v is Lang {
 export const ROOT_DOMAIN = "comicine.com";
 export const LANG_COOKIE = "user_lang_preference";
 export const THEME_COOKIE = "comicine_theme";
-export const LEGACY_THEME_COOKIE = "limooo_theme";
 export const COOKIE_MAX_AGE = 31536000;
 
 /** Each language's own name in the overlay; must match `lang_<primary>` in `site/locales/*.json`. */

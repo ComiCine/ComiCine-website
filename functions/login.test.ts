@@ -62,14 +62,14 @@ function context(request: Request, env: Env) {
 
 const state = "A".repeat(43);
 const callbackUrl = (target = "/apple") => {
-  const callback = new URL("https://account.limooo.cn/identity/callback");
+  const callback = new URL("https://account.comicine.com/identity/callback");
   callback.searchParams.set("state", state);
   callback.searchParams.set("next", target);
   return callback.toString();
 };
 
 const identityLoginRequest = (callback = callbackUrl()) => {
-  const url = new URL("https://identity.limooo.cn/login");
+  const url = new URL("https://identity.comicine.com/login");
   url.searchParams.set("next", callback);
   return new Request(url, { headers: { "Cf-Access-Jwt-Assertion": "signed-access-jwt" } });
 };
@@ -79,16 +79,16 @@ beforeEach(() => {
 });
 
 describe("GET /login", () => {
-  it("starts a host-bound handoff through identity.limooo.cn", async () => {
+  it("starts a host-bound handoff through identity.comicine.com", async () => {
     const resp = await onRequestGet(
-      context(new Request("https://account.limooo.cn/login?next=%2Fapple"), CONFIG as Env) as never,
+      context(new Request("https://account.comicine.com/login?next=%2Fapple"), CONFIG as Env) as never,
     );
     expect(resp.status).toBe(302);
     const destination = new URL(resp.headers.get("Location") ?? "");
     expect(destination.origin).toBe("https://identity.comicine.com");
     expect(destination.pathname).toBe("/login");
     const callback = new URL(destination.searchParams.get("next") ?? "");
-    expect(callback.origin).toBe("https://account.limooo.cn");
+    expect(callback.origin).toBe("https://account.comicine.com");
     expect(callback.pathname).toBe("/identity/callback");
     expect(callback.searchParams.get("next")).toBe("/apple");
     const state = callback.searchParams.get("state");
@@ -100,7 +100,7 @@ describe("GET /login", () => {
     expect(vi.mocked(verifyAccessJwt)).not.toHaveBeenCalled();
 
     const secondResponse = await onRequestGet(
-      context(new Request("https://account.limooo.cn/login?next=%2Fapple"), CONFIG as Env) as never,
+      context(new Request("https://account.comicine.com/login?next=%2Fapple"), CONFIG as Env) as never,
     );
     const secondDestination = new URL(secondResponse.headers.get("Location") ?? "");
     const secondCallback = new URL(secondDestination.searchParams.get("next") ?? "");
@@ -114,19 +114,19 @@ describe("GET /login", () => {
 
   it("rejects unregistered hosts and off-site return URLs", async () => {
     const unregistered = await onRequestGet(
-      context(new Request("https://unknown.limooo.cn/login"), CONFIG as Env) as never,
+      context(new Request("https://unknown.comicine.com/login"), CONFIG as Env) as never,
     );
     expect(unregistered.status).toBe(404);
 
     const unsafe = await onRequestGet(
-      context(new Request("https://account.limooo.cn/login?next=https%3A%2F%2Fevil.example"), CONFIG as Env) as never,
+      context(new Request("https://account.comicine.com/login?next=https%3A%2F%2Fevil.example"), CONFIG as Env) as never,
     );
     expect(unsafe.status).toBe(400);
   });
 
   it("requires the single identity AUD only on the identity login host", async () => {
     const source = await onRequestGet(
-      context(new Request("https://account.limooo.cn/login"), { ...CONFIG, ACCESS_IDENTITY_AUD: "" } as Env) as never,
+      context(new Request("https://account.comicine.com/login"), { ...CONFIG, ACCESS_IDENTITY_AUD: "" } as Env) as never,
     );
     expect(source.status).toBe(302);
 
@@ -150,7 +150,7 @@ describe("GET /login", () => {
 
     expect(resp.status).toBe(302);
     const destination = new URL(resp.headers.get("Location") ?? "");
-    expect(destination.origin).toBe("https://account.limooo.cn");
+    expect(destination.origin).toBe("https://account.comicine.com");
     expect(destination.pathname).toBe("/identity/callback");
     expect(destination.searchParams.get("state")).toBe(state);
     expect(destination.searchParams.get("next")).toBe("/apple");
@@ -159,7 +159,7 @@ describe("GET /login", () => {
     const insert = statements.find((statement) => statement.sql.includes("INSERT INTO identity_handoffs"));
     expect(insert).toBeDefined();
     expect(insert!.values).toHaveLength(8);
-    expect(insert!.values).toContain("account.limooo.cn");
+    expect(insert!.values).toContain("account.comicine.com");
     expect(insert!.values).not.toContain("admin");
   });
 

@@ -53,21 +53,21 @@ describe("tracking", () => {
   });
 
   it("skips static, API, image and redirect requests", () => {
-    const page = request("https://limooo.cn/", { "CF-Connecting-IP": "1.1.1.1" });
-    expect(shouldTrackVisit(page, new URL("https://limooo.cn/"))).toBe(true);
-    expect(shouldTrackVisit(page, new URL("https://limooo.cn/static/a.css"))).toBe(false);
-    expect(shouldTrackVisit(page, new URL("https://limooo.cn/api/x"))).toBe(false);
-    expect(shouldTrackVisit(page, new URL("https://images.limooo.cn/x.webp"))).toBe(false);
-    expect(shouldTrackRay(page, new URL("https://limooo.cn/static/a.css"))).toBe(false);
-    expect(shouldTrackRay(page, new URL("https://limooo.cn/api/x"))).toBe(false);
-    expect(shouldTrackRay(page, new URL("https://limooo.cn/"))).toBe(true);
+    const page = request("https://comicine.com/", { "CF-Connecting-IP": "1.1.1.1" });
+    expect(shouldTrackVisit(page, new URL("https://comicine.com/"))).toBe(true);
+    expect(shouldTrackVisit(page, new URL("https://comicine.com/static/a.css"))).toBe(false);
+    expect(shouldTrackVisit(page, new URL("https://comicine.com/api/x"))).toBe(false);
+    expect(shouldTrackVisit(page, new URL("https://images.comicine.com/x.webp"))).toBe(false);
+    expect(shouldTrackRay(page, new URL("https://comicine.com/static/a.css"))).toBe(false);
+    expect(shouldTrackRay(page, new URL("https://comicine.com/api/x"))).toBe(false);
+    expect(shouldTrackRay(page, new URL("https://comicine.com/"))).toBe(true);
   });
 
   it("records the gate diagnostic request so displayed Ray IDs are traceable", () => {
-    const page = request("https://auth.limooo.cn/gate/diag", { "CF-Connecting-IP": "1.1.1.1" });
+    const page = request("https://auth.comicine.com/gate/diag", { "CF-Connecting-IP": "1.1.1.1" });
 // The Ray ID displayed on the gate page must be searchable in Ray logs; this is the only /gate endpoint included.
-    expect(shouldTrackRay(page, new URL("https://auth.limooo.cn/gate/diag"))).toBe(true);
-    expect(shouldTrackRay(page, new URL("https://auth.limooo.cn/__gate/diag"))).toBe(true);
+    expect(shouldTrackRay(page, new URL("https://auth.comicine.com/gate/diag"))).toBe(true);
+    expect(shouldTrackRay(page, new URL("https://auth.comicine.com/__gate/diag"))).toBe(true);
   });
 
   it("does not write D1 rows for the gate page's own config/diag/verify endpoints", () => {
@@ -76,7 +76,7 @@ describe("tracking", () => {
 // exclusion list, which covered only the old /__gate prefix. Each unverified
 // page view therefore caused one or two D1 writes, allowing anonymous write
 // amplification (tasks/22 additional W9 finding).
-    const page = request("https://auth.limooo.cn/gate/config", { "CF-Connecting-IP": "1.1.1.1" });
+    const page = request("https://auth.comicine.com/gate/config", { "CF-Connecting-IP": "1.1.1.1" });
     for (const path of [
       "/gate/config",
       "/gate/diag",
@@ -85,21 +85,21 @@ describe("tracking", () => {
       "/__gate/diag",
       "/__gate/verify",
     ]) {
-      const url = new URL(`https://auth.limooo.cn${path}`);
+      const url = new URL(`https://auth.comicine.com${path}`);
       expect(shouldTrackVisit(page, url), `visit ${path}`).toBe(false);
 // diag is the only endpoint allowed to record a Ray ID.
       const expectedRay = path.endsWith("/diag");
       expect(shouldTrackRay(page, url), `ray ${path}`).toBe(expectedRay);
     }
 // The gate page itself (/gate) is still recorded as a regular page.
-    expect(shouldTrackRay(page, new URL("https://auth.limooo.cn/gate"))).toBe(true);
-    expect(shouldTrackVisit(page, new URL("https://auth.limooo.cn/gate"))).toBe(true);
+    expect(shouldTrackRay(page, new URL("https://auth.comicine.com/gate"))).toBe(true);
+    expect(shouldTrackVisit(page, new URL("https://auth.comicine.com/gate"))).toBe(true);
   });
 
   it("records visitors without full IP/UA/query", async () => {
     await recordVisit(
       env,
-      request("https://limooo.cn/portfolio?secret=1", {
+      request("https://comicine.com/portfolio?secret=1", {
         "CF-Connecting-IP": "8.8.8.8",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
       }),
@@ -118,7 +118,7 @@ describe("tracking", () => {
   it("stores an encrypted visitor IP that decryptVisitorIp can recover", async () => {
     await recordVisit(
       env,
-      request("https://limooo.cn/portfolio", { "CF-Connecting-IP": "8.8.8.8" }),
+      request("https://comicine.com/portfolio", { "CF-Connecting-IP": "8.8.8.8" }),
       200,
     );
     const calls = vi.mocked(execute).mock.calls;
@@ -137,7 +137,7 @@ describe("tracking", () => {
   it("records ray requests without full IP/UA/query", async () => {
     await recordRay(
       env,
-      request("https://limooo.cn/login/callback?code=topsecret", {
+      request("https://comicine.com/login/callback?code=topsecret", {
         "CF-Ray": "abc123",
         "CF-Connecting-IP": "8.8.8.8",
         "User-Agent": "Mozilla/5.0 (compatible; GPTBot/1.0)",
@@ -173,7 +173,7 @@ describe("tracking", () => {
     const localEnv = { ...env, DB: failing } as Env;
 
     for (let i = 0; i < 4; i++) {
-      await mod.recordVisit(localEnv, request("https://limooo.cn/"), 200);
+      await mod.recordVisit(localEnv, request("https://comicine.com/"), 200);
     }
     expect(vi.mocked(batchMock)).toHaveBeenCalledTimes(1);
     // Do not run DDL statement by statement during cooldown. INSERT persistence
