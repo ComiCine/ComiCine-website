@@ -34,8 +34,10 @@ new_sqlite_classes = ["ProbeState"]
 
 [[migrations]]
 tag = "v2"
-deleted_classes = ["ProbeState"]
-new_sqlite_classes = ["ComiCineProbeState"]
+
+  [[migrations.renamed_classes]]
+  from = "ProbeState"
+  to = "ComiCineProbeState"
 
 [vars]
 # Recheck interval after a down result, in seconds; matches the 10-second Kuma interval.
