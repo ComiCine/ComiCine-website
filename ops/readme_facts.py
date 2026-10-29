@@ -53,6 +53,15 @@ def d1_database_id() -> str:
     return match.group(1)
 
 
+def pages_project_name() -> str:
+    """Resolve the production Pages project from the root Wrangler configuration."""
+    wrangler = read(os.path.join(BASE_DIR, "wrangler.toml"))
+    match = re.search(r'^name\s*=\s*"([a-z0-9-]+)"', wrangler, re.M)
+    if not match:
+        raise RuntimeError("Could not resolve the Pages project name from wrangler.toml")
+    return match.group(1)
+
+
 def contract() -> dict:
     return json.loads(read(CONTRACT))
 
@@ -404,7 +413,6 @@ def live_facts() -> dict:
     facts: dict = {
         "d1": {},
         "pages": {},
-        "pages_alias": {},
         "workers": [],
         "dns": [],
         "waf": [],
@@ -425,7 +433,7 @@ def live_facts() -> dict:
         elif rows:
             facts["d1"][label] = list(rows[0].values())[0]
 
-    project = api("GET", f"/accounts/{account}/pages/projects/comicine-production")
+    project = api("GET", f"/accounts/{account}/pages/projects/{pages_project_name()}")
     if project.get("success"):
         result = project["result"]
         facts["pages"] = {
@@ -448,15 +456,6 @@ def live_facts() -> dict:
                 for environment in ("production", "preview")
             },
         }
-    alias_project = api("GET", f"/accounts/{account}/pages/projects/comicine")
-    if alias_project.get("success"):
-        result = alias_project["result"]
-        facts["pages_alias"] = {
-            "name": result.get("name"),
-            "subdomain": result.get("subdomain"),
-            "domains": sorted(d if isinstance(d, str) else d.get("name", "?") for d in result.get("domains", [])),
-        }
-
     scripts = api("GET", f"/accounts/{account}/workers/scripts")
     if scripts.get("success"):
         facts["workers"] = sorted(item["id"] for item in scripts["result"])
@@ -498,11 +497,6 @@ def print_live_facts(facts: dict) -> None:
     for environment, bindings in facts["pages"].get("d1_databases", {}).items():
         rendered = ", ".join(f"{name}={database_id}" for name, database_id in sorted(bindings.items())) or "-"
         print(f"  {environment + ' D1':<22} {rendered}")
-    print(
-        f"  {'alias project':<22} {facts['pages_alias'].get('name')} "
-        f"({facts['pages_alias'].get('subdomain')})"
-    )
-    print(f"  {'alias domains':<22} {', '.join(facts['pages_alias'].get('domains', []))}")
     print("Workers")
     print(f"  {', '.join(facts['workers'])}")
     print("DNS (proxied records)")
