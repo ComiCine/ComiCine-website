@@ -1197,5 +1197,3 @@ export class ComiCineProbeStateV2 implements DurableObject {
     await this.state.storage.deleteAlarm();
   }
 }
-
-export class ComiCineProbeState extends ComiCineProbeStateV2 {}
