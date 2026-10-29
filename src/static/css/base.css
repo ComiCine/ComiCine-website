@@ -43,8 +43,8 @@
         * { -webkit-tap-highlight-color: transparent; }
 
         .nav-brand {
-            font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
-            font-weight: 700;
+            font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
+            font-weight: 400;
             line-height: 1;
             font-size: 1.125rem;
             letter-spacing: 0.02em;
@@ -54,7 +54,6 @@
             .site-nav .nav-brand { font-size: 1.5rem; letter-spacing: 0.05em; }
         }
         .site-nav .nav-brand.brand-word {
-            font-size-adjust: 0.6552;
             letter-spacing: 0.05em;
         }
 
@@ -97,7 +96,7 @@
         .footer-text > .footer-item:not(:first-child)::before {
             content: "·"; margin: 0 0.55em; opacity: 0.7;
         }
-        .footer-copyright {
+        .footer-copyright .brand-word {
             font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
             font-weight: 400;
             letter-spacing: normal;
@@ -110,12 +109,11 @@
             /* Do not show "·" at the wrap; it must not precede the first item on row two. */
             .footer-text > .footer-copyright + .footer-item::before { content: none; }
         }
-        /* Apply Baloo 2 consistently to the ComiCine brand name in body text. */
+        /* Apply Delius Swash Caps only to the exact ComiCine brand word. */
         .brand-word {
-            font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
-            font-weight: 700;
+            font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
+            font-weight: 400;
             letter-spacing: 0.02em;
-            font-size-adjust: 0.6552;
         }
         .footer-source-link { color: inherit; text-decoration: underline; white-space: nowrap; }
         /* The old copy ("…source code available on here") needed an English-only space.

@@ -100,7 +100,7 @@ h1 { font-weight: 600 !important; }
     display: block;
     color: var(--text);
     font-size: clamp(3rem, 8vw, 6rem);
-    font-weight: 700 !important;
+    font-weight: 400 !important;
     line-height: 1;
     letter-spacing: 0.05em;
     white-space: nowrap;

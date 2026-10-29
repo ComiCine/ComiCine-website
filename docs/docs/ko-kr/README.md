@@ -141,9 +141,9 @@ See ADDITIONAL_TERMS.txt.
 
 ## 브랜드 리소스와 글꼴
 
-- 홈페이지 히어로와 왼쪽 상단 내비게이션은 Baloo 2로 정확한 브랜드명 `ComiCine`을 텍스트로 표시합니다. 포트폴리오가 열릴 때 같은 워드마크 요소가 화면 중앙에서 내비게이션으로 이동합니다. 색상은 테마의 텍스트 색상을 따라 흑백으로 표시됩니다.
+- 홈페이지 히어로와 왼쪽 상단 내비게이션은 Delius Swash Caps로 정확한 브랜드명 `ComiCine`을 텍스트로 표시합니다. 포트폴리오가 열릴 때 같은 워드마크 요소가 화면 중앙에서 내비게이션으로 이동합니다. 색상은 테마의 텍스트 색상을 따라 흑백으로 표시됩니다.
 - 브라우저 파비콘과 작은 웹 표식에는 `src/static/icons/comicine-favicon.svg`를 사용합니다. 가로형 워드마크와 기본 소셜 미리보기 이미지에는 `src/static/icons/comicine-xtext.svg`를 사용합니다. PNG 파일은 Apple 터치 아이콘과 이메일·소셜 미디어처럼 래스터 이미지가 필요한 경우에만 사용합니다. `src/static/icons/comicine-watermark.png`는 이미지 워터마크 파이프라인 입력으로 계속 사용합니다.
-- Copyright 영역은 `src/static/fonts/delius-swash-caps/`의 자체 호스팅 Delius Swash Caps 서브셋을 사용하며 OFL 라이선스도 함께 둡니다. 상태 Worker에는 필요한 글꼴 서브셋을 포함합니다. Baloo 2는 정확한 `ComiCine` 브랜드 표기에만 적용하고, 나머지 페이지 텍스트는 기존 글꼴 스택을 유지합니다.
+- 자체 호스팅 Delius Swash Caps 서브셋과 OFL 라이선스는 `src/static/fonts/delius-swash-caps/`에 있습니다. 브랜드 표기의 정확한 단어 `ComiCine`에 이 글꼴을 사용합니다. Copyright 영역은 기호와 연도에 기존 글꼴을 유지하고 `ComiCine`에만 Delius를 적용합니다. 상태 Worker에는 필요한 서브셋을 포함하며 나머지 텍스트는 기존 글꼴 스택을 유지합니다.
 - 프로덕션 빌드는 번들된 글꼴 서브셋을 사용하므로 개발 컴퓨터의 원본 글꼴 디렉터리에 의존하지 않습니다.
 
 ## 빠른 시작

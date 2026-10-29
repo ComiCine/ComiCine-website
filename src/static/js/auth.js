@@ -137,7 +137,7 @@ function showError(key) {
   if (country) country.hidden = blocked;
 }
 
-/* Wrap brand names such as "ComiCine" in a Baloo 2 span for every language variant. */
+/* Wrap exact ComiCine brand names so the brand font never affects surrounding text. */
 function brandifyText(el) {
   var word = el.getAttribute('data-brandify');
   if (!word || !el.textContent || el.textContent.indexOf(word) === -1) return;
@@ -524,7 +524,7 @@ window.addEventListener('resize', function () {
 /* Render static copy in the build language first; runtime config adds Turnstile and language switching. */
 applyTheme(effectiveTheme());
 renderI18n();
-/* Keep the Baloo 2 brand rendering in the static fallback when i18n is unavailable. */
+/* Keep the ComiCine brand rendering in the static fallback when i18n is unavailable. */
 var staticBrandTarget = document.querySelector('[data-brandify]');
 if (staticBrandTarget) brandifyText(staticBrandTarget);
 showError(document.body.getAttribute('data-gate-error') || '');

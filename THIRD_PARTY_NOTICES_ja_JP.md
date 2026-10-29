@@ -4,17 +4,11 @@
 
 ## フォント
 
-### Baloo 2
-
-Baloo 2 の著作権表示は The Baloo 2 Project Authors で、SIL Open Font License Version 1.1（OFL-1.1）に基づきます。上流プロジェクトは [EkType/Baloo2](https://github.com/EkType/Baloo2) です。ライセンス本文は [src/static/fonts/baloo2/OFL.txt](src/static/fonts/baloo2/OFL.txt) に含まれています。
-
-プロジェクトには src/static/fonts/baloo2/ および docs/docs/public/fonts/ の Baloo 2 フォントとサブセットが含まれます。また、Baloo 2 SemiBold から生成した括弧グリフのサブセットが src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf および src/static/fonts-round75.css 内の埋め込みデータとして含まれます。これらのフォントファイルには引き続き OFL-1.1 が適用されます。再配布時は著作権表示とライセンス表示を保持し、フォントソフトウェア単体で販売せず、改変フォントおよび予約フォント名に関する OFL の条件に従ってください。
-
 ### Delius Swash Caps
 
 Delius Swash Caps は Natalia Raices がデザインしました。フォントソフトウェアの著作権は Natalia Raices（2010、2011）および Igino Marini（2011）に帰属し、SIL Open Font License Version 1.1（OFL-1.1）に基づきます。上流ソースは [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps) です。ライセンス本文は [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt) に含まれています。
 
-プロジェクトには src/static/fonts/delius-swash-caps/ にセルフホストの WOFF2 サブセットが含まれ、メインサイト、ステータスページ、ドキュメントサイト、および Sites 紹介ページの著作権表示に使用されます。ステータス Worker は生成したサブセットを ops/status-worker/src/brand-font.ts に埋め込んでいます。再配布時は著作権表示とライセンス表示を保持し、フォントソフトウェア単体で販売せず、「Delia」「Delia Unicase」「Delius」「Delius Unicase」の予約フォント名を含む OFL-1.1 の条件に従ってください。
+プロジェクトには src/static/fonts/delius-swash-caps/ にセルフホストの WOFF2 サブセットが含まれ、ウェブサイトのワードマークと Copyright 記号・年の後に続く正確なブランド名 ComiCine に使用されます。Status Worker は同じサブセットを ops/status-worker/src/brand-font.ts に埋め込んでいます。再配布時は著作権表示とライセンス表示を保持し、フォントソフトウェア単体で販売せず、「Delia」「Delia Unicase」「Delius」「Delius Unicase」の予約フォント名を含む OFL-1.1 の条件に従ってください。
 
 ### Inter
 

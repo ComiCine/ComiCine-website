@@ -36,15 +36,15 @@ See ADDITIONAL_TERMS.txt.
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/comicine-xtext.png?v=4">
     <!-- Preload QR codes during HTML parsing so the hover overlay does not wait for the Worker.
          Mobile does not show the overlay, so media conditions skip the extra download. -->
-    <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/bilibili.webp"
+    <link rel="preload" as="image" type="image/png" href="{{ image_watermark_base }}/qr-codes/bilibili.png"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-    <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/qq.webp"
+    <link rel="preload" as="image" type="image/png" href="{{ image_watermark_base }}/qr-codes/qq.png"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-    <link rel="preload" as="image" type="image/webp" href="{{ image_watermark_base }}/qr-codes/wechat.webp"
+    <link rel="preload" as="image" type="image/png" href="{{ image_watermark_base }}/qr-codes/wechat.png"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-    <link rel="preload" as="image" type="image/webp" href="{{ _('email_qr') }}"
+    <link rel="preload" as="image" type="image/png" href="{{ _('email_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-    <link rel="preload" as="image" type="image/webp" href="{{ _('survey_qr') }}"
+    <link rel="preload" as="image" type="image/png" href="{{ _('survey_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
 <link rel="preload" as="script" href="/static/js/contact.js?v=2">
 <link rel="stylesheet" href="/static/css/contact.css?v=8">
@@ -74,17 +74,17 @@ See ADDITIONAL_TERMS.txt.
         <!-- Bilibili. -->
         <a href="https://space.bilibili.com/1234163143" target="_blank" rel="noopener noreferrer"
             class="reveal-item copyable pressable qr-trigger text-inherit cursor-pointer relative block no-underline"
-            data-qr="{{ image_watermark_base }}/qr-codes/bilibili.webp">
+            data-qr="{{ image_watermark_base }}/qr-codes/bilibili.png">
             <div class="bubble-tip" data-i18n="visit_bilibili">{{ _('visit_bilibili') }}</div>
             <p class="text-[11px] opacity-40 mb-1 tracking-[calc(0.3em*var(--ls-scale))]" data-i18n="platform_bilibili">{{ _('platform_bilibili') }}</p>
-            <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium">-ComiCine-</p>
+            <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium"><span class="brand-word">ComiCine</span></p>
             <div class="hover-line"></div>
         </a>
 
         <!-- QQ. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
             data-action="handleCopy" data-arg="264755512"
-            data-qr="{{ image_watermark_base }}/qr-codes/qq.webp">
+            data-qr="{{ image_watermark_base }}/qr-codes/qq.png">
             <div class="bubble-tip" data-i18n="click_to_copy">{{ _('click_to_copy') }}</div>
             <p class="text-[11px] opacity-40 mb-1 tracking-[calc(0.3em*var(--ls-scale))]">QQ</p>
             <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium">264755512</p>
@@ -94,7 +94,7 @@ See ADDITIONAL_TERMS.txt.
         <!-- WeChat. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
             data-action="handleCopy" data-arg="-Lime-official-"
-            data-qr="{{ image_watermark_base }}/qr-codes/wechat.webp">
+            data-qr="{{ image_watermark_base }}/qr-codes/wechat.png">
             <div class="bubble-tip" data-i18n="click_to_copy">{{ _('click_to_copy') }}</div>
             <p class="text-[11px] opacity-40 mb-1 tracking-[calc(0.3em*var(--ls-scale))]" data-i18n="platform_wechat">{{ _('platform_wechat') }}</p>
             <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium">-Lime-official-</p>

@@ -174,10 +174,9 @@
   body[data-gate-error="blocked"] #gate { display: none; }
   .foot { text-align: center; font-size: 11px; color: var(--footer-label); }
   .foot .brand-word {
-    font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
-    font-weight: 700;
+    font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
+    font-weight: 400;
     letter-spacing: 0.02em;
-    font-size-adjust: 0.6552;
   }
   /* Footer copyright, matching the main site's base.html. */
   .global-footer {

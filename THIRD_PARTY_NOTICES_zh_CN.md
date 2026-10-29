@@ -4,17 +4,11 @@
 
 ## 字体
 
-### Baloo 2
-
-Baloo 2 的版权声明为 The Baloo 2 Project Authors，依据 SIL Open Font License 第 1.1 版（OFL-1.1）提供。上游项目为 [EkType/Baloo2](https://github.com/EkType/Baloo2)。仓库内许可证副本位于 [src/static/fonts/baloo2/OFL.txt](src/static/fonts/baloo2/OFL.txt)。
-
-项目在 src/static/fonts/baloo2/ 和 docs/docs/public/fonts/ 中包含 Baloo 2 字体及其子集。项目还包含从 Baloo 2 SemiBold 派生并生成的括号字形子集：src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf，以及嵌入 src/static/fonts-round75.css 的副本。这些字体文件仍受 OFL-1.1 约束。再分发字体副本时须保留字体版权及许可证声明；不得单独出售字体软件；修改字体及保留字体名称须遵守 OFL 条款。
-
 ### Delius Swash Caps
 
 Delius Swash Caps 由 Natalia Raices 设计。字体软件版权属于 Natalia Raices（2010、2011）和 Igino Marini（2011），依据 SIL Open Font License 第 1.1 版（OFL-1.1）发布。上游来源为 [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps)；许可证文本位于 [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt)。
 
-项目在 src/static/fonts/delius-swash-caps/ 中包含自托管的 WOFF2 子集，用于主站、状态页、文档站和 Sites 介绍页的版权文字。状态 Worker 在 ops/status-worker/src/brand-font.ts 中嵌入生成的子集。再分发时须保留版权及许可证声明，不得单独出售字体软件，并须遵守 OFL-1.1，包括保留字体名称 “Delia”“Delia Unicase”“Delius” 和 “Delius Unicase”。
+项目在 src/static/fonts/delius-swash-caps/ 中包含自托管的 WOFF2 子集，用于网站字标中的准确品牌名称 ComiCine，以及 Copyright 符号和年份之后的 ComiCine 字样。状态 Worker 在 ops/status-worker/src/brand-font.ts 中嵌入该子集。再分发时须保留版权及许可证声明，不得单独出售字体软件，并须遵守 OFL-1.1，包括保留字体名称 “Delia”“Delia Unicase”“Delius” 和 “Delius Unicase”。
 
 ### Inter
 

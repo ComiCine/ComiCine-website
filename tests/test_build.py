@@ -92,17 +92,17 @@ def test_home_image_urls_use_edge_cached_asset_host():
 def test_contact_prerenders_all_qr_images():
     html = build.render_page(RENDER_APP, "contact.html", "/contact", "zh-cn")
     preloads = re.findall(
-        r'<link rel="preload" as="image" type="image/webp"[^>]*href="([^"]+)"',
+        r'<link rel="preload" as="image" type="image/png"[^>]*href="([^"]+)"',
         html,
     )
 
     assert len(preloads) == 5
     assert set(preloads) == {
-        "https://image.comicine.com/qr-codes/bilibili.webp",
-        "https://image.comicine.com/qr-codes/qq.webp",
-        "https://image.comicine.com/qr-codes/wechat.webp",
-        "https://image.comicine.com/qr-codes/mail-services-zh-cn.webp",
-        "https://image.comicine.com/qr-codes/form-services-zh-cn.webp",
+        "https://image.comicine.com/qr-codes/bilibili.png",
+        "https://image.comicine.com/qr-codes/qq.png",
+        "https://image.comicine.com/qr-codes/wechat.png",
+        "https://image.comicine.com/qr-codes/mail-services-zh-cn.png",
+        "https://image.comicine.com/qr-codes/form-services-zh-cn.png",
     }
     assert html.count('(hover: hover) and (pointer: fine)') == 5
 
@@ -115,7 +115,7 @@ def test_contact_survey_block_uses_comicine_shortlink_and_qr():
         block = block[:block.index("</a>")]
 
         assert f'href="https://comicine.com/link/photograph-form-{lang}"' in block
-        assert f'data-qr="https://image.comicine.com/qr-codes/form-services-{lang}.webp"' in block
+        assert f'data-qr="https://image.comicine.com/qr-codes/form-services-{lang}.png"' in block
         assert "qr-trigger" in block
         assert "lime-official.feishu.cn" not in block
 
@@ -224,6 +224,7 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
 def test_templates_use_the_correct_logo_variant():
     home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     services = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
+    contact = build.render_page(RENDER_APP, "contact.html", "/contact", "zh-cn")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
 
     assert '<span class="nav-brand brand-word">ComiCine</span>' in home
@@ -234,20 +235,23 @@ def test_templates_use_the_correct_logo_variant():
     assert 'href="/static/icons/comicine-favicon.svg?v=4"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' not in gate
-    assert 'href="/static/fonts-round75.css?v=3"' in home
+    assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
-    assert 'class="footer-item footer-copyright"' in services
+    assert '<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> <span class="brand-word">ComiCine</span></span>' in services
+    assert "-ComiCine-" not in contact
+    assert '<span class="brand-word">ComiCine</span>' in contact
     base_css = (Path(build.STATIC_DIR) / "css" / "base.css").read_text(encoding="utf-8")
     home_css = (Path(build.STATIC_DIR) / "css" / "index.css").read_text(encoding="utf-8")
     assert "font-family: 'Delius Swash Caps'" in base_css
     assert ".nav-brand" in base_css and "color: var(--text)" in base_css
+    assert ".footer-copyright .brand-word" in base_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
     assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in home
     assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=4"' in home
     assert 'ComiCine</span>' in home
 
 
-def test_delius_copyright_font_is_self_hosted():
+def test_delius_brand_font_is_self_hosted():
     font = Path(build.STATIC_DIR) / "fonts" / "delius-swash-caps" / "delius-swash-caps-copyright.woff2"
     stylesheet = Path(build.STATIC_DIR) / "fonts-round75.css"
 

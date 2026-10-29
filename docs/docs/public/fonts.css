@@ -1,19 +1,7 @@
 /* Self-hosted fonts for docs.comicine.com, matching the source and licenses used by
    the main site's /static/fonts-round75.css.
-   Baloo 2: ComiCine brand lettering (OFL 1.1; see site/src/static/fonts/baloo2/OFL.txt).
-   Delius Swash Caps: copyright text (OFL 1.1; see site/src/static/fonts/delius-swash-caps/OFL.txt).
+   Delius Swash Caps: exact ComiCine brand words, including the Copyright name (OFL 1.1; see site/src/static/fonts/delius-swash-caps/OFL.txt).
    Inter: body text (SIL OFL 1.1). */
-@font-face {
-  font-family: 'Baloo 2';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url(fonts/baloo2-latin-wght-normal.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
-    U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 @font-face {
   font-family: 'Inter';
   font-style: normal;
@@ -34,7 +22,7 @@
   unicode-range: U+0020,U+002D,U+0030-0039,U+0043,U+0050,U+0065,U+0069,U+006D-006F,U+0072-0074,U+00A9;
 }
 
-.comicine-copyright {
+.brand-word {
   font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
   font-weight: 400;
 }

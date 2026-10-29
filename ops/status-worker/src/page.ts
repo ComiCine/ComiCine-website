@@ -129,7 +129,7 @@ export function footerHtml(lang: Lang): string {
   const copyrightYears = currentYear === 2026 ? "2026" : `2026-${currentYear}`;
   return (
     '<footer class="global-footer" id="global-footer"><div class="footer-link"><div class="footer-text">' +
-    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> ComiCine</span>` +
+    `<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">${copyrightYears}</span> <span class="brand-word">ComiCine</span></span>` +
     `<span class="footer-item">${esc(t(lang, "footer_rights"))}</span>` +
     `<span class="footer-item">${esc(t(lang, "footer_source"))}</span>` +
     `<span class="footer-item"><a class="footer-source-link" href="${SOURCE_REPO_URL}" target="_blank" rel="noopener noreferrer">${esc(t(lang, "footer_source_link"))}</a></span>` +
@@ -143,7 +143,7 @@ export function footerHtml(lang: Lang): string {
  *   2. Header and footer rules matching `site/src/static/css/base.css`, with equivalent CSS for
  *      the Tailwind classes used in base.html.
  *   3. Status cards unique to this page, including the `--up`, `--down`, and `--pending` colors.
- * The inlined Baloo 2 navigation wordmark and Delius copyright subsets are in `brand-font.ts`;
+ * The inlined Delius Swash Caps subset for brand words is in `brand-font.ts`;
  * the main site's font files are cross-origin and require CORS.
  */
 export const STATUS_CSS =
@@ -164,7 +164,7 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 .nav-inner{display:flex;align-items:center;width:100%;max-width:80rem;height:100%;margin:0 auto;padding:0 20px}
 @media(min-width:768px){.nav-inner{padding:0 2rem}}
 .nav-brand-link{display:flex;align-items:center;flex-shrink:0;text-decoration:none}
-.nav-brand{font-family:'Baloo 2',ui-rounded,system-ui,sans-serif;font-weight:700;line-height:1;font-size:1.125rem;letter-spacing:.05em;color:var(--text)}
+.nav-brand{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;line-height:1;font-size:1.125rem;letter-spacing:.05em;color:var(--text)}
 @media(min-width:768px){.nav-brand{font-size:1.5rem}}
 .nav-right{display:flex;align-items:center;margin-left:auto}
 .global-nav{display:none;align-items:center}
@@ -250,7 +250,7 @@ html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 .footer-text>.footer-item{display:inline-block}
 .footer-text>.footer-item:not(:first-child)::before{content:"\\00b7";margin:0 .55em;opacity:.7}
 @media(max-width:559px){.footer-text>.footer-copyright{flex:0 0 100%;white-space:nowrap}.footer-text>.footer-copyright+.footer-item::before{content:none}}
-.footer-copyright{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;letter-spacing:normal}
+.footer-copyright .brand-word{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;letter-spacing:normal}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
 /* Status content */

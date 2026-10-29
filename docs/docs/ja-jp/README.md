@@ -141,9 +141,9 @@ See ADDITIONAL_TERMS.txt.
 
 ## ブランド素材とフォント
 
-- ホームページのヒーローと左上のナビゲーションでは、Baloo 2 を使って正確なブランド名 `ComiCine` をテキストで表示します。ポートフォリオを開くと、同じワードマーク要素が画面中央からナビゲーションへ移動します。色はテーマの文字色に従い、白黒で表示します。
+- ホームページのヒーローと左上のナビゲーションでは、Delius Swash Caps を使って正確なブランド名 `ComiCine` をテキストで表示します。ポートフォリオを開くと、同じワードマーク要素が画面中央からナビゲーションへ移動します。色はテーマの文字色に従い、白黒で表示します。
 - ブラウザーの Favicon と小さなウェブ用マークには `src/static/icons/comicine-favicon.svg` を使用します。横型ワードマークと主要なソーシャルプレビュー画像には `src/static/icons/comicine-xtext.svg` を使用します。PNG 版は Apple のタッチアイコンと、メールやソーシャルメディアなどラスター画像のみを使える場面に限ります。`src/static/icons/comicine-watermark.png` は画像ウォーターマーク処理の入力として引き続き使用します。
-- Copyright 領域では、`src/static/fonts/delius-swash-caps/` にある自ホストの Delius Swash Caps サブセットを使用し、OFL ライセンスも同梱します。Status Worker には必要なフォントサブセットを埋め込みます。Baloo 2 は正確な `ComiCine` のブランド表記だけに適用し、その他のページ本文は従来のフォントスタックを維持します。
+- 自ホストの Delius Swash Caps サブセットと OFL ライセンスは `src/static/fonts/delius-swash-caps/` にあります。ブランド表記の正確な名称 `ComiCine` にこのフォントを使います。Copyright 行の記号と年には従来のフォントを使い、`ComiCine` のみ Delius にします。Status Worker には必要なサブセットを埋め込み、その他の本文は従来のフォントスタックを維持します。
 - 本番ビルドでは同梱フォントサブセットを使い、開発マシン上の元フォントディレクトリには依存しません。
 
 ## クイックスタート
