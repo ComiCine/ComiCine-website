@@ -38,27 +38,24 @@
         .site-nav .nav-brand-link {
             display: flex; align-items: center; flex-shrink: 0; text-decoration: none;
         }
-        .site-nav .nav-brand-logo {
-            display: block; width: 64px; height: 64px; object-fit: contain;
-        }
         .site-nav .nav-right { display: flex; align-items: center; margin-inline-start: auto; }
 
         * { -webkit-tap-highlight-color: transparent; }
 
-        /* The SVG brand mark keeps its intrinsic proportions and scales for smaller screens. */
         .nav-brand {
             font-family: 'Baloo 2', ui-rounded, system-ui, sans-serif;
             font-weight: 700;
             line-height: 1;
             font-size: 1.125rem;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.02em;
             color: var(--text);
         }
         @media (min-width: 768px) {
-            .site-nav .nav-brand { font-size: 1.5rem; }
+            .site-nav .nav-brand { font-size: 1.5rem; letter-spacing: 0.05em; }
         }
-        @media (max-width: 767px) {
-            .site-nav .nav-brand-logo { width: 48px; height: 48px; }
+        .site-nav .nav-brand.brand-word {
+            font-size-adjust: 0.6552;
+            letter-spacing: 0.05em;
         }
 
         .pressable {
@@ -100,6 +97,11 @@
         .footer-text > .footer-item:not(:first-child)::before {
             content: "·"; margin: 0 0.55em; opacity: 0.7;
         }
+        .footer-copyright {
+            font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
+            font-weight: 400;
+            letter-spacing: normal;
+        }
         /* On mobile, keep the footer to two rows: copyright on the first, the other three items
            together on the second. Give copyright a full row with flex-basis: 100%.
            An ::after line break would sit inside a flex item and cannot wrap the parent. */
@@ -107,13 +109,6 @@
             .footer-text > .footer-copyright { flex: 0 0 100%; white-space: nowrap; }
             /* Do not show "·" at the wrap; it must not precede the first item on row two. */
             .footer-text > .footer-copyright + .footer-item::before { content: none; }
-        }
-        .footer-brand-logo {
-            display: inline-block;
-            width: 6.4em; height: 1.6em;
-            margin-inline-start: 0.25em;
-            object-fit: contain;
-            vertical-align: -0.15em;
         }
         /* Apply Baloo 2 consistently to the ComiCine brand name in body text. */
         .brand-word {

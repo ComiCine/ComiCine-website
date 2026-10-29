@@ -31,8 +31,8 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
-    <link rel="icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=3" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.png?v=3">
+    <link rel="icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=4" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.png?v=4">
     <link rel="preconnect" href="{{ image_asset_base }}">
     <link rel="dns-prefetch" href="{{ image_asset_base }}">
     <link rel="preconnect" href="{{ image_watermark_base }}">
@@ -41,18 +41,19 @@ See ADDITIONAL_TERMS.txt.
 <!-- Locally precompiled Tailwind CSS replaces Play CDN runtime compilation, removing a ~400KB render-blocking script and third-party CDN dependency. -->
     <link rel="stylesheet" href="/static/tailwind.css?v=4">
 
-<!-- Self-hosted Inter and Baloo 2 fonts shared with auth/redirect; see static/fonts/LICENSE.txt and OFL.txt. -->
+<!-- Self-hosted Inter, Baloo 2, and Delius Swash Caps fonts shared with auth/redirect; see each font's OFL.txt. -->
     <!-- Preload the Baloo 2 brand font before parsing styles to reduce fallback-font flashes with swap.
          Keep ?v= aligned with the @font-face URL in fonts-round75.css. /static/*.woff2 is immutable
          for a year, so changing a font without a new version hits the old cache. Both URLs need it. -->
     <link rel="preload" href="/static/fonts/baloo2/baloo2-latin-wght-normal.woff2?v=2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/fonts-round75.css?v=2">
+    <link rel="preload" href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/fonts-round75.css?v=3">
 
 <!-- Design tokens for colors, radii, and easing; the single source of truth shared by auth/redirect pages. -->
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- Site base styles extracted and optimized from the former inline template styles. -->
-    <link rel="stylesheet" href="/static/css/base.css?v=29">
+    <link rel="stylesheet" href="/static/css/base.css?v=30">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -73,7 +74,7 @@ See ADDITIONAL_TERMS.txt.
         <div class="nav-inner">
             {% block nav_logo %}
             <a href="{{ home_url }}" class="nav-brand-link" id="nav-logo" aria-label="ComiCine">
-                <img class="nav-brand-logo" src="{{ image_asset_base }}/static/icons/comicine.svg?v=5" alt="" width="64" height="64">
+                <span class="nav-brand brand-word">ComiCine</span>
             </a>
             {% endblock %}
 

@@ -10,6 +10,12 @@ Baloo 2 的版权声明为 The Baloo 2 Project Authors，依据 SIL Open Font Li
 
 项目在 src/static/fonts/baloo2/ 和 docs/docs/public/fonts/ 中包含 Baloo 2 字体及其子集。项目还包含从 Baloo 2 SemiBold 派生并生成的括号字形子集：src/static/fonts/baloo2/comicine-brackets-600-subset-baloo2.ttf，以及嵌入 src/static/fonts-round75.css 的副本。这些字体文件仍受 OFL-1.1 约束。再分发字体副本时须保留字体版权及许可证声明；不得单独出售字体软件；修改字体及保留字体名称须遵守 OFL 条款。
 
+### Delius Swash Caps
+
+Delius Swash Caps 由 Natalia Raices 设计。字体软件版权属于 Natalia Raices（2010、2011）和 Igino Marini（2011），依据 SIL Open Font License 第 1.1 版（OFL-1.1）发布。上游来源为 [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps)；许可证文本位于 [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt)。
+
+项目在 src/static/fonts/delius-swash-caps/ 中包含自托管的 WOFF2 子集，用于主站、状态页、文档站和 Sites 介绍页的版权文字。状态 Worker 在 ops/status-worker/src/brand-font.ts 中嵌入生成的子集。再分发时须保留版权及许可证声明，不得单独出售字体软件，并须遵守 OFL-1.1，包括保留字体名称 “Delia”“Delia Unicase”“Delius” 和 “Delius Unicase”。
+
 ### Inter
 
 Inter 的版权声明为 The Inter Project Authors，版权年份为 2016，依据 OFL-1.1 提供。上游项目为 [rsms/inter](https://github.com/rsms/inter)；本站托管的网页字体子集来源于 @fontsource-variable/inter 5.3.0。仓库内许可证副本位于 [src/static/fonts/inter/LICENSE.txt](src/static/fonts/inter/LICENSE.txt)。

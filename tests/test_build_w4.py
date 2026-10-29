@@ -388,7 +388,7 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
     (static_dir / "icons").mkdir(parents=True)
     (static_dir / "portfolio" / "source.webp").write_bytes(b"test source")
     # main() publishes the canonical root brand assets, so the stub build needs their source files.
-    for icon_name in ("comicine.svg", "comicine-xtext.svg", "comicine-favicon.svg"):
+    for icon_name in ("comicine-xtext.svg", "comicine-favicon.svg"):
         (static_dir / "icons" / icon_name).write_text("<svg/>", encoding="utf-8")
     output_dir = tmp_path / "out"
 

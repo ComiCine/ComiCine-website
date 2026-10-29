@@ -254,7 +254,7 @@ def publish_brand_assets(out_dir: str) -> None:
     """Publish canonical root-level brand assets and current-art legacy aliases."""
     icon_dir = os.path.join(STATIC_DIR, "icons")
     root_brand_assets = {
-        "comicine.svg": "comicine.svg",
+        "comicine.svg": "comicine-xtext.svg",
         "comicine-xtext.svg": "comicine-xtext.svg",
         "comicine-favicon.svg": "comicine-favicon.svg",
         "favicon.svg": "comicine-favicon.svg",
@@ -1246,7 +1246,7 @@ def main() -> int:
             html = html.replace("url(/static/", "url(../static/")
             html = html.replace(
                 'src="/comicine.svg"',
-                'src="../static/icons/comicine.svg"',
+                'src="../static/icons/comicine-xtext.svg"',
             )
             # Localize site navigation: https://<subdomain>.<root_domain> becomes a local file in the same directory.
             # Subdomain hostnames also come from the contract; do not hardcode comicine.com.
