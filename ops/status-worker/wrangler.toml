@@ -43,6 +43,10 @@ tag = "v2"
 tag = "v3"
 new_sqlite_classes = ["ComiCineProbeStateV2"]
 
+[[migrations]]
+tag = "v4"
+deleted_classes = ["ComiCineProbeState"]
+
 [vars]
 # Recheck interval after a down result, in seconds; matches the 10-second Kuma interval.
 RETRY_INTERVAL_S = "10"
