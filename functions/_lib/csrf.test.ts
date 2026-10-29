@@ -32,7 +32,7 @@ function request(
     headers: {
       Origin: origin,
       "X-CSRF-Token": token,
-      Cookie: `limooo_csrf=${cookieToken}`,
+      Cookie: `comicine_csrf=${cookieToken}`,
     },
   });
 }

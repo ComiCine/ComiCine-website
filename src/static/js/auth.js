@@ -21,17 +21,10 @@ var ROOT_DOMAIN = gateBodyAttr('data-root-domain', 'comicine.com');
 var LANG_COOKIE = gateBodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = gateBodyAttr('data-lang-cookie-max-age', '31536000');
 var THEME_COOKIE = gateBodyAttr('data-theme-cookie', 'comicine_theme');
-/* Keep existing cross-subdomain theme preferences readable during the cookie-key migration. */
-var LEGACY_THEME_COOKIE = 'limooo_theme';
 var THEME_COOKIE_MAX_AGE = gateBodyAttr('data-theme-cookie-max-age', '31536000');
-var LEGACY_ROOT_DOMAINS = ['limooo.cn'];
 function rootDomainForHost(host) {
-  var domains = [ROOT_DOMAIN].concat(LEGACY_ROOT_DOMAINS);
   host = String(host || '').toLowerCase();
-  for (var i = 0; i < domains.length; i++) {
-    if (host === domains[i] || host.endsWith('.' + domains[i])) return domains[i];
-  }
-  return null;
+  return host === ROOT_DOMAIN || host.endsWith('.' + ROOT_DOMAIN) ? ROOT_DOMAIN : null;
 }
 function sharedCookieDomain() {
   var root = rootDomainForHost(location.hostname);
@@ -70,9 +63,6 @@ function effectiveTheme() {
   var saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') return saved;
   var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
-  if (!match && LEGACY_THEME_COOKIE !== THEME_COOKIE) {
-    match = document.cookie.match(new RegExp('(?:^|;\\s*)' + LEGACY_THEME_COOKIE + '=(light|dark)'));
-  }
   return match ? match[1] : getSystemTheme();
 }
 
@@ -81,10 +71,6 @@ function saveTheme(theme) {
   var secure = location.protocol === 'https:' ? '; Secure' : '';
   document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
     + '; SameSite=Lax' + secure + sharedCookieDomain();
-  if (LEGACY_THEME_COOKIE !== THEME_COOKIE) {
-    document.cookie = LEGACY_THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
-      + '; SameSite=Lax' + secure + sharedCookieDomain();
-  }
 }
 
 var themeTransitionTimer = null;

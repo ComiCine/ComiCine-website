@@ -270,16 +270,18 @@ docs，即「完整部署」契约。若要只发布本地已提交的内容，
 ### 文档站（docs.comicine.com）
 
 `site/docs/` 是一个**按子域分目录的容器**：`docs/` 存放 docs.comicine.com 的
-VitePress 根（每种语言每页一个 markdown 文件），
-`services/` 存放 services.comicine.com 的价目表 CSV。
-语言码是 URL 的**最后**一段，内容页一律显式带上（`/README/zh-cn`、`/README/en-us`）；
-无后缀的 `/README` 会 302 到 `/README/zh-cn`；文档站根路径 `/` 会 302 到 `https://comicine.com`。
+VitePress 根，`services/` 存放 services.comicine.com 的价目表 CSV。`docs/` 内部的源文件按语言分类：
+`zh-cn/`、`en-us/`、`ja-jp/`、`ko-kr/` 各自包含同一棵文件树（`<lang>/<page>.md`），
+与共用的 `.vitepress/`、`functions/`、`public/` 目录并列。语言码是 URL 的**最后**一段，
+内容页一律显式带上（`/README/zh-cn`、`/README/en-us`）。无后缀的 `/README` 由文档站的
+Pages Function 按主站顺序解析（语言 cookie、`Accept-Language`、Cloudflare 国家信息，最后是
+契约默认语言）；文档站根路径 `/` 会 302 到 `https://comicine.com`。
 
-`.vitepress/rewrites.json`（与内容同级）把源文件映射到带后缀的路由，
-`.vitepress/config.mts` 通过 `additionalConfig` 为每个页面设置各自的
-`lang` / `themeConfig`。新增页面时，只需在每个语言目录中各放一个 markdown 文件，再加一条 rewrites 条目，
-并在 `public/_redirects` 里为无后缀路径补一条 302 —— 如果任何 markdown 文件没有产出 HTML，
-`ops/docs_check_output.py` 会让构建失败。
+`.vitepress/rewrites.json` 把每个 `<lang>/<page>.md` 源文件映射到带后缀的路由，
+`.vitepress/config.mts` 通过 `additionalConfig` 为每个语言目录设置各自的 `lang` / `themeConfig`。
+新增页面时，需要在四个语言目录中各建一份，加四条 rewrites 条目，并为无后缀路径添加
+`functions/<page>.js` 入口及对应的 `_routes.json` include。若任何 markdown 文件没有产出 HTML、
+不在语言目录中，或缺少某种语言的译本，`ops/docs_check_output.py` 都会让构建失败。
 
 该站点使用来自 fork `ComiCine/vitepress` 的 VitePress 构建：
 页头与页脚位于 fork 中（`VPComiCineNav.vue` / `VPComiCineFooter.vue`），

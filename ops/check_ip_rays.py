@@ -45,7 +45,6 @@ from pathlib import Path
 
 ROOT = Path(
     os.environ.get("COMICINE_ROOT")
-    or os.environ.get("LIMOOO_ROOT")
     or Path(__file__).resolve().parents[1]
 )
 sys.path.insert(0, str(ROOT))

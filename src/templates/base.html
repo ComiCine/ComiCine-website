@@ -62,7 +62,7 @@ See ADDITIONAL_TERMS.txt.
     {% block flash %}{% endblock %}
 
     <!-- Navigation. -->
-    {% set is_prod = request.host.endswith('comicine.com') or request.host.endswith('limooo.cn') %}
+    {% set is_prod = request.host.endswith('comicine.com') %}
     {% set home_url = 'https://comicine.com' if is_prod else '/' %}
     {% set services_url = 'https://services.comicine.com' if is_prod else '/services' %}
     {% set contact_url = 'https://contact.comicine.com' if is_prod else '/contact' %}

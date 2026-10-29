@@ -77,7 +77,7 @@ describe("renderRedirectPage", () => {
   it("falls back to the main site for anything that is not an https URL", async () => {
     for (const raw of [
       "",
-      "http://limooo.cn/",
+      "http://comicine.com/",
       "javascript:alert(1)",
       "//evil.example.com/",
       "/portfolio",
@@ -147,7 +147,7 @@ describe("renderRedirectPage", () => {
 describe("isRedirectHost", () => {
   it("only claims the redirect hostname", () => {
     expect(isRedirectHost(REDIRECT_HOSTNAME)).toBe(true);
-    expect(isRedirectHost("limooo.cn")).toBe(false);
+    expect(isRedirectHost("comicine.com")).toBe(false);
     expect(isRedirectHost(`evil.${REDIRECT_HOSTNAME}`)).toBe(false);
   });
 });

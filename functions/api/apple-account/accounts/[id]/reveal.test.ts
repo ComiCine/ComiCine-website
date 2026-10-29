@@ -44,10 +44,10 @@ let requestCookie = "";
 
 function context() {
   return {
-    request: new Request("https://account.limooo.cn/api/apple-account/accounts/1/reveal", {
+    request: new Request("https://account.comicine.com/api/apple-account/accounts/1/reveal", {
       method: "POST",
       headers: {
-        Origin: "https://account.limooo.cn",
+        Origin: "https://account.comicine.com",
         "X-CSRF-Token": "valid",
         Cookie: requestCookie,
       },

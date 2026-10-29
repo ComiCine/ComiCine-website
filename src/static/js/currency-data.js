@@ -328,6 +328,4 @@
         }
     };
     window.ComiCineCurrencySearchData = currencySearchData;
-    // Keep the previous global for cached scripts that still consume this data.
-    window.LimoooCurrencySearchData = currencySearchData;
 })();

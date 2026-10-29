@@ -25,13 +25,13 @@ import {
 describe("shared config", () => {
   it("has the expected shared constants", () => {
     expect(ROOT_DOMAIN).toBe("comicine.com");
-    expect(LEGACY_ROOT_DOMAINS).toEqual(["limooo.cn"]);
-    expect(ROOT_DOMAINS).toEqual(["comicine.com", "limooo.cn"]);
+    expect(LEGACY_ROOT_DOMAINS).toEqual([]);
+    expect(ROOT_DOMAINS).toEqual(["comicine.com"]);
     expect(DEFAULT_LANG).toBe("en-us");
     expect(SUPPORTED_LANGS).toContain("zh-cn");
     expect(GATE_COOKIE).toBe("__gate");
-    expect(SESSION_COOKIE).toBe("limooo_session_v3");
-    expect(PENDING_COOKIE).toBe("limooo_pending_v2");
+    expect(SESSION_COOKIE).toBe("comicine_session");
+    expect(PENDING_COOKIE).toBe("comicine_pending");
     expect(LANG_COOKIE).toBe("user_lang_preference");
   });
 });

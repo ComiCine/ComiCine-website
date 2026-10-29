@@ -30,7 +30,6 @@
 
 export const LANG_COOKIE = 'user_lang_preference'
 export const THEME_COOKIE = 'comicine_theme'
-export const LEGACY_THEME_COOKIE = 'limooo_theme'
 export const APPEARANCE_KEY = 'vitepress-theme-appearance'
 
 export const VITEPRESS_ROOT_LANG = 'zh-cn'
@@ -43,7 +42,6 @@ export const THEME_BOOTSTRAP_SCRIPT = `;(() => {
   try {
     if (localStorage.getItem('${APPEARANCE_KEY}')) return
     var m = document.cookie.match(/(?:^|;\\s*)${THEME_COOKIE}=(light|dark)/)
-    if (!m) m = document.cookie.match(/(?:^|;\\s*)${LEGACY_THEME_COOKIE}=(light|dark)/)
     if (m) localStorage.setItem('${APPEARANCE_KEY}', m[1])
   } catch (e) {}
 })()`
@@ -75,7 +73,7 @@ export function writeCookie(name: string, value: string): void {
 }
 
 export function readThemeCookie(): string | null {
-  return readCookie(THEME_COOKIE) ?? readCookie(LEGACY_THEME_COOKIE)
+  return readCookie(THEME_COOKIE)
 }
 
 function pathSegments(path: string): string[] {
@@ -125,8 +123,6 @@ function syncThemeCookie(): void {
     ? 'dark'
     : 'light'
   if (readCookie(THEME_COOKIE) !== value) writeCookie(THEME_COOKIE, value)
-  // Keep the previous cookie in sync for pages and tabs that have not refreshed yet.
-  if (readCookie(LEGACY_THEME_COOKIE) !== value) writeCookie(LEGACY_THEME_COOKIE, value)
 }
 
 function watchAppearance(): void {

@@ -24,7 +24,7 @@ are **not** written here; they come from the sources listed below.
 | Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
 | Worker: D1 archive | `comicine-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `comicine-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
 | Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; keeps the existing `sink-limooo` D1, `sink_limooo` analytics dataset, and KV namespace binding to preserve active data |
-| Workers account subdomain | `comicine.workers.dev` | Cloudflare Workers account settings | Replaced the former `limooo.workers.dev` namespace; custom domains stayed attached, and the Sink Worker keeps its workers.dev route disabled |
+| Workers account subdomain | `comicine.workers.dev` | Cloudflare Workers account settings | Replaced the former account subdomain; custom domains stayed attached, and the Sink Worker keeps its workers.dev route disabled |
 | R2 private bucket (originals) | `comicine-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
 | R2 bucket (fonts) | `comicine-fonts` | `ops/fonts/README.md` | Public font objects copied and verified; `fonts.comicine.com` serves the new bucket |
 | R2 bucket (analytics / archive) | `comicine-analytics` | `ops/d1-archive/wrangler.toml` | D1 snapshots and daily analytics archives |
@@ -290,7 +290,7 @@ Both return `{ ok, job, lastRun }`; the archive Worker also returns
 `backup: { job: "config_backup", lastRun }`, because both stages of its cron need to be
 visible from one call. `GET /` on the sync Worker still triggers a sync
 and keeps its original `{ ok, toAdd, toRemove }` shape (the `.zshrc` helper
-`_limooo_sync_cf` depends on it); `?dry-run=1` is unchanged. The archive Worker
+`_comicine_sync_cf` depends on it); `?dry-run=1` is unchanged. The archive Worker
 answers 404 for anything except `?health=1` -- it exists only so a failure becomes
 visible, never to be triggered over HTTP.
 
@@ -484,7 +484,7 @@ bash ops/workers_deploy.sh
 ## Cache Rules
 
 No Cloudflare Cache Rules are active in the `comicine.com` zone (verified 2026-10-27). The former
-`Limooo public cache` ruleset and its HTML rules are historical records, not live configuration.
+public cache ruleset and its HTML rules are historical records, not live configuration.
 Those HTML rules were disabled because their
 `cache_key` was empty, so the edge cached by URL only, while the public page language
 is decided by the `user_lang_preference` cookie. The first visitor's language was then
@@ -634,6 +634,6 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
   the configured API token lacks `Account Settings Write`. The account name remains unchanged until
   a token with that permission is available. R2 now contains only `comicine-analytics`,
-  `comicine-fonts` and `comicine-originals`; the legacy `limooo-*` buckets are absent. The active
+  `comicine-fonts` and `comicine-originals`; the pre-rename buckets are absent. The active
   D1 and Durable Object identifiers remain documented above because they hold live data/state and
   require a separately validated migration rather than a display-name replacement.

@@ -199,7 +199,6 @@ def write_pages_edge_config(out_dir: str) -> None:
                     "/comicine-xtext.svg",
                     "/comicine-favicon.svg",
                     # These historical URLs remain aliases to the current brand artwork.
-                    "/Limooo-xtext.svg",
                     "/ComiCine-xtext.svg",
                     # Crawler and AI entry files (2026-10-12): bypass Functions entirely.
                     # These three files must be reachable **without the gate**; otherwise an unverified crawler receives a
@@ -259,7 +258,6 @@ def publish_brand_assets(out_dir: str) -> None:
         "comicine-xtext.svg": "comicine-xtext.svg",
         "comicine-favicon.svg": "comicine-favicon.svg",
         "favicon.svg": "comicine-favicon.svg",
-        "Limooo-xtext.svg": "comicine-xtext.svg",
         "ComiCine-xtext.svg": "comicine-xtext.svg",
     }
     os.makedirs(out_dir, exist_ok=True)
@@ -1112,8 +1110,6 @@ def main() -> int:
     validate_locale_completeness()
     # Build-mode flag: use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    if "COMICINE_BUILD" not in os.environ and "LIMOOO_BUILD" in os.environ:
-        os.environ["COMICINE_BUILD"] = os.environ["LIMOOO_BUILD"]
     os.environ.setdefault("COMICINE_BUILD", "1")
     from render_app import RENDER_APP as appmod
 

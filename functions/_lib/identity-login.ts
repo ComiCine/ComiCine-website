@@ -13,7 +13,7 @@ import { IDENTITY_HOSTNAME } from "./config";
 import type { Env } from "./env";
 import { isIdentitySite, safeIdentityTarget } from "./identity";
 import { logEvent } from "./logging";
-import { clearLegacySharedSessionCookie, randomToken } from "./session";
+import { randomToken } from "./session";
 
 const IDENTITY_STATE_COOKIE_PREFIX = "comicine_identity_state_";
 const IDENTITY_STATE_MAX_AGE_SECONDS = 600;
@@ -56,6 +56,6 @@ export async function buildIdentityLoginStart(
   const stateCookie = `${IDENTITY_STATE_COOKIE_PREFIX}${state}=${state}; Path=/identity/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=${IDENTITY_STATE_MAX_AGE_SECONDS}`;
   return {
     identityUrl: identityLogin.toString(),
-    cookies: [stateCookie, clearLegacySharedSessionCookie()],
+    cookies: [stateCookie],
   };
 }

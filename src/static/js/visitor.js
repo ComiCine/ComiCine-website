@@ -30,7 +30,7 @@ let lastLoadedAt = 0;
 // This adapter falls back to the key until the translator is ready, without causing a ReferenceError.
 function t(key, params) {
   const translator = typeof window !== 'undefined'
-    ? (window.comicineTranslate || window.limoooTranslate)
+    ? window.comicineTranslate
     : undefined;
   return typeof translator === 'function' ? translator(key, params) : key;
 }

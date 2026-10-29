@@ -15,22 +15,16 @@
     "contact.comicine.com",
     "services.comicine.com",
     "auth.comicine.com",
-    "redirect.comicine.com",
-    "limooo.cn",
-    "www.limooo.cn",
-    "contact.limooo.cn",
-    "services.limooo.cn",
-    "auth.limooo.cn",
-    "redirect.limooo.cn"
+    "redirect.comicine.com"
   ],
   "lang_cookie": "user_lang_preference",
   "lang_cookie_max_age": 31536000,
   "theme_cookie": "comicine_theme",
   "theme_cookie_max_age": 31536000,
   "gate_cookie": "__gate",
-  "session_cookie": "limooo_session_v3",
-  "pending_cookie": "limooo_pending_v2",
-  "csrf_cookie": "limooo_csrf",
+  "session_cookie": "comicine_session",
+  "pending_cookie": "comicine_pending",
+  "csrf_cookie": "comicine_csrf",
   "gate_ttl_seconds": 3600,
   "session_ttl_seconds": 2592000,
   "pending_ttl_seconds": 600,
@@ -48,19 +42,6 @@
     "image.comicine.com",
     "images.comicine.com",
     "status.comicine.com",
-    "limooo.cn",
-    "www.limooo.cn",
-    "services.limooo.cn",
-    "contact.limooo.cn",
-    "visitor.limooo.cn",
-    "account.limooo.cn",
-    "identity.limooo.cn",
-    "auth.limooo.cn",
-    "redirect.limooo.cn",
-    "image.limooo.cn",
-    "images.limooo.cn",
-    "status.limooo.cn",
-    "*.limooo.cn",
     "*.comicine.com"
   ],
   "managed_hosts": [
@@ -74,18 +55,7 @@
     "auth.comicine.com",
     "redirect.comicine.com",
     "images.comicine.com",
-    "image.comicine.com",
-    "limooo.cn",
-    "www.limooo.cn",
-    "services.limooo.cn",
-    "contact.limooo.cn",
-    "visitor.limooo.cn",
-    "account.limooo.cn",
-    "identity.limooo.cn",
-    "auth.limooo.cn",
-    "redirect.limooo.cn",
-    "images.limooo.cn",
-    "image.limooo.cn"
+    "image.comicine.com"
   ],
   "page_routes": {
     "comicine.com": {
@@ -130,58 +100,13 @@
     "redirect.comicine.com": {
       "/": "redirect.html",
       "/r": "redirect.html"
-    },
-    "limooo.cn": {
-      "/": "index.html",
-      "/index.html": "index.html",
-      "/services": "services.html",
-      "/contact": "contact.html",
-      "/404": "not-found.html",
-      "/portfolio": "index.html"
-    },
-    "www.limooo.cn": {
-      "/": "index.html",
-      "/index.html": "index.html",
-      "/services": "services.html",
-      "/contact": "contact.html",
-      "/portfolio": "index.html"
-    },
-    "services.limooo.cn": {
-      "/": "services.html",
-      "/index.html": "services.html",
-      "/services": "services.html",
-      "/convention": "services.html",
-      "/outdoor": "services.html"
-    },
-    "contact.limooo.cn": {
-      "/": "contact.html",
-      "/index.html": "contact.html",
-      "/contact": "contact.html"
-    },
-    "visitor.limooo.cn": {
-      "/": "visitor.html",
-      "/index.html": "visitor.html",
-      "/visitor": "visitor.html"
-    },
-    "account.limooo.cn": {
-      "/apple": "apple-account.html"
-    },
-    "identity.limooo.cn": {},
-    "auth.limooo.cn": {
-      "/__gate": "auth.html"
-    },
-    "redirect.limooo.cn": {
-      "/": "redirect.html",
-      "/r": "redirect.html"
     }
   },
   "identity_host": "identity.comicine.com",
   "apple_account_email_domain": "apple.account.comicine.com",
   "identity_sites": {
     "visitor.comicine.com": "admin",
-    "account.comicine.com": "admin",
-    "visitor.limooo.cn": "admin",
-    "account.limooo.cn": "admin"
+    "account.comicine.com": "admin"
   },
   "image_asset_host": "images.comicine.com",
   "image_watermark_host": "image.comicine.com",
@@ -191,7 +116,5 @@
   },
   "observability_hmac_env": "OBSERVABILITY_HMAC_KEY",
   "whitelist_file": "docs/lists/whitelist.txt",
-  "legacy_root_domains": [
-    "limooo.cn"
-  ]
+  "legacy_root_domains": []
 }

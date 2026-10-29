@@ -12,7 +12,9 @@
     "/security/policy",
     "/security/policy/",
     "/security/acknowledgments",
-    "/security/acknowledgments/"
+    "/security/acknowledgments/",
+    "/articles/uk-undergraduate-majors",
+    "/articles/uk-undergraduate-majors/"
   ],
   "exclude": []
 }

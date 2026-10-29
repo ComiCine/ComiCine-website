@@ -59,7 +59,7 @@ function context(request: Request, extra: Partial<Env> = {}) {
 
 const logout = (query: string, extra: Partial<Env> = {}) =>
   onRequestGet(
-    context(new Request(`https://limooo.cn/logout${query}`), extra) as never,
+    context(new Request(`https://comicine.com/logout${query}`), extra) as never,
   );
 
 describe("logout next validation", () => {
@@ -77,7 +77,7 @@ describe("logout next validation", () => {
 
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe("https://comicine.com/");
-    expect(resp.headers.getSetCookie()).toHaveLength(3);
+    expect(resp.headers.getSetCookie()).toHaveLength(2);
   });
 
   it("falls back to the site root for an off-site next when Access is unconfigured", async () => {
@@ -93,9 +93,9 @@ describe("logout next validation", () => {
   });
 
   it("accepts an https next on a whitelisted host", async () => {
-    const resp = await logout("?next=https%3A%2F%2Fvisitor.limooo.cn%2Fvisitors");
+    const resp = await logout("?next=https%3A%2F%2Fvisitor.comicine.com%2Fvisitors");
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://visitor.limooo.cn/visitors");
+    expect(resp.headers.get("Location")).toBe("https://visitor.comicine.com/visitors");
   });
 
   it("rejects control characters instead of throwing a 500", async () => {

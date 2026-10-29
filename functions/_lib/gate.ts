@@ -177,7 +177,7 @@ export async function mintGateCookie(key: string, host: string = ROOT_DOMAIN): P
 /**
  * Remove an older host-only `__gate` cookie that has no Domain attribute.
  *
- * Same-name host-only and Domain=.limooo.cn cookies can **coexist** and are
+ * Same-name host-only and Domain=.comicine.com cookies can **coexist** and are
  * sent together. If an expired old cookie stays first, it can shadow the valid
  * one. Delete the host-only variant when issuing a new cookie to avoid a
  * state where verification succeeds but the visitor remains blocked.

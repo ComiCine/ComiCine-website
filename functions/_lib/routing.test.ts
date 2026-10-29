@@ -7,7 +7,7 @@
  * See ADDITIONAL_TERMS.txt.
  */
 
-/** Shared language-cookie behavior across the root domain and all subdomains (Domain=.limooo.cn). */
+/** Shared language-cookie behavior across the root domain and all subdomains (Domain=.comicine.com). */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -31,26 +31,26 @@ function req(host: string, cookie?: string, accept?: string): Request {
 
 describe("detectLang reads the shared language cookie", () => {
   it("main domain reads the cookie", () => {
-    expect(detectLang(req("limooo.cn", "user_lang_preference=ja-jp", "en-US"))).toBe("ja-jp");
+    expect(detectLang(req("comicine.com", "user_lang_preference=ja-jp", "en-US"))).toBe("ja-jp");
   });
 
-  it("all *.limooo.cn subdomains share one cookie (visitor / account / status / images)", () => {
+  it("all *.comicine.com subdomains share one cookie (visitor / account / status / images)", () => {
     for (const host of [
-      "visitor.limooo.cn",
-      "account.limooo.cn",
-      "status.limooo.cn",
-      "images.limooo.cn",
-      "auth.limooo.cn",
-      "services.limooo.cn",
-      "some-future-sub.limooo.cn",
+      "visitor.comicine.com",
+      "account.comicine.com",
+      "status.comicine.com",
+      "images.comicine.com",
+      "auth.comicine.com",
+      "services.comicine.com",
+      "some-future-sub.comicine.com",
     ]) {
       expect(detectLang(req(host, "user_lang_preference=ko-kr", "en-US")), host).toBe("ko-kr");
     }
   });
 
   it("cookie is case-insensitive; invalid values fall back to Accept-Language", () => {
-    expect(detectLang(req("visitor.limooo.cn", "user_lang_preference=ZH-CN"))).toBe("zh-cn");
-    expect(detectLang(req("visitor.limooo.cn", "user_lang_preference=xx-yy", "ja-JP"))).toBe("ja-jp");
+    expect(detectLang(req("visitor.comicine.com", "user_lang_preference=ZH-CN"))).toBe("zh-cn");
+    expect(detectLang(req("visitor.comicine.com", "user_lang_preference=xx-yy", "ja-JP"))).toBe("ja-jp");
   });
 
   it("foreign domains do not read the cookie", () => {
@@ -58,23 +58,23 @@ describe("detectLang reads the shared language cookie", () => {
   });
 
   it("falls back to Accept-Language when no cookie is present", () => {
-    expect(detectLang(req("visitor.limooo.cn", undefined, "ko-KR,ko;q=0.9"))).toBe("ko-kr");
+    expect(detectLang(req("visitor.comicine.com", undefined, "ko-KR,ko;q=0.9"))).toBe("ko-kr");
   });
 
   it("derives region prefixes from the language codes (zh-Hant -> zh-cn, en-GB -> en-us)", () => {
-    expect(detectLang(req("limooo.cn", undefined, "zh-Hant,zh;q=0.9"))).toBe("zh-cn");
-    expect(detectLang(req("limooo.cn", undefined, "en-GB,en;q=0.8"))).toBe("en-us");
+    expect(detectLang(req("comicine.com", undefined, "zh-Hant,zh;q=0.9"))).toBe("zh-cn");
+    expect(detectLang(req("comicine.com", undefined, "en-GB,en;q=0.8"))).toBe("en-us");
   });
 
   it("falls back to the contract DEFAULT_LANG when nothing matches", () => {
     expect(SUPPORTED_LANGS).toContain(DEFAULT_LANG);
-    expect(detectLang(req("limooo.cn"))).toBe(DEFAULT_LANG);
-    expect(detectLang(req("limooo.cn", undefined, "de-DE,de;q=0.9"))).toBe(DEFAULT_LANG);
+    expect(detectLang(req("comicine.com"))).toBe(DEFAULT_LANG);
+    expect(detectLang(req("comicine.com", undefined, "de-DE,de;q=0.9"))).toBe(DEFAULT_LANG);
   });
 
   it("maps the CF country to a language via its region subtag (CN -> zh-cn)", () => {
     const withCountry = (country: string): Request =>
-      Object.assign(new Request("https://limooo.cn/", { headers: { Host: "limooo.cn" } }), {
+      Object.assign(new Request("https://comicine.com/", { headers: { Host: "comicine.com" } }), {
         cf: { country },
       });
     expect(detectLang(withCountry("CN"))).toBe("zh-cn");
@@ -120,13 +120,13 @@ describe("langCookieHeader domain scope", () => {
     for (const host of ["comicine.com", "visitor.comicine.com", "images.comicine.com"]) {
       expect(langCookieHeader(host, "ja-jp"), host).toContain("Domain=.comicine.com");
     }
-    for (const host of ["limooo.cn", "visitor.limooo.cn", "images.limooo.cn"]) {
-      expect(langCookieHeader(host, "ja-jp"), host).toContain("Domain=.limooo.cn");
+    for (const host of ["comicine.com", "visitor.comicine.com", "images.comicine.com"]) {
+      expect(langCookieHeader(host, "ja-jp"), host).toContain("Domain=.comicine.com");
     }
   });
 
   it("Host with a port is handled correctly (local preview)", () => {
-    expect(langCookieHeader("limooo.cn:8788", "ja-jp")).toContain("Domain=.limooo.cn");
+    expect(langCookieHeader("comicine.com:8788", "ja-jp")).toContain("Domain=.comicine.com");
   });
 
   it("foreign domains get no Domain attribute", () => {
@@ -134,7 +134,7 @@ describe("langCookieHeader domain scope", () => {
   });
 
   it("cookie attributes are complete (Path / Max-Age / SameSite / Secure)", () => {
-    const header = langCookieHeader("limooo.cn", "zh-cn");
+    const header = langCookieHeader("comicine.com", "zh-cn");
     expect(header).toContain("user_lang_preference=zh-cn");
     expect(header).toContain("Path=/");
     expect(header).toContain("SameSite=Lax");
@@ -145,27 +145,27 @@ describe("langCookieHeader domain scope", () => {
 /** tasks/22 increment 2: parse the URL once per request and reuse language detection along the call chain. */
 describe("request URL parsing and language reuse", () => {
   it("parses the request URL once per Request object", () => {
-    const request = new Request("https://limooo.cn/services?challenge=1");
+    const request = new Request("https://comicine.com/services?challenge=1");
     const first = requestUrl(request);
     expect(requestUrl(request)).toBe(first);
     expect(first.searchParams.get("challenge")).toBe("1");
   });
 
   it("withLangCookie uses the language it is given and falls back to detection", () => {
-    const request = new Request("https://limooo.cn/");
+    const request = new Request("https://comicine.com/");
     const explicit = withLangCookie(request, new Response("body"), "ko-kr");
     expect(explicit.headers.get("Set-Cookie")).toContain(`${LANG_COOKIE}=ko-kr`);
 
 // Preserve the old behavior when lang is omitted: detect it from Accept-Language here.
     const detected = withLangCookie(
-      new Request("https://limooo.cn/", { headers: { "Accept-Language": "ja-JP" } }),
+      new Request("https://comicine.com/", { headers: { "Accept-Language": "ja-JP" } }),
       new Response("body"),
     );
     expect(detected.headers.get("Set-Cookie")).toContain(`${LANG_COOKIE}=ja-jp`);
   });
 
   it("does not touch the cookie when the visitor already has one", () => {
-    const request = new Request("https://limooo.cn/", {
+    const request = new Request("https://comicine.com/", {
       headers: { Cookie: `${LANG_COOKIE}=zh-cn` },
     });
     const resp = withLangCookie(request, new Response("body"), "ko-kr");

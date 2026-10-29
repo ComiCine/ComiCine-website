@@ -84,7 +84,7 @@ def csp(scripts: list[str], styles: list[str]) -> str:
             "font-src 'self' data:",
             f"connect-src {connect_src}",
             "frame-ancestors 'self'",
-            "form-action 'self' https://*.comicine.com https://*.limooo.cn",
+            "form-action 'self' https://*.comicine.com",
         ]
     )
 

@@ -51,7 +51,7 @@ function context(request: Request, env: Partial<Env> = {}): RequestContext {
 
 describe("shared identity navigation", () => {
   it("preserves no-referrer on the 401 navigation document", () => {
-    const request = new Request("https://visitor.limooo.cn/");
+    const request = new Request("https://visitor.comicine.com/");
     const response = withSecurityHeaders(
       request,
       new Response("sign in", { headers: { "Referrer-Policy": "no-referrer" } }),
@@ -61,7 +61,7 @@ describe("shared identity navigation", () => {
   });
 
   it("returns a 401 document with a host-bound identity handoff for browser page requests", async () => {
-    const request = new Request("https://visitor.limooo.cn/", {
+    const request = new Request("https://visitor.comicine.com/", {
       headers: {
         Accept: "text/html",
         "CF-Connecting-IP": "97.64.18.11",
@@ -82,7 +82,7 @@ describe("shared identity navigation", () => {
     expect(identityUrl.pathname).toBe("/login");
 
     const callback = new URL(identityUrl.searchParams.get("next") ?? "");
-    expect(callback.origin).toBe("https://visitor.limooo.cn");
+    expect(callback.origin).toBe("https://visitor.comicine.com");
     expect(callback.pathname).toBe("/identity/callback");
     const state = callback.searchParams.get("state");
     expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -92,7 +92,7 @@ describe("shared identity navigation", () => {
   });
 
   it("keeps API authentication failures as JSON 401 responses", async () => {
-    const request = new Request("https://visitor.limooo.cn/api/visitors", {
+    const request = new Request("https://visitor.comicine.com/api/visitors", {
       headers: {
         Accept: "text/html",
         "CF-Connecting-IP": "97.64.18.11",
@@ -150,7 +150,7 @@ describe("force theme challenge", () => {
   it("renders the gate at an unverified visitor's original URL", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/"),
+        new Request("https://comicine.com/"),
         {
           ASSETS: {
             fetch: async () => new Response("{{host}} {{next}}", {
@@ -163,13 +163,13 @@ describe("force theme challenge", () => {
 
     expect(resp.status).toBe(403);
     expect(resp.headers.get("Location")).toBeNull();
-    await expect(resp.text()).resolves.toContain("limooo.cn /");
+    await expect(resp.text()).resolves.toContain("comicine.com /");
   });
 
   it("renders the gate at the original URL for forced challenges", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/services?challenge=1", {
+        new Request("https://comicine.com/services?challenge=1", {
           headers: {
             "CF-Connecting-IP": "97.64.18.11",
             Cookie: "cf_clearance=test",
@@ -187,7 +187,7 @@ describe("force theme challenge", () => {
 
     expect(resp.status).toBe(403);
     expect(resp.headers.get("Location")).toBeNull();
-    await expect(resp.text()).resolves.toContain("limooo.cn /services");
+    await expect(resp.text()).resolves.toContain("comicine.com /services");
   });
 
   it("308s the legacy /__gate entry and keeps the forced challenge on /gate", async () => {
@@ -204,7 +204,7 @@ describe("force theme challenge", () => {
     const legacy = await handleOnRequest(
       context(
         new Request(
-          "https://limooo.cn/__gate?challenge=1&host=limooo.cn&next=%2Fservices",
+          "https://comicine.com/__gate?challenge=1&host=comicine.com&next=%2Fservices",
           { headers: { Cookie: "cf_clearance=test" } },
         ),
         assets,
@@ -213,13 +213,13 @@ describe("force theme challenge", () => {
 
     expect(legacy.status).toBe(308);
     expect(legacy.headers.get("Location")).toBe(
-      "https://limooo.cn/gate?challenge=1&host=limooo.cn&next=%2Fservices",
+      "https://comicine.com/gate?challenge=1&host=comicine.com&next=%2Fservices",
     );
 
     // A forced challenge still blocks through the normalized entry point; cf_clearance is not trusted.
     const forced = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?challenge=1&host=limooo.cn&next=%2Fservices", {
+        new Request("https://comicine.com/gate?challenge=1&host=comicine.com&next=%2Fservices", {
           headers: { Cookie: "cf_clearance=test" },
         }),
         assets,
@@ -233,7 +233,7 @@ describe("force theme challenge", () => {
   it("ignores client-supplied X-ComiCine-Client-IP when deciding trust", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: {
             "CF-Connecting-IP": "203.0.113.9",
             "X-ComiCine-Client-IP": "97.64.18.11",
@@ -256,7 +256,7 @@ describe("force theme challenge", () => {
   it("serves redirect static assets directly instead of rendering the redirect page", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://redirect.limooo.cn/static/css/redirect.css"),
+        new Request("https://redirect.comicine.com/static/css/redirect.css"),
       ),
     );
     expect(resp.status).toBe(200);
@@ -266,7 +266,7 @@ describe("force theme challenge", () => {
   it("serves the health probe without human verification", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/_health", {
+        new Request("https://comicine.com/_health", {
           headers: { "CF-Connecting-IP": "1.2.3.4" },
         }),
       ),
@@ -302,7 +302,7 @@ describe("force theme challenge", () => {
   it("serves public pages with edge-cache headers", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: {
             "CF-Connecting-IP": "97.64.18.11",
             Cookie: "user_lang_preference=zh-cn",
@@ -335,14 +335,14 @@ describe("force theme challenge", () => {
   it("keys the in-process page cache by host so two hosts cannot share a page", async () => {
     // www and the apex host have identical routes; omitting the host from the cache key would mix their pages.
     // Assert pageCacheKey directly; the rendering path uses this same function.
-    const main = pageCacheKey("limooo.cn", "/en-us/index.html", "en-us").href;
-    const www = pageCacheKey("www.limooo.cn", "/en-us/index.html", "en-us").href;
+    const main = pageCacheKey("comicine.com", "/en-us/index.html", "en-us").href;
+    const www = pageCacheKey("www.comicine.com", "/en-us/index.html", "en-us").href;
     expect(main).not.toBe(www);
-    expect(new URL(main).hostname).toBe("limooo.cn");
-    expect(new URL(www).hostname).toBe("www.limooo.cn");
+    expect(new URL(main).hostname).toBe("comicine.com");
+    expect(new URL(www).hostname).toBe("www.comicine.com");
     // The language and asset path must remain in the key, or changing languages could return a stale page.
-    expect(pageCacheKey("limooo.cn", "/en-us/index.html", "en-us").href).not.toBe(
-      pageCacheKey("limooo.cn", "/zh-cn/index.html", "zh-cn").href,
+    expect(pageCacheKey("comicine.com", "/en-us/index.html", "en-us").href).not.toBe(
+      pageCacheKey("comicine.com", "/zh-cn/index.html", "zh-cn").href,
     );
   });
 
@@ -360,7 +360,7 @@ describe("force theme challenge", () => {
     try {
       const resp = await handleOnRequest(
         context(
-          new Request("https://limooo.cn/", {
+          new Request("https://comicine.com/", {
             headers: {
               "CF-Connecting-IP": "97.64.18.11",
               Cookie: "user_lang_preference=zh-cn",
@@ -382,21 +382,21 @@ describe("force theme challenge", () => {
     }
 
     expect(written).toHaveLength(1);
-    expect(new URL(written[0]).hostname).toBe("limooo.cn");
+    expect(new URL(written[0]).hostname).toBe("comicine.com");
     expect(new URL(written[0]).searchParams.get("lang")).toBe("zh-cn");
   });
 });
 
 describe("legacy HTML redirects", () => {
   it.each([
-    ["https://limooo.cn/www.html", "https://comicine.com/"],
-    ["https://limooo.cn/images.html", "https://comicine.com/"],
-    ["https://limooo.cn/portfolio.html", "https://comicine.com/portfolio"],
-    ["https://limooo.cn/visitor.html", "https://visitor.comicine.com/"],
-    ["https://limooo.cn/apple-account.html", "https://account.comicine.com/"],
-    ["https://limooo.cn/redirect.html", "https://redirect.comicine.com/"],
-    ["https://limooo.cn/status.html", "https://status.comicine.com/"],
-    ["https://services.limooo.cn/index.html", "https://services.comicine.com/"],
+    ["https://comicine.com/www.html", "https://comicine.com/"],
+    ["https://comicine.com/images.html", "https://comicine.com/"],
+    ["https://comicine.com/portfolio.html", "https://comicine.com/portfolio"],
+    ["https://comicine.com/visitor.html", "https://visitor.comicine.com/"],
+    ["https://comicine.com/apple-account.html", "https://account.comicine.com/"],
+    ["https://comicine.com/redirect.html", "https://redirect.comicine.com/"],
+    ["https://comicine.com/status.html", "https://status.comicine.com/"],
+    ["https://services.comicine.com/index.html", "https://services.comicine.com/"],
   ])("redirects known alias %s to %s", async (requestUrl, target) => {
     const resp = await handleOnRequest(context(new Request(requestUrl)));
 
@@ -408,7 +408,7 @@ describe("legacy HTML redirects", () => {
     let assetCalls = 0;
     const resp = await handleOnRequest(
       context(
-        new Request("https://images.limooo.cn/services.html?from=legacy"),
+        new Request("https://images.comicine.com/services.html?from=legacy"),
         {
           ASSETS: {
             fetch: async () => {
@@ -429,7 +429,7 @@ describe("legacy HTML redirects", () => {
 
   it("routes known www aliases directly to their destination", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://www.limooo.cn/contact.html")),
+      context(new Request("https://www.comicine.com/contact.html")),
     );
 
     expect(resp.status).toBe(302);
@@ -438,7 +438,7 @@ describe("legacy HTML redirects", () => {
 
   it("sends the docs alias to the main site without the docs-root redirect hop", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://limooo.cn/docs.html")),
+      context(new Request("https://comicine.com/docs.html")),
     );
 
     expect(resp.status).toBe(302);
@@ -447,8 +447,8 @@ describe("legacy HTML redirects", () => {
 
   it("returns HTTP 404 for unknown html targets without redirecting", async () => {
     const aliases = [
-      "https://limooo.cn/not-a-page.html",
-      "https://services.limooo.cn/fail.html?from=legacy",
+      "https://comicine.com/not-a-page.html",
+      "https://services.comicine.com/fail.html?from=legacy",
     ];
 
     for (const url of aliases) {
@@ -469,7 +469,7 @@ describe("legacy HTML redirects", () => {
   it("does not apply legacy aliases to unlisted subdomains", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://preview.limooo.cn/services.html", {
+        new Request("https://preview.comicine.com/services.html", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
       ),
@@ -482,7 +482,7 @@ describe("legacy HTML redirects", () => {
   it("keeps forced challenges ahead of known aliases", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/services.html?challenge=1", {
+        new Request("https://comicine.com/services.html?challenge=1", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
         {
@@ -502,9 +502,9 @@ describe("legacy HTML redirects", () => {
 
 describe("Feishu path aliases", () => {
   it.each([
-    ["https://limooo.cn/feishu", "https://comicine.feishu.cn/"],
-    ["https://limooo.cn/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
-    ["https://limooo.cn/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
+    ["https://comicine.com/feishu", "https://comicine.feishu.cn/"],
+    ["https://comicine.com/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
+    ["https://comicine.com/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
     ["https://comicine.com/feishu/docs/guide?lang=zh-cn", "https://comicine.feishu.cn/docs/guide?lang=zh-cn"],
     ["https://comicine.com/lark/open?from=site", "https://comicine.feishu.cn/open?from=site"],
   ])("redirects %s to the ComiCine Feishu site", async (requestUrl, target) => {
@@ -519,7 +519,7 @@ describe("Feishu path aliases", () => {
 describe("images host routing", () => {
   it("keeps permanent redirects for retired landing paths", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://images.limooo.cn/index.html")),
+      context(new Request("https://images.comicine.com/index.html")),
     );
 
     expect(resp.status).toBe(301);
@@ -528,7 +528,7 @@ describe("images host routing", () => {
 
   it("never forwards API paths to Pages Functions", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://images.limooo.cn/api/visitors")),
+      context(new Request("https://images.comicine.com/api/visitors")),
     );
 
     expect(resp.status).toBe(404);
@@ -555,7 +555,7 @@ describe("public /files", () => {
 
   it("serves /files/<name> without the gate, even for an unverified visitor", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://limooo.cn/files/after_sign_in.png"), assetsEnv()),
+      context(new Request("https://comicine.com/files/after_sign_in.png"), assetsEnv()),
     );
 
     expect(resp.status).toBe(200);
@@ -567,7 +567,7 @@ describe("public /files", () => {
   it("also maps the clean URL on the images subdomain", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://images.limooo.cn/files/after_sign_in.png"),
+        new Request("https://images.comicine.com/files/after_sign_in.png"),
         assetsEnv(),
       ),
     );
@@ -578,12 +578,12 @@ describe("public /files", () => {
 
   it("404s unknown names and path traversal without touching the gate", async () => {
     const unknown = await handleOnRequest(
-      context(new Request("https://limooo.cn/files/nope.png"), assetsEnv()),
+      context(new Request("https://comicine.com/files/nope.png"), assetsEnv()),
     );
     expect(unknown.status).toBe(404);
 
     const traversal = await handleOnRequest(
-      context(new Request("https://limooo.cn/files/..%2Fsecrets"), assetsEnv()),
+      context(new Request("https://comicine.com/files/..%2Fsecrets"), assetsEnv()),
     );
     expect(traversal.status).toBe(404);
   });
@@ -618,7 +618,7 @@ describe("blocked IP enforcement", () => {
   });
 
   const blockedRequest = (path: string) =>
-    new Request(`https://limooo.cn${path}`, {
+    new Request(`https://comicine.com${path}`, {
       headers: { "CF-Connecting-IP": "203.0.113.9" },
     });
 
@@ -665,7 +665,7 @@ describe("blocked IP enforcement", () => {
     // Trust takes precedence, so it should neither query the database nor be blocked.
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/services", {
+        new Request("https://comicine.com/services", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
         env,
@@ -719,14 +719,14 @@ describe("blocked IP enforcement", () => {
     });
 
     const crawler = await handleOnRequest(
-      context(new Request("https://limooo.cn/", { headers: { "User-Agent": CRAWLER_UA } }), env),
+      context(new Request("https://comicine.com/", { headers: { "User-Agent": CRAWLER_UA } }), env),
     );
     expect(crawler.status).toBe(200);
     await expect(crawler.text()).resolves.toContain("real home");
 
     const browser = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: {
             "User-Agent":
               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
@@ -742,7 +742,7 @@ describe("blocked IP enforcement", () => {
     // A self-identified GPTBot from a banned IP must still receive 403; a claimed UA cannot lift a ban.
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/services", {
+        new Request("https://comicine.com/services", {
           headers: {
             "CF-Connecting-IP": "203.0.113.9",
             "User-Agent": "Mozilla/5.0 (compatible; GPTBot/1.4; +https://openai.com/gptbot)",
@@ -808,10 +808,10 @@ describe("blocked IP enforcement", () => {
     };
 
     const staticResp = await handleOnRequest(
-      context(new Request("https://limooo.cn/static/js/actions.js"), env),
+      context(new Request("https://comicine.com/static/js/actions.js"), env),
     );
     const filesResp = await handleOnRequest(
-      context(new Request("https://limooo.cn/files/after_sign_in.png"), env),
+      context(new Request("https://comicine.com/files/after_sign_in.png"), env),
     );
 
     expect(staticResp.status).toBe(200);
@@ -851,7 +851,7 @@ describe("blocked IP enforcement", () => {
   it("lets a whitelisted IP through to /api/* untouched", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/api/visitors", {
+        new Request("https://comicine.com/api/visitors", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
         blockedEnv(),
@@ -873,10 +873,10 @@ describe("canonical /gate entry", () => {
 
   it("serves the gate page for an unverified visitor", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://limooo.cn/gate?host=limooo.cn&next=%2Fservices"), assetsEnv),
+      context(new Request("https://comicine.com/gate?host=comicine.com&next=%2Fservices"), assetsEnv),
     );
     expect(resp.status).toBe(403);
-    await expect(resp.text()).resolves.toContain("limooo.cn /services");
+    await expect(resp.text()).resolves.toContain("comicine.com /services");
   });
 
   it("sends a visitor holding a valid cookie straight back without re-challenging", async () => {
@@ -886,7 +886,7 @@ describe("canonical /gate entry", () => {
 
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2Fservices", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2Fservices", {
           headers: { Cookie: cookie, "CF-Connecting-IP": "203.0.113.7" },
         }),
         assetsEnv,
@@ -894,7 +894,7 @@ describe("canonical /gate entry", () => {
     );
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/services");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/services");
     vi.useRealTimers();
   });
 
@@ -906,7 +906,7 @@ describe("canonical /gate entry", () => {
 
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2F", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2F", {
           headers: { Cookie: cookie, "CF-Connecting-IP": "203.0.113.7" },
         }),
         assetsEnv,
@@ -928,11 +928,11 @@ describe("canonical /gate entry", () => {
 
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: {
             Cookie: cookie,
             "CF-Connecting-IP": "203.0.113.7",
-            "Host": "limooo.cn",
+            "Host": "comicine.com",
           },
         }),
         {
@@ -959,11 +959,11 @@ describe("canonical /gate entry", () => {
 
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/", {
+        new Request("https://comicine.com/", {
           headers: {
             Cookie: cookie,
             "CF-Connecting-IP": "203.0.113.7",
-            "Host": "limooo.cn",
+            "Host": "comicine.com",
           },
         }),
         {
@@ -994,7 +994,7 @@ describe("canonical /gate entry", () => {
     // The first valid cookie within the limit still works, preserving the existing behavior where an older-scope cookie comes first.
     const withinCap = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2Fservices", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2Fservices", {
           headers: { Cookie: `${junk}; ${valid}`, "CF-Connecting-IP": "203.0.113.7" },
         }),
         assetsEnv,
@@ -1006,7 +1006,7 @@ describe("canonical /gate entry", () => {
     const flood = Array.from({ length: 40 }, () => junk).join("; ");
     const beyondCap = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2Fservices", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2Fservices", {
           headers: { Cookie: `${flood}; ${valid}`, "CF-Connecting-IP": "203.0.113.7" },
         }),
         assetsEnv,
@@ -1026,7 +1026,7 @@ describe("canonical /gate entry", () => {
     const stale = `__gate=1700000000.1700003600.${"a".repeat(64)}`;
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate?host=limooo.cn&next=%2Fservices", {
+        new Request("https://comicine.com/gate?host=comicine.com&next=%2Fservices", {
           headers: { Cookie: `${stale}; ${valid}`, "CF-Connecting-IP": "203.0.113.7" },
         }),
         assetsEnv,
@@ -1035,12 +1035,12 @@ describe("canonical /gate entry", () => {
     vi.useRealTimers();
 
     expect(resp.status).toBe(302);
-    expect(resp.headers.get("Location")).toBe("https://limooo.cn/services");
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/services");
   });
 
   it("never lets the challenge page be cached at the content URL", async () => {
     const resp = await handleOnRequest(
-      context(new Request("https://limooo.cn/services"), assetsEnv),
+      context(new Request("https://comicine.com/services"), assetsEnv),
     );
     expect(resp.status).toBe(403);
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
@@ -1049,27 +1049,27 @@ describe("canonical /gate entry", () => {
   it("308s the legacy /__gate entry to /gate, preserving the query", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/__gate?host=limooo.cn&next=%2Fservices"),
+        new Request("https://comicine.com/__gate?host=comicine.com&next=%2Fservices"),
         assetsEnv,
       ),
     );
 
     expect(resp.status).toBe(308);
     expect(resp.headers.get("Location")).toBe(
-      "https://limooo.cn/gate?host=limooo.cn&next=%2Fservices",
+      "https://comicine.com/gate?host=comicine.com&next=%2Fservices",
     );
   });
 
   it("answers the canonical config/diag/verify endpoints", async () => {
     const config = await handleOnRequest(
-      context(new Request("https://limooo.cn/gate/config")),
+      context(new Request("https://comicine.com/gate/config")),
     );
     expect(config.status).toBe(200);
     await expect(config.json()).resolves.toHaveProperty("root_domain", "comicine.com");
 
     const diag = await handleOnRequest(
       context(
-        new Request("https://limooo.cn/gate/diag", {
+        new Request("https://comicine.com/gate/diag", {
           headers: { "CF-Connecting-IP": "203.0.113.7" },
         }),
       ),
@@ -1147,7 +1147,7 @@ describe("onRequest wrapper", () => {
 
   it("adds the full security header set to pages and only nosniff to /api/*", async () => {
     const { context: pageContext } = wrapperContext(
-      new Request("https://limooo.cn/services", {
+      new Request("https://comicine.com/services", {
         headers: { "CF-Connecting-IP": "97.64.18.11" },
       }),
       htmlEnv("<html>services</html>"),
@@ -1164,7 +1164,7 @@ describe("onRequest wrapper", () => {
     );
 
     const { context: apiContext } = wrapperContext(
-      new Request("https://limooo.cn/api/visitors", {
+      new Request("https://comicine.com/api/visitors", {
         headers: { "CF-Connecting-IP": "97.64.18.11" },
       }),
     );
@@ -1187,11 +1187,11 @@ describe("onRequest wrapper", () => {
     // then write the new domain cookie. Sending only one cannot remove the old cookie; Safari
     // uses only the first cookie when multiple headers are folded together.
     vi.stubGlobal("fetch", async () =>
-      Response.json({ success: true, hostname: "limooo.cn", action: GATE_TURNSTILE_ACTION }),
+      Response.json({ success: true, hostname: "comicine.com", action: GATE_TURNSTILE_ACTION }),
     );
 
     const { context } = wrapperContext(
-      new Request("https://limooo.cn/gate/verify", {
+      new Request("https://comicine.com/gate/verify", {
         method: "POST",
         headers: {
           "CF-Connecting-IP": "203.0.113.7",
@@ -1201,7 +1201,7 @@ describe("onRequest wrapper", () => {
         body: new URLSearchParams({
           "cf-turnstile-response": "token",
           next: "/",
-          host: "limooo.cn",
+          host: "comicine.com",
         }).toString(),
       }),
     );
@@ -1219,11 +1219,11 @@ describe("onRequest wrapper", () => {
     // A multi-cookie response from next() (for example, an API setting session and CSRF cookies)
     // passes through onRequest. The response headers use workerd semantics; see foldingCookieResponse.
     const cookies = [
-      "limooo_session=abc; Path=/; HttpOnly",
-      "limooo_csrf=def; Path=/; SameSite=Lax",
+      "comicine_session=abc; Path=/; HttpOnly",
+      "comicine_csrf=def; Path=/; SameSite=Lax",
     ];
     const { context } = wrapperContext(
-      new Request("https://limooo.cn/api/auth/status", {
+      new Request("https://comicine.com/api/auth/status", {
         headers: { "CF-Connecting-IP": "97.64.18.11" },
       }),
       {},
@@ -1238,7 +1238,7 @@ describe("onRequest wrapper", () => {
 
   it("skips visit and ray tracking for 403 gate rejections", async () => {
     const { context, deferred } = wrapperContext(
-      new Request("https://limooo.cn/services", {
+      new Request("https://comicine.com/services", {
         headers: { "CF-Connecting-IP": "203.0.113.7" },
       }),
       htmlEnv(),
@@ -1255,7 +1255,7 @@ describe("onRequest wrapper", () => {
 
   it("records the visit and ray on tracked responses, handing both to waitUntil", async () => {
     const { context, deferred } = wrapperContext(
-      new Request("https://limooo.cn/services", {
+      new Request("https://comicine.com/services", {
         headers: { "CF-Connecting-IP": "97.64.18.11" },
       }),
       htmlEnv("<html>services</html>"),
@@ -1340,7 +1340,7 @@ describe("request URL is parsed once per request", () => {
   }
 
   it("parses the URL once and detects the language once for a page request", async () => {
-    const { request, reads } = countingRequest("https://limooo.cn/services");
+    const { request, reads } = countingRequest("https://comicine.com/services");
     const resp = await run(request);
 
     expect(resp.status).toBe(200);
@@ -1351,7 +1351,7 @@ describe("request URL is parsed once per request", () => {
 
   it("still detects the language when the visitor already has a language cookie", async () => {
     const { request, reads } = countingRequest(
-      "https://limooo.cn/services",
+      "https://comicine.com/services",
       "user_lang_preference=ja-jp",
     );
     const resp = await run(request);
@@ -1412,7 +1412,7 @@ describe("cachedPageAsset passes the asset body through", () => {
   }
 
   function pageRequest(headers: Record<string, string> = {}) {
-    return new Request("https://limooo.cn/services", {
+    return new Request("https://comicine.com/services", {
       headers: { "CF-Connecting-IP": "97.64.18.11", ...headers },
     });
   }
@@ -1444,7 +1444,7 @@ describe("cachedPageAsset passes the asset body through", () => {
       expect(caches.puts).toHaveLength(1);
       expect(caches.puts[0].bytes).toEqual(BYTES);
       expect(caches.puts[0].key).toContain("lang=zh-cn");
-      expect(new URL(caches.puts[0].key).hostname).toBe("limooo.cn");
+      expect(new URL(caches.puts[0].key).hostname).toBe("comicine.com");
       expect(String(vi.mocked(assets.fetch).mock.calls[0][0])).toBe(
         "https://comicine.com/zh-cn/services.html",
       );

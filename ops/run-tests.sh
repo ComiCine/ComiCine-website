@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 
 echo "Python tests"
 if [ -z "${PYTHON_BIN:-}" ]; then
-    for candidate in /tmp/limooo-venv312/bin/python /tmp/limooo-venv/bin/python; do
+    for candidate in /tmp/comicine-venv312/bin/python /tmp/comicine-venv/bin/python; do
         if [ -x "$candidate" ]; then
             PYTHON_BIN="$candidate"
             break

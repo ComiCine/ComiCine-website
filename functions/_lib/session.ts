@@ -127,10 +127,6 @@ export function clearSessionCookie(): string {
   return clearCookieHeader(SESSION_COOKIE);
 }
 
-export function clearLegacySharedSessionCookie(host: string = ROOT_DOMAIN): string {
-  return clearCookieHeader("limooo_session_v2", rootDomainForHost(host) ?? ROOT_DOMAIN);
-}
-
 export async function readSession(
   env: Env,
   cookieHeaderValue: string | null,

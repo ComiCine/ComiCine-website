@@ -25,13 +25,6 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PAGES_PROJECT="${PAGES_PROJECT:-comicine-production}"
 PAGES_ALIAS_PROJECT="${PAGES_ALIAS_PROJECT:-comicine}"
@@ -42,7 +35,7 @@ SECRETS_FILE="${SECRETS_FILE:-$LOCAL_DIR/secrets/webauthn.env}"
 # Reading many small files from the iCloud-synced directory can stall; use an isolated build directory under /tmp.
 PUBLIC_DIR="${COMICINE_PUBLIC_DIR:-/tmp/comicine-public}"
 PREVIEW_DIR="${COMICINE_PREVIEW_DIR:-/tmp/comicine-preview}"
-VENV_PYTHON="${COMICINE_VENV_PYTHON:-/tmp/limooo-venv/bin/python}"
+VENV_PYTHON="${COMICINE_VENV_PYTHON:-/tmp/comicine-venv/bin/python}"
 WRANGLER_BIN="${WRANGLER_BIN:-/tmp/wrangler-env/node_modules/.bin/wrangler}"
 
 DRY_RUN=0
@@ -77,7 +70,7 @@ fi
 # Build.
 if [ ! -x "$VENV_PYTHON" ]; then
     echo "FATAL: build venv not found: $VENV_PYTHON" >&2
-    echo "       recreate: python3 -m venv /tmp/limooo-venv && /tmp/limooo-venv/bin/pip install -r ops/requirements.txt" >&2
+    echo "       recreate: python3 -m venv /tmp/comicine-venv && /tmp/comicine-venv/bin/pip install -r ops/requirements.txt" >&2
     exit 1
 fi
 

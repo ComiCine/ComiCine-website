@@ -35,13 +35,6 @@
 
 set -uo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SECRETS_FILE="${SECRETS_FILE:-$ROOT/secrets/webauthn.env}"
 ZONE_ID="${CLOUDFLARE_ZONE_ID:-9fae48942c655fd03a4a483b4866c1c3}"

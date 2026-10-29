@@ -40,13 +40,6 @@
 
 set -euo pipefail
 
-_COMICINE_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -r "$_COMICINE_SCRIPT_DIR/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/env_compat.sh"
-elif [[ -r "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh" ]]; then
-    source "$_COMICINE_SCRIPT_DIR/../ops/env_compat.sh"
-fi
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # site/docs/ is a container organized by subdomain: docs/ = docs.comicine.com,
 # services/ = services.comicine.com. This script handles only docs.comicine.com content,
@@ -331,6 +324,7 @@ check_language_redirect /LICENSE /LICENSE/en-us
 check_language_redirect /docs-home /en-us
 check_language_redirect /security/policy /security/policy/en-us
 check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
+check_language_redirect /articles/uk-undergraduate-majors /articles/uk-undergraduate-majors/en-us
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
 
@@ -342,7 +336,9 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     /docs-home/zh-cn /en-us /ja-jp /ko-kr \
     /security/policy/zh-cn /security/policy/en-us /security/policy/ja-jp /security/policy/ko-kr \
     /security/acknowledgments/zh-cn /security/acknowledgments/en-us \
-    /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
+    /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr \
+    /articles/uk-undergraduate-majors/zh-cn /articles/uk-undergraduate-majors/en-us \
+    /articles/uk-undergraduate-majors/ja-jp /articles/uk-undergraduate-majors/ko-kr; do
     check_code "$path" 200
 done
 echo "[docs] done."

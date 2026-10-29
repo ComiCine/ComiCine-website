@@ -135,6 +135,13 @@ A fully serverless personal website and admin system running at [comicine.com](h
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
 └── docs/                                             # container: one directory per subdomain
     ├── docs/                                         # docs.comicine.com — VitePress root
+    │   ├── .vitepress/                               # config.mts, rewrites.json, theme
+    │   ├── zh-cn/                                    # one directory per language, same file tree in each
+    │   ├── en-us/
+    │   ├── ja-jp/
+    │   ├── ko-kr/
+    │   ├── functions/                                # docs Pages Functions: language-less entry routes
+    │   └── public/                                   # static assets, _redirects, _routes.json, robots.txt
     ├── services/                                     # services.comicine.com — price-list CSVs
     └── lists/                                        # gate/crawler/bans lists and generated whitelist (not published)
         ├── README.md                                 # what each list is and how to apply a change
@@ -277,17 +284,21 @@ Cloudflare API or Git.
 ### Docs site (docs.comicine.com)
 
 `site/docs/` is a **per-subdomain container**: `docs/` holds the docs.comicine.com
-VitePress root (one markdown file per page per language), `services/` holds the
-services.comicine.com price-list CSVs. The language code is the **last** URL segment and
-content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`); a suffix-less
-`/README` 302s to `/README/zh-cn`. The bare docs root `/` 302s to `https://comicine.com`.
+VitePress root, `services/` holds the services.comicine.com price-list CSVs. Inside
+`docs/`, sources are grouped by language: `zh-cn/`, `en-us/`, `ja-jp/`, and `ko-kr/`
+each hold the same file tree (`<lang>/<page>.md`), beside the shared `.vitepress/`,
+`functions/`, and `public/` directories. The language code is the **last** URL segment and
+content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`). A suffix-less
+`/README` is resolved by a docs Pages Function in the main site's order (language
+cookie, `Accept-Language`, Cloudflare country, then the contract default). The bare docs
+root `/` 302s to `https://comicine.com`.
 
-`.vitepress/rewrites.json` (beside the content) maps the markdown sources onto those suffixed
-routes, and `.vitepress/config.mts` gives each page its own `lang` / `themeConfig`
-through `additionalConfig`. Add a page by dropping a markdown file in each language
-directory, plus a rewrites entry and a 302 in `public/_redirects` for the
-suffix-less path — `ops/docs_check_output.py` fails the build if any markdown file
-has no HTML.
+`.vitepress/rewrites.json` maps each `<lang>/<page>.md` source onto its suffixed route, and
+`.vitepress/config.mts` gives each language directory its own `lang` / `themeConfig`
+through `additionalConfig`. To add a page, create it in all four language directories, add
+four rewrites entries, and add a `functions/<page>.js` entry plus its `_routes.json`
+include for the suffix-less path. `ops/docs_check_output.py` fails the build when a
+markdown file has no HTML, sits outside a language directory, or lacks a translation.
 
 The site is built with VitePress from the fork `ComiCine/vitepress`: the header
 and footer live in the fork (`VPComiCineNav.vue` / `VPComiCineFooter.vue`) and mirror the

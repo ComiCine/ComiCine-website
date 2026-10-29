@@ -20,8 +20,8 @@ describe("readCookie", () => {
     expect(readCookie("comicine_theme")).toBe("%");
   });
 
-  it("reads the previous theme cookie during migration", () => {
-    vi.stubGlobal("document", { cookie: "limooo_theme=dark" });
+  it("reads the shared theme cookie", () => {
+    vi.stubGlobal("document", { cookie: "comicine_theme=dark" });
 
     expect(readThemeCookie()).toBe("dark");
   });

@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./currency-rates";
 import type { Env } from "../_lib/env";
 
-function context(url = "https://services.limooo.cn/api/currency-rates") {
+function context(url = "https://services.comicine.com/api/currency-rates") {
   return {
     request: new Request(url),
     env: {} as Env,

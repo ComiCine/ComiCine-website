@@ -126,8 +126,8 @@ describe("access helpers", () => {
 
   it("jwks / logout endpoints are built from the team domain", () => {
     expect(accessJwksUrl(baseEnv)).toBe(`${TEAM}/cdn-cgi/access/certs`);
-    expect(accessLogoutUrl(baseEnv, "https://limooo.cn/")).toBe(
-      `${TEAM}/cdn-cgi/access/logout?redirect_url=${encodeURIComponent("https://limooo.cn/")}`,
+    expect(accessLogoutUrl(baseEnv, "https://comicine.com/")).toBe(
+      `${TEAM}/cdn-cgi/access/logout?redirect_url=${encodeURIComponent("https://comicine.com/")}`,
     );
   });
 
@@ -142,11 +142,11 @@ describe("access helpers", () => {
   });
 
   it("reads the identity header injected by Access", () => {
-    const req = new Request("https://visitor.limooo.cn/", {
+    const req = new Request("https://visitor.comicine.com/", {
       headers: { "Cf-Access-Jwt-Assertion": "tok" },
     });
     expect(accessAssertion(req)).toBe("tok");
-    expect(accessAssertion(new Request("https://visitor.limooo.cn/"))).toBeNull();
+    expect(accessAssertion(new Request("https://visitor.comicine.com/"))).toBeNull();
   });
 });
 

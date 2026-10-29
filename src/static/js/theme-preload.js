@@ -14,7 +14,6 @@
     var cookieName = script && script.getAttribute("data-theme-cookie") || "comicine_theme";
     var cookieNames = [cookieName];
     if (cookieName !== "comicine_theme") cookieNames.push("comicine_theme");
-    if (cookieName !== "limooo_theme") cookieNames.push("limooo_theme");
     var match = null;
     for (var i = 0; i < cookieNames.length && !match; i++) {
       var escapedName = cookieNames[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

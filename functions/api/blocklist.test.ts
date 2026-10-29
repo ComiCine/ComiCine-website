@@ -80,7 +80,7 @@ describe("blocklist API", () => {
         },
       ]);
     const resp = await onRequestGet(
-      context(new Request("https://limooo.cn/api/blocklist?page=1&page_size=10")) as never,
+      context(new Request("https://comicine.com/api/blocklist?page=1&page_size=10")) as never,
     );
     const data = await resp.json();
     expect(resp.status).toBe(200);
@@ -90,7 +90,7 @@ describe("blocklist API", () => {
 
   it("rejects unauthenticated requests", async () => {
     vi.mocked(requireAuth).mockResolvedValue(null);
-    const resp = await onRequestGet(context(new Request("https://limooo.cn/api/blocklist")) as never);
+    const resp = await onRequestGet(context(new Request("https://comicine.com/api/blocklist")) as never);
     expect(resp.status).toBe(401);
   });
 
@@ -98,7 +98,7 @@ describe("blocklist API", () => {
   // AuthSessionUnavailableError and requireAdminSession returns 503.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
-    const resp = await onRequestGet(context(new Request("https://limooo.cn/api/blocklist")) as never);
+    const resp = await onRequestGet(context(new Request("https://comicine.com/api/blocklist")) as never);
     expect(resp.status).toBe(503);
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
   });
@@ -106,7 +106,7 @@ describe("blocklist API", () => {
   it("adds a canonical cidr with audit", async () => {
     const resp = await onRequestPost(
       context(
-        new Request("https://limooo.cn/api/blocklist", {
+        new Request("https://comicine.com/api/blocklist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cidr: "1.2.3.4", reason: "manual block" }),
@@ -135,9 +135,9 @@ describe("blocklist API", () => {
       },
     ]);
     const resp = await onRequestDelete(
-      context(new Request("https://limooo.cn/api/blocklist?cidr=1.2.3.0/24", {
+      context(new Request("https://comicine.com/api/blocklist?cidr=1.2.3.0/24", {
         method: "DELETE",
-        headers: { Origin: "https://limooo.cn" },
+        headers: { Origin: "https://comicine.com" },
       })) as never,
     );
     const data = await resp.json();
@@ -153,7 +153,7 @@ describe("blocklist API", () => {
     const long = "x".repeat(5000);
     const resp = await onRequestPost(
       context(
-        new Request("https://limooo.cn/api/blocklist", {
+        new Request("https://comicine.com/api/blocklist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cidr: "5.6.7.8", reason: long }),
@@ -175,7 +175,7 @@ describe("blocklist API", () => {
   it("keeps a normal short reason intact", async () => {
     const resp = await onRequestPost(
       context(
-        new Request("https://limooo.cn/api/blocklist", {
+        new Request("https://comicine.com/api/blocklist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cidr: "5.6.7.8", reason: "manual block" }),
@@ -193,7 +193,7 @@ describe("blocklist API", () => {
   it("rejects mutating requests without CSRF", async () => {
     vi.mocked(verifyCsrf).mockResolvedValue(false);
     const resp = await onRequestPost(
-      context(new Request("https://limooo.cn/api/blocklist", {
+      context(new Request("https://comicine.com/api/blocklist", {
         method: "POST",
         body: JSON.stringify({ cidr: "1.2.3.4" }),
       })) as never,

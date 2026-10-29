@@ -48,7 +48,7 @@ function sessionData(prefix = ""): any {
 }
 
 function requestWith(cookie: string): Request {
-  return new Request("https://visitor.limooo.cn/api", {
+  return new Request("https://visitor.comicine.com/api", {
     headers: { Cookie: cookie },
   });
 }
@@ -93,7 +93,7 @@ describe("session cookie", () => {
   });
 
   it("rejects a cookie with malformed percent encoding", async () => {
-    await expect(readSession(env, "limooo_session=%" as string)).resolves.toBeNull();
+    await expect(readSession(env, "comicine_session=%" as string)).resolves.toBeNull();
   });
 });
 

@@ -47,7 +47,7 @@ MIGRATIONS_DIR = ROOT / "ops" / "migrations"
 # History: the first entry was
 #   ("ops/status-worker/src/index.ts", "probe_state", "last_alert_at")
 # -- the alert cooldown column only existed through a manual ALTER on production
-# (visible in ops/backups/d1-limooo-*.sql) until ops/migrations/016_probe_state_last_alert_at.sql
+# (visible in the 2026-09-26 D1 backup dump) until ops/migrations/016_probe_state_last_alert_at.sql
 # added it on 2026-10-11; the entry was removed in the same round.
 KNOWN_SCHEMA_DRIFT: dict[tuple[str, str, str], str] = {}
 
