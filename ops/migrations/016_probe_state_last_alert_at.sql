@@ -10,8 +10,8 @@
 -- down_since / checked_at, but maybeAlert() in ops/status-worker/src/index.ts reads and writes it.
 --   SELECT last_alert_at FROM probe_state WHERE probe_id = ?1
 --   UPDATE probe_state SET last_alert_at = ?2 WHERE probe_id = ?1
--- Evidence: the table definition in ops/backups/d1-limooo-20260926-062521.sql ends with
--- `, last_alert_at INTEGER);`, confirming the column was added manually in production.
+-- Evidence: a 2026-09-26 production D1 snapshot included `last_alert_at INTEGER`, confirming the
+-- column was added manually before this repository migration existed.
 --
 -- Consequence: a new database built from ops/migrations/ lacks this column. The SELECT fails and
 -- maybeAlert() silently catches it, disabling alert cooldown and sending repeated mail during probe flaps.

@@ -31,7 +31,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(BASE_DIR, "README.md")
 CONTRACT = os.path.join(BASE_DIR, "config-contract.json")
 STATUS_WORKER = os.path.join(BASE_DIR, "ops", "status-worker")
-DB_ID = "e2f29d54-29c0-46af-938d-e13995a11d7f"
 TREE_LINE = re.compile(r"^([│├└─\s]*)(\S.*)$")
 CRON_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|", re.M)
 
@@ -39,6 +38,19 @@ CRON_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|", re.M)
 def read(path: str) -> str:
     with open(path, encoding="utf-8") as handle:
         return handle.read()
+
+
+def d1_database_id() -> str:
+    """Resolve the live D1 identifier from the Pages binding or an explicit override."""
+    override = os.environ.get("COMICINE_D1_DATABASE_ID")
+    if override:
+        return override
+    wrangler = read(os.path.join(BASE_DIR, "wrangler.toml"))
+    binding = re.search(r"(?ms)^\[\[d1_databases\]\](.*?)(?=^\[|\Z)", wrangler)
+    match = re.search(r'^\s*database_id\s*=\s*"([0-9a-fA-F-]+)"', binding.group(1), re.M) if binding else None
+    if not match:
+        raise RuntimeError("Could not resolve the D1 database ID from wrangler.toml")
+    return match.group(1)
 
 
 def contract() -> dict:
@@ -383,7 +395,8 @@ def live_facts() -> dict:
         return {"success": False, "errors": [str(last)]}
 
     def d1(sql: str):
-        out = api("POST", f"/accounts/{account}/d1/database/{DB_ID}/query", {"sql": sql})
+        database_id = d1_database_id()
+        out = api("POST", f"/accounts/{account}/d1/database/{database_id}/query", {"sql": sql})
         if not out.get("success"):
             return {"error": out.get("errors")}
         return out["result"][0].get("results", [])
@@ -422,6 +435,18 @@ def live_facts() -> dict:
             "secrets": sorted(
                 ((result.get("deployment_configs") or {}).get("production") or {}).get("env_vars", {}).keys()
             ),
+            "d1_databases": {
+                environment: {
+                    binding: config.get("id")
+                    for binding, config in (
+                        ((result.get("deployment_configs") or {}).get(environment) or {}).get(
+                            "d1_databases"
+                        )
+                        or {}
+                    ).items()
+                }
+                for environment in ("production", "preview")
+            },
         }
     alias_project = api("GET", f"/accounts/{account}/pages/projects/comicine")
     if alias_project.get("success"):
@@ -470,6 +495,9 @@ def print_live_facts(facts: dict) -> None:
     print(f"  {'project':<22} {facts['pages'].get('name')} ({facts['pages'].get('subdomain')})")
     print(f"  {'domains':<22} {', '.join(facts['pages'].get('domains', []))}")
     print(f"  {'production secrets':<22} {', '.join(facts['pages'].get('secrets', []))}")
+    for environment, bindings in facts["pages"].get("d1_databases", {}).items():
+        rendered = ", ".join(f"{name}={database_id}" for name, database_id in sorted(bindings.items())) or "-"
+        print(f"  {environment + ' D1':<22} {rendered}")
     print(
         f"  {'alias project':<22} {facts['pages_alias'].get('name')} "
         f"({facts['pages_alias'].get('subdomain')})"

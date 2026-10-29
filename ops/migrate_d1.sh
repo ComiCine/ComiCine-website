@@ -26,7 +26,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MIGRATIONS_DIR="$ROOT/ops/migrations"
 STATE_FILE="${D1_STATE_FILE:-$ROOT/.d1-migrations/applied}"
-D1_DATABASE_NAME="${D1_DATABASE_NAME:-limooo}"
+D1_DATABASE_NAME="${D1_DATABASE_NAME:-comicine}"
 # A saved wrangler --json payload makes --check-schema fully offline (for debugging and tests).
 SCHEMA_JSON_FILE="${COMICINE_D1_SCHEMA_JSON:-}"
 WRANGLER_BIN="${WRANGLER_BIN:-}"
@@ -59,7 +59,7 @@ migrations must use the next free number (the highest number in ops/migrations/ 
 one): duplicate numbers are reported, and a legacy row can never tell them apart.
 
 Offline schema check: set COMICINE_D1_SCHEMA_JSON=<file> to the payload of
-  wrangler d1 execute limooo --command "SELECT name FROM sqlite_master WHERE type='table'" --json
+  wrangler d1 execute comicine --command "SELECT name FROM sqlite_master WHERE type='table'" --json
 and --check-schema validates that payload without contacting D1 (debug and tests).
 EOF
 }
@@ -354,6 +354,10 @@ PY
 
     statement_count=0
     while IFS= read -r -d '' statement; do
+        statement="$(printf '%s\n' "$statement" | sed '/^[[:space:]]*--/d')"
+        if [ -z "${statement//[[:space:]]/}" ]; then
+            continue
+        fi
         statement_count=$((statement_count + 1))
         apply_log="$(mktemp -t comicine-d1-apply-XXXXXX.log)"
         if "${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote --command "$statement" >"$apply_log" 2>&1; then

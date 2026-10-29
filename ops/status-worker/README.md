@@ -14,7 +14,7 @@ and the alert channel that replaced Uptime Kuma.
   (`heartbeats`, `probe_state`, `probe_uptime_daily`).
 - Cron `47 3 * * *` runs the D1 retention pass (`retention.ts`) and then the
   **daily checks** (`runDailyChecks()`), see below.
-- A probe that crosses `FAIL_THRESHOLD` is handed to the `ProbeState` Durable
+- A probe that crosses `FAIL_THRESHOLD` is handed to the `ComiCineProbeState` Durable
   Object, which re-checks it every `RETRY_INTERVAL_S` seconds and records recovery.
 - Alerts go to `ALERT_WEBHOOK_URL` first (Feishu bot format by default) and fall
   back to the `EMAIL` binding; with neither configured they are only logged.

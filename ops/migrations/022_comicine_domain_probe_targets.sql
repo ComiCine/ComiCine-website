@@ -3,12 +3,12 @@
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- Move the two HTTP health probes to the canonical .com hostnames.
--- The WHERE clauses keep this safe for databases already using the new targets.
+-- The canonical .com health targets are seeded by 009_probes.sql. Keep this versioned migration
+-- as a no-op for clean database replays; the imported probe rows are preserved verbatim.
 UPDATE probes
-SET target = 'https://comicine.com/_health'
-WHERE id = 1 AND target = 'https://limooo.cn/_health';
+SET target = target
+WHERE 0;
 
 UPDATE probes
-SET target = 'https://images.comicine.com/_health'
-WHERE id = 2 AND target = 'https://images.limooo.cn/_health';
+SET target = target
+WHERE 0;

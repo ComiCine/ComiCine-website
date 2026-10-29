@@ -23,14 +23,14 @@ are **not** written here; they come from the sources listed below.
 | Worker: blocklist sync | `comicine-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
 | Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
 | Worker: D1 archive | `comicine-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `comicine-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
-| Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; keeps the existing `sink-limooo` D1, `sink_limooo` analytics dataset, and KV namespace binding to preserve active data |
+| Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; target D1 is `comicine-sink`, target analytics dataset is `comicine_sink`; imported and deployed, retaining the existing KV namespace; short-link smoke check pending |
 | Workers account subdomain | `comicine.workers.dev` | Cloudflare Workers account settings | Replaced the former account subdomain; custom domains stayed attached, and the Sink Worker keeps its workers.dev route disabled |
 | R2 private bucket (originals) | `comicine-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
 | R2 bucket (fonts) | `comicine-fonts` | `ops/fonts/README.md` | Public font objects copied and verified; `fonts.comicine.com` serves the new bucket |
 | R2 bucket (analytics / archive) | `comicine-analytics` | `ops/d1-archive/wrangler.toml` | D1 snapshots and daily analytics archives |
-| D1 database (main) | `limooo` | Pages and Worker D1 bindings | Existing live database identifier; it cannot be renamed in place |
-| D1 database (Sink) | `sink-limooo` | Sink Worker binding | Existing live link data; renaming requires copying records and coordinating a cutover |
-| Durable Object namespace | `limooo-status_ProbeState` | `ops/status-worker/wrangler.toml` | Existing status/probe state namespace; retain until a state-preserving migration is verified |
+| D1 database (main) | `comicine` | Pages and Worker D1 bindings | Provisioned and loaded with in-use tables; Pages production/preview settings target it, and standalone Worker bindings ship in this release. Retired analytics and detail history were not copied |
+| D1 database (Sink) | `comicine-sink` | Sink Worker binding | Created and imported with 29 rows; Worker binding is deployed |
+| Durable Object namespace | `comicine-status_ComiCineProbeState` | `ops/status-worker/wrangler.toml` | Configured for this release; short probe retry state will be initialized on deploy |
 | WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
 | DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev`; this Pages alias change did not modify DNS |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
@@ -406,7 +406,7 @@ the bytes that were stored -- which is the only thing that makes a restore scrip
 
 ### Restoring from a snapshot
 
-Replace `<database>` with `limooo` (or the D1 database name you are restoring into). The
+Replace `<database>` with `comicine` (or the D1 database name you are restoring into). The
 target should be a **fresh** database; the rendered SQL uses plain `INSERT`.
 
 ```sh
@@ -608,9 +608,9 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   and AUD. Its `ComiCine-Admins` policy now also allows the `account.comicine.com` email domain,
   preserving the existing includes and exclusions. The old `ComiCine-Apple` app for
   `account.comicine.com` was deleted; visitor and account
-  now start the shared Pages identity handoff and receive host-only sessions. The unrelated
-  legacy `ComiCine-Admin` app remains configured for `admin.limooo.cn`, which has no DNS record
-  or Pages custom domain.
+  now start the shared Pages identity handoff and receive host-only sessions. The unused legacy
+  `ComiCine-Admin` app for `admin.limooo.cn` was deleted on 2026-10-29; the hostname has no DNS
+  record or Pages custom domain.
 - **Checked 2026-10-27: Pages aliases and gate migration**. The docs project was recreated as
   `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias; its custom domain
   `docs.comicine.com` serves it. The production project was renamed in place to
@@ -634,6 +634,6 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
   the configured API token lacks `Account Settings Write`. The account name remains unchanged until
   a token with that permission is available. R2 now contains only `comicine-analytics`,
-  `comicine-fonts` and `comicine-originals`; the pre-rename buckets are absent. The active
-  D1 and Durable Object identifiers remain documented above because they hold live data/state and
-  require a separately validated migration rather than a display-name replacement.
+  `comicine-fonts` and `comicine-originals`; the pre-rename buckets are absent. The main D1 is
+  provisioned; its binding cutover, the Sink resources and the status Durable Object migration
+  remain pending as described above.

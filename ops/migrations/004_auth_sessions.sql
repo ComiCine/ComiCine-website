@@ -6,7 +6,7 @@
 -- ComiCine Pages OIDC session revocation table (docs/09).
 -- A parallel agent already used the 004_* migration prefix; this file follows the established
 -- naming convention so it can be picked up by migrate_d1.sh.
--- Apply with: wrangler d1 execute limooo --file=./migrations/004_auth_sessions.sql
+-- Apply with: wrangler d1 execute comicine --file=./migrations/004_auth_sessions.sql
 -- If this table is missing, requireAuth must return 503 rather than trusting a signed cookie alone.
 
 CREATE TABLE IF NOT EXISTS auth_sessions (

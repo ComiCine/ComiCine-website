@@ -15,8 +15,8 @@ crons = ["30 3 * * *"]
 # Shares the D1 database with the Pages project.
 [[d1_databases]]
 binding = "DB"
-database_name = "limooo"
-database_id = "e2f29d54-29c0-46af-938d-e13995a11d7f"
+database_name = "comicine"
+database_id = "b7165de7-aa78-45a3-869e-78f4d9cec12d"
 
 # Set these secrets before deployment:
 #   wrangler secret put CLOUDFLARE_API_TOKEN

@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import worker, {
-  ProbeState,
+  ComiCineProbeState,
   buildAlertEmail,
   esc,
   pageLang,
@@ -242,7 +242,7 @@ describe("status page edge cache", () => {
   });
 });
 
-describe("ProbeState", () => {
+describe("ComiCineProbeState", () => {
   function makeState() {
     const store = new Map<string, unknown>();
     let alarm: number | null = null;
@@ -260,7 +260,7 @@ describe("ProbeState", () => {
   it("arm stores probe_id and sets an alarm", async () => {
     const { state, store, getAlarm } = makeState();
     const env = { DB: fakeDb({}).db, RETRY_INTERVAL_S: "10" } as Env;
-    const res = await new ProbeState(state, env).fetch(
+    const res = await new ComiCineProbeState(state, env).fetch(
       new Request("https://probe.internal/arm", { headers: { "X-Probe-Id": "7" } }),
     );
     expect(res.status).toBe(200);
@@ -271,7 +271,7 @@ describe("ProbeState", () => {
   it("disarm clears the alarm", async () => {
     const { state, getAlarm } = makeState();
     const env = { DB: fakeDb({}).db } as Env;
-    await new ProbeState(state, env).fetch(new Request("https://probe.internal/disarm"));
+    await new ComiCineProbeState(state, env).fetch(new Request("https://probe.internal/disarm"));
     expect(getAlarm()).toBeNull();
   });
 
@@ -285,7 +285,7 @@ describe("ProbeState", () => {
           ? probe
           : { last_status: 0, consecutive_fail: 3, down_since: Math.floor(Date.now() / 1000) },
     });
-    await new ProbeState(state, { DB: db, RETRY_INTERVAL_S: "10", RETRY_WINDOW_S: "280" } as Env).alarm();
+    await new ComiCineProbeState(state, { DB: db, RETRY_INTERVAL_S: "10", RETRY_WINDOW_S: "280" } as Env).alarm();
     expect(getAlarm()).not.toBeNull();
   });
 });

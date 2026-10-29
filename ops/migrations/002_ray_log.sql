@@ -4,7 +4,7 @@
 -- See ADDITIONAL_TERMS.txt.
 
 -- Ray ID request log for ComiCine Cloudflare Pages.
--- Apply with: wrangler d1 execute limooo --file=./migrations/002_ray_log.sql
+-- Apply with: wrangler d1 execute comicine --file=./migrations/002_ray_log.sql
 -- The middleware writes each request's CF-Ray and request details here for lookup by check-ray-id.
 
 CREATE TABLE IF NOT EXISTS ray_log (

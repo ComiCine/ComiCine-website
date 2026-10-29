@@ -78,14 +78,6 @@ login), so this case is kept for reference only.
 - The header logo comes from `images.comicine.com` (keeps the alpha channel);
   `image.comicine.com` drops alpha and renders a black background.
 
-## History (pre-migration, retired)
-
-- SMTP: `smtp.feishu.cn:465` (SSL), accounts `no-reply-<N>@limooo.cn` /
-  `ComiCine-no-reply-N`.
-- Credentials lived in the server's `secrets/smtp-relay.env`; the relay at
-  `/opt/smtp-relay/relay.py` read that file.
-- Both went away with the VPS lease; the relay no longer exists.
-
 ## Known issues
 
 - Feishu's sending egress IPs (`71.18.227.x` / `163.181.x`) are on Spamhaus
