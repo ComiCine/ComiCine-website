@@ -2,8 +2,9 @@
 /* Self-hosted Inter variable font with weights 100–900.
    Source: @fontsource-variable/inter 5.3.0 (SIL OFL 1.1; see fonts/inter/LICENSE.txt).
    unicode-range selects subsets on demand; font-display: optional avoids a second font swap.
+   Delius Swash Caps is the self-hosted copyright subset (OFL 1.1; see fonts/delius-swash-caps/OFL.txt).
    Main templates (base.html, auth.html, and redirect.html) load this file through
-   /static/fonts-round75.css?v=2. build.py mirrors it to Pages public/static/.
+   /static/fonts-round75.css?v=3. build.py mirrors it to Pages public/static/.
    Relative url(fonts/...) paths resolve from this file in any domain or preview directory. */
 @font-face {
   font-family: 'Inter';
@@ -68,8 +69,20 @@
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
+/* Delius Swash Caps subset for the copyright line, generated from the licensed local TTF.
+   Source font and SIL OFL 1.1 license: fonts/delius-swash-caps/.
+   This subset covers only ©, the year range, and the ComiCine wordmark. */
+@font-face {
+  font-family: 'Delius Swash Caps';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1) format('woff2');
+  unicode-range: U+0020,U+002D,U+0030-0039,U+0043,U+0050,U+0065,U+0069,U+006D-006F,U+0072-0074,U+00A9;
+}
+
 /* Legacy quotation-mark glyph font retained for cached and embedded clients.
-   The homepage now displays the ComiCine SVG logo. The font license is in fonts/baloo2/OFL.txt. */
+   The font license is in fonts/baloo2/OFL.txt. */
 @font-face {
   font-family: 'Baloo 2 Brackets';
   font-style: normal;
@@ -79,7 +92,7 @@
   unicode-range: U+0049,U+004C,U+004D,U+004F,U+300C-300D;
 }
 
-/* Baloo 2 variable font for footer brand text and reusable ComiCine wordmarks.
+/* Baloo 2 variable font for the ComiCine navigation and homepage wordmarks.
    Source: Baloo 2 (SIL OFL 1.1; see fonts/baloo2/OFL.txt).
    Latin subset only. font-display: swap replaces a fallback font after load; the preload
    in base.html helps avoid a visible fallback. Keep ?v=2 in sync with that preload:

@@ -122,9 +122,9 @@
     transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
   }
   .logo { display: block; margin: 0 auto 22px; max-width: 220px; height: auto; }
-  /* Match the homepage's centered mobile logo while keeping the card within the viewport. */
+  /* Keep the centered gate mark compact while preserving room for its card and fixed chrome. */
   @media (max-width: 767px) {
-    .logo { width: 144px; height: auto; max-width: 144px; }
+    .logo { width: 96px; height: auto; max-width: 96px; }
     html.gate-page {
       height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto;
     }
@@ -219,13 +219,6 @@
         /* Do not show "·" at the wrap; it must not precede the first item on row two. */
         .footer-text > .footer-copyright + .footer-item::before { content: none; }
     }
-  .footer-brand-logo {
-    display: inline-block;
-    width: 4.8em; height: 1.2em;
-    margin-inline-start: 0.25em;
-    object-fit: contain;
-    vertical-align: -0.15em;
-  }
   .footer-source-link { color: inherit; text-decoration: underline; white-space: nowrap; }
   /* The old English-only spacing patch was removed. The "·" now provides spacing for
      every language; keeping the patch would add 3px after it in English. */

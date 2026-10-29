@@ -150,6 +150,13 @@ A fully serverless personal website and admin system running at [comicine.com](h
         └── blocklist.txt                             # hand-written: ban seed for src/auto_block.py (D1 is the authority)
 ```
 
+## Brand assets and typography
+
+- The homepage hero and upper-left navigation render the exact word `ComiCine` in Baloo 2. The same wordmark element animates from the center into the navigation as the portfolio opens. Its color follows the theme text color for a monochrome black/white appearance.
+- `src/static/icons/comicine-favicon.svg` is used for the browser favicon and small web marks. `src/static/icons/comicine-xtext.svg` is the horizontal wordmark and primary social-preview image. PNG counterparts are reserved for Apple touch icons and raster-only email/social surfaces. `src/static/icons/comicine-watermark.png` remains the input to the image-watermark pipeline.
+- Copyright areas use the self-hosted Delius Swash Caps subset under `src/static/fonts/delius-swash-caps/`, with its OFL license alongside it. The status Worker embeds the subsets it needs. Baloo 2 is scoped to exact `ComiCine` wordmarks; other page text keeps its existing font stack.
+- Production builds use the bundled font subsets and do not depend on the development machine's original font-source directory.
+
 ## Quick start
 
 ```bash

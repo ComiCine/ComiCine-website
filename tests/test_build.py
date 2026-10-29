@@ -130,14 +130,14 @@ def test_theme_challenge_uses_gate_url_and_skips_gate_page():
     assert 'class="gate-page"' in gate_html
 
 
-def test_gate_mobile_logo_matches_home_and_page_can_scroll():
+def test_gate_mobile_logo_and_home_wordmark_fit_small_screens():
     root = Path(build.BASE_DIR)
     auth_css = (root / "src/static/css/auth.css").read_text(encoding="utf-8")
     home_css = (root / "src/static/css/index.css").read_text(encoding="utf-8")
 
-    assert ".hero-title { width: 144px; }" in home_css
-    assert "aspect-ratio: 1 / 1;" in home_css
-    assert ".logo { width: 144px; height: auto; max-width: 144px; }" in auth_css
+    assert ".hero-wordmark { font-size: clamp(2.5rem, 12vw, 4rem); }" in home_css
+    assert "max-width: calc(100vw - 32px);" in home_css
+    assert ".logo { width: 96px; height: auto; max-width: 96px; }" in auth_css
     assert "html.gate-page" in auth_css
     assert "body.gate-page" in auth_css
     assert "overflow-y: auto" in auth_css
@@ -211,7 +211,7 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
     build.publish_brand_assets(str(tmp_path))
     source = Path(build.STATIC_DIR) / "icons"
     expected = {
-        "comicine.svg": "comicine.svg",
+        "comicine.svg": "comicine-xtext.svg",
         "comicine-xtext.svg": "comicine-xtext.svg",
         "comicine-favicon.svg": "comicine-favicon.svg",
         "favicon.svg": "comicine-favicon.svg",
@@ -223,16 +223,37 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
 
 def test_templates_use_the_correct_logo_variant():
     home = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
+    services = build.render_page(RENDER_APP, "services.html", "/services", "zh-cn")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "zh-cn")
 
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"' not in home
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=5"' in home
-    assert 'class="hero-logo" src="https://images.comicine.com/static/icons/comicine.svg?v=5" alt="ComiCine" width="288" height="288"' in home
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in home
-    assert 'content="https://images.comicine.com/static/icons/comicine.png?v=5"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=3"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine.svg?v=5"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2"' in gate
+    assert '<span class="nav-brand brand-word">ComiCine</span>' in home
+    assert '<span class="brand-word hero-wordmark">ComiCine</span>' in home
+    assert "hero-logo" not in home
+    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
+    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
+    assert 'href="/static/icons/comicine-favicon.svg?v=4"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' not in gate
+    assert 'href="/static/fonts-round75.css?v=3"' in home
+    assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
+    assert 'class="footer-item footer-copyright"' in services
+    base_css = (Path(build.STATIC_DIR) / "css" / "base.css").read_text(encoding="utf-8")
+    home_css = (Path(build.STATIC_DIR) / "css" / "index.css").read_text(encoding="utf-8")
+    assert "font-family: 'Delius Swash Caps'" in base_css
+    assert ".nav-brand" in base_css and "color: var(--text)" in base_css
+    assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=4"' in home
+    assert 'ComiCine</span>' in home
+
+
+def test_delius_copyright_font_is_self_hosted():
+    font = Path(build.STATIC_DIR) / "fonts" / "delius-swash-caps" / "delius-swash-caps-copyright.woff2"
+    stylesheet = Path(build.STATIC_DIR) / "fonts-round75.css"
+
+    assert font.is_file()
+    assert font.stat().st_size < 5000
+    assert "font-family: 'Delius Swash Caps'" in stylesheet.read_text(encoding="utf-8")
 
 
 def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
@@ -445,15 +466,15 @@ def test_preview_localization_uses_contract_domains(monkeypatch):
     """W1-5: Preview rewrites use contract constants, so domain changes propagate instead of hard-coding comicine.com."""
     patterns = build.preview_localization_patterns()
     sample = (
-        '<img src="https://comicine.com/static/icons/comicine.svg">'
-        '<img src="https://images.comicine.com/static/icons/comicine.svg">'
+        '<img src="https://comicine.com/static/icons/comicine-xtext.svg">'
+        '<img src="https://images.comicine.com/static/icons/comicine-xtext.svg">'
         '<img src="https://image.comicine.com/portfolio/IMG_0115.webp">'
         '<a href="https://services.comicine.com/services">x</a>'
         '<a href="https://comicine.com/services">y</a>'
     )
     localized = patterns["asset"].sub(r'\1="../static/', sample)
     localized = build.rewrite_preview_srcsets(localized, patterns)
-    assert 'src="../static/icons/comicine.svg"' in localized
+    assert 'src="../static/icons/comicine-xtext.svg"' in localized
     assert 'src="../static/portfolio/IMG_0115.webp"' in localized
     assert "https://" not in localized.split("<a")[0]
 

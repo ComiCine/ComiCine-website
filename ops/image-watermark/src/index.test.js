@@ -78,17 +78,17 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
 
   const icon = routeFor(new URL("https://image.comicine.com/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
-  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine.svg?v=5`);
+  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=3`);
 
   const canonicalWordmark = routeFor(new URL("https://image.comicine.com/icons/comicine-xtext.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=2`);
+  assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=3`);
 
   const canonicalFavicon = routeFor(new URL("https://image.comicine.com/icons/comicine-favicon.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
+  assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=4`);
 
   const favicon = routeFor(new URL("https://image.comicine.com/icons/favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(favicon.watermarked, false);
-  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=3`);
+  assert.equal(favicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=4`);
 });
 
 test("portfolio exposes only generated thumbs and watermarked top-level originals", () => {
@@ -163,5 +163,5 @@ test("brand aliases use current SVG versions and preserve non-version query para
   const target = new URL(route.target);
   assert.equal(target.pathname, "/static/icons/comicine-xtext.svg");
   assert.equal(target.searchParams.get("lang"), "zh-cn");
-  assert.equal(target.searchParams.get("v"), "2");
+  assert.equal(target.searchParams.get("v"), "3");
 });

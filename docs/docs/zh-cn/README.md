@@ -139,6 +139,13 @@ See ADDITIONAL_TERMS.txt.
 └── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
 ```
 
+## 品牌资源与字体
+
+- 首页主视觉和左上角导航均以 Baloo 2 文本显示准确品牌名称 `ComiCine`。作品集展开时，同一个品牌文字元素会从页面中央移动到导航栏；颜色跟随主题文字色，保持黑白效果。
+- `src/static/icons/comicine-favicon.svg` 用于浏览器 Favicon 和小尺寸网页标识；横向字标及主要社交预览图使用 `src/static/icons/comicine-xtext.svg`。PNG 版本仅用于 Apple 触控图标，以及邮件、社交媒体等仅支持栅格图像的场景。`src/static/icons/comicine-watermark.png` 继续作为图片水印流水线的输入。
+- Copyright 区域使用自托管的 Delius Swash Caps 字体子集，存放于 `src/static/fonts/delius-swash-caps/`，并随附 OFL 许可证。状态 Worker 内嵌所需字体子集。Baloo 2 仅用于准确的 `ComiCine` 品牌字样，页面其他文字沿用原有字体栈。
+- 生产构建使用仓库内的字体子集，不依赖开发机上的原始字体目录。
+
 ## 快速开始
 
 ```bash

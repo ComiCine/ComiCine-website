@@ -54,10 +54,10 @@ const WM_VERSION = "6";
 
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
 const BRAND_ICON_ALIASES = new Map([
-  ["/icons/comicine.svg", "/static/icons/comicine.svg"],
+  ["/icons/comicine.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/comicine-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/comicine-favicon.svg", "/static/icons/comicine-favicon.svg"],
-  ["/icons/ComiCine.svg", "/static/icons/comicine.svg"],
+  ["/icons/ComiCine.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/ComiCine-xtext.svg", "/static/icons/comicine-xtext.svg"],
   ["/icons/favicon.svg", "/static/icons/comicine-favicon.svg"],
 ]);
@@ -101,11 +101,7 @@ export function routeFor(url, request, origin) {
     url.searchParams.forEach((value, key) => {
       if (key !== "v") targetUrl.searchParams.append(key, value);
     });
-    const assetVersion = path.toLowerCase().includes("xtext")
-      ? "2"
-      : path.toLowerCase().includes("favicon")
-        ? "3"
-        : "5";
+    const assetVersion = brandIconTarget.includes("comicine-xtext") ? "3" : "4";
     targetUrl.searchParams.set("v", assetVersion);
     const target = targetUrl.toString();
     return { target, originalUrl: target, watermarked: false, image: true };

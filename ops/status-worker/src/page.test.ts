@@ -55,7 +55,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the main-site nav: brand, three links, flyout, switch, socials", () => {
     for (const needle of [
       'class="site-nav"',
-      'class="nav-brand-logo" src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"',
+      '<span class="nav-brand">ComiCine</span>',
       'href="https://comicine.com"',
       'href="https://services.comicine.com"',
       'href="https://contact.comicine.com"',
@@ -70,6 +70,10 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
     ]) {
       expect(html, needle).toContain(needle);
     }
+    expect(STATUS_CSS).toContain("@font-face{font-family:'Delius Swash Caps'");
+    expect(STATUS_CSS).toContain("@font-face{font-family:'Baloo 2'");
+    expect(STATUS_CSS).toContain("unicode-range:U+0020,U+0043");
+    expect(STATUS_CSS).toContain(".footer-copyright{font-family:'Delius Swash Caps'");
   });
 
   it("keeps the nav link order of base.html (home → services → contact)", () => {
@@ -100,7 +104,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   it("renders the shared footer with the AGPL/source row", () => {
     for (const needle of [
       'class="global-footer"',
-      'class="footer-brand-logo" src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=2" alt="ComiCine" width="48" height="12">',
+      'class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> ComiCine</span>',
       'data-copyright-start-year="2026"',
       "保留所有权利",
       "AGPL-3.0",
@@ -112,8 +116,8 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   });
 
   it("uses the dedicated favicon assets", () => {
-    expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=3"');
-    expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=3"');
+    expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"');
+    expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=4"');
   });
 
   it("marks the active language and lists all four options", () => {
