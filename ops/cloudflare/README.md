@@ -30,7 +30,7 @@ are **not** written here; they come from the sources listed below.
 | R2 bucket (analytics / archive) | `comicine-analytics` | `ops/d1-archive/wrangler.toml` | D1 snapshots and daily analytics archives |
 | D1 database (main) | `comicine` | Pages and Worker D1 bindings | Provisioned and loaded with in-use tables; Pages production/preview settings target it, and standalone Worker bindings ship in this release. Retired analytics and detail history were not copied |
 | D1 database (Sink) | `comicine-sink` | Sink Worker binding | Created and imported with 29 rows; Worker binding is deployed |
-| Durable Object namespace | `comicine-status_ComiCineProbeState` | `ops/status-worker/wrangler.toml` | Rename migration configured; existing short probe retry state is preserved |
+| Durable Object namespace | `comicine-status_ComiCineProbeStateV2` | `ops/status-worker/wrangler.toml` | New namespace is deployed first; the old namespace is deleted in a follow-up migration |
 | WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
 | DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev`; this Pages alias change did not modify DNS |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
