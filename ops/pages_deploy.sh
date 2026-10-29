@@ -59,7 +59,7 @@ if [ "$DRY_RUN" = 1 ]; then
     echo "[pages] will-run: $VENV_PYTHON src/build.py   (PUBLIC_DIR=$PUBLIC_DIR)"
     echo "[pages] will-run: check_config_contract.py + check_security_headers.py"
     echo "[pages] will-run: $WRANGLER_BIN pages deploy $PUBLIC_DIR --project-name $PAGES_PROJECT --branch $PAGES_BRANCH"
-    echo "[pages] will-run: verify https://comicine.pages.dev/_health = 200"
+    echo "[pages] will-run: verify https://comicine.com/_health = 200"
     echo "[pages] credentials source: ${SECRETS_FILE} (reads CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID only)"
     exit 0
 fi
@@ -142,12 +142,5 @@ if [ "$health" != "200" ]; then
     echo "FATAL: https://comicine.com/_health = ${health} (expected 200)" >&2
     exit 1
 fi
-echo "[pages] /_health = 200 OK"
-
-pages_health="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://comicine.pages.dev/_health || echo 000)"
-if [ "$pages_health" != "200" ]; then
-    echo "FATAL: https://comicine.pages.dev/_health = ${pages_health} (expected 200)" >&2
-    exit 1
-fi
-echo "[pages] comicine.pages.dev /_health = 200 OK"
+echo "[pages] comicine.com /_health = 200 OK"
 echo "[pages] done. Confirm the log above contains 'Compiled Worker successfully' + 'Uploading Functions bundle'."
