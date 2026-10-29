@@ -4,7 +4,7 @@
 -- See ADDITIONAL_TERMS.txt.
 
 -- Initial ComiCine Cloudflare Pages D1 schema.
--- Apply with: wrangler d1 execute limooo --file=./migrations/001_init.sql
+-- Apply with: wrangler d1 execute comicine --file=./migrations/001_init.sql
 
 CREATE TABLE IF NOT EXISTS apple_accounts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

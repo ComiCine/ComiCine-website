@@ -3,7 +3,6 @@
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
-UPDATE apple_accounts
-SET email = replace(email, '@account.limooo.cn', '@apple.account.limooo.cn'),
-    updated_at = datetime('now')
-WHERE email LIKE '%@account.limooo.cn';
+-- Apple Account email addresses are user data, not infrastructure identifiers. The identifier
+-- migration imports their existing values verbatim and deliberately does not rewrite them.
+UPDATE apple_accounts SET email = email WHERE 0;

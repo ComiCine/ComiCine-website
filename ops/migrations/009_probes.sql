@@ -44,14 +44,10 @@ CREATE TABLE IF NOT EXISTS probe_state (
 );
 
 -- Seed data based on the Kuma monitors observed in docs/17 §1.3, with duplicates removed.
---
--- Note: probe id=2 previously targeted `admin.limooo.cn/_health` from the authentik + Kuma era.
--- The domain no longer has DNS records after the VPS was retired, so the probe returned http_530
--- every minute and the status page always showed one service down. This was stale configuration,
--- not a real outage. It now probes a static-asset host in the same region. Do not probe the Worker's
--- own domain; Cloudflare blocks subrequests to the same zone. Apply migration 015 to existing
--- databases because INSERT OR IGNORE does not update existing rows.
+-- Probe 2 checks a static-asset host in the same region. Do not probe the Worker's own domain;
+-- Cloudflare blocks subrequests to the same zone. Migration 015 fills a missing probe target on
+-- databases where this seed row already existed because INSERT OR IGNORE does not update rows.
 INSERT OR IGNORE INTO probes (id, name, type, target, group_key, interval_s) VALUES
-    (1, 'Website',      'http', 'https://limooo.cn/_health',         'public',   60),
-    (2, 'Edge Assets',  'http', 'https://images.limooo.cn/_health',  'internal', 60),
+    (1, 'Website',      'http', 'https://comicine.com/_health',         'public',   60),
+    (2, 'Edge Assets',  'http', 'https://images.comicine.com/_health',  'internal', 60),
     (3, 'D1 Health',    'd1',   NULL,                                'internal', 900);

@@ -164,6 +164,7 @@ def write_fake_wrangler(
         "    esac\n"
         "    shift\n"
         "done\n"
+        'if [[ "$cmd" == --* ]]; then echo "Unknown arguments: SQL comment"; exit 2; fi\n'
         'case "$cmd" in\n'
         f'    *"FROM schema_version"*) echo \'[{{"results":[{rows}],"success":true,"meta":{{"rows_read":{len(versions)}}}}}]\'; exit 0 ;;\n'
         '    *"CREATE TABLE IF NOT EXISTS schema_version"*|*"INSERT OR REPLACE INTO schema_version"*) echo "ok"; exit 0 ;;\n'

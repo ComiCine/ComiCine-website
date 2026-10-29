@@ -4,7 +4,7 @@
 -- See ADDITIONAL_TERMS.txt.
 
 -- ComiCine observability: shared event table (docs/06).
--- Apply with: wrangler d1 execute limooo --file=./migrations/003_events.sql
+-- Apply with: wrangler d1 execute comicine --file=./migrations/003_events.sql
 -- The health-check script also creates this table idempotently through the D1 API on first run.
 
 CREATE TABLE IF NOT EXISTS events (

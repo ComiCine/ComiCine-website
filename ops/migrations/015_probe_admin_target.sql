@@ -3,28 +3,16 @@
 -- Section 7 additional terms apply when the work is used under GNU AGPL v3.
 -- See ADDITIONAL_TERMS.txt.
 
--- 015: Fix the stale target for probe 2, left behind after the VPS retirement.
+-- 015: Normalize a missing health target for probe 2 and fill status-page label keys.
 --
--- Background: probe id=2 targeted `https://admin.limooo.cn/_health`, an operations endpoint from
--- the authentik + Uptime Kuma era. The domain has no DNS record since the VPS was retired, so it
--- failed to resolve / returned http_530. The probe kept running every minute and the status page
--- showed a service down indefinitely; this was stale configuration, not a real failure.
---
--- 009_probes.sql uses INSERT OR IGNORE, so changing its seed data would not affect existing
--- databases. Add a separate idempotent migration and fill in all three label_key values so the
--- status-page card names follow the selected interface language.
---
--- Update only rows that still have the old value, preserving targets changed manually by operators.
-
--- Note: Do not probe `status.limooo.cn/_health` or a Worker's `*.workers.dev` domain. Cloudflare
--- blocks subrequests from a Worker to its own zone or route (observed http_522 / http_404 while an
--- external curl to the same URL returned 200). Probe a static-asset host in the same region to
--- test a genuinely reachable edge asset instead.
+-- 009_probes.sql seeds the canonical .com targets for a clean database. This migration also
+-- repairs a missing target in databases where the probe row predates that seed. Preserve targets
+-- changed manually by operators. Do not probe a Worker's own domain; Cloudflare blocks subrequests
+-- from a Worker to its own zone or route.
 UPDATE probes
-   SET target = 'https://images.limooo.cn/_health',
+   SET target = 'https://images.comicine.com/_health',
        name   = 'Edge Assets'
- WHERE id = 2
-   AND (target = 'https://admin.limooo.cn/_health' OR target IS NULL);
+ WHERE id = 2 AND target IS NULL;
 
 UPDATE probes SET label_key = 'card_website' WHERE id = 1 AND label_key IS NULL;
 -- `card_admin` was removed from the status-worker copy because the management endpoint disappeared

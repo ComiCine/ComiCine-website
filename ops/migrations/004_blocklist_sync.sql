@@ -4,7 +4,7 @@
 -- See ADDITIONAL_TERMS.txt.
 
 -- ComiCine docs/10: single source of truth for blocking (D1 -> Cloudflare IP List).
--- Apply with: wrangler d1 execute limooo --file=./migrations/004_blocklist_sync.sql
+-- Apply with: wrangler d1 execute comicine --file=./migrations/004_blocklist_sync.sql
 -- Back up D1 before applying: this migration rebuilds the old blocked_ips table with a new schema.
 
 DROP TABLE IF EXISTS blocked_ips_new;

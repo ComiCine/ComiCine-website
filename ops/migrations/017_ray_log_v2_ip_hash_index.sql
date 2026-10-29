@@ -14,7 +14,7 @@
 --   functions/api/ray/[id].ts:48  ... FROM ray_log_v2 WHERE ray LIKE '...' ORDER BY ts DESC LIMIT 100
 --   ops/check_ray_id.py:121       ... FROM ray_log_v2 WHERE ray LIKE '...' ORDER BY ts DESC LIMIT 100
 --
--- Production measurements from 2026-10-11 (wrangler d1 execute limooo --remote):
+-- Production measurements from 2026-10-11 (wrangler d1 execute comicine --remote):
 --   ray_log_v2   = 2,337 rows; visitor_rollups = 7,270 rows
 --   EXPLAIN QUERY PLAN before this change:
 --     SCAN ray_log_v2 USING INDEX idx_ray_log_v2_ts          ← ip_hash = / IN (...)

@@ -163,7 +163,7 @@ CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 CF_LIST_NAME = "comicine_blocklist"
 CF_BATCH_SIZE = 200
 D1_DATABASE_ID = os.environ.get(
-    "D1_DATABASE_ID", "e2f29d54-29c0-46af-938d-e13995a11d7f"
+    "D1_DATABASE_ID", "b7165de7-aa78-45a3-869e-78f4d9cec12d"
 )
 
 # Domains and subdomains

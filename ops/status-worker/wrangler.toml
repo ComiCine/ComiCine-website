@@ -20,17 +20,22 @@ crons = ["* * * * *", "47 3 * * *"]
 # Shares the D1 database with the Pages project.
 [[d1_databases]]
 binding = "DB"
-database_name = "limooo"
-database_id = "e2f29d54-29c0-46af-938d-e13995a11d7f"
+database_name = "comicine"
+database_id = "b7165de7-aa78-45a3-869e-78f4d9cec12d"
 
 [[durable_objects.bindings]]
 name = "PROBE_STATE"
-class_name = "ProbeState"
+class_name = "ComiCineProbeState"
 
 # SQLite backend: the Workers Free plan supports only SQLite-backed Durable Objects.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ProbeState"]
+
+[[migrations]]
+tag = "v2"
+deleted_classes = ["ProbeState"]
+new_sqlite_classes = ["ComiCineProbeState"]
 
 [vars]
 # Recheck interval after a down result, in seconds; matches the 10-second Kuma interval.

@@ -492,15 +492,15 @@ docs.comicine.com に公開されることはありません。
   Cloudflare のチャレンジ基盤の障害時はユーザーを最大 8 秒待たせず、
   素早くフェイルクローズします。
 
-### 本番の状態
+### 現在のデプロイと移行状況
 
-デプロイ済みの構成です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
+現在のデプロイと移行状況です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
 1. **Pages**：本番プロジェクト `comicine-production` がメインサイトの Pages ホストを提供し、`limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` プロジェクトが `comicine.pages.dev` を提供し、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
-2. **D1**：メイン DB は `limooo`（APAC）、Sink は `sink-limooo` と既存 Analytics Engine dataset `sink_limooo` です。ステータス Durable Object は既存の状態名前空間を保持します。これらは表示用名称ではなく稼働中の技術 ID で、D1 はその場で改名できず、変更にはデータ移行と切り替えが必要です。022 は適用済み、021 は未適用です。023 で Apple Account のメールアドレスを新ドメインへ移行します。
+2. **D1**：新しいメイン DB `comicine`（APAC）は作成され、稼働中の運用テーブルを取り込み済みです。Pages の本番・プレビュー設定は新 DB を参照し、独立 Worker のバインディングは今回のリリースで切り替えます。最終インポートでは Apple Account の値を保持し、古い訪問者ハッシュと詳細テレメトリーは取り込んでいません。Sink の `comicine-sink` DB と `comicine_sink` Analytics Engine dataset は移行中です。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
-4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリ名はすでに新ブランドですが、DNS と Pages ドメインのない旧 `admin.limooo.cn` ホストを参照しています。
-5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。状態を保護するため、Status Durable Object の既存技術名前空間は維持します。
+4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリは 2026-10-29 に削除しました。`admin.limooo.cn` に DNS レコードや Pages ドメインはありません。
+5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。Status Worker は今回のリリースで `comicine-status_ComiCineProbeState` を作る設定です。短時間の再試行状態は初期化されます。
 6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
 7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。スクリーンショットでは Turnstile に `.com` ホストが登録済みですが、実際のブラウザーチャレンジが `/gate/verify` に届くことを確認してください。
 
