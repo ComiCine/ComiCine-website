@@ -29,7 +29,7 @@ import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from 
  *
  * Replaces Uptime Kuma:
  * - scheduled() runs probes every minute and writes D1 heartbeats / probe_state
- * - After a down result, ComiCineProbeState (Durable Object) retries every 10 seconds and records recovery.
+ * - After a down result, ComiCineProbeStateV2 (Durable Object) retries every 10 seconds and records recovery.
  * - GET /api/status supplies data to the status page; GET /_health is the liveness probe.
  *
  * Alert email delivery (phase 3) is implemented in maybeAlert(); cron failure visibility and the blocklist invariant
@@ -1140,7 +1140,7 @@ export default {
  * Cron runs once per minute. After a down result, this object uses an alarm to retry every RETRY_INTERVAL_S seconds
  * until recovery or the RETRY_WINDOW_S window expires, after which Cron resumes the checks.
  */
-export class ComiCineProbeState implements DurableObject {
+export class ComiCineProbeStateV2 implements DurableObject {
   private readonly state: DurableObjectState;
   private readonly env: Env;
 
@@ -1197,5 +1197,3 @@ export class ComiCineProbeState implements DurableObject {
     await this.state.storage.deleteAlarm();
   }
 }
-
-export class ComiCineProbeStateV2 extends ComiCineProbeState {}
