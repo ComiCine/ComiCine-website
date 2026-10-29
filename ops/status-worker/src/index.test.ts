@@ -10,6 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 import worker, {
   ComiCineProbeState,
+  ComiCineProbeStateV2,
   buildAlertEmail,
   esc,
   pageLang,
@@ -273,6 +274,17 @@ describe("ComiCineProbeState", () => {
     const env = { DB: fakeDb({}).db } as Env;
     await new ComiCineProbeState(state, env).fetch(new Request("https://probe.internal/disarm"));
     expect(getAlarm()).toBeNull();
+  });
+
+  it("new namespace uses the same retry state machine", async () => {
+    const { state, store, getAlarm } = makeState();
+    const env = { DB: fakeDb({}).db, RETRY_INTERVAL_S: "10" } as Env;
+    const res = await new ComiCineProbeStateV2(state, env).fetch(
+      new Request("https://probe.internal/arm", { headers: { "X-Probe-Id": "7" } }),
+    );
+    expect(res.status).toBe(200);
+    expect(store.get("probe_id")).toBe(7);
+    expect(getAlarm()).toBeGreaterThan(Date.now());
   });
 
   it("alarm reschedules while still down and inside the window", async () => {

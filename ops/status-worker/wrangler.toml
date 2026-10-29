@@ -25,7 +25,7 @@ database_id = "b7165de7-aa78-45a3-869e-78f4d9cec12d"
 
 [[durable_objects.bindings]]
 name = "PROBE_STATE"
-class_name = "ComiCineProbeState"
+class_name = "ComiCineProbeStateV2"
 
 # SQLite backend: the Workers Free plan supports only SQLite-backed Durable Objects.
 [[migrations]]
@@ -38,6 +38,10 @@ tag = "v2"
   [[migrations.renamed_classes]]
   from = "ProbeState"
   to = "ComiCineProbeState"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ComiCineProbeStateV2"]
 
 [vars]
 # Recheck interval after a down result, in seconds; matches the 10-second Kuma interval.
