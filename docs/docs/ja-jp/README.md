@@ -247,14 +247,14 @@ TLS 証明書は Cloudflare が Pages のカスタムドメイン向けに発行
 
 ## デプロイ
 
-デプロイ対象は本番 Pages プロジェクト `comicine-production`、エイリアス用プロジェクト `comicine`、Docs プロジェクト `comicine-docs`、および独立した Workers です。本番プロジェクトは `limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine.pages.dev` プロジェクトは、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs のエイリアスは `comicine-docs.pages.dev`、Workers のアカウントサブドメインは `comicine.workers.dev` です。
+デプロイ対象は本番 Pages プロジェクト `comicine`、Docs プロジェクト `comicine-docs`、および独立した Workers です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs のエイリアスは `comicine-docs.pages.dev`、Workers のアカウントサブドメインは `comicine.workers.dev` です。
 リポジトリのルートから：
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
-bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
+bash ops/deploy.sh --pages      # deploy production Pages
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -343,7 +343,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、訪問者パネル、Apple Account 管理、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は本番 Pages プロジェクト `comicine-production` で動作し、ステータスページとすべての定期ジョブも同様です。本番プロジェクトは `limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` Pages プロジェクトの `comicine.pages.dev` は、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使用します。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、訪問者パネル、Apple Account 管理、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は本番 Pages プロジェクト `comicine` で動作し、ステータスページとすべての定期ジョブも同様です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使用します。
 
 ランタイムの分担：
 
@@ -496,7 +496,7 @@ docs.comicine.com に公開されることはありません。
 
 現在のデプロイと移行状況です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：本番プロジェクト `comicine-production` がメインサイトの Pages ホストを提供し、`limooo.pages.dev`、既存のカスタムドメイン、暗号化済みランタイム設定を維持します。独立した `comicine` プロジェクトが `comicine.pages.dev` を提供し、パス、クエリ、リクエストメソッドを保ったまま `https://comicine.com` へ 308 リダイレクトします。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
+1. **Pages**：本番プロジェクト `comicine` がメインサイトの Pages ホストを提供し、`comicine.pages.dev` とすべての本番カスタムドメインを所有します。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
 2. **D1**：新しいメイン DB `comicine`（APAC）は作成され、稼働中の運用テーブルを取り込み済みです。Pages の本番・プレビュー設定は新 DB を参照し、独立 Worker のバインディングは今回のリリースで切り替えます。最終インポートでは Apple Account の値を保持し、古い訪問者ハッシュと詳細テレメトリーは取り込んでいません。Sink の `comicine-sink` DB は 29 行を取り込み、`comicine_sink` Analytics Engine dataset と Worker の切り替えも完了しました。
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリは 2026-10-29 に削除しました。`admin.limooo.cn` に DNS レコードや Pages ドメインはありません。

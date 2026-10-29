@@ -245,14 +245,14 @@ TLS 证书由 Cloudflare 为 Pages 自定义域名签发与续期。
 
 ## 部署
 
-部署目标是生产 Pages 项目 `comicine-production`、别名项目 `comicine` 和文档项目 `comicine-docs`，以及独立 Workers。生产项目继续保留 `limooo.pages.dev`、全部自定义域名和加密运行配置；`comicine.pages.dev` 由独立项目提供，并以 308 跳转至 `https://comicine.com`，保留路径、查询参数和请求方法。文档默认别名为 `comicine-docs.pages.dev`。Worker 账号子域为 `comicine.workers.dev`。
+部署目标是生产 Pages 项目 `comicine`、文档项目 `comicine-docs` 和独立 Workers。生产项目通过 `comicine.pages.dev` 提供访问，并承载全部生产自定义域名与加密运行配置。文档默认别名为 `comicine-docs.pages.dev`。Worker 账号子域为 `comicine.workers.dev`。
 在仓库根目录下执行：
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
-bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
+bash ops/deploy.sh --pages      # deploy production Pages
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -337,7 +337,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 运行时
 
-公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在生产 Pages 项目 `comicine-production` 的 Pages Functions 上，状态页与所有定时任务也是如此。生产项目保留 `limooo.pages.dev`、现有自定义域名和加密运行配置。独立 Pages 项目 `comicine` 的 `comicine.pages.dev` 以 308 跳转到 `https://comicine.com`，保留路径、查询参数和请求方法。文档项目 `comicine-docs` 使用 `comicine-docs.pages.dev`。
+公开站点（首页 / 服务 / 联系、门禁、访客面板、Apple Account 管理器、`images.comicine.com` 静态资源主机与跳转中继）运行在生产 Pages 项目 `comicine` 上，状态页与所有定时任务也是如此。该项目通过 `comicine.pages.dev` 提供访问，并承载全部生产自定义域名与加密运行配置。文档项目 `comicine-docs` 使用 `comicine-docs.pages.dev`。
 
 运行时划分：
 
@@ -485,7 +485,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 线上部署的形态，随时可用 `python3 ops/readme_facts.py --live` 重新读取：
 
-1. **Pages**：生产项目 `comicine-production` 提供主站 Pages 主机，并保留 `limooo.pages.dev`、现有自定义域名和加密运行配置。独立项目 `comicine` 提供 `comicine.pages.dev`，并以 308 跳转至 `https://comicine.com`，保留路径、查询参数和请求方法。文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
+1. **Pages**：生产项目 `comicine` 提供主站 Pages 主机，并拥有 `comicine.pages.dev` 与全部生产自定义域名。文档项目 `comicine-docs` 的默认别名为 `comicine-docs.pages.dev`，`docs.comicine.com` 指向该项目。`image.comicine.com` 使用水印 Worker，`fonts.comicine.com` 使用 R2；`status.comicine.com` 与 `sink.comicine.com` 由 Worker 提供。
 2. **D1**：新主数据库 `comicine`（APAC）已创建并导入在用的运维表。Pages 生产与预览环境的绑定配置已指向新库；独立 Worker 的绑定随本次发布切换。最终导入保留 Apple Account 记录原值，并省略旧访客哈希和详细遥测。Sink 的 `comicine-sink` 数据库已导入，`comicine_sink` Analytics Engine dataset 已配置，Worker 已部署；短链冒烟验证待完成。
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：Turnstile 两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`；旧的 `ACCESS_ADMIN_AUDS` 和 `ACCESS_VIEWER_AUDS` 仍有配置但已无运行时代码读取，`APPLEID_ENCRYPTION_KEY` 与两个 `AUTHENTIK_*` 也是历史遗留
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用已于 2026-10-29 删除；`admin.limooo.cn` 没有 DNS 记录或 Pages 域名。

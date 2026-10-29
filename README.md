@@ -259,13 +259,13 @@ from Cloudflare.
 
 ## Deployment
 
-The deploy targets are Pages projects `comicine-production`, `comicine` (the `comicine.pages.dev` alias), and `comicine-docs`, plus the standalone Workers. The production project retains its existing `limooo.pages.dev` alias, custom domains, and encrypted configuration; `comicine.pages.dev` permanently redirects to `https://comicine.com` with status 308. The docs alias is `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`. Cloudflare deploys use the configured API token. From the repository root:
+The deploy targets are the production Pages project `comicine`, the docs project `comicine-docs`, and standalone Workers. The production project serves `comicine.pages.dev`, all production custom domains, and its encrypted runtime configuration. The docs alias is `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`. Cloudflare deploys use the configured API token. From the repository root:
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
-bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
+bash ops/deploy.sh --pages      # deploy production Pages
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -305,7 +305,7 @@ and footer live in the fork (`VPComiCineNav.vue` / `VPComiCineFooter.vue`) and m
 main site's `base.html` / `_footer.html` — edit them there and the next deploy picks it
 up (the fork is rebuilt only when its commit changes; use `COMICINE_VITEPRESS_FETCH=0` to
 build from a fork working tree). The site is a separate Cloudflare Pages project
-(`comicine-docs`) so it never touches the main `comicine-production` artifact, and it shares the
+(`comicine-docs`) so it never touches the main `comicine` artifact, and it shares the
 `user_lang_preference` / `comicine_theme` cookies with the main site.
 
 ```bash
@@ -380,7 +380,7 @@ with a build (`bash ops/build.sh`, which runs
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on the `comicine-production` Cloudflare Pages project, as do the status page and every scheduled job. The production project retains `limooo.pages.dev` and all existing custom domains and encrypted configuration. A separate `comicine` Pages project at `comicine.pages.dev` redirects every path and query to `https://comicine.com` with status 308. The docs Pages project uses `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on the `comicine` Cloudflare Pages project, as do the status page and every scheduled job. The project serves `comicine.pages.dev`, all production custom domains, and its encrypted runtime configuration. The docs Pages project uses `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`.
 
 Runtime split:
 
@@ -569,13 +569,13 @@ published to docs.comicine.com.
 
 ### Production status
 
-The live deployment and pending resource cutovers, re-read any time with
+The live deployment and external resource status, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: the production project is `comicine-production`; it serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images` and `redirect`, retaining its `limooo.pages.dev` alias and existing encrypted configuration. The separate `comicine` project owns `comicine.pages.dev` and returns a 308 redirect to `https://comicine.com`, preserving the path and query. The docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains
+1. **Pages**: the production project `comicine` serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images` and `redirect`, and owns `comicine.pages.dev` with the encrypted runtime configuration. The retired `comicine-production` project has no production custom domains and is retained for user-controlled deletion. The docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains
 2. **D1**: the new `comicine` database (APAC) is provisioned and loaded with the in-use operational tables. Pages production and preview binding settings now target it; standalone Worker bindings are included in this release. The final import preserves Apple Account records unchanged and omits old visitor hashes and detailed telemetry. `blocked_ips` remains the blocking authority, and soft-deleted rows remain for audit
-3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The unused `ComiCine-Admin` app for `admin.limooo.cn` was removed on 2026-10-29; that hostname has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
+3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the nine runtime secrets include the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`. The obsolete `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` variables are not copied because runtime code does not read them; retired AppleID and Authentik secrets are not configured
+4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The obsolete `identity.limooo.cn/login` destination was removed on 2026-10-29 while preserving the application AUD and policy. The unused `ComiCine-Admin` app for `admin.limooo.cn` was also removed; that hostname has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. The `comicine-sink` database is imported, the `comicine_sink` dataset is configured, and the Sink Worker is deployed; an active short link returned 302 with a Location header
 6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
 7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200

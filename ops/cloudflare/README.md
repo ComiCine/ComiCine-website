@@ -13,8 +13,8 @@ are **not** written here; they come from the sources listed below.
 
 | Resource | Name / type | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Pages production project | `comicine-production` (`limooo.pages.dev`) | `site/ops/pages_deploy.sh` | Existing custom domains and encrypted runtime configuration retained in place |
-| Pages alias project | `comicine` (`comicine.pages.dev`) | `site/ops/pages-alias/public/_worker.js` | Returns a 308 redirect to `https://comicine.com`, preserving path, query and method |
+| Pages production project | `comicine` (`comicine.pages.dev`) | `site/ops/pages_deploy.sh` | Production custom domains and encrypted runtime configuration |
+| Retired Pages project | `comicine-production` | User-controlled deletion | Retained without production custom domains until the user deletes it |
 | Docs Pages project | `comicine-docs` (`comicine-docs.pages.dev`) | `site/ops/docs_deploy.sh` | Recreated and deployed under the ComiCine alias; `docs.comicine.com` now serves this project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
@@ -32,7 +32,7 @@ are **not** written here; they come from the sources listed below.
 | D1 database (Sink) | `comicine-sink` | Sink Worker binding | Created and imported with 29 rows; Worker binding is deployed |
 | Durable Object namespace | `comicine-status_ComiCineProbeStateV2` | `ops/status-worker/wrangler.toml` | The old namespace was deleted after the new class binding was confirmed live |
 | WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
-| DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records still target `limooo.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev`; this Pages alias change did not modify DNS |
+| DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records target `comicine.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev` |
 | WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | none | Cloudflare API / Dashboard | No Cache Rules are currently active; cache behavior comes from Worker logic and response headers |
 | Cloudflare account display name | Not yet updated | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
@@ -611,25 +611,18 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   now start the shared Pages identity handoff and receive host-only sessions. The unused legacy
   `ComiCine-Admin` app for `admin.limooo.cn` was deleted on 2026-10-29; the hostname has no DNS
   record or Pages custom domain.
-- **Checked 2026-10-27: Pages aliases and gate migration**. The docs project was recreated as
-  `comicine-docs`, deployed, and now has the `comicine-docs.pages.dev` alias; its custom domain
-  `docs.comicine.com` serves it. The production project was renamed in place to
-  `comicine-production`; it retains `limooo.pages.dev`, its production domains, and all 11 encrypted
-  environment entries. A separate `comicine` project now owns `comicine.pages.dev` and deploys the
-  redirect Worker in `site/ops/pages-alias/public/_worker.js`; the Worker returns 308 to
-  `https://comicine.com`, preserving path, query, and method. `site/ops/pages_deploy.sh` and the
-  GitHub Actions Pages job deploy both projects. The Cloudflare Pages token had account-level Edit
-  permission; no secrets were read or copied, and DNS/custom-domain bindings were not changed.
-  The main gate currently fails on `comicine.com` before it submits a token to
-  `/gate/verify`; `/gate/config`, the Turnstile JS, and challenge iframe load. An earlier production
-  headless-browser run captured client error `110200` (Cloudflare: domain not authorized). The
-  dashboard screenshot provided later shows `comicine.com` in the widget's Hostname Management,
-  but successful end-to-end verification has not yet been observed. The configured API token is
-  active, but widget-detail reads and updates return HTTP 403 /
-  error `10000`; Cloudflare requires `Turnstile Sites Write` or `Account Settings Write` for updates.
-  Do not weaken the gate. The legacy `.cn` zone preserves path and query while redirecting to matching `.com` hosts;
-  `/feishu/<path>` and `/lark/<path>` on `comicine.com` return 302 through Pages to
-  `https://comicine.feishu.cn/<path>`, preserving path and query.
+- **Completed 2026-10-29: Pages production migration**. The production project is now
+  `comicine` (`comicine.pages.dev`) and owns the production custom domains, D1 binding, and
+  encrypted runtime configuration. Main Pages DNS records now target `comicine.pages.dev`.
+  The retired `comicine-production` project is kept without production custom domains for the
+  user-controlled deletion step. `site/ops/pages_deploy.sh` and the GitHub Actions Pages job now
+  deploy only `comicine`. The Turnstile API permission is active; the production widget and real
+  browser verification were checked without weakening the gate. The obsolete
+  `identity.limooo.cn/login` Access destination was removed while preserving the `ComiCine` AUD and
+  policy. The docs project remains `comicine-docs` with `docs.comicine.com` attached. The legacy
+  `.cn` zone redirects to matching `.com` hosts; `/feishu/<path>` and `/lark/<path>` on
+  `comicine.com` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path
+  and query.
 - **Checked 2026-10-27: Cloudflare account rename**. `GET /accounts/{account_id}` succeeds, but
   updating the account display name to `ComiCine` is rejected with HTTP 403 / error `9109` because
   the configured API token lacks `Account Settings Write`. The account name remains unchanged until

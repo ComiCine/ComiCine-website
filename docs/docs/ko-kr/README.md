@@ -246,14 +246,14 @@ TLS 인증서는 Pages 사용자 지정 도메인에 대해 Cloudflare가 발급
 
 ## 배포
 
-배포 대상은 프로덕션 Pages 프로젝트 `comicine-production`, 별칭 프로젝트 `comicine`, Docs 프로젝트 `comicine-docs` 및 독립 Worker입니다. 프로덕션 프로젝트는 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도의 `comicine.pages.dev` 프로젝트는 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs 별칭은 `comicine-docs.pages.dev`이며 Workers 계정 하위 도메인은 `comicine.workers.dev`입니다.
+배포 대상은 프로덕션 Pages 프로젝트 `comicine`, Docs 프로젝트 `comicine-docs` 및 독립 Worker입니다. 프로덕션 프로젝트는 `comicine.pages.dev`와 모든 프로덕션 사용자 지정 도메인을 제공하며 암호화된 런타임 설정을 보유합니다. Docs 별칭은 `comicine-docs.pages.dev`이며 Workers 계정 하위 도메인은 `comicine.workers.dev`입니다.
 저장소 루트에서:
 
 ```bash
 cd site
 bash ops/deploy.sh              # with no arguments = --all (full deploy, see below)
 bash ops/deploy.sh --all        # commit + push + deploy Pages + docs + Workers
-bash ops/deploy.sh --pages      # deploy production Pages + the comicine.pages.dev alias
+bash ops/deploy.sh --pages      # deploy production Pages
 bash ops/deploy.sh --docs       # deploy docs.comicine.com only
 bash ops/deploy.sh --worker=comicine-status   # deploy one standalone Worker
 bash ops/deploy.sh --all --full             # same, but stream every step's output
@@ -342,7 +342,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Cloudflare Pages 런타임
 
-공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리디렉션 릴레이)는 프로덕션 Pages 프로젝트 `comicine-production`에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. 프로덕션 프로젝트는 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도 `comicine` Pages 프로젝트의 `comicine.pages.dev`는 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs Pages 프로젝트는 `comicine-docs.pages.dev`를 사용합니다.
+공개 사이트(홈 / 서비스 / 문의, 게이트, 방문자 패널, Apple Account 관리자, `images.comicine.com` 정적 자산 호스트와 리디렉션 릴레이)는 프로덕션 Pages 프로젝트 `comicine`에서 실행되며 상태 페이지와 모든 예약 작업도 마찬가지입니다. 프로덕션 프로젝트는 `comicine.pages.dev`와 모든 프로덕션 사용자 지정 도메인을 제공하며 암호화된 런타임 설정을 보유합니다. Docs Pages 프로젝트는 `comicine-docs.pages.dev`를 사용합니다.
 
 런타임 구성:
 
@@ -483,7 +483,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 현재 배포 및 마이그레이션 상태입니다. `python3 ops/readme_facts.py --live`로 언제든 다시 읽을 수 있습니다:
 
-1. **Pages**: 프로덕션 프로젝트 `comicine-production`이 메인 사이트 Pages 호스트를 제공하며 기존 `limooo.pages.dev`, 사용자 지정 도메인 전체와 암호화된 런타임 설정을 유지합니다. 별도 `comicine` 프로젝트가 `comicine.pages.dev`를 제공하고 경로, 쿼리와 요청 메서드를 보존해 `https://comicine.com`으로 308 리디렉션합니다. Docs 프로젝트는 `comicine-docs`이며 `comicine-docs.pages.dev`와 `docs.comicine.com`에서 제공됩니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
+1. **Pages**: 프로덕션 프로젝트 `comicine`이 메인 사이트 Pages 호스트를 제공하며 `comicine.pages.dev`와 모든 프로덕션 사용자 지정 도메인을 소유합니다. Docs 프로젝트는 `comicine-docs`이며 `comicine-docs.pages.dev`와 `docs.comicine.com`에서 제공됩니다. `image.comicine.com`은 워터마크 Worker, `fonts.comicine.com`은 R2, `status.comicine.com`과 `sink.comicine.com`은 Worker 사용자 지정 도메인입니다.
 2. **D1**: 새 메인 데이터베이스 `comicine`(APAC)은 생성되어 사용 중인 운영 테이블을 가져왔습니다. Pages 프로덕션과 프리뷰 바인딩 설정은 새 데이터베이스를 가리키며, 독립 Worker 바인딩은 이번 릴리스에서 전환합니다. 최종 가져오기는 Apple Account 레코드를 그대로 보존하고 이전 방문자 해시와 상세 텔레메트리는 제외합니다. Sink의 `comicine-sink` 데이터베이스에는 29개 행을 가져왔고 `comicine_sink` Analytics Engine dataset 및 Worker 전환도 완료했습니다.
 3. **시크릿**은 **Pages → Settings → Environment variables → Encrypt** 아래에 있습니다: Turnstile 두 개, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`. 이전 `ACCESS_ADMIN_AUDS`와 `ACCESS_VIEWER_AUDS` 시크릿은 설정에 남아 있지만 런타임에서 읽지 않습니다. `APPLEID_ENCRYPTION_KEY`와 두 개의 `AUTHENTIK_*`도 사용되지 않는 잔재입니다
 4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱은 2026-10-29에 삭제되었습니다. `admin.limooo.cn`에는 DNS 레코드나 Pages 도메인이 없습니다.
