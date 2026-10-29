@@ -391,7 +391,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ゲートをレンダリングするすべてのホストは同じエッジコードで配信されるため、同期させる 2 つ目のゲート実装はありません。
 
-ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Cloudflare ダッシュボードのスクリーンショットでは Turnstile の許可ホストに `comicine.com` が表示されていますが、`.com` のチャレンジはまだ失敗し、`/gate/verify` に token が届くことを確認できていません。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。設定済み API 資格情報では widget の読み取りと更新が HTTP 403 / error `10000` となり、API から設定を確認できません。ゲートを無効にせず、実際のブラウザーチャレンジが `/gate/verify` に届くか確認してください。
+ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。ユーザーから `Turnstile Sites Write` 権限が付与され、widget API は HTTP 200 を返し、許可ホスト一覧には `comicine.com` が含まれています。2026-10-29 のスクリーンショットは `comicine.pages.dev/?challenge=1` で撮影されました。Turnstile は成功を表示しましたが、D1 には `/gate/verify` が 403 `hostname_rejected` を返した記録があります。サーバーは Pages ホストを公開ホストとして意図的に拒否します。正式な `comicine.com` での実ブラウザーチャレンジ成功はまだ確認されていません。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。ゲートを無効にしたり、Pages ホストを公開ホストの allowlist に追加したりしないでください。
 
 ### ページ配信（クリーン URL、言語パスプレフィックスなし）
 
@@ -502,10 +502,10 @@ docs.comicine.com に公開されることはありません。
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリは 2026-10-29 に削除しました。`admin.limooo.cn` に DNS レコードや Pages ドメインはありません。
 5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの稼働確認後に旧名前空間を削除しました。Sink の有効なショートリンクは Location ヘッダー付きの 302 を返しました。
 6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
-7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。スクリーンショットでは Turnstile に `.com` ホストが登録済みですが、実際のブラウザーチャレンジが `/gate/verify` に届くことを確認してください。
+7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。`https://comicine.com/?challenge=1` での実ブラウザーチャレンジ成功はまだ確認されていません。
 
-> Cloudflare アカウントの表示名はまだ更新されていません。権限不足のため名前の変更は拒否されました。現在の API Token は Turnstile 設定を読み取れません。スクリーンショットでは `.com` ホストが登録済みですが、検証成功は未確認です。
-注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。ブラウザーで実際にチャレンジを完了し、`/gate/verify` が成功することを確認してください。
+> Cloudflare アカウントの表示名はまだ更新されていません。権限不足のため名前の変更は拒否されました。Turnstile API の権限は有効になりましたが、正式な `.com` ホストでの実ブラウザーチャレンジ成功はまだ確認されていません。
+注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。スクリーンショットの `comicine.pages.dev` は正式ホストの検査で拒否されています。確認する場合は `comicine.com` を使用してください。
 
 ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
 ## ライセンス
