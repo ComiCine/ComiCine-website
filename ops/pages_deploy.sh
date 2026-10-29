@@ -169,12 +169,14 @@ echo "[pages] deploying canonical alias project $PAGES_ALIAS_PROJECT"
 )
 
 # Verify path and query preservation on the published Pages alias.
-alias_headers="$(curl -sSI --max-time 20 'https://comicine.pages.dev/__pages_alias_check?source=deploy')" || {
+# Read the status and Location from curl itself: behind an HTTPS proxy the first header line is the
+# proxy's "200 Connection established", not the alias response.
+alias_result="$(curl -sS -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' 'https://comicine.pages.dev/__pages_alias_check?source=deploy')" || {
     echo "FATAL: could not reach https://comicine.pages.dev" >&2
     exit 1
 }
-alias_status="$(printf '%s\n' "$alias_headers" | awk 'NR == 1 { print $2 }')"
-alias_location="$(printf '%s\n' "$alias_headers" | awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }')"
+alias_status="${alias_result%% *}"
+alias_location="${alias_result#* }"
 if [ "$alias_status" != "308" ] || [ "$alias_location" != "https://comicine.com/__pages_alias_check?source=deploy" ]; then
     echo "FATAL: https://comicine.pages.dev alias returned status=${alias_status:-unknown} location=${alias_location:-missing}" >&2
     exit 1
