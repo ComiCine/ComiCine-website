@@ -616,8 +616,11 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   encrypted runtime configuration. Main Pages DNS records now target `comicine.pages.dev`.
   The retired `comicine-production` project is kept without production custom domains for the
   user-controlled deletion step. `site/ops/pages_deploy.sh` and the GitHub Actions Pages job now
-  deploy only `comicine`. The Turnstile API permission is active; the production widget and real
-  browser verification were checked without weakening the gate. The obsolete
+  deploy only `comicine`. The Turnstile API permission is active and the widget API read returns
+  HTTP 200. A browser screenshot on `comicine.pages.dev/?challenge=1` showed the widget success
+  state, but D1 recorded `/gate/verify` returning 403 `hostname_rejected`; the public-host check
+  intentionally rejects Pages hostnames. A successful browser challenge on `comicine.com` has
+  not yet been confirmed. Do not weaken the gate or allow Pages hostnames as public hosts. The obsolete
   `identity.limooo.cn/login` Access destination was removed while preserving the `ComiCine` AUD and
   policy. The docs project remains `comicine-docs` with `docs.comicine.com` attached. The legacy
   `.cn` zone redirects to matching `.com` hosts; `/feishu/<path>` and `/lark/<path>` on

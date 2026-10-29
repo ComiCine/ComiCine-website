@@ -385,7 +385,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 每个渲染门禁的主机都由同一份边缘代码提供服务，因此不存在需要保持同步的第二套门禁实现。
 
-中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。Turnstile 主机名授权必须覆盖实际使用它的站点。Cloudflare 控制台截图已显示 `comicine.com` 在 widget 授权主机列表中，但 `.com` 挑战仍未通过，尚未观察到 `/gate/verify` 收到 token；`auth.js` 会显示手动重试按钮并在浏览器控制台记录 Turnstile 数字错误码。现有 API 凭据读取或修改 widget 时返回 HTTP 403 / error `10000`。不要关闭门禁；继续根据客户端错误码排查网络连接和真实挑战结果。
+中间件还会强制执行归一化后的 D1 黑名单，并记录隐私最小化的访客分析数据。门禁页为 `no-store`/`noindex`，并支持深色/浅色主题切换。用户已授予 `Turnstile Sites Write`，widget API 现在返回 HTTP 200，读回的主机列表包含 `comicine.com`。用户 2026-10-29 的截图来自 `comicine.pages.dev/?challenge=1`：Turnstile 显示成功，但 D1 记录 `/gate/verify` 返回 403 `hostname_rejected`，因为服务端按设计拒绝 Pages 主机作为正式公开主机。正式 `comicine.com` 上的真实浏览器挑战尚未确认成功。`auth.js` 会显示手动重试按钮并在浏览器控制台记录 Turnstile 数字错误码。不要关闭门禁，也不要把 Pages 主机加入正式主机 allowlist。
 
 ### 页面服务（干净 URL，无语言路径前缀）
 
@@ -491,10 +491,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用已于 2026-10-29 删除；`admin.limooo.cn` 没有 DNS 记录或 Pages 域名。
 5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 Worker 使用 `comicine-status_ComiCineProbeStateV2`；确认新绑定可用后，已删除旧命名空间。Sink 的 D1 与 Analytics Engine dataset 已迁移；一条有效短链返回了带 Location 的 302。
 6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` URL，并保留路径和查询参数。随后 `comicine.com/feishu/<path>` 与 `/lark/<path>` 由 Pages 返回 302，转到 `https://comicine.feishu.cn/<path>` 并保留路径和查询参数。
-7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。控制台截图显示 Turnstile 已列出 `.com` 主机；仍需完成真实浏览器挑战并确认 `/gate/verify` 成功。
+7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。`https://comicine.com/?challenge=1` 上的真实浏览器挑战尚未确认成功。
 
-> Cloudflare 账号显示名尚未更新：更名 API 请求被 Cloudflare 以权限不足拒绝。当前 API Token 也无法读取 Turnstile 配置；控制台截图显示 `.com` 主机已列入，但挑战结果仍待验证。
-注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证；需在浏览器完成挑战并确认 `/gate/verify` 成功。
+> Cloudflare 账号显示名尚未更新：更名 API 请求被 Cloudflare 以权限不足拒绝。Turnstile API 权限现已生效，但正式 `.com` 主机上的真实浏览器挑战尚未确认成功。
+注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证。截图中的 `comicine.pages.dev` 被正式主机校验拒绝；需在 `comicine.com` 上确认验证结果。
 
 门禁在每个主机上都原地渲染，门禁页与日志显示真实访客 IP，Access 仍是唯一的身份来源。
 ## 许可证

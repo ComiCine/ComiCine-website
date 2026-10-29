@@ -390,7 +390,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 게이트를 렌더링하는 모든 호스트는 동일한 엣지 코드가 처리하므로, 동기화해야 할 두 번째 게이트 구현이 없습니다.
 
-미들웨어는 정규화된 D1 차단 목록도 강제하고 프라이버시를 최소화한 방문자 분석을 기록합니다. 게이트 페이지는 `no-store`/`noindex`이며 다크/라이트 테마 전환을 지원합니다. Cloudflare 대시보드 스크린샷에는 Turnstile 허용 호스트로 `comicine.com`이 표시되지만 `.com` 챌린지는 여전히 실패하고 `/gate/verify`에 token이 도착했는지 확인하지 못했습니다. `auth.js`는 수동 재시도 버튼을 표시하고 브라우저 콘솔에 Turnstile 숫자 오류 코드를 기록합니다. 설정된 API 자격 증명은 위젯 읽기와 수정에서 HTTP 403 / error `10000`을 반환하여 API로 설정을 확인할 수 없습니다. 게이트를 끄지 말고 실제 브라우저 챌린지가 `/gate/verify`에 도달하는지 확인하세요.
+미들웨어는 정규화된 D1 차단 목록도 강제하고 프라이버시를 최소화한 방문자 분석을 기록합니다. 게이트 페이지는 `no-store`/`noindex`이며 다크/라이트 테마 전환을 지원합니다. 사용자가 `Turnstile Sites Write` 권한을 부여했으며, 위젯 API는 이제 HTTP 200을 반환하고 허용 호스트 목록에 `comicine.com`이 있습니다. 사용자의 2026-10-29 스크린샷은 `comicine.pages.dev/?challenge=1`에서 촬영되었습니다. Turnstile은 성공을 표시했지만 D1에는 `/gate/verify`가 403 `hostname_rejected`를 반환한 기록이 있습니다. 서버는 Pages 호스트를 공개 호스트로 의도적으로 거부합니다. 정식 `comicine.com`에서 실제 브라우저 챌린지가 성공하는지는 아직 확인되지 않았습니다. `auth.js`는 수동 재시도 버튼을 표시하고 브라우저 콘솔에 Turnstile 숫자 오류 코드를 기록합니다. 게이트를 끄거나 Pages 호스트를 공개 호스트 allowlist에 추가하지 마세요.
 
 ### 페이지 제공(clean URL, 언어 경로 접두사 없음)
 
@@ -489,10 +489,10 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 4. **Access**: `ComiCine`은 `identity.comicine.com/login`을 보호하고 visitor/account는 공유 identity handoff를 사용합니다. 사용하지 않는 `ComiCine-Admin` 앱은 2026-10-29에 삭제되었습니다. `admin.limooo.cn`에는 DNS 레코드나 Pages 도메인이 없습니다.
 5. **Worker**는 독립 실행됩니다: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark`, `comicine-sink`. Workers 계정 하위 도메인은 `comicine.workers.dev`입니다. `status.comicine.com`, `image.comicine.com`, `sink.comicine.com`은 Worker 사용자 지정 도메인입니다. 상태 Worker는 `comicine-status_ComiCineProbeStateV2`를 사용하며 새 바인딩이 작동하는 것을 확인한 뒤 이전 네임스페이스를 삭제했습니다. Sink의 유효한 단축 링크가 Location 헤더와 함께 302를 반환했습니다.
 6. **Cloudflare 규칙**: 현재 활성화된 WAF 또는 Cache Rules가 없습니다. IP List는 `comicine_blocklist`이며 참조하는 WAF 필터가 없습니다. `.com` 동적 리디렉션 단계는 비어 있습니다. 기존 `.cn` 영역은 요청을 해당 `.com` URL로 리디렉션합니다(GET/HEAD 301, 다른 메서드 308). 경로와 쿼리는 유지됩니다. 이어서 `comicine.com/feishu/<path>`와 `/lark/<path>`는 Pages를 통해 302로 `https://comicine.feishu.cn/<path>`에 전달되며 경로와 쿼리를 유지합니다.
-7. **스모크 검사**: 각 배포 후 `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/`, `https://sink.comicine.com/`을 확인합니다. 스크린샷에는 Turnstile `.com` 호스트가 등록되어 있으나 실제 브라우저 챌린지가 `/gate/verify`에 도달하는지 확인해야 합니다.
+7. **스모크 검사**: 각 배포 후 `https://comicine.com/_health`, `https://docs.comicine.com/`, `https://status.comicine.com/`, `https://sink.comicine.com/`을 확인합니다. `https://comicine.com/?challenge=1`에서 실제 브라우저 챌린지가 성공하는지는 아직 확인되지 않았습니다.
 
-> Cloudflare 계정 표시 이름은 아직 업데이트되지 않았습니다. 권한 부족으로 이름 변경이 거부되었습니다. 현재 API Token은 Turnstile 설정을 읽지 못합니다. 스크린샷에는 `.com` 호스트가 등록되어 있으나 검증 성공은 확인하지 못했습니다.
-참고: `?challenge=1`의 403은 게이트 페이지가 렌더링됐다는 뜻일 뿐 Turnstile 검증 성공을 증명하지 않습니다. 브라우저에서 실제 챌린지를 완료하고 `/gate/verify`가 성공하는지 확인해야 합니다.
+> Cloudflare 계정 표시 이름은 아직 업데이트되지 않았습니다. 권한 부족으로 이름 변경이 거부되었습니다. Turnstile API 권한은 활성화되었지만 정식 `.com` 호스트에서 실제 브라우저 챌린지가 성공하는지는 아직 확인되지 않았습니다.
+참고: `?challenge=1`의 403은 게이트 페이지가 렌더링됐다는 뜻일 뿐 Turnstile 검증 성공을 증명하지 않습니다. 스크린샷의 `comicine.pages.dev`는 정식 호스트 검사에서 거부되었습니다. 확인하려면 `comicine.com`을 사용해야 합니다.
 
 게이트는 모든 호스트에서 그 자리에서 렌더링되고, 게이트 페이지와 로그에 실제 방문자 IP가 표시되며, Access가 유일한 신원 소스로 남습니다.
 ## 라이선스

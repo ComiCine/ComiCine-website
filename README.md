@@ -585,13 +585,12 @@ The Cloudflare account display name has not yet been updated because the configu
 The gate renders in place on every host, the real visitor IP is shown in the gate page
 and logs, and Access remains the only identity source. The Cloudflare dashboard screenshot
 provided on 2026-10-27 shows `comicine.com` in the Turnstile widget's Hostname Management.
-An earlier production browser run returned client error `110200` before `/gate/verify` received
-a token; the supplied verification-failure screenshot shows the widget configured, but does not
-establish that a full challenge now succeeds. The configured API token cannot read or update
-widget settings (HTTP 403 / error
-`10000`); the update needs `Turnstile Sites Write` or `Account Settings Write`. The gate exposes a
-manual retry; a production browser probe captured the widget callback code. Do not bypass or weaken
-verification.
+The `Turnstile Sites Write` permission is now active and the widget API returns HTTP 200; its
+hostname list includes `comicine.com`. The user's 2026-10-29 screenshot is from
+`comicine.pages.dev/?challenge=1`: Turnstile displayed success, but D1 recorded `/gate/verify`
+returning 403 `hostname_rejected`, because the server intentionally rejects Pages hostnames as
+public hosts. A successful browser challenge on `comicine.com` has not yet been confirmed. Do not
+bypass or weaken verification or add Pages hostnames to the public-host allowlist.
 
 ## License
 
