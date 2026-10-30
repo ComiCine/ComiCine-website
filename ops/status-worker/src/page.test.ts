@@ -116,8 +116,8 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
   });
 
   it("uses the dedicated favicon assets", () => {
-  expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=10"');
-  expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=10"');
+  expect(html).toContain('rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=11"');
+  expect(html).toContain('rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=11"');
   });
 
   it("marks the active language and lists all four options", () => {

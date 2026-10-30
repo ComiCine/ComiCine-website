@@ -175,9 +175,6 @@ rsync -a --delete \
     --exclude '.vitepress/dist' \
     "$DOCS_DIR/" "$SRC_DIR/"
 cp "$ROOT/config-contract.json" "$SRC_DIR/config-contract.json"
-echo "[docs] cropping the staged Favicon viewport"
-python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from brand_assets import write_cropped_favicon; write_cropped_favicon(sys.argv[2], sys.argv[2])' \
-    "$ROOT/src" "$SRC_DIR/public/comicine-favicon.svg"
 
 cat > "$SRC_DIR/package.json" <<JSON
 {
