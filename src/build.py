@@ -29,6 +29,8 @@ import sys
 
 from flask import Flask, g, render_template
 
+from brand_assets import write_cropped_favicon
+
 # These are **optional dependencies**: use None when they are unavailable. Whether to fail is decided by
 # check_image_prerequisites before public/ is modified; that function raises when needed.
 # `x = None` conflicts with the Module type inferred from the import. This is the only place in the repository that needs an exception,
@@ -274,7 +276,10 @@ def publish_brand_assets(out_dir: str) -> None:
     for public_name, source_name in root_brand_assets.items():
         source_path = os.path.join(icon_dir, source_name)
         output_path = os.path.join(out_dir, public_name)
-        shutil.copy2(source_path, output_path)
+        if source_name == "comicine-favicon.svg":
+            write_cropped_favicon(source_path, output_path)
+        else:
+            shutil.copy2(source_path, output_path)
 
 
 # Crawler and AI entry files (2026-10-12)
@@ -1177,6 +1182,10 @@ def main() -> int:
     remove_public_portfolio_originals(
         os.path.join(PUBLIC_DIR, "static", "portfolio"), keep_thumbs=False
     )
+    write_cropped_favicon(
+        os.path.join(STATIC_DIR, "icons", "comicine-favicon.svg"),
+        os.path.join(PUBLIC_DIR, "static", "icons", "comicine-favicon.svg"),
+    )
     restore_qr_png_compatibility(
         os.path.join(PUBLIC_DIR, "static", "qr-codes")
     )
@@ -1215,6 +1224,10 @@ def main() -> int:
         os.path.join(PREVIEW_DIR, "static"),
         dirs_exist_ok=True,
         ignore=_static_ignore,
+    )
+    write_cropped_favicon(
+        os.path.join(STATIC_DIR, "icons", "comicine-favicon.svg"),
+        os.path.join(PREVIEW_DIR, "static", "icons", "comicine-favicon.svg"),
     )
     # Reuse the thumbnails already generated in public/ for previews (same sources and parameters),
     # avoiding re-encoding 18 thumbnails (36 WebP and AVIF files) during one build.

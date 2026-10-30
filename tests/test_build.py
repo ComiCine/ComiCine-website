@@ -210,7 +210,7 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
     assert "stale-while-revalidate=86400" in headers
 
 
-def test_brand_asset_aliases_preserve_the_matching_comicine_svg(tmp_path):
+def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
     build.publish_brand_assets(str(tmp_path))
     source = Path(build.STATIC_DIR) / "icons"
     original_favicon = (source / "comicine-favicon.svg").read_bytes()
@@ -223,8 +223,29 @@ def test_brand_asset_aliases_preserve_the_matching_comicine_svg(tmp_path):
     }
     for public_name, source_name in expected.items():
         source_bytes = (source / source_name).read_bytes()
+        if source_name == "comicine-favicon.svg":
+            source_bytes = source_bytes.replace(
+                b'viewBox="0 0 1500 1500"',
+                b'viewBox="124.375 124.375 1251.25 1251.25"',
+                1,
+            )
         assert (tmp_path / public_name).read_bytes() == source_bytes
     assert (source / "comicine-favicon.svg").read_bytes() == original_favicon
+
+
+def test_cropped_favicon_keeps_source_art_and_fills_the_published_viewbox(tmp_path):
+    source = Path(build.STATIC_DIR) / "icons" / "comicine-favicon.svg"
+    original = source.read_bytes()
+    output = tmp_path / "static" / "icons" / "comicine-favicon.svg"
+
+    build.write_cropped_favicon(str(source), str(output))
+
+    assert output.read_bytes() == original.replace(
+        b'viewBox="0 0 1500 1500"',
+        b'viewBox="124.375 124.375 1251.25 1251.25"',
+        1,
+    )
+    assert source.read_bytes() == original
 
 
 def test_templates_use_the_correct_logo_variant():
@@ -238,7 +259,7 @@ def test_templates_use_the_correct_logo_variant():
     assert "hero-logo" not in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=11"' in gate
+    assert 'href="/static/icons/comicine-favicon.svg?v=12"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in gate
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
@@ -254,8 +275,8 @@ def test_templates_use_the_correct_logo_variant():
     auth_css = (Path(build.STATIC_DIR) / "css" / "auth.css").read_text(encoding="utf-8")
     assert ".foot .brand-word" in auth_css and "font-size: 1.3em;" in auth_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
-    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=11"' in home
-    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=11"' in home
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=12"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=12"' in home
     assert 'ComiCine</span>' in home
 
 
