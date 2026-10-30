@@ -235,7 +235,7 @@ def test_templates_use_the_correct_logo_variant():
     assert "hero-logo" not in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=6"' in gate
+    assert 'href="/static/icons/comicine-favicon.svg?v=7"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in gate
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
@@ -251,8 +251,8 @@ def test_templates_use_the_correct_logo_variant():
     auth_css = (Path(build.STATIC_DIR) / "css" / "auth.css").read_text(encoding="utf-8")
     assert ".foot .brand-word" in auth_css and "font-size: 1.3em;" in auth_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
-    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=6"' in home
-    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=6"' in home
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=7"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=7"' in home
     assert 'ComiCine</span>' in home
 
 
