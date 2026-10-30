@@ -118,6 +118,7 @@
     box-shadow: 0 10px 30px var(--shadow-card);
     max-width: 512px;
     width: 100%;
+    margin-block: auto;
     padding: 33px 32px 23px;
     transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
   }
