@@ -143,7 +143,7 @@ See ADDITIONAL_TERMS.txt.
 
 - 首页主视觉和左上角导航均以 Delius Swash Caps 显示准确品牌名称 `ComiCine`。作品集展开时，同一个品牌文字元素会从页面中央移动到导航栏；颜色跟随主题文字色，保持黑白效果。
 - `src/static/icons/comicine-favicon.svg` 用于浏览器 Favicon 和小尺寸网页标识；横向字标及主要社交预览图使用 `src/static/icons/comicine-xtext.svg`。PNG 版本仅用于 Apple 触控图标，以及邮件、社交媒体等仅支持栅格图像的场景。`src/static/icons/comicine-watermark.png` 继续作为图片水印流水线的输入。
-- 自托管的 Delius Swash Caps 字体子集和 OFL 许可证位于 `src/static/fonts/delius-swash-caps/`。品牌字标中的准确名称 `ComiCine` 使用该字体；Copyright 行的符号和年份沿用原字体，只有 `ComiCine` 使用 Delius。状态 Worker 内嵌所需子集，其他文字沿用原有字体栈。
+- 自托管的 Delius Swash Caps 字体子集和 OFL 许可证位于 `src/static/fonts/delius-swash-caps/`。品牌字标中的准确名称 `ComiCine` 使用该字体；Copyright 行的符号和年份沿用原字体，只有 `ComiCine` 使用 Delius，字号为其余版权文字的 `1.3em`。状态 Worker 内嵌所需子集，其他文字沿用原有字体栈。
 - 生产构建使用仓库内的字体子集，不依赖开发机上的原始字体目录。
 
 ## 快速开始

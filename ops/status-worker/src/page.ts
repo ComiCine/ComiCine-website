@@ -250,7 +250,7 @@ html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 .footer-text>.footer-item{display:inline-block}
 .footer-text>.footer-item:not(:first-child)::before{content:"\\00b7";margin:0 .55em;opacity:.7}
 @media(max-width:559px){.footer-text>.footer-copyright{flex:0 0 100%;white-space:nowrap}.footer-text>.footer-copyright+.footer-item::before{content:none}}
-.footer-copyright .brand-word{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;letter-spacing:normal}
+.footer-copyright .brand-word{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;font-size:1.3em;letter-spacing:normal}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
 /* Status content */

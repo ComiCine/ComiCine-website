@@ -143,7 +143,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 
 - The homepage hero and upper-left navigation render the exact word `ComiCine` in Delius Swash Caps. The same wordmark element animates from the center into the navigation as the portfolio opens. Its color follows the theme text color for a monochrome black-and-white appearance.
 - `src/static/icons/comicine-favicon.svg` is used for the browser favicon and small web marks. The horizontal wordmark and primary social-preview image use `src/static/icons/comicine-xtext.svg`. PNG counterparts are reserved for Apple touch icons and raster-only email or social surfaces. `src/static/icons/comicine-watermark.png` remains the input to the image-watermark pipeline.
-- The self-hosted Delius Swash Caps subset is under `src/static/fonts/delius-swash-caps/`, with its OFL license alongside it. Brand wordmarks use it for the exact word `ComiCine`; Copyright lines keep their existing font for the symbol and years and use Delius only for `ComiCine`. The status Worker embeds the subset it needs; all other text keeps its existing font stack.
+- The self-hosted Delius Swash Caps subset is under `src/static/fonts/delius-swash-caps/`, with its OFL license alongside it. Brand wordmarks use it for the exact word `ComiCine`; Copyright lines keep their existing font for the symbol and years and use Delius only for `ComiCine`, at `1.3em` relative to the surrounding footer text. The status Worker embeds the subset it needs; all other text keeps its existing font stack.
 - Production builds use the bundled font subsets and do not depend on the development machine's original font-source directory.
 
 ## Quick start
