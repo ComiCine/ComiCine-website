@@ -111,6 +111,7 @@ cleanup_deploy_temp_files() {
 handle_interrupt() {
     trap '' INT
     cleanup_deploy_temp_files
+    printf '\n' >&2
     echo "Deploy: interrupted" >&2
     exit 130
 }
