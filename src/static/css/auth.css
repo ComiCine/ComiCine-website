@@ -121,10 +121,10 @@
     padding: 33px 32px 23px;
     transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
   }
-  .logo { display: block; margin: 0 auto 22px; max-width: 220px; height: auto; }
-  /* Keep the centered gate mark compact while preserving room for its card and fixed chrome. */
+  .logo { display: block; width: 360px; max-width: 100%; height: auto; margin: 0 auto 22px; }
+  /* Keep the centered wordmark readable while preserving room for the card and fixed chrome. */
   @media (max-width: 767px) {
-    .logo { width: 96px; height: auto; max-width: 96px; }
+    .logo { width: 240px; max-width: 100%; height: auto; }
     html.gate-page {
       height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto;
     }
@@ -176,6 +176,7 @@
   .foot .brand-word {
     font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
     font-weight: 400;
+    font-size: 1.3em;
     letter-spacing: 0.02em;
   }
   /* Footer copyright, matching the main site's base.html. */

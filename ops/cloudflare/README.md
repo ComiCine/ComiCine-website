@@ -33,10 +33,10 @@ are **not** written here; they come from the sources listed below.
 | Durable Object namespace | `comicine-status_ComiCineProbeStateV2` | `ops/status-worker/wrangler.toml` | The old namespace was deleted after the new class binding was confirmed live |
 | WAF IP List | `comicine_blocklist` | `ops/sync-worker` | Live list name; no custom WAF filter currently references it |
 | DNS zone | `comicine.com` | Cloudflare Dashboard | Main Pages records target `comicine.pages.dev`; `docs.comicine.com` targets `comicine-docs.pages.dev` |
-| WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; `ops/waf/rules.snapshot.json` mirrors that phase at its capture time. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
+| WAF rules | custom rules | Cloudflare Dashboard | The custom-firewall phase is currently **empty**; no local snapshot is retained. Zone-level ASN Access Rules are managed separately and only change when `ops/waf_whitelist.sh --apply` is run explicitly. |
 | Cache Rules | none | Cloudflare API / Dashboard | No Cache Rules are currently active; cache behavior comes from Worker logic and response headers |
 | Cloudflare account display name | Not yet updated | Cloudflare Account Settings | The configured API token can read the account but cannot update its name (HTTP 403, error 9109 / missing Account Settings Write) |
-| Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone-settings.snapshot.json` + `ops/zone_settings.py` pin the externally observable ones (see below) |
+| Zone settings | `comicine.com` settings | Cloudflare Dashboard | HSTS/HTTPS enforcement, minimum TLS, Security Level, Web Analytics injection. `ops/zone_settings.py` can display live values and optionally write a local snapshot (see below) |
 | AI bot policy | `bot_management` | Cloudflare Dashboard / `ops/ai_bots.py` | Which AI behaviours (Search / Agent / Training) are blocked, whether AI Labyrinth is on, and whether Cloudflare manages `robots.txt`. The zone default blocks Training **on pages with ads**, i.e. GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider get a managed-ruleset `403` before any Worker runs. `ops/ai_bots.py --show/--snapshot/--apply` is the switch; the REST endpoint needs the token to carry **Bot Management: Read/Edit**. See "AI bots and crawlers" below |
 
 ## Dashboard-only resources (this repository is not fully reproducible)
@@ -65,26 +65,26 @@ fresh `wrangler deploy` will not recreate them:
 Treat the Dashboard as authoritative for those; this file is the inventory that makes
 them traceable, not a reproducible manifest.
 
-## Zone settings (`ops/zone-settings.snapshot.json`)
+## Zone settings
 
 Zone-level settings change externally observable behaviour — whether `http://` redirects,
 the minimum TLS version, whether Cloudflare injects its Web Analytics beacon — yet nothing
 in this repository pinned them, so a Dashboard change could alter the live site with no
 reviewable diff.
 
-`ops/zone_settings.py` is the read-only counterpart to `ops/waf_rules.sh`:
+`ops/zone_settings.py` reads live values and can optionally write a local snapshot. No snapshot is currently committed:
 
 ```
-python3 ops/zone_settings.py --dry-run    # offline: print the committed snapshot
+python3 ops/zone_settings.py --dry-run    # offline: print a local snapshot, if one exists
 python3 ops/zone_settings.py --show       # live: print current values, write nothing
-python3 ops/zone_settings.py --snapshot   # live: refresh the snapshot, print what changed
+python3 ops/zone_settings.py --snapshot   # live: write or refresh a local snapshot
 ```
 
 The snapshot covers the keys in `SNAPSHOT_KEYS` (26 settings: transport, TLS, caching,
 hotlink and bot-protection switches). It records `value` and `editable` per key, so a
 plan-gated or renamed setting shows up as `unavailable` instead of vanishing.
-`tests/test_zone_settings.py` fails if the snapshot drifts from `SNAPSHOT_KEYS` or if a
-key the review logic guards disappears.
+`tests/test_zone_settings.py` verifies the snapshot schema and guarded-key coverage using
+synthetic data, so CI does not depend on a saved snapshot file.
 
 `--show` and `--snapshot` print a `<- review` note when a setting holds the *unwanted*
 value (for example `ssl = flexible`, `development_mode = on`). They deliberately do not
@@ -117,7 +117,7 @@ has its own opinion, and it wins first:
   because `robots.txt` is owned by `src/build.py`).
 
 ```sh
-python3 ops/ai_bots.py --dry-run    # offline: print the committed snapshot + the plan
+python3 ops/ai_bots.py --dry-run    # offline: print a local snapshot + the plan
 python3 ops/ai_bots.py --show       # live: print the AI-related keys, write nothing
 python3 ops/ai_bots.py --snapshot   # live: refresh ops/ai-bots.snapshot.json
 python3 ops/ai_bots.py --apply      # live: set every AI behaviour to "do not block"
@@ -129,7 +129,7 @@ never touches (`fight_mode`, `content_bots_protection`, `bot_preference_sync_ena
 `stale_zone_configuration`) and flags the ones that block automated traffic — flipping
 those is a product decision, not a cleanup.
 
-**Applied on 2026-10-12** (`ops/ai-bots.snapshot.json`): the zone had the legacy
+**Applied on 2026-10-12**: the zone had the legacy
 `ai_bots_protection: only_on_ad_pages` plus `crawler_protection: enabled` (AI Labyrinth,
 i.e. AI crawlers were being sent into a link maze) and `is_robots_txt_managed: true`; all
 six managed keys now hold the allow value. Verified from a non-allow-listed egress:

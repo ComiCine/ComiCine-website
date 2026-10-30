@@ -137,7 +137,7 @@ def test_gate_mobile_logo_and_home_wordmark_fit_small_screens():
 
     assert ".hero-wordmark { font-size: clamp(2.5rem, 12vw, 4rem); }" in home_css
     assert "max-width: calc(100vw - 32px);" in home_css
-    assert ".logo { width: 96px; height: auto; max-width: 96px; }" in auth_css
+    assert ".logo { width: 240px; max-width: 100%; height: auto; }" in auth_css
     assert "html.gate-page" in auth_css
     assert "body.gate-page" in auth_css
     assert "overflow-y: auto" in auth_css
@@ -236,8 +236,8 @@ def test_templates_use_the_correct_logo_variant():
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
     assert 'href="/static/icons/comicine-favicon.svg?v=6"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=6"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' not in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in gate
+    assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
     assert '<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> <span class="brand-word">ComiCine</span></span>' in services
@@ -248,6 +248,8 @@ def test_templates_use_the_correct_logo_variant():
     assert "font-family: 'Delius Swash Caps'" in base_css
     assert ".nav-brand" in base_css and "color: var(--text)" in base_css
     assert ".footer-copyright .brand-word" in base_css
+    auth_css = (Path(build.STATIC_DIR) / "css" / "auth.css").read_text(encoding="utf-8")
+    assert ".foot .brand-word" in auth_css and "font-size: 1.3em;" in auth_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
     assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=6"' in home
     assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=6"' in home

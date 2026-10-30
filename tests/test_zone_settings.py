@@ -87,27 +87,25 @@ def test_each_guarded_setting_fires_on_its_bad_value(
     assert f"  {key} = {bad}:" in capsys.readouterr().out
 
 
-def test_committed_snapshot_covers_every_guarded_key() -> None:
-    """The snapshot must carry every key the review logic looks at.
+def snapshot_settings() -> dict[str, dict[str, object]]:
+    """Return a complete synthetic settings map without relying on an archived file."""
+    return {key: {"value": "test", "editable": True} for key in zone_settings.SNAPSHOT_KEYS}
 
-    Otherwise a rename upstream would silently stop being reviewed — the failure
-    mode this whole tool exists to prevent.
-    """
-    snapshot = ROOT / "ops" / "zone-settings.snapshot.json"
-    data = json.loads(snapshot.read_text(encoding="utf-8"))
-    settings = data["settings"]
 
+def test_snapshot_contract_covers_every_guarded_key() -> None:
+    """Generated snapshots keep every review key even when no archive is checked in."""
+    settings = snapshot_settings()
     missing = [key for key, _bad, _why in zone_settings.NOTEWORTHY if key not in settings]
-    assert missing == [], f"guarded keys missing from the snapshot: {missing}"
-    assert data["zone"] == "comicine.com"
-    assert set(zone_settings.SNAPSHOT_KEYS) == set(settings), (
-        "snapshot drifted from SNAPSHOT_KEYS: regenerate with --snapshot"
-    )
+    assert missing == []
+
+    snapshot = zone_settings.render(settings, "test-zone-id")
+    assert snapshot["zone"] == "comicine.com"
+    assert set(snapshot["settings"]) == set(zone_settings.SNAPSHOT_KEYS)
 
 
-def test_snapshot_holds_no_credentials() -> None:
-    """The snapshot is committed, so it must never contain a token or secret."""
-    raw = (ROOT / "ops" / "zone-settings.snapshot.json").read_text(encoding="utf-8").lower()
+def test_rendered_snapshot_holds_no_credentials() -> None:
+    """The snapshot serializer only records zone settings, never credentials."""
+    raw = json.dumps(zone_settings.render(snapshot_settings(), "test-zone-id")).lower()
 
     for needle in ("token", "secret", "bearer", "authorization"):
         assert needle not in raw, f"snapshot mentions {needle!r}"
