@@ -204,6 +204,9 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
     headers = (tmp_path / "_headers").read_text(encoding="utf-8")
     assert "Cache-Control: public, max-age=86400" in headers
     assert "Cache-Control: public, max-age=31536000, immutable" in headers
+    assert "/static/icons/comicine-favicon.svg\n  ! Cache-Control\n  Cache-Control: public, max-age=0, must-revalidate" in headers
+    assert "/static/icons/comicine-favicon.png\n  ! Cache-Control\n  Cache-Control: public, max-age=0, must-revalidate" in headers
+    assert "/favicon.svg\n  Cache-Control: public, max-age=0, must-revalidate" in headers
     assert "stale-while-revalidate=86400" in headers
 
 
