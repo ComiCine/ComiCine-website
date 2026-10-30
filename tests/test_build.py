@@ -232,8 +232,8 @@ def test_templates_use_the_correct_logo_variant():
     assert "hero-logo" not in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=4"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in gate
+    assert 'href="/static/icons/comicine-favicon.svg?v=5"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-favicon.svg?v=5"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' not in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
@@ -246,8 +246,8 @@ def test_templates_use_the_correct_logo_variant():
     assert ".nav-brand" in base_css and "color: var(--text)" in base_css
     assert ".footer-copyright .brand-word" in base_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
-    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=4"' in home
-    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=4"' in home
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=5"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=5"' in home
     assert 'ComiCine</span>' in home
 
 
