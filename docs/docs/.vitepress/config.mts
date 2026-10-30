@@ -395,16 +395,6 @@ export default defineConfig({
       'link',
       {
         rel: 'preload',
-        href: '/fonts/baloo2-latin-wght-normal.woff2',
-        as: 'font',
-        type: 'font/woff2',
-        crossorigin: ''
-      }
-    ],
-    [
-      'link',
-      {
-        rel: 'preload',
         href: '/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1',
         as: 'font',
         type: 'font/woff2',
