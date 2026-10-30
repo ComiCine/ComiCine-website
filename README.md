@@ -112,8 +112,6 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── tailwind.config.js                            # Tailwind config for the prebuilt CSS
 │   ├── check_config_contract.py / check_gate_trust.py / check_security_headers.py / check_license_headers.py / check_ip_rays.py / check_ray_id.py / check_visitor_id.py / check_blocklist_sync.py / zone_settings.py
 │   ├── migrations/                                   # D1 schema migrations
-│   ├── waf/                                          # WAF rule snapshots
-│   ├── zone-settings.snapshot.json                   # read-only zone-settings snapshot (ops/zone_settings.py)
 │   ├── cloudflare/                                   # Cloudflare resource inventory (declarative)
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
@@ -452,8 +450,8 @@ logic can undo. `ops/ai_bots.py --apply` sets that policy to "do not block" for
 every AI behaviour (Search / Agent / Training), disables AI Labyrinth
 (`crawler_protection`) and keeps Cloudflare from prepending a managed
 `robots.txt`; `--show` / `--snapshot` / `--dry-run` read and record it. Applied on
-2026-10-12 — the resulting configuration is `ops/ai-bots.snapshot.json`, the token
-carries **Bot Management: Edit**, and the update verb is `PUT` (PATCH answers
+2026-10-12 — the policy was applied successfully; its archived snapshot was removed
+on 2026-10-31. The token carries **Bot Management: Edit**, and the update verb is `PUT` (PATCH answers
 `405 / code 10405`). Two things that do *not* work, so nobody re-tries them: a WAF
 custom rule with `action: skip` over `phases: ["http_request_firewall_managed"]`
 is accepted on this Free zone but does not lift the AI-bot block, and none of the

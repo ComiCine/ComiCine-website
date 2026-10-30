@@ -6,7 +6,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Read-only snapshot of the comicine.com zone settings.
+"""Inspect comicine.com zone settings with an optional local snapshot.
 
 Why this exists (tasks/22, 2026-10-11): `ops/cloudflare/README.md` is the inventory
 of resources that live only in the Cloudflare Dashboard, but it had no record of the
@@ -15,11 +15,11 @@ minimum TLS version, Security Level, the Cloudflare Web Analytics injection) yet
 in the repository pinned them, so a Dashboard change could alter the live site without
 any reviewable diff.
 
-This is the zone-settings counterpart to `ops/waf/rules.snapshot.json`:
+The command can read the live settings without keeping a committed baseline:
 
   * `--show`     live: print the settings, write nothing.
-  * `--snapshot` live: refresh `ops/zone-settings.snapshot.json`.
-  * `--dry-run`  fully offline: read the committed snapshot and touch no network.
+  * `--snapshot` live: write or refresh a local `ops/zone-settings.snapshot.json`.
+  * `--dry-run`  fully offline: read a local snapshot and touch no network.
 
 Credentials: `CLOUDFLARE_API_TOKEN` from the environment, else from the local
 `secrets/webauthn.env`. The token is never echoed and never written to the snapshot.
@@ -186,18 +186,18 @@ def describe(settings: dict[str, dict[str, object]]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Read-only snapshot of the comicine.com zone settings.",
+        description="Inspect the comicine.com zone settings; local snapshots are optional.",
         epilog="Live modes need CLOUDFLARE_API_TOKEN (env or secrets/webauthn.env).",
     )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--dry-run", action="store_true", help="print the committed snapshot; no network")
+    group.add_argument("--dry-run", action="store_true", help="print a local snapshot; no network")
     group.add_argument("--show", action="store_true", help="print live settings; write nothing")
-    group.add_argument("--snapshot", action="store_true", help="refresh the committed snapshot")
+    group.add_argument("--snapshot", action="store_true", help="write or refresh a local snapshot")
     args = parser.parse_args()
 
     if args.dry_run or not (args.show or args.snapshot):
         if not SNAPSHOT.is_file():
-            print(f"FATAL: no snapshot at {SNAPSHOT}", file=sys.stderr)
+            print(f"FATAL: no local snapshot at {SNAPSHOT}; use --show or create one with --snapshot", file=sys.stderr)
             return 1
         data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
         settings = data.get("settings") or {}

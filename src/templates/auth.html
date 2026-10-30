@@ -26,7 +26,7 @@ See ADDITIONAL_TERMS.txt.
 <link rel="preload" as="script" href="/static/js/actions.js?v=1">
 <link rel="preload" as="script" href="/static/js/auth.js?v=12">
 <link rel="stylesheet" href="/static/css/tokens.css?v=3">
-<link rel="stylesheet" href="/static/css/auth.css?v=26">
+<link rel="stylesheet" href="/static/css/auth.css?v=27">
 <!-- Site base styles; structural styles such as .global-footer reuse the main base.css. -->
 <link rel="stylesheet" href="/static/css/base.css?v=32">
 </head>
@@ -37,7 +37,7 @@ See ADDITIONAL_TERMS.txt.
 {% set contact_url = 'https://' ~ contact_host if is_prod else '/contact' %}
 {% include "_gate_nav.html" %}
 <main class="card">
-  <img class="logo" src="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=6" alt="ComiCine" width="220" height="220">
+  <img class="logo" src="{{ image_asset_base }}/static/icons/comicine-xtext.svg?v=3" alt="ComiCine" width="360" height="120">
   <h1 data-i18n="heading">{{ heading }}</h1>
   <div id="gate-error" class="error" hidden></div>
   <p id="gate-blocked-detail" class="blocked-detail" data-i18n="error_blocked_detail" hidden></p>

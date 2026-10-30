@@ -33,7 +33,7 @@ Modes:
   --show       live: print the AI-related keys, write nothing.
   --snapshot   live: refresh ops/ai-bots.snapshot.json.
   --apply      live: PUT the managed keys to their allow-crawlers values.
-  --dry-run    fully offline: read the committed snapshot and print the plan
+  --dry-run    fully offline: read a local snapshot and print the plan
                (default when no mode is given).
 
 Managed keys (only those the zone actually reports are touched, so a plan that
