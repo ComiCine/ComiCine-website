@@ -143,7 +143,7 @@ See ADDITIONAL_TERMS.txt.
 
 - ホームページのヒーローと左上のナビゲーションでは、Delius Swash Caps を使って正確なブランド名 `ComiCine` をテキストで表示します。ポートフォリオを開くと、同じワードマーク要素が画面中央からナビゲーションへ移動します。色はテーマの文字色に従い、白黒で表示します。
 - ブラウザーの Favicon と小さなウェブ用マークには `src/static/icons/comicine-favicon.svg` を使用します。横型ワードマークと主要なソーシャルプレビュー画像には `src/static/icons/comicine-xtext.svg` を使用します。PNG 版は Apple のタッチアイコンと、メールやソーシャルメディアなどラスター画像のみを使える場面に限ります。`src/static/icons/comicine-watermark.png` は画像ウォーターマーク処理の入力として引き続き使用します。
-- 自ホストの Delius Swash Caps サブセットと OFL ライセンスは `src/static/fonts/delius-swash-caps/` にあります。ブランド表記の正確な名称 `ComiCine` にこのフォントを使います。Copyright 行の記号と年には従来のフォントを使い、`ComiCine` のみ Delius にします。Status Worker には必要なサブセットを埋め込み、その他の本文は従来のフォントスタックを維持します。
+- 自ホストの Delius Swash Caps サブセットと OFL ライセンスは `src/static/fonts/delius-swash-caps/` にあります。ブランド表記の正確な名称 `ComiCine` にこのフォントを使います。Copyright 行の記号と年には従来のフォントを使い、`ComiCine` のみ Delius を適用し、周囲の Copyright 文字に対して `1.3em` で表示します。Status Worker には必要なサブセットを埋め込み、その他の本文は従来のフォントスタックを維持します。
 - 本番ビルドでは同梱フォントサブセットを使い、開発マシン上の元フォントディレクトリには依存しません。
 
 ## クイックスタート

@@ -99,6 +99,7 @@
         .footer-copyright .brand-word {
             font-family: 'Delius Swash Caps', 'Apple Chancery', 'Segoe Print', cursive;
             font-weight: 400;
+            font-size: 1.3em;
             letter-spacing: normal;
         }
         /* On mobile, keep the footer to two rows: copyright on the first, the other three items
