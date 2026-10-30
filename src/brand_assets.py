@@ -7,16 +7,16 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Create published favicon copies with a small clear margin, preserving source artwork."""
+"""Create published favicon copies with ten percent clear margins, preserving source artwork."""
 
 from pathlib import Path
 
 SOURCE_VIEWBOX = 'viewBox="0 0 1500 1500"'
-PUBLISHED_VIEWBOX = 'viewBox="194.439 194.189 1111.222 1111.222"'
+PUBLISHED_VIEWBOX = 'viewBox="124.375 124.375 1251.25 1251.25"'
 
 
 def crop_favicon_svg(svg: str) -> str:
-    """Crop outer whitespace while leaving about five percent clear space on every side."""
+    """Crop outer whitespace while leaving about ten percent clear space on every side."""
     if PUBLISHED_VIEWBOX in svg:
         return svg
     if svg.count(SOURCE_VIEWBOX) != 1:
