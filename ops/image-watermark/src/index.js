@@ -101,7 +101,7 @@ export function routeFor(url, request, origin) {
     url.searchParams.forEach((value, key) => {
       if (key !== "v") targetUrl.searchParams.append(key, value);
     });
-    const assetVersion = brandIconTarget.includes("comicine-xtext") ? "3" : "7";
+    const assetVersion = brandIconTarget.includes("comicine-xtext") ? "3" : "8";
     targetUrl.searchParams.set("v", assetVersion);
     const target = targetUrl.toString();
     return { target, originalUrl: target, watermarked: false, image: true };
