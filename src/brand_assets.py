@@ -7,21 +7,21 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Create tightly framed published favicon copies without changing the source artwork."""
+"""Create published favicon copies with a small clear margin, preserving source artwork."""
 
 from pathlib import Path
 
 SOURCE_VIEWBOX = 'viewBox="0 0 1500 1500"'
-CROPPED_VIEWBOX = 'viewBox="250 249.75 1000.1 1000.1"'
+PUBLISHED_VIEWBOX = 'viewBox="194.439 194.189 1111.222 1111.222"'
 
 
 def crop_favicon_svg(svg: str) -> str:
-    """Crop only the outer viewBox whitespace from the known ComiCine favicon SVG."""
-    if CROPPED_VIEWBOX in svg:
+    """Crop outer whitespace while leaving about five percent clear space on every side."""
+    if PUBLISHED_VIEWBOX in svg:
         return svg
     if svg.count(SOURCE_VIEWBOX) != 1:
         raise ValueError("Expected the original ComiCine favicon viewBox exactly once")
-    return svg.replace(SOURCE_VIEWBOX, CROPPED_VIEWBOX, 1)
+    return svg.replace(SOURCE_VIEWBOX, PUBLISHED_VIEWBOX, 1)
 
 
 def write_cropped_favicon(source_path: str | Path, output_path: str | Path) -> None:
