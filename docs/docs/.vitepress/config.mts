@@ -386,8 +386,8 @@ export default defineConfig({
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=11' }],
-    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=11' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=12' }],
+    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=12' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:site_name', content: 'ComiCine Docs' }],
