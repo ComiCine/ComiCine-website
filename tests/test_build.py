@@ -226,7 +226,7 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
         if source_name == "comicine-favicon.svg":
             source_bytes = source_bytes.replace(
                 b'viewBox="0 0 1500 1500"',
-                b'viewBox="194.439 194.189 1111.222 1111.222"',
+                b'viewBox="124.375 124.375 1251.25 1251.25"',
                 1,
             )
         assert (tmp_path / public_name).read_bytes() == source_bytes
@@ -242,7 +242,7 @@ def test_cropped_favicon_keeps_source_art_and_fills_the_published_viewbox(tmp_pa
 
     assert output.read_bytes() == original.replace(
         b'viewBox="0 0 1500 1500"',
-        b'viewBox="194.439 194.189 1111.222 1111.222"',
+        b'viewBox="124.375 124.375 1251.25 1251.25"',
         1,
     )
     assert source.read_bytes() == original
@@ -259,7 +259,7 @@ def test_templates_use_the_correct_logo_variant():
     assert "hero-logo" not in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=9"' in gate
+    assert 'href="/static/icons/comicine-favicon.svg?v=10"' in gate
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in gate
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
@@ -275,8 +275,8 @@ def test_templates_use_the_correct_logo_variant():
     auth_css = (Path(build.STATIC_DIR) / "css" / "auth.css").read_text(encoding="utf-8")
     assert ".foot .brand-word" in auth_css and "font-size: 1.3em;" in auth_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
-    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=9"' in home
-    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=9"' in home
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=10"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=10"' in home
     assert 'ComiCine</span>' in home
 
 
