@@ -185,7 +185,6 @@ IMAGES_HOST = f"images.{ROOT_DOMAIN}"
 IMAGE_BASE_URL = f"https://{IMAGES_HOST}"
 IMAGE_ASSET_HOST = _contract_str("image_asset_host")
 IMAGE_WATERMARK_HOST = _contract_str("image_watermark_host")
-IMAGE_WATERMARK_BASE_URL = f"https://{IMAGE_WATERMARK_HOST}"
 IMAGE_ASSET_BASE_URL = f"https://{IMAGE_ASSET_HOST}"
 REDIRECT_BASE_URL = REDIRECT_URL
 PUBLIC_HOSTS = tuple(_contract_str_list("public_hosts"))

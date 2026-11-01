@@ -141,7 +141,6 @@ def create_render_app() -> Flask:
             "translations": translations.get(lang, {}),
             "gate_url": f"https://{config.GATE_HOST}/__gate",
             "image_asset_base": config.IMAGE_ASSET_BASE_URL,
-            "image_watermark_base": config.IMAGE_WATERMARK_BASE_URL,
             "services_host": config.SERVICES_HOST,
             "contact_host": config.CONTACT_HOST,
             "apple_account_email_domain": config.APPLE_ACCOUNT_EMAIL_DOMAIN,

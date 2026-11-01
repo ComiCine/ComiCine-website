@@ -27,16 +27,14 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=17" as="script">
+    <link rel="preload" href="/static/js/base.js?v=18" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
-    <link rel="icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=12" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.png?v=12">
+    <link rel="icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=13" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.png?v=13">
     <link rel="preconnect" href="{{ image_asset_base }}">
     <link rel="dns-prefetch" href="{{ image_asset_base }}">
-    <link rel="preconnect" href="{{ image_watermark_base }}">
-    <link rel="dns-prefetch" href="{{ image_watermark_base }}">
 
 <!-- Locally precompiled Tailwind CSS replaces Play CDN runtime compilation, removing a ~400KB render-blocking script and third-party CDN dependency. -->
     <link rel="stylesheet" href="/static/tailwind.css?v=4">
@@ -54,7 +52,7 @@ See ADDITIONAL_TERMS.txt.
 
     {% block head_links %}{% endblock %}
 </head>
-<body class="antialiased {% block body_class %}{% endblock %}" data-lang="{{ g.lang }}" {% include "_lang_attrs.html" %} data-gate-url="{{ gate_url }}" data-image-asset-base="{{ image_asset_base }}" data-image-watermark-base="{{ image_watermark_base }}" data-portfolio-thumbs="{% for item in portfolio_items %}/static/portfolio/thumbs/{{ item.stem }}-640.avif{% if not loop.last %} {% endif %}{% endfor %}" data-i18n-dict='{{ translations | tojson }}'>
+<body class="antialiased {% block body_class %}{% endblock %}" data-lang="{{ g.lang }}" {% include "_lang_attrs.html" %} data-gate-url="{{ gate_url }}" data-image-asset-base="{{ image_asset_base }}" data-portfolio-thumbs="{% for item in portfolio_items %}/static/portfolio/thumbs/{{ item.stem }}-640.avif{% if not loop.last %} {% endif %}{% endfor %}" data-i18n-dict='{{ translations | tojson }}'>
 
     <!-- Flash component, enabled by individual pages as needed and hidden by default. -->
     {% block flash %}{% endblock %}
@@ -184,7 +182,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=17" defer></script>
+    <script src="/static/js/base.js?v=18" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>

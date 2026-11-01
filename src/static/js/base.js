@@ -282,8 +282,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /*
        After the current page loads, prefetch the other two home pages (HTML and images).
        - Use <link rel=prefetch> for HTML; its cache retains the language cookie and degrades gracefully.
-       - Use new Image() to warm the HTTP cache. Home images use images.comicine.com's static edge cache;
-         contact-page QR codes continue to use the image.comicine.com Worker.
+       - Use new Image() to warm the HTTP cache. Home images and contact-page QR codes use
+         images.comicine.com's static edge cache.
        - Do not prefetch QR codes on mobile; the contact page only shows them on desktop hover.
        - Keep this image list aligned with the src values in index.html and contact.html.
        */
@@ -301,12 +301,12 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             '/static/portfolio/thumbs/IMG_0179-640.avif' ];
     }
     var PAGE_MANIFEST = {
-        '/':        { host: 'comicine.com',          path: '/',        images: HOME_IMAGES, assetBase: true },
+        '/':        { host: 'comicine.com',          path: '/',        images: HOME_IMAGES },
         '/services':{ host: 'services.comicine.com', path: '/services', images: [] },
         '/contact': { host: 'contact.comicine.com',  path: '/contact',  images: [
-                        '/qr-codes/bilibili.png',
-                        '/qr-codes/qq.png',
-                        '/qr-codes/wechat.png' ], qr: true, assetBase: false }
+                        '/static/qr-codes/bilibili.png',
+                        '/static/qr-codes/qq.png',
+                        '/static/qr-codes/wechat.png' ] }
     };
 
     /* Identify the current home page by subdomain in production and by path in local development. */
@@ -319,18 +319,11 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         return location.pathname;                    /* Local paths: '/', '/services', or '/contact'. */
     }
 
-    /* Home images load from images.comicine.com/static via the static edge cache.
-       QR codes still use the image.comicine.com Worker, which selects a watermark by Referer. */
-    function pageOrigin(key) {
-        var manifest = PAGE_MANIFEST[key];
-        var attr = manifest && manifest.assetBase
-            ? 'data-image-asset-base'
-            : 'data-image-watermark-base';
-        var base = document.body && document.body.getAttribute(attr);
+    /* Page images load from images.comicine.com/static via the static edge cache. */
+    function pageOrigin() {
+        var base = document.body && document.body.getAttribute('data-image-asset-base');
         return isProductionDomain(location.hostname)
-            ? (base || (manifest && manifest.assetBase
-                ? 'https://images.comicine.com'
-                : 'https://image.comicine.com'))
+            ? (base || 'https://images.comicine.com')
             : location.origin;
     }
 
@@ -345,7 +338,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (!PAGE_MANIFEST[cur]) return;
         var desktop = window.matchMedia('(hover: hover)').matches;
         Object.keys(PAGE_MANIFEST).forEach(function(key) {
-            var origin = pageOrigin(key);
+            var origin = pageOrigin();
             if (key === cur) {
                 /* The current page is already open. Warm portfolio images at low priority while idle
                    so they are likely cached when the user scrolls to #portfolio. */

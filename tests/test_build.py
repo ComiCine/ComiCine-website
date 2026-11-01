@@ -98,13 +98,14 @@ def test_contact_prerenders_all_qr_images():
 
     assert len(preloads) == 5
     assert set(preloads) == {
-        "https://image.comicine.com/qr-codes/bilibili.png",
-        "https://image.comicine.com/qr-codes/qq.png",
-        "https://image.comicine.com/qr-codes/wechat.png",
-        "https://image.comicine.com/qr-codes/mail-services-zh-cn.png",
-        "https://image.comicine.com/qr-codes/form-services-zh-cn.png",
+        "https://images.comicine.com/static/qr-codes/bilibili.png",
+        "https://images.comicine.com/static/qr-codes/qq.png",
+        "https://images.comicine.com/static/qr-codes/wechat.png",
+        "https://images.comicine.com/static/qr-codes/mail-services-zh-cn.png",
+        "https://images.comicine.com/static/qr-codes/form-services-zh-cn.png",
     }
     assert html.count('(hover: hover) and (pointer: fine)') == 5
+    assert "https://image.comicine.com" not in html
 
 
 def test_contact_survey_block_uses_comicine_shortlink_and_qr():
@@ -115,7 +116,8 @@ def test_contact_survey_block_uses_comicine_shortlink_and_qr():
         block = block[:block.index("</a>")]
 
         assert f'href="https://comicine.com/link/photograph-form-{lang}"' in block
-        assert f'data-qr="https://image.comicine.com/qr-codes/form-services-{lang}.png"' in block
+        assert f'data-qr="https://images.comicine.com/static/qr-codes/form-services-{lang}.png"' in block
+        assert "https://image.comicine.com" not in html
         assert "qr-trigger" in block
         assert "lime-official.feishu.cn" not in block
 
@@ -213,7 +215,6 @@ def test_pages_edge_config_excludes_static_assets(tmp_path):
 def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
     build.publish_brand_assets(str(tmp_path))
     source = Path(build.STATIC_DIR) / "icons"
-    original_favicon = (source / "comicine-favicon.svg").read_bytes()
     expected = {
         "comicine.svg": "comicine-xtext.svg",
         "comicine-xtext.svg": "comicine-xtext.svg",
@@ -222,30 +223,7 @@ def test_brand_asset_aliases_use_the_matching_comicine_svg(tmp_path):
         "ComiCine-xtext.svg": "comicine-xtext.svg",
     }
     for public_name, source_name in expected.items():
-        source_bytes = (source / source_name).read_bytes()
-        if source_name == "comicine-favicon.svg":
-            source_bytes = source_bytes.replace(
-                b'viewBox="0 0 1500 1500"',
-                b'viewBox="124.375 124.375 1251.25 1251.25"',
-                1,
-            )
-        assert (tmp_path / public_name).read_bytes() == source_bytes
-    assert (source / "comicine-favicon.svg").read_bytes() == original_favicon
-
-
-def test_cropped_favicon_keeps_source_art_and_fills_the_published_viewbox(tmp_path):
-    source = Path(build.STATIC_DIR) / "icons" / "comicine-favicon.svg"
-    original = source.read_bytes()
-    output = tmp_path / "static" / "icons" / "comicine-favicon.svg"
-
-    build.write_cropped_favicon(str(source), str(output))
-
-    assert output.read_bytes() == original.replace(
-        b'viewBox="0 0 1500 1500"',
-        b'viewBox="124.375 124.375 1251.25 1251.25"',
-        1,
-    )
-    assert source.read_bytes() == original
+        assert (tmp_path / public_name).read_bytes() == (source / source_name).read_bytes()
 
 
 def test_templates_use_the_correct_logo_variant():
@@ -257,10 +235,14 @@ def test_templates_use_the_correct_logo_variant():
     assert '<span class="nav-brand brand-word">ComiCine</span>' in home
     assert '<span class="brand-word hero-wordmark">ComiCine</span>' in home
     assert "hero-logo" not in home
-    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in home
-    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=4"' in home
-    assert 'href="/static/icons/comicine-favicon.svg?v=12"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=3"' in gate
+    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4"' in home
+    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=5"' in home
+    assert home.count('property="og:image:width" content="5250"') == 2
+    assert 'href="/static/icons/comicine-favicon.svg?v=13"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4" alt="ComiCine" width="525" height="150"' in gate
+    assert "https://image.comicine.com" not in home + services + contact + gate
+    assert "data-image-watermark-base" not in home
+    assert "/static/js/base.js?v=18" in home
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
@@ -275,8 +257,8 @@ def test_templates_use_the_correct_logo_variant():
     auth_css = (Path(build.STATIC_DIR) / "css" / "auth.css").read_text(encoding="utf-8")
     assert ".foot .brand-word" in auth_css and "font-size: 1.3em;" in auth_css
     assert ".hero-wordmark" in home_css and "color: var(--text)" in home_css
-    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=12"' in home
-    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=12"' in home
+    assert 'rel="icon" href="https://images.comicine.com/static/icons/comicine-favicon.svg?v=13"' in home
+    assert 'rel="apple-touch-icon" href="https://images.comicine.com/static/icons/comicine-favicon.png?v=13"' in home
     assert 'ComiCine</span>' in home
 
 

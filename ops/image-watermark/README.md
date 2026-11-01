@@ -11,6 +11,10 @@ Cloudflare Worker for `image.comicine.com/*`: the **A2 normalising proxy** that 
 "logical path" back to a public static asset and always returns the watermarked or
 the clean variant.
 
+The main site and docs use `images.comicine.com/static/...` directly for thumbnails,
+QR codes and brand assets. Their pages do not call this Worker; it remains deployed
+for direct requests and legacy image URLs.
+
 ## Background (A2)
 
 The full-size portfolio originals (`src/static/portfolio/*`) are **no longer
