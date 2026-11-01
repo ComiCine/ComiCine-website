@@ -30,7 +30,7 @@ See ADDITIONAL_TERMS.txt.
   - D1 `blocked_ips` 是权威数据源；`sync-worker` 把生效的行同步到 Cloudflare IP List，用于边缘拦截（没有源站，因此也不需要 ipset/iptables）
   - 应用层全局过滤器作为后备 —— 被封禁的 IP 直接收到 403
 - **统一跳转页**（`redirect.comicine.com/?to=<https-url>`，也接受 `/r`）：在跳转到任意 HTTPS 目标之前显示一个中转提示页
-- **作品集图片处理**：原图永不对外发布；只有加水印的完整图片（`image.comicine.com/portfolio/*`）和干净的缩略图是公开的
+- **作品集图片处理**：原图永不对外发布；网站使用干净的缩略图和静态资源。水印 Worker 继续部署，用于直接访问及旧版图片链接，但网站页面不再调用它。
 
 ## 技术栈
 
@@ -475,10 +475,9 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   这里**不再声称边缘缓存**：Cloudflare 不缓存 Pages Functions 的响应
   （同一 URL 连续请求 `cf-cache-status` 恒为 `DYNAMIC`），所以共享缓存的生命周期指令是死配置；
   语言 cookie 也不放进 `Vary`，否则只会把浏览器缓存切得更碎。
-- 第一方作品集缩略图与 favicon 使用 `images.comicine.com/static/...`
-  （静态边缘缓存，绕过 Functions），而不是水印 Worker；
-  二维码与外部热链图片
-  仍然使用 `image.comicine.com`。
+- 第一方作品集缩略图、二维码与 favicon 使用 `images.comicine.com/static/...`
+  （静态边缘缓存，绕过 Functions）。网站页面不再调用水印 Worker；
+  Worker 仍部署着，以服务直接访问及旧版图片链接。
 - 作品集原图永不发布：`/static/portfolio/<img>` 返回 404。
   只有干净的缩略图（`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）
   与 `image.comicine.com` 上归一化、加水印的 `/portfolio/<img>` 是公开的；

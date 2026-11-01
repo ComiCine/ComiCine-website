@@ -334,8 +334,8 @@ const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
 )
 
-const SOCIAL_IMAGE_SVG = 'https://images.comicine.com/static/icons/comicine-xtext.svg?v=3'
-const SOCIAL_IMAGE_PNG = 'https://images.comicine.com/static/icons/comicine-xtext.png?v=4'
+const SOCIAL_IMAGE_SVG = 'https://images.comicine.com/static/icons/comicine-xtext.svg?v=4'
+const SOCIAL_IMAGE_PNG = 'https://images.comicine.com/static/icons/comicine-xtext.png?v=5'
 
 function canonicalUrlForPage(page: string): string | null {
   const sourcePage = page.startsWith('/') ? page.slice(1) : page
@@ -386,8 +386,8 @@ export default defineConfig({
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=12' }],
-    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=12' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=13' }],
+    ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=13' }],
     ['meta', { name: 'theme-color', content: '#05A5A6' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:site_name', content: 'ComiCine Docs' }],
@@ -426,12 +426,12 @@ export default defineConfig({
       ['meta', { property: 'og:url', content: canonicalUrl }],
       ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE_SVG }],
       ['meta', { property: 'og:image:type', content: 'image/svg+xml' }],
-      ['meta', { property: 'og:image:width', content: '4500' }],
+      ['meta', { property: 'og:image:width', content: '5250' }],
       ['meta', { property: 'og:image:height', content: '1500' }],
       ['meta', { property: 'og:image:alt', content: 'ComiCine logo' }],
       ['meta', { property: 'og:image', content: SOCIAL_IMAGE_PNG }],
       ['meta', { property: 'og:image:type', content: 'image/png' }],
-      ['meta', { property: 'og:image:width', content: '4500' }],
+      ['meta', { property: 'og:image:width', content: '5250' }],
       ['meta', { property: 'og:image:height', content: '1500' }],
       ['meta', { property: 'og:image:alt', content: 'ComiCine logo' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],

@@ -80,7 +80,7 @@ def csp(scripts: list[str], styles: list[str]) -> str:
             "base-uri 'self'",
             f"script-src {script_src}",
             f"style-src {style_src}",
-            "img-src 'self' data: https://image.comicine.com https://images.comicine.com",
+            "img-src 'self' data: https://images.comicine.com",
             "font-src 'self' data:",
             f"connect-src {connect_src}",
             "frame-ancestors 'self'",

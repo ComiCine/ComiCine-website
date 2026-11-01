@@ -30,7 +30,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
   - D1 `blocked_ips` is the authority; `sync-worker` mirrors active rows to a Cloudflare IP List for edge interception (no origin, so no ipset/iptables)
   - Application-layer global filter as a fallback — banned IPs get a direct 403
 - **Unified redirect page** (`redirect.comicine.com/?to=<https-url>`, `/r` also accepted): shows an interstitial before redirecting to any HTTPS destination
-- **Portfolio image handling**: originals are never published; only watermarked full images (`image.comicine.com/portfolio/*`) and clean thumbnails are public
+- **Portfolio image handling**: originals are never published; the website uses clean thumbnails and static assets. The watermark Worker remains deployed for direct and legacy image URLs, but site pages do not call it.
 
 ## Tech stack
 
@@ -488,10 +488,10 @@ published to docs.comicine.com.
   `DYNAMIC` on repeated requests), so a shared-cache lifetime directive would be
   dead configuration, and the language cookie stays out of `Vary` because it
   would only fragment the browser cache.
-- First-party portfolio thumbnails and favicons use
-  `images.comicine.com/static/...` (static edge cache, bypasses Functions)
-  instead of the watermark Worker; QR codes and externally hotlinked images
-  still use `image.comicine.com`.
+- First-party portfolio thumbnails, QR codes and favicons use
+  `images.comicine.com/static/...` (static edge cache, bypasses Functions).
+  Site pages do not call the watermark Worker; it remains deployed for direct
+  and legacy image URLs.
 - Portfolio originals are never published: `/static/portfolio/<img>` returns 404.
   Only clean thumbnails (`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)
   and the normalized, watermarked `/portfolio/<img>` on `image.comicine.com` are public;

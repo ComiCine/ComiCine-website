@@ -30,7 +30,7 @@ See ADDITIONAL_TERMS.txt.
   - D1 `blocked_ips`가 권위 데이터이고, `sync-worker`가 활성 행을 Cloudflare IP List로 미러링해 엣지에서 차단합니다(원본 서버가 없으므로 ipset/iptables도 없음)
   - 대체 수단으로 애플리케이션 계층 전역 필터가 있으며, 차단된 IP는 곧바로 403을 받습니다
 - **통합 리다이렉트 페이지**(`redirect.comicine.com/?to=<https-url>`, `/r`도 허용): 모든 HTTPS 목적지로 리다이렉트하기 전에 중간 안내 페이지를 보여 줍니다
-- **포트폴리오 이미지 처리**: 원본은 절대 공개하지 않으며, 워터마크가 들어간 전체 이미지(`image.comicine.com/portfolio/*`)와 깨끗한 썸네일만 공개됩니다
+- **포트폴리오 이미지 처리**: 원본은 공개하지 않습니다. 웹사이트는 깨끗한 썸네일과 정적 리소스를 사용합니다. 워터마크 Worker는 직접 및 이전 이미지 URL을 위해 계속 배포하지만, 사이트 페이지에서는 호출하지 않습니다.
 
 ## 기술 스택
 
@@ -473,10 +473,9 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   여기서 **엣지 캐싱을 주장하지 않습니다**: 실측 `cf-cache-status`는 항상 `DYNAMIC`이며,
   Pages Functions 응답은 Cloudflare 엣지 캐시에 저장되지 않으므로 공유 캐시 수명 지시문은 죽은 설정입니다.
   `Vary: Cookie`도 넣지 않습니다——언어 cookie는 브라우저 캐시를 잘게 쪼갤 뿐입니다.
-- 자사 포트폴리오 썸네일과 favicon은 워터마크 Worker 대신
-  `images.comicine.com/static/...`(정적 엣지 캐시, Functions 우회)을
-  사용합니다. QR 코드와 외부에서 핫링크한 이미지는 여전히 `image.comicine.com`을
-  사용합니다.
+- 자사 포트폴리오 썸네일, QR 코드와 favicon은
+  `images.comicine.com/static/...`(정적 엣지 캐시, Functions 우회)을 사용합니다.
+  사이트 페이지는 워터마크 Worker를 호출하지 않으며, Worker는 직접 및 이전 이미지 URL을 위해 계속 배포됩니다.
 - 포트폴리오 원본은 절대 공개하지 않습니다: `/static/portfolio/<img>`는 404를 반환합니다.
   깨끗한 썸네일(`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`)과
   `image.comicine.com`의 정규화·워터마크된 `/portfolio/<img>`만 공개되며,

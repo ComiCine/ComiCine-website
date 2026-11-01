@@ -30,7 +30,7 @@ See ADDITIONAL_TERMS.txt.
   - D1 の `blocked_ips` が権威データです。`sync-worker` が有効な行を Cloudflare IP List に反映し、エッジで遮断します（オリジンがないため ipset/iptables はありません）
   - フォールバックとしてアプリケーション層のグローバルフィルタ — ブロックされた IP は直接 403 になります
 - **統一リダイレクトページ**（`redirect.comicine.com/?to=<https-url>`、`/r` も可）：任意の HTTPS 宛先へリダイレクトする前に中間ページを表示します
-- **ポートフォリオ画像の扱い**：原本は一切公開されません。公開されるのはウォーターマーク入りのフル画像（`image.comicine.com/portfolio/*`）とクリーンなサムネイルのみです
+- **ポートフォリオ画像の扱い**：原本は一切公開されません。サイトではクリーンなサムネイルと静的アセットを使用します。ウォーターマーク Worker は直接アクセスや旧画像 URL 用に稼働を継続しますが、サイトのページからは呼び出しません。
 
 ## 技術スタック
 
@@ -486,10 +486,9 @@ docs.comicine.com に公開されることはありません。
   （同じ URL への連続リクエストでも `cf-cache-status` は `DYNAMIC` のまま）、
   共有キャッシュ向けの寿命ディレクティブは死んだ設定になります。言語 cookie も `Vary` に入れません
   （ブラウザキャッシュが細分化されるだけだからです）。
-- ファーストパーティのポートフォリオサムネイルと favicon は、
-  ウォーターマーク Worker ではなく `images.comicine.com/static/...`（静的エッジキャッシュ、Functions を迂回）
-  を使用します。QR コードと外部から直リンクされた画像は
-  引き続き `image.comicine.com` を使用します。
+- ファーストパーティのポートフォリオサムネイル、QR コード、favicon は
+  `images.comicine.com/static/...`（静的エッジキャッシュ、Functions を迂回）を使用します。
+  サイトのページからウォーターマーク Worker は呼び出しません。Worker は直接アクセスや旧画像 URL 用に稼働を継続します。
 - ポートフォリオの原本は一切公開されません：`/static/portfolio/<img>` は 404 を返します。
   公開されるのはクリーンなサムネイル（`images.comicine.com/static/portfolio/thumbs/<img>-<width>.{webp,avif}`）と、
   `image.comicine.com` の正規化・ウォーターマーク済み `/portfolio/<img>` だけです。
