@@ -106,7 +106,7 @@ def export_blocklist(src: str) -> int:
                 seen.add(cidr)
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, "blocklist.sql")
-    with open(out, "w", encoding="utf-8") as f:
+    with open_private(out) as f:
         f.write(
             "INSERT OR IGNORE INTO blocked_ips "
             "(cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active) VALUES\n"

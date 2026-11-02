@@ -85,7 +85,7 @@ describe("page chrome (inherited from base.html / _footer.html)", () => {
       url: literal[i]!,
       at: nav.indexOf(`{{ ${name} }}`),
     }));
-    expect(slots.every((slot) => slot.at >= 0), "base.html <nav> 里三个链接都在").toBe(true);
+    expect(slots.every((slot) => slot.at >= 0), "all three links from base.html <nav> are present").toBe(true);
     const expected = [...slots].sort((a, b) => a.at - b.at).map((slot) => slot.url);
     expect(expected).toEqual(literal); // The canonical order is home → services → contact.
 
@@ -236,7 +236,10 @@ describe("assets", () => {
     }
   });
 
-  it("preloads the theme before paint, from localStorage then the shared cookie", () => {
+  it("preloads the theme before paint, preferring the shared cookie", () => {
+    expect(THEME_JS.indexOf("document.cookie.match")).toBeLessThan(
+      THEME_JS.indexOf("localStorage.getItem('theme')"),
+    );
     expect(THEME_JS).toContain("localStorage.getItem('theme')");
     expect(THEME_JS).toContain("comicine_theme");
     expect(THEME_JS).toContain("prefers-color-scheme: light");
@@ -246,6 +249,7 @@ describe("assets", () => {
   it("wires the flyout, the theme pill, the countdown and the cookie bridge", () => {
     expect(STATUS_JS).toContain("user_lang_preference");
     expect(STATUS_JS).toContain("comicine_theme");
+    expect(STATUS_JS).toContain("catch(e){return m[1]}");
     expect(STATUS_JS).toContain("comicine_status_lang_synced");
     expect(STATUS_JS).toContain("domain=.'+ROOT");
     expect(STATUS_JS).toContain("refresh-count");

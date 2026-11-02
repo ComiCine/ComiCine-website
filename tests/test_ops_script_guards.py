@@ -267,18 +267,18 @@ def test_deploy_quiet_output_uses_one_word_phases(tmp_path):
 
     preview = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
     assert preview.returncode == 0, preview.stdout + preview.stderr
-    assert "gh run list" not in preview.stdout, "CI 观察已去掉，预览里不该还有它"
+    assert "gh run list" not in preview.stdout, "CI watching was removed and must not appear in the preview"
 
     ran = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo)
     assert ran.returncode == 0, ran.stdout + ran.stderr
     assert "Prepare: done" in ran.stdout, ran.stdout
     assert "Release: done" in ran.stdout, ran.stdout
-    assert "+" not in ran.stdout.replace("++", ""), "阶段标签不该再是 A+B+C 形状"
+    assert "+" not in ran.stdout.replace("++", ""), "phase labels must not use the old A+B+C format"
     assert not any(line.startswith("CI:") for line in ran.stdout.splitlines()), ran.stdout
     # Individual step lines are hidden on success; skipped and failed steps still print.
     for gone in ("Lists: done", "Bans: done", "Check: done",
                  "Pages: done", "Docs: done", "Workers: done"):
-        assert gone not in ran.stdout, f"{gone} 应该被并进阶段行"
+        assert gone not in ran.stdout, f"{gone} should be summarized in its phase line"
 
 
 # W3-3: Run CI before Pages or docs deployment and reject a dirty worktree.
@@ -748,9 +748,9 @@ def test_deploy_bootstraps_missing_tooling(tmp_path):
     }
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
 
-    assert venv_marker.is_file(), f"没有尝试创建 venv\n{result.stdout}\n{result.stderr}"
+    assert venv_marker.is_file(), f"venv creation was not attempted\n{result.stdout}\n{result.stderr}"
     assert "recreating the build venv" in result.stdout, result.stdout
-    assert npm_marker.is_file(), "没有尝试安装 wrangler"
+    assert npm_marker.is_file(), "Wrangler installation was not attempted"
     # If wrangler cannot be installed, fail explicitly instead of silently continuing to pages_deploy.
     assert result.returncode != 0, result.stdout + result.stderr
     assert "could not install wrangler" in result.stderr, result.stderr
@@ -780,6 +780,6 @@ def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
     result = run([BASH, "ops/deploy.sh", "--pages"], cwd=repo, env=env)
 
     assert "recreating the build venv" not in result.stdout, result.stdout
-    assert not venv_marker.is_file(), "跳过后不该创建 venv"
+    assert not venv_marker.is_file(), "the venv must not be created when bootstrap is skipped"
     # With bootstrap disabled, let the pages_deploy stub handle the missing venv; the stub does not inspect it.
     assert "Release: done" in result.stdout, result.stdout

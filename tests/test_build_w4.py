@@ -65,7 +65,7 @@ def test_context_processor_computes_invariants_once(tmp_path, monkeypatch):
             assert helper(arg) == first
 
         info = helper.cache_info()
-        assert info.misses == 1, f"{helper.__name__} 被真算了 {info.misses} 次"
+        assert info.misses == 1, f"{helper.__name__} was recomputed {info.misses} times"
         assert info.hits == 32
         helper.cache_clear()
 
@@ -420,7 +420,7 @@ def test_main_removes_originals_right_after_copytree(monkeypatch, tmp_path):
 
     assert build.main() == 0
 
-    assert order[0] == "prereq", f"前置条件必须先于任何写入：{order}"
+    assert order[0] == "prereq", f"prerequisites must run before any writes: {order}"
     first_remove = order.index("remove-originals")
-    assert first_remove < order.index("thumbs"), f"删原图必须早于缩略图：{order}"
-    assert first_remove < order.index("watermarks"), f"删原图必须早于水印：{order}"
+    assert first_remove < order.index("thumbs"), f"originals must be removed before thumbnails: {order}"
+    assert first_remove < order.index("watermarks"), f"originals must be removed before watermarks: {order}"

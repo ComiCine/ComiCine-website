@@ -74,7 +74,7 @@ export const GATE_RENEW_AFTER_SECONDS = Math.floor(GATE_TTL_SECONDS * 0.75);
  * current domain cookie), so eight leaves ample room. The limit prevents an
  * attacker from controlling the number of WebCrypto operations per request
  * with an oversized Cookie header.
- * （tasks/22 W9-10）。
+ * (tasks/22 W9-10).
  */
 export const MAX_GATE_COOKIE_VALUES = 8;
 

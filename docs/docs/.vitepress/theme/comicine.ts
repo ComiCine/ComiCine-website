@@ -22,7 +22,7 @@
  *   /en-us                     English home page (/ is the zh-cn home page)
  *
  * This bridge has three responsibilities:
- *   1. Read the main site's theme cookie and initialize VitePress appearance on first visit.
+ *   1. Prefer the main site's theme cookie over origin-local VitePress storage on every visit.
  *   2. Watch VitePress theme changes and write the selected theme to comicine_theme.
  *   3. Write the current language to user_lang_preference after route changes.
  *      The server resolves language-less content entry URLs before VitePress loads.
@@ -40,8 +40,7 @@ const COOKIE_MAX_AGE = 31536000
 /** Synchronous script run in <head> before VitePress's own check-dark-mode script. */
 export const THEME_BOOTSTRAP_SCRIPT = `;(() => {
   try {
-    if (localStorage.getItem('${APPEARANCE_KEY}')) return
-    var m = document.cookie.match(/(?:^|;\\s*)${THEME_COOKIE}=(light|dark)/)
+    var m = document.cookie.match(/(?:^|;\\s*)${THEME_COOKIE}=(light|dark)(?:;|$)/)
     if (m) localStorage.setItem('${APPEARANCE_KEY}', m[1])
   } catch (e) {}
 })()`

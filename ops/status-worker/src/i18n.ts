@@ -53,6 +53,28 @@ export const LANG_LABELS: Record<Lang, string> = {
   "ko-kr": "한국어",
 };
 
+function acceptedLanguageTags(header: string): string[] {
+  const accepted: { tag: string; quality: number; order: number }[] = [];
+  for (const [order, part] of header.split(",").entries()) {
+    const [rawTag, ...parameters] = part.trim().split(";");
+    const tag = rawTag?.trim().toLowerCase();
+    if (!tag || tag === "*") continue;
+
+    const qualityParameter = parameters.find((parameter) => /^q\s*=/i.test(parameter));
+    let quality = 1;
+    if (qualityParameter) {
+      const rawQuality = qualityParameter.slice(qualityParameter.indexOf("=") + 1).trim();
+      if (!/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(rawQuality)) continue;
+      quality = Number(rawQuality);
+    }
+    if (quality > 0) accepted.push({ tag, quality, order });
+  }
+
+  return accepted
+    .sort((left, right) => right.quality - left.quality || left.order - right.order)
+    .map(({ tag }) => tag);
+}
+
 /**
  * Map the region subtag of a language code to a flag emoji (`zh-cn` → 🇨🇳). This matches
  * `_lang_flag()` in `site/src/render_app.py`: return an empty string when no region is present.
@@ -78,13 +100,11 @@ export function langFlag(code: string): string {
 export function pickLang(request: Request, url?: URL): Lang {
   const explicit = url?.searchParams.get("lang")?.trim().toLowerCase();
   if (isLang(explicit)) return explicit;
-  const accept = (request.headers.get("Accept-Language") ?? "").toLowerCase();
-  for (const part of accept.split(",")) {
-    const p = part.trim().split(";")[0];
-    if (p.startsWith("zh")) return "zh-cn";
-    if (p.startsWith("ja")) return "ja-jp";
-    if (p.startsWith("ko")) return "ko-kr";
-    if (p.startsWith("en")) return "en-us";
+  const accept = request.headers.get("Accept-Language") ?? "";
+  for (const tag of acceptedLanguageTags(accept)) {
+    const primary = tag.split("-", 1)[0];
+    const language = LANGS.find((supported) => supported.split("-", 1)[0] === primary);
+    if (language) return language;
   }
   return DEFAULT_LANG;
 }

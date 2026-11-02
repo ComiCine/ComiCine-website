@@ -86,7 +86,7 @@ def main() -> int:
             # so do not require every script-src source to also appear in connect-src. Registered exception:
             # Cloudflare Web Analytics loads its beacon script from
             # static.cloudflareinsights.com (script-src), while RUM data is sent to
-            # cloudflareinsights.com（connect-src）。
+            # cloudflareinsights.com (connect-src).
             script_connect_pairs = {
                 "static.cloudflareinsights.com": "cloudflareinsights.com",
             }

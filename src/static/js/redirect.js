@@ -30,7 +30,7 @@
                 pending -= 1;
                 if (pending <= 0) finish();
             };
-            img.src = rel.indexOf('http') === 0 ? rel : rel;
+            img.src = rel;
         });
         setTimeout(finish, 800);
     })();

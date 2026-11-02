@@ -86,21 +86,34 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
     }
 
-    /* Use the localStorage theme when present; otherwise follow the system, as in VitePress. */
+    /* Prefer the shared theme cookie, then this origin's stored choice, then the system. */
     function themeCookieValue() {
-        var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + THEME_COOKIE + '=(light|dark)'));
-        return match ? match[1] : null;
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var separator = cookies[i].indexOf('=');
+            if (separator < 0 || cookies[i].slice(0, separator).trim() !== THEME_COOKIE) continue;
+            var value = cookies[i].slice(separator + 1).trim();
+            return value === 'light' || value === 'dark' ? value : null;
+        }
+        return null;
+    }
+
+    function storedTheme() {
+        try {
+            var theme = localStorage.getItem('theme');
+            return theme === 'light' || theme === 'dark' ? theme : null;
+        } catch (_) {
+            return null;
+        }
     }
 
     function effectiveTheme() {
-        var saved = localStorage.getItem('theme');
-        if (saved === 'light' || saved === 'dark') return saved;
-        return themeCookieValue() || getSystemTheme();
+        return themeCookieValue() || storedTheme() || getSystemTheme();
     }
 
     /* Write a shared cross-subdomain cookie so the main, auth, and redirect pages use one theme. */
     function saveTheme(theme) {
-        localStorage.setItem('theme', theme);
+        try { localStorage.setItem('theme', theme); } catch (_) {}
         var secure = location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
             + '; SameSite=Lax' + secure + sharedCookieDomain();
@@ -505,7 +518,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
         /* Follow system theme changes only when there is no saved choice. */
         window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
-            if (!localStorage.getItem('theme')) applyTheme(getSystemTheme(), true);
+            if (!storedTheme() && !themeCookieValue()) applyTheme(getSystemTheme(), true);
         });
 
         /* Close the language flyout outside its control; the screen closes on its own backdrop or links. */

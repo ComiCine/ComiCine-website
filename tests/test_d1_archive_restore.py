@@ -133,7 +133,7 @@ def run_restore(tmp_path: Path, directory: Path, *extra: str) -> tuple[int, str,
     return code, (out.read_text(encoding="utf-8") if out.exists() else ""), stderr.getvalue()
 
 
-def test_round_trip_preserves_every_value_and_type(tmp_path):
+def test_round_trip_preserves_every_value_and_type(tmp_path, request):
     directory = write_snapshot(
         tmp_path / "backup",
         {"blocked_ips": BLOCKED_ROWS, "apple_accounts": APPLE_ROWS},
@@ -144,6 +144,7 @@ def test_round_trip_preserves_every_value_and_type(tmp_path):
 
     assert code == 0
     con = sqlite3.connect(":memory:")
+    request.addfinalizer(con.close)
     con.executescript(sql)
     assert [dict(zip(("cidr", "network", "prefix", "reason", "updated_by", "active"), row, strict=True))
             for row in con.execute(
@@ -163,7 +164,7 @@ def test_round_trip_preserves_every_value_and_type(tmp_path):
     assert {"blocked_ips", "apple_accounts", "idx_blocked_ips_active"} <= objects
 
 
-def test_batches_large_tables_into_several_inserts(tmp_path):
+def test_batches_large_tables_into_several_inserts(tmp_path, request):
     rows = [
         {"id": index, "email": f"user{index}@example.test", "password": "x", "notes": "", "sort_order": 0}
         for index in range(1, restore.BATCH_ROWS * 2 + 3)
@@ -175,12 +176,13 @@ def test_batches_large_tables_into_several_inserts(tmp_path):
     assert code == 0
     assert sql.count('INSERT INTO "apple_accounts"') == 3
     con = sqlite3.connect(":memory:")
+    request.addfinalizer(con.close)
     con.executescript(sql)
     assert con.execute("SELECT COUNT(*) FROM apple_accounts").fetchone()[0] == len(rows)
     assert con.execute("SELECT MAX(id) FROM apple_accounts").fetchone()[0] == len(rows)
 
 
-def test_nul_byte_survives_the_round_trip(tmp_path):
+def test_nul_byte_survives_the_round_trip(tmp_path, request):
     rows = [{"id": 1, "email": "nul@example.test", "password": "a\x00b", "notes": None, "sort_order": 0}]
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": rows})
 
@@ -189,11 +191,12 @@ def test_nul_byte_survives_the_round_trip(tmp_path):
     assert code == 0
     assert "CAST(x'" in sql  # Text literals cannot store NUL, so cast through a blob.
     con = sqlite3.connect(":memory:")
+    request.addfinalizer(con.close)
     con.executescript(sql)
     assert con.execute("SELECT password FROM apple_accounts").fetchone()[0] == "a\x00b"
 
 
-def test_reads_a_plain_jsonl_file_too(tmp_path):
+def test_reads_a_plain_jsonl_file_too(tmp_path, request):
     # Some download paths (R2 REST API / wrangler r2 object get) silently decompress content-encoding
     # as a transport detail, so a downloaded .jsonl.gz may actually be plaintext. Check the magic bytes.
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
@@ -206,6 +209,7 @@ def test_reads_a_plain_jsonl_file_too(tmp_path):
 
     assert code == 0
     con = sqlite3.connect(":memory:")
+    request.addfinalizer(con.close)
     con.executescript(sql)
     assert con.execute("SELECT COUNT(*) FROM apple_accounts").fetchone()[0] == len(APPLE_ROWS)
 
@@ -220,7 +224,7 @@ def test_data_only_omits_the_schema(tmp_path):
     assert 'INSERT INTO "apple_accounts"' in sql
 
 
-def test_replace_mode_is_rerunnable(tmp_path):
+def test_replace_mode_is_rerunnable(tmp_path, request):
     # Create the database with the full script, then replay with --data-only --replace; the second run must neither fail nor duplicate rows.
     directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
     assert run_restore(tmp_path, directory)[0] == 0
@@ -229,6 +233,7 @@ def test_replace_mode_is_rerunnable(tmp_path):
     assert code == 0
     assert 'INSERT OR REPLACE INTO "apple_accounts"' in sql
     con = sqlite3.connect(":memory:")
+    request.addfinalizer(con.close)
     con.executescript(DDL)
     con.executescript(sql)
     con.executescript(sql)

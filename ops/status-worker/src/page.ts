@@ -263,8 +263,8 @@ h1{font-size:28px;margin:0 0 6px}
 .overall.partial{border-color:var(--pending)}
 .overall.down{border-color:var(--down)}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 auto}
-/* The overview uses all/partial/down and cards use up/down/pending; both groups need colors:
-   改版前卡片圆点只有 .dot 一条规则，故障卡的圆点是灰的（与状态文字不同色）。 */
+/* The overview uses all/partial/down and cards use up/down/pending, so both groups need colors.
+   Previously, only .dot had a rule and failure-card dots stayed gray instead of matching the state text. */
 .dot.all,.dot.up{background:var(--up)}
 .dot.partial,.dot.pending{background:var(--pending)}
 .dot.down{background:var(--down)}
@@ -298,12 +298,13 @@ section{margin-top:32px}
 /**
  * Theme preload script: **must run synchronously before the first render**, or light-theme users
  * will briefly see a dark background. It follows `site/src/static/js/theme-preload.js`:
- * localStorage > shared cookie > system preference. CSP disallows `unsafe-inline`, so this must
+ * shared cookie > localStorage > system preference. CSP disallows `unsafe-inline`, so this must
  * remain an external script.
  */
 export const THEME_JS =
-  "(function(){var t=null;try{t=localStorage.getItem('theme')}catch(e){}" +
-  "if(t!=='light'&&t!=='dark'){var m=document.cookie.match(/(?:^|;\\s*)" + THEME_COOKIE + "=(light|dark)/);t=m?m[1]:null}" +
+  "(function(){var m=document.cookie.match(/(?:^|;\\s*)" + THEME_COOKIE + "=(light|dark)(?:;|$)/),t=m?m[1]:null;" +
+  "if(t!=='light'&&t!=='dark'){try{t=localStorage.getItem('theme')}catch(e){}}" +
+  "if(t!=='light'&&t!=='dark')t=null;" +
   "if(t==='light'||(!t&&window.matchMedia('(prefers-color-scheme: light)').matches)){document.documentElement.classList.add('light-mode')}})();";
 
 /** Automatic refresh interval in seconds; shared with the initial countdown to prevent mismatched hard-coded values. */
@@ -327,7 +328,7 @@ export const STATUS_JS =
   "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
   "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
   "copyrightYears.forEach(function(el){var start=Number(el.getAttribute('data-copyright-start-year'));if(Number.isInteger(start))el.textContent=start===copyrightYear?String(start):String(start)+'-'+copyrightYear});" +
-  "function cookie(n){var m=doc.cookie.match(new RegExp('(?:^|;\\\\s*)'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):''}" +
+  "function cookie(n){var m=doc.cookie.match(new RegExp('(?:^|;\\\\s*)'+n+'=([^;]*)'));if(!m)return '';try{return decodeURIComponent(m[1])}catch(e){return m[1]}}" +
   "function save(n,v){var h=location.hostname,d=(h===ROOT||h.slice(-(ROOT.length+1))==='.'+ROOT)?'; domain=.'+ROOT:'',s=location.protocol==='https:'?'; Secure':'';" +
   "doc.cookie=n+'='+encodeURIComponent(v)+'; path=/; max-age='+MAX_AGE+'; SameSite=Lax'+s+d}" +
   "function saveTheme(v){save(THEME_COOKIE,v)}" +
@@ -336,8 +337,8 @@ export const STATUS_JS =
   "var left=REFRESH,cnt=doc.getElementById('refresh-count');" +
   "setInterval(function(){left-=1;if(cnt){cnt.textContent=String(left>0?left:0)}if(left<=0){location.reload()}},1000);" +
   "var switches=doc.querySelectorAll('.appearance-switch');" +
-  "function theme(){var s=null;try{s=localStorage.getItem('theme')}catch(e){}if(s==='light'||s==='dark')return s;" +
-  "var c=cookie(THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
+  "function theme(){var c=cookie(THEME_COOKIE);if(c==='light'||c==='dark')return c;" +
+  "var s=null;try{s=localStorage.getItem('theme')}catch(e){}if(s==='light'||s==='dark')return s;" +
   "return window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}" +
   "function paint(t){html.classList.toggle('light-mode',t==='light');switches.forEach(function(sw){sw.setAttribute('aria-checked',t==='dark'?'true':'false')})}" +
   "if(switches.length){paint(theme());switches.forEach(function(sw){sw.addEventListener('click',function(e){e.stopPropagation();var n=theme()==='light'?'dark':'light';" +

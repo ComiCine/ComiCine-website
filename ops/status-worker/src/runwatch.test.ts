@@ -32,7 +32,14 @@ import worker, {
   runDailyChecks,
   type Env,
 } from "./index";
-import { STALE_RUNNING_S, WATCHED_JOBS, errorSummary, formatUtc, runIssues } from "./runwatch";
+import {
+  STALE_RUNNING_S,
+  WATCHED_JOBS,
+  errorSummary,
+  formatUtc,
+  readLatestRuns,
+  runIssues,
+} from "./runwatch";
 
 const NOW = 1_800_000_000; // Fixed clock: 2027-01-15 08:00:00 UTC
 
@@ -114,6 +121,13 @@ afterEach(() => {
 });
 
 describe("worker_runs → alert (daily check step 1)", () => {
+  it("does not prepare an empty query when no jobs are requested", async () => {
+    const { db, calls } = fakeDb();
+
+    expect(await readLatestRuns(db, [])).toEqual({ rows: [] });
+    expect(calls).toHaveLength(0);
+  });
+
   it("alerts on outcome=failed and names the job in the copy", async () => {
     const { db, workerRunsQueries } = fakeDb({
       latest: [
@@ -284,6 +298,7 @@ describe("runwatch pure helpers", () => {
     expect(formatUtc(Date.UTC(2026, 8, 9, 3, 4) / 1000)).toBe("2026-09-09 03:04");
     expect(formatUtc(0)).toBe("-");
     expect(formatUtc(Number.NaN)).toBe("-");
+    expect(formatUtc(Number.MAX_VALUE)).toBe("-");
   });
 });
 

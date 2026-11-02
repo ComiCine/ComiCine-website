@@ -15,10 +15,32 @@ be answered from it and the script has to say so instead of pretending.
 
 from __future__ import annotations
 
+import pytest
+
 import ops.check_ray_id as cri
 
 ZONE = "zone-id"
 RAY = "a334352fe9806564"
+
+
+def test_normalize_ray_requires_exact_ascii_hex_and_normalizes_case() -> None:
+    assert cri.normalize_ray("A334352FE9806564-sjc") == (RAY, "SJC")
+
+
+@pytest.mark.parametrize("raw", [RAY + "G", "a334352fe9806G64-SJC", "a334352fe980656", ""])
+def test_normalize_ray_rejects_invalid_prefixes(raw: str) -> None:
+    with pytest.raises(ValueError, match="invalid Ray ID"):
+        cri.normalize_ray(raw)
+
+
+def test_non_positive_window_is_rejected_before_lookup(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cri.sys, "argv", ["check_ray_id.py", RAY, "--minutes", "0"])
+
+    with pytest.raises(SystemExit) as error:
+        cri.main()
+
+    assert error.value.code == 2
+    assert "--minutes must be a positive integer" in capsys.readouterr().err
 
 
 def test_permission_error_falls_back_to_the_aggregated_dataset(monkeypatch) -> None:

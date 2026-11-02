@@ -183,9 +183,10 @@ describe("visitors API", () => {
   });
 
   /**
-   * W9-13: /api/visitors recomputes a 30-day window on every poll (the file notes a measured
-   * read of 131,000 rows). Leaving the admin page open all day means about 144 polls × 131,000 rows,
-   * approaching the 5,000,000-row daily limit. Cache by URL in caches.default for 300 seconds.
+   * The query historically read about 131,000 rows while legacy details were still in the
+   * 30-day window. At a 600-second poll interval, 144 uncached queries at that cost would exceed
+   * the 5,000,000-row daily limit. Cache by URL in caches.default for 300 seconds to suppress
+   * duplicate requests within a window; the scheduled polls can still miss after the cache expires.
    */
   describe("edge cache", () => {
     it("serves a repeated poll from cache without touching D1 again", async () => {
@@ -257,6 +258,31 @@ describe("visitors API", () => {
       );
       expect(resp.status).toBe(200);
       vi.unstubAllGlobals();
+    });
+
+    it("falls back to D1 when cache reads and writes fail", async () => {
+      const cache = {
+        match: vi.fn(async () => {
+          throw new Error("cache read failed");
+        }),
+        put: vi.fn(async () => {
+          throw new Error("cache write failed");
+        }),
+      };
+      vi.stubGlobal("caches", { default: cache });
+      vi.mocked(queryAll)
+        .mockResolvedValueOnce(singleRowStats)
+        .mockResolvedValueOnce(singleRowMarkers);
+      const requestContext = context(new Request("https://visitor.comicine.com/api/visitors"));
+
+      const response = await onRequestGet(requestContext as never);
+      const cacheWrite = requestContext.waitUntil.mock.calls[0]?.[0] as Promise<void>;
+
+      expect(response.status).toBe(200);
+      expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
+      expect(cache.match).toHaveBeenCalledOnce();
+      expect(cache.put).toHaveBeenCalledOnce();
+      await expect(cacheWrite).resolves.toBeUndefined();
     });
   });
 

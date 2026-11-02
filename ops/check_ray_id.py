@@ -63,12 +63,11 @@ def normalize_ray(raw: str) -> tuple[str, str]:
     if not value:
         raise ValueError("invalid Ray ID")
     parts = value.split("-", 1)
-    hexpart = parts[0].lower()
+    hexpart = parts[0]
     colo = parts[1].upper() if len(parts) > 1 else ""
-    hexpart = "".join(ch for ch in hexpart if ch in "0123456789abcdef")
-    if not re.fullmatch(r"[0-9a-f]{16}", hexpart):
+    if not re.fullmatch(r"[0-9a-fA-F]{16}", hexpart):
         raise ValueError("invalid Ray ID")
-    return hexpart, colo
+    return hexpart.lower(), colo
 
 
 def cf_request(cfg: dict[str, str], url: str, body: object | None = None) -> dict:
@@ -267,6 +266,8 @@ def main() -> int:
         help="also print degraded edge candidates even when D1 hits (by default only shown on a miss)",
     )
     args = parser.parse_args()
+    if args.minutes < 1:
+        parser.error("--minutes must be a positive integer")
 
     raw = args.rayid or os.environ.get("RAYID") or ""
     try:

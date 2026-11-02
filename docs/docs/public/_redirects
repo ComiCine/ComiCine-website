@@ -1,7 +1,7 @@
-# 根路径回主站；文档内容均从带路径的 URL 进入
+# Redirect the root to the main site; documentation content uses explicit paths.
 / https://comicine.com 302
 
-# 旧的语言前缀式 URL → 新的「语言码在最后一段」式 URL（2026-09-27 改版）
+# Redirect legacy language-prefixed URLs to routes with the language code as the final segment (2026-09-27).
 /en-us/video-platform  /video-platform/en-us  301
 /ja-jp/video-platform  /video-platform/ja-jp  301
 /ko-kr/video-platform  /video-platform/ko-kr  301

@@ -7,13 +7,20 @@
 
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readCookie, readThemeCookie } from "./comicine";
+import { THEME_BOOTSTRAP_SCRIPT, readCookie, readThemeCookie } from "./comicine";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("readCookie", () => {
+  it("synchronizes a valid shared theme cookie over origin-local storage", () => {
+    expect(THEME_BOOTSTRAP_SCRIPT.indexOf("document.cookie.match")).toBeLessThan(
+      THEME_BOOTSTRAP_SCRIPT.indexOf("localStorage.setItem('vitepress-theme-appearance', m[1])"),
+    );
+    expect(THEME_BOOTSTRAP_SCRIPT).not.toContain("localStorage.getItem('vitepress-theme-appearance')");
+  });
+
   it("returns malformed cookie values without interrupting theme initialization", () => {
     vi.stubGlobal("document", { cookie: "comicine_theme=%" });
 

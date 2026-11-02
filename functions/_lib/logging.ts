@@ -54,13 +54,16 @@ export interface LogEventFields {
 }
 
 /**
- * 每个 isolate 首次写入前幂等建表，避免依赖人工先执行迁移。
+ * Create the table idempotently before the first write in each isolate, so
+ * requests do not depend on a manually applied migration.
  *
- * 两条约束（tasks/22 W9-19）：
- * 1. 记住的是「**已尝试**」而不是「已成功」：D1 故障期间不能让每个请求都先打一批
- *    必然失败的 DDL，否则一次故障被放大成 N 次；失败后每分钟最多重试一次。
- * 2. 四条 DDL 走**一次** `db.batch` 往返，而不是四次串行 `run()`。
- *    只有 `db.batch` 不存在（老驱动/测试桩）时才退回逐句执行。
+ * Constraints (tasks/22 W9-19):
+ * 1. Record an attempt, not only a success. During a D1 outage, sending a
+ *    batch of DDL that will fail on every request would amplify the outage;
+ *    retry at most once per minute after failure.
+ * 2. Run all four DDL statements in one `db.batch` round trip instead of four
+ *    serial `run()` calls. Fall back to individual statements only when
+ *    `db.batch` is unavailable (older drivers or test stubs).
  */
 async function ensureEventSchema(env: Env): Promise<void> {
   if (eventSchemaReady || !env.DB) return;
@@ -92,7 +95,7 @@ async function ensureEventSchema(env: Env): Promise<void> {
   try {
     const db = env.DB;
     if (db.batch) {
-      // executeBatch 在 batch 抛错时返回 false，不会把异常抛出来。
+      // executeBatch returns false when batch fails instead of throwing.
       if (await executeBatch(db, ddl.map((sql) => db.prepare(sql)))) {
         eventSchemaReady = true;
       }
@@ -103,18 +106,19 @@ async function ensureEventSchema(env: Env): Promise<void> {
     }
     eventSchemaReady = true;
   } catch {
-    // D1 尚未就绪时等冷却窗口过后重试，不影响业务。
+    // Retry after the cooldown if D1 is not ready; do not affect the request.
   }
 }
 
-/** request_id：优先使用 Cloudflare Ray ID，便于按边缘日志反查 */
+/** request_id: prefer Cloudflare Ray ID so the request can be found in edge logs. */
 export function requestId(request: Request): string {
   return request.headers.get("CF-Ray") ?? `pages-${crypto.randomUUID()}`;
 }
 
 /**
- * IP 脱敏：使用独立的 OBSERVABILITY_HMAC_KEY 做 HMAC-SHA256 并截取前 16 位。
- * 密钥缺失时返回空串（fail-closed），绝不复用 GATE_HMAC_KEY 或使用公开盐值。
+ * Pseudonymize IPs with a dedicated OBSERVABILITY_HMAC_KEY using HMAC-SHA256,
+ * then keep the first 16 hexadecimal characters. Return an empty string when
+ * the key is missing (fail closed); never reuse GATE_HMAC_KEY or a public salt.
  */
 export async function ipHash(ip: string, env: Env): Promise<string> {
   if (!ip) return "";
@@ -123,7 +127,7 @@ export async function ipHash(ip: string, env: Env): Promise<string> {
   return (await hmacSha256Hex(key, ip)).slice(0, 16);
 }
 
-/** 日志文本脱敏：移除口令、token、Cookie、Bearer 与完整 query，避免敏感值落盘。 */
+/** Redact passwords, tokens, cookies, bearer credentials, and full query strings before persisting logs. */
 export function sanitizeLogMessage(message: string): string {
   let out = message
     .replace(BEARER_RE, "Bearer [redacted]")

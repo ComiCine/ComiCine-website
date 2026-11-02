@@ -300,6 +300,30 @@ describe("status page rendering", () => {
     expect(pageLang(mk(""))).toBe("zh-cn");
   });
 
+  it("pageLang prefers a supported lang query parameter", () => {
+    const request = new Request("https://x/?lang=ja-jp", {
+      headers: { "Accept-Language": "en-US" },
+    });
+    expect(pageLang(request)).toBe("ja-jp");
+  });
+
+  it("pageLang honors Accept-Language quality weights and excludes q=0 entries", () => {
+    expect(
+      pageLang(
+        new Request("https://x/", {
+          headers: { "Accept-Language": "en-US;q=0.2, ja-JP;q=0.9" },
+        }),
+      ),
+    ).toBe("ja-jp");
+    expect(
+      pageLang(
+        new Request("https://x/", {
+          headers: { "Accept-Language": "zh-CN;q=0, ko-KR;q=0.1" },
+        }),
+      ),
+    ).toBe("ko-kr");
+  });
+
   it("esc escapes HTML metacharacters", () => {
     expect(esc('<b>"x"&y</b>')).toBe("&lt;b&gt;&quot;x&quot;&amp;y&lt;/b&gt;");
   });

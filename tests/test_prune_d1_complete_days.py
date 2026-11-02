@@ -36,7 +36,7 @@ RETENTION_TS = ROOT / "ops" / "status-worker" / "src" / "retention.ts"
 DAY = 86400
 
 
-def _schema() -> sqlite3.Connection:
+def _schema(request: pytest.FixtureRequest) -> sqlite3.Connection:
     con = sqlite3.connect(":memory:")
     for name in (
         "003_events.sql",
@@ -45,6 +45,7 @@ def _schema() -> sqlite3.Connection:
         "014_visitor_ip_enc.sql",
     ):
         con.executescript((ROOT / "ops" / "migrations" / name).read_text(encoding="utf-8"))
+    request.addfinalizer(con.close)
     return con
 
 
@@ -61,8 +62,8 @@ def test_window_is_complete_utc_days_only() -> None:
     assert f"last_ts >= {start} AND last_ts < {end}" in count_sql
 
 
-def test_aggregation_never_shrinks_and_skips_the_current_day() -> None:
-    con = _schema()
+def test_aggregation_never_shrinks_and_skips_the_current_day(request: pytest.FixtureRequest) -> None:
+    con = _schema(request)
     now = int(time.time())
     today = (now // DAY) * DAY
     yesterday = today - DAY

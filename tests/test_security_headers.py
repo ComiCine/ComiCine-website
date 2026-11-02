@@ -62,7 +62,7 @@ def test_turnstile_origin_allowed_for_script_frame_and_connect():
     csp = _csp_from_json()
     for section in ("script-src", "frame-src", "connect-src"):
         assert TURNSTILE in _origins(csp, section), (
-            f"CSP {section} 缺少 {TURNSTILE}，Turnstile 将无法完成验证"
+            f"CSP {section} is missing {TURNSTILE}; Turnstile verification will fail"
         )
 
 
@@ -78,7 +78,7 @@ def test_guard_rejects_connect_src_missing_third_party_origin(tmp_path, monkeypa
     broken = original.replace(
         f" {TURNSTILE} http://cloudflareinsights.com", " http://cloudflareinsights.com"
     )
-    assert broken != original, "测试前提失效：JSON 中未找到预期的 connect-src 片段"
+    assert broken != original, "test precondition failed: expected connect-src fragment was not found"
 
     broken_path = tmp_path / "security-headers.json"
     broken_path.write_text(broken, encoding="utf-8")
@@ -99,10 +99,10 @@ def test_cloudflare_insights_origins_allowed():
             "http://static.cloudflareinsights.com",
             "https://static.cloudflareinsights.com",
         ):
-            assert origin in origins, f"CSP {section} 缺少 {origin}"
+            assert origin in origins, f"CSP {section} is missing {origin}"
     connect_origins = _origins(csp, "connect-src")
     for origin in ("http://cloudflareinsights.com", "https://cloudflareinsights.com"):
-        assert origin in connect_origins, f"CSP connect-src 缺少 {origin}"
+        assert origin in connect_origins, f"CSP connect-src is missing {origin}"
 
 
 def test_guard_rejects_insight_script_without_connect_pair(tmp_path, monkeypatch, capsys):
@@ -113,7 +113,7 @@ def test_guard_rejects_insight_script_without_connect_pair(tmp_path, monkeypatch
     broken = original.replace(
         " http://cloudflareinsights.com https://cloudflareinsights.com", ""
     )
-    assert broken != original, "测试前提失效：JSON 中未找到 insight 的 connect-src 片段"
+    assert broken != original, "test precondition failed: expected Insights connect-src fragment was not found"
 
     broken_path = tmp_path / "security-headers.json"
     broken_path.write_text(broken, encoding="utf-8")
@@ -134,6 +134,6 @@ def test_docs_csp_allows_cloudflare_insights():
         "http://static.cloudflareinsights.com",
         "https://static.cloudflareinsights.com",
     ):
-        assert origin in script_src, f"docs CSP script-src 缺少 {origin}"
+        assert origin in script_src, f"docs CSP script-src is missing {origin}"
     for origin in ("http://cloudflareinsights.com", "https://cloudflareinsights.com"):
-        assert origin in connect_src, f"docs CSP connect-src 缺少 {origin}"
+        assert origin in connect_src, f"docs CSP connect-src is missing {origin}"

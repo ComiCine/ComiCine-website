@@ -134,7 +134,7 @@ def test_thumbs_keep_source_aspect_ratio_in_both_formats(tmp_path):
             for ext in ("webp", "avif"):
                 with Image.open(output / f"{stem}-{width}.{ext}") as im:
                     assert (im.width, im.height) == (width, expect_h), (
-                        f"{stem}-{width}.{ext} 尺寸不符：{im.width}x{im.height}"
+                        f"{stem}-{width}.{ext} has unexpected dimensions: {im.width}x{im.height}"
                     )
 
 
@@ -142,7 +142,7 @@ def test_avif_thumbs_are_decodable_and_not_webp(tmp_path):
     """The AVIF size must use a real AVIF container, not WebP or the source format."""
     Image = pytest.importorskip("PIL.Image")
     if not features.check("avif"):
-        pytest.skip("当前 Pillow 没有 AVIF 编解码支持")
+        pytest.skip("This Pillow build does not support AVIF decoding")
 
     source = tmp_path / "src"
     source.mkdir()

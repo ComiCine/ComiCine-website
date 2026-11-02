@@ -115,9 +115,10 @@ export async function readLatestRuns(
   db: D1Database,
   jobs: readonly string[] = WATCHED_JOBS,
 ): Promise<LatestRunsResult> {
+  if (!jobs.length) return { rows: [] };
   try {
     const stmt = db.prepare(latestRunsSql(jobs));
-    const res = await (jobs.length ? stmt.bind(...jobs) : stmt).all<LatestRun>();
+    const res = await stmt.bind(...jobs).all<LatestRun>();
     return { rows: res.results ?? [] };
   } catch (err) {
     return { rows: [], error: String(err).slice(0, 140) };
@@ -138,7 +139,9 @@ export function formatUtc(epochSeconds: number): string {
   // `toISOString()` returns `2023-11-14T22:13:20.000Z`; take the first 16 characters and
   // replace `T` with a space to get `2023-11-14 22:13`. **Replace only `T`**; the previous
   // format also changed `:` to `-`.
-  return new Date(epochSeconds * 1000).toISOString().slice(0, 16).replace("T", " ");
+  const date = new Date(epochSeconds * 1000);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toISOString().slice(0, 16).replace("T", " ");
 }
 
 /** Flatten newlines and truncate the error summary so a full stack trace does not fill the alert. */
