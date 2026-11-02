@@ -568,6 +568,24 @@ def test_migrate_dry_run_is_offline_and_lists_every_migration(tmp_path):
     assert not cache.exists()
 
 
+def test_migrate_dry_run_preserves_the_legacy_004_key_mapping(tmp_path):
+    result = run(
+        [BASH, "ops/migrate_d1.sh", "--dry-run"],
+        env={"WRANGLER_BIN": "/nonexistent/wrangler", "D1_STATE_FILE": str(tmp_path / "applied")},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "legacy migration group 004 uses stable keys 4001, 4002, and 4003" in result.stdout
+    assert "legacy version 4 marks all three as applied; next free number is 024" in result.stdout
+    assert "warning: migration number 004" not in result.stdout
+    for name, key in (
+        ("004_auth_sessions.sql", 4001),
+        ("004_blocklist_sync.sql", 4002),
+        ("004_schema_version.sql", 4003),
+    ):
+        assert re.search(rf"^\s*{re.escape(name)}\s+key={key}\s", result.stdout, re.MULTILINE)
+
+
 # W3-7: --check-schema must use exact table names, not substring matches.
 
 

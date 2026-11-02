@@ -108,10 +108,11 @@ while IFS= read -r file; do
     MIGRATION_NAMES+=("$name")
 done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
 
-# Detect duplicate migration numbers (W3-8): three files use 004, and the legacy plain version
-# number (version=4) cannot distinguish them. Warn without blocking because historical filenames
-# cannot be changed; new migrations must use the next available number.
+# Detect duplicate migration numbers (W3-8). The three historical 004 files are a known group
+# whose sequence keys must stay stable; report that mapping as information. Warn for any other
+# duplicate group so new migrations cannot silently make an existing key ambiguous.
 duplicate_seen=0
+legacy_004_seen=0
 max_prefix=0
 warned_prefixes=" "
 for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
@@ -132,11 +133,18 @@ for name in "${MIGRATION_NAMES[@]+"${MIGRATION_NAMES[@]}"}"; do
     done
     if [ "$count" -gt 1 ]; then
         warned_prefixes="$warned_prefixes$prefix "
-        duplicate_seen=1
-        echo "[d1] warning: migration number $prefix is used by $count files:$group"
+        if [ "$prefix" = "004" ] && [ "$group" = " 004_auth_sessions.sql 004_blocklist_sync.sql 004_schema_version.sql" ]; then
+            legacy_004_seen=1
+        else
+            duplicate_seen=1
+            echo "[d1] warning: migration number $prefix is used by $count files:$group"
+        fi
     fi
 done
 next_free="$(printf '%03d' "$((max_prefix + 1))")"
+if [ "$legacy_004_seen" = 1 ]; then
+    echo "[d1] legacy migration group 004 uses stable keys 4001, 4002, and 4003; legacy version 4 marks all three as applied; next free number is $next_free"
+fi
 if [ "$duplicate_seen" = 1 ]; then
     echo "[d1] warning: a legacy version row cannot tell duplicate numbers apart; new migrations must use the next free number ($next_free)"
 fi
