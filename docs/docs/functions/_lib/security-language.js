@@ -24,10 +24,30 @@ function readLanguageCookie(header) {
   return null;
 }
 
+function acceptedLanguageTags(header) {
+  const accepted = [];
+  for (const [order, part] of header.split(",").entries()) {
+    const [rawTag, ...parameters] = part.trim().split(";");
+    const tag = rawTag?.trim().toLowerCase();
+    if (!tag || tag === "*") continue;
+
+    const qualityParameter = parameters.find((parameter) => /^q\s*=/i.test(parameter));
+    let quality = 1;
+    if (qualityParameter) {
+      const rawQuality = qualityParameter.slice(qualityParameter.indexOf("=") + 1).trim();
+      if (!/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(rawQuality)) continue;
+      quality = Number(rawQuality);
+    }
+    if (quality > 0) accepted.push({ tag, quality, order });
+  }
+
+  return accepted
+    .sort((left, right) => right.quality - left.quality || left.order - right.order)
+    .map(({ tag }) => tag);
+}
+
 function languageFromAcceptHeader(header) {
-  for (const part of header.split(",")) {
-    const tag = part.trim().split(";", 1)[0].toLowerCase();
-    if (!tag) continue;
+  for (const tag of acceptedLanguageTags(header)) {
     const exact = SUPPORTED_LANGS.find((language) => language === tag);
     if (exact) return exact;
     const primary = tag.split("-", 1)[0];

@@ -225,22 +225,25 @@ export function escapeHtml(value: string): string {
 }
 
 /**
- * 展示/日志用的访客 IP：只信 Cloudflare 写入的 `CF-Connecting-IP`。
+ * Client IP for display and logs: trust only Cloudflare's `CF-Connecting-IP`.
  *
- * 历史上这里优先读 nginx 反代带上的 `X-ComiCine-Client-IP` /
- * `X-ComiCine-Client-Country`，但那套 VPS 已于 2026-09-17 退租，这两个头
- * **不再有可信来源**——任何访客自带即被采信，会污染 `visitor_rollups` 的
- * IP 哈希 / 国家 / `ip_enc`（后台"查看访客 IP"解出的就是攻击者自报的地址）、
- * 结构化日志，以及 Turnstile siteverify 的 `remoteip`。现已删除。
+ * This previously preferred the `X-ComiCine-Client-IP` and
+ * `X-ComiCine-Client-Country` headers added by the nginx proxy. That VPS was
+ * decommissioned on 2026-09-17, so those headers no longer have a trusted
+ * source. Accepting visitor-supplied values would poison visitor_rollups IP
+ * hashes, country, and `ip_enc` (the admin's "view visitor IP" endpoint would
+ * reveal the address supplied by an attacker), structured logs, and Turnstile
+ * siteverify's `remoteip`. Those headers have been removed.
  *
- * 这两个函数只用于「展示、埋点、Turnstile remoteip」，**绝不能**喂给
- * isGateTrustedIp / isBlocked 之类的信任判定；调用方自带同名头一律无效。
+ * These helpers are only for display, tracking, and Turnstile `remoteip`.
+ * Never use them for trust decisions such as `isGateTrustedIp` or `isBlocked`;
+ * caller-supplied headers with these names are ignored.
  */
 export function clientIpForLogs(request: Request): string {
   return request.headers.get("CF-Connecting-IP") || "";
 }
 
-/** 展示/日志用的访客国家码：只取 Cloudflare 判定的 `request.cf.country`。 */
+/** Client country for display and logs: use only Cloudflare's `request.cf.country`. */
 export function clientCountryForLogs(request: Request): string {
   const cf = (request as Request & { cf?: { country?: string } }).cf;
   return cf?.country ?? "";
@@ -248,32 +251,55 @@ export function clientCountryForLogs(request: Request): string {
 
 type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
-/** 语言码的主语言子标签：语言码的第一段（如 zh 部分）。 */
+/** Primary language subtag: the first segment of a language tag (for example, `zh`). */
 function primarySubtag(lang: string): string {
   return lang.split("-")[0];
 }
 
-/** 语言码的地区子标签大写形式（如 CN）；没有地区段时返回空串。 */
+/** Uppercase region subtag (for example, `CN`), or an empty string when absent. */
 function regionSubtag(lang: string): string {
   const parts = lang.split("-");
   return parts.length > 1 ? parts[1].toUpperCase() : "";
 }
 
+function acceptedLanguageTags(header: string): string[] {
+  const accepted: { tag: string; quality: number; order: number }[] = [];
+  for (const [order, part] of header.split(",").entries()) {
+    const [rawTag, ...parameters] = part.trim().split(";");
+    const tag = rawTag?.trim().toLowerCase();
+    if (!tag || tag === "*") continue;
+
+    const qualityParameter = parameters.find((parameter) => /^q\s*=/i.test(parameter));
+    let quality = 1;
+    if (qualityParameter) {
+      const rawQuality = qualityParameter.slice(qualityParameter.indexOf("=") + 1).trim();
+      if (!/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(rawQuality)) continue;
+      quality = Number(rawQuality);
+    }
+    if (quality > 0) accepted.push({ tag, quality, order });
+  }
+
+  return accepted
+    .sort((left, right) => right.quality - left.quality || left.order - right.order)
+    .map(({ tag }) => tag);
+}
+
 /**
- * 语言检测：cookie > Accept-Language（按契约 supported_langs 匹配）> CF 地区 > 契约默认语言。
+ * Language selection: cookie > Accept-Language (matched against contract supported_langs) > CF region > contract default.
  *
- * 这里**不写任何语言码字面量**：契约是唯一事实源，加一门语言只需改
- * `config-contract.json` 的 `supported_langs`——Accept-Language 前缀匹配
- * （Accept-Language 的首段命中 supported_langs 的首段）与国家码匹配（地区段相同）
- * 都从语言码自身的子标签推出来。
- * 兜底值同样取契约的 DEFAULT_LANG：历史实现把它写死成一个语言码字面量，
- * 于是改契约对边缘行为零影响。
+ * Keep language tags out of this module: the contract is the source of truth.
+ * Adding a language requires only updating `supported_langs` in
+ * `config-contract.json`. Accept-Language prefix matching (the primary
+ * subtag) and country matching (the region subtag) are derived from each tag.
+ * The fallback also comes from the contract's `DEFAULT_LANG`; a hard-coded
+ * value here would make contract changes ineffective at runtime.
  */
 export function detectLang(request: Request): SupportedLang {
   const host = (request.headers.get("Host") ?? requestUrl(request).hostname).split(":")[0];
   // Language cookies are shared within the matching current or legacy domain:
   // main site and its subdomains (including
-  // visitor / account / status / images 等）都读同一份，切语言后跨子域一致。
+  // visitor, account, status, images, and other subdomains share the same
+  // preference so a language change stays consistent across subdomains.
   if (rootDomainForHost(host)) {
     const cookie = getCookie(LANG_COOKIE, request.headers.get("Cookie"));
     if (cookie && SUPPORTED_LANGS.includes(cookie.toLowerCase() as SupportedLang)) {
@@ -282,9 +308,7 @@ export function detectLang(request: Request): SupportedLang {
   }
 
   const accept = request.headers.get("Accept-Language") ?? "";
-  for (const part of accept.split(",")) {
-    const tag = part.trim().split(";")[0].toLowerCase();
-    if (!tag) continue;
+  for (const tag of acceptedLanguageTags(accept)) {
     const exact = SUPPORTED_LANGS.find((lang) => lang === tag);
     if (exact) return exact as SupportedLang;
     const primary = primarySubtag(tag);
@@ -308,7 +332,7 @@ export function langCookieHeader(host: string, lang: string): string {
   return `${LANG_COOKIE}=${lang}; Path=/; Max-Age=${LANG_COOKIE_MAX_AGE}; SameSite=Lax; Secure; ${domain}`;
 }
 
-/** 复制响应头时保留多条 Set-Cookie，避免 Safari 只认第一条。 */
+/** Preserve multiple Set-Cookie headers when copying response headers; Safari may otherwise keep only the first. */
 export function preserveSetCookie(headers: Headers, source: Headers): void {
   const getSetCookie = (source as Headers & { getSetCookie?: () => string[] }).getSetCookie;
   const cookies = typeof getSetCookie === "function" ? getSetCookie.call(source) : [];
@@ -318,10 +342,11 @@ export function preserveSetCookie(headers: Headers, source: Headers): void {
 }
 
 /**
- * 首次访问时把检测出的语言写回；不能原地修改不可变响应头。
+ * Write the detected language on the first visit; response headers may be immutable.
  *
- * `lang` 可选：调用方**已经算过**语言（例如中间件为了取页面资产先算了一次）时
- * 直接传进来，避免对同一个请求把 detectLang 跑两遍；不传则保持旧行为自行检测。
+ * `lang` is optional. Callers that already detected the language (for example,
+ * middleware selecting a page asset) can pass it to avoid running detectLang
+ * twice for the same request. When omitted, this function detects it as before.
  */
 export function withLangCookie(request: Request, resp: Response, lang?: string): Response {
   if (getCookie(LANG_COOKIE, request.headers.get("Cookie"))) return resp;
@@ -342,20 +367,21 @@ function normalizedPath(pathname: string): string {
   return pathname.replace(/\/+$/, "") || "/";
 }
 
-/** 主机+路径 → 应吐出的语言页面资产；静态资源等返回 null，交回 next()。 */
+/** Map a host and path to a localized page asset; return null for static assets and other paths handled by next(). */
 export function pageAsset(host: string, pathname: string, lang: string): string | null {
   const file = PAGE_ROUTES[host]?.[normalizedPath(pathname)];
   return file ? `/${lang}/${file}` : null;
 }
 
 /**
- * 免人机验证的公开文件目录：`src/static/files/` 随构建镜像到
- * `public/static/files/`，这里额外暴露成干净 URL `/files/<文件名>`
- * （comicine.com 与 images.comicine.com 都可用），供站外直接引用，不进门禁。
+ * Public files that bypass human verification: the build copies
+ * `src/static/files/` to `public/static/files/`, and this exposes them at the
+ * clean URL `/files/<filename>` on both comicine.com and images.comicine.com
+ * for external references.
  */
 export const PUBLIC_FILES_PREFIX = "/files/";
 
-/** 是否属于公开静态资源/内部路径，避免门禁死循环和重复埋点。 */
+/** Check whether a path is a public asset or internal route to avoid gate loops and duplicate tracking. */
 export function isPublicAssetPath(pathname: string): boolean {
   return (
     SKIP_PATHS.has(pathname) ||
@@ -374,11 +400,12 @@ export function isApiPath(pathname: string): boolean {
 }
 
 /**
- * 应用层封禁的豁免前缀：登录/登出/管理页，避免管理员从被封 IP 无法登录。
+ * Application blocklist exemptions for login, logout, and admin pages, so
+ * administrators can still sign in from a blocked IP.
  *
- * 匹配必须是**精确路径或它的子路径**（`/account`、`/account/apple`），
- * 不能用 `startsWith("/account")`——那会把未来的 `/account-anything`
- * 一起放行，等于给攻击者一个免封禁前缀。调用方（中间件）只做这一处判定。
+ * Match only an exact path or its descendants (such as `/account` and
+ * `/account/apple`). Do not use `startsWith("/account")`, which would also
+ * exempt a future `/account-anything` route. Middleware is the sole caller.
  */
 export const EXEMPT_PATH_PREFIXES = [
   "/login",
@@ -388,7 +415,7 @@ export const EXEMPT_PATH_PREFIXES = [
   "/api/apple-account",
   "/api/auth",
   "/api/ray",
-  // 公共参考汇率走边缘缓存，避免每次访问都增加一次 D1 封禁名单读取。
+  // Public reference rates use edge caching to avoid a D1 blocklist read on every request.
   "/api/currency-rates",
 ] as const;
 

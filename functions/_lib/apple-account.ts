@@ -113,7 +113,7 @@ export function parseAccountId(raw: unknown): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-/** 统一掩码；故意固定为 12 个字符，避免泄露真实密码长度。 */
+/** Use a fixed 12-character mask to avoid revealing the actual password length. */
 export function maskPassword(_password: string): string {
   return _password ? "·".repeat(12) : "";
 }

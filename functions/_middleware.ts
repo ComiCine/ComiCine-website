@@ -328,8 +328,12 @@ async function cachedPageAsset(
     : undefined;
 
   if (cache) {
-    const hit = await cache.match(new Request(cacheUrl));
-    if (hit) return applyBrowserPageCachePolicy(hit, pageHost);
+    try {
+      const hit = await cache.match(new Request(cacheUrl));
+      if (hit) return applyBrowserPageCachePolicy(hit, pageHost);
+    } catch {
+      // Cache failures must not prevent serving the page asset.
+    }
   }
 
   const asset = await env.ASSETS.fetch(new URL(assetPath, BASE_URL));
@@ -338,26 +342,30 @@ async function cachedPageAsset(
   const headers = new Headers(asset.headers);
   headers.set("Cache-Control", PAGE_CACHE_CONTROL);
   headers.set("Vary", PAGE_CACHE_VARY);
-// Pass through the ASSETS body stream instead of awaiting asset.arrayBuffer()
-// and buffering the entire response. `cache.put(response.clone())` already
-// tees the stream; pre-buffering would duplicate materialization and delay the
-// response until the stream ends. Copy the status, statusText, and all headers
-// (including Content-Type, ETag, and Content-Length) unchanged. The final
-// withSecurityHeaders() also constructs a Response from the body stream, and
-// Content-Length continues to come from the asset. asset.body is null only for
-// bodyless statuses such as 204/205, which are not real assets; the old code
-// threw TypeError for 204, while this implementation does not.
+  // Pass through the ASSETS body stream instead of awaiting asset.arrayBuffer()
+  // and buffering the entire response. `cache.put(response.clone())` already
+  // tees the stream; pre-buffering would duplicate materialization and delay the
+  // response until the stream ends. Copy the status, statusText, and all headers
+  // (including Content-Type, ETag, and Content-Length) unchanged. The final
+  // withSecurityHeaders() also constructs a Response from the body stream, and
+  // Content-Length continues to come from the asset. asset.body is null only for
+  // bodyless statuses such as 204/205, which are not real assets; the old code
+  // threw TypeError for 204, while this implementation does not.
   const response = new Response(asset.body, {
     status: asset.status,
     statusText: asset.statusText,
     headers,
   });
 
-// The first visit sets a language cookie, so cache only subsequent requests.
+  // The first visit sets a language cookie, so cache only subsequent requests.
   if (cache && getCookie(LANG_COOKIE, request.headers.get("Cookie"))) {
-    const put = cache.put(new Request(cacheUrl), response.clone());
-    context.waitUntil?.(put);
-    if (!context.waitUntil) void put;
+    try {
+      const put = cache.put(new Request(cacheUrl), response.clone()).catch(() => undefined);
+      if (context.waitUntil) context.waitUntil(put);
+      else void put;
+    } catch {
+      // Cache failures must not prevent serving the page asset.
+    }
   }
   return applyBrowserPageCachePolicy(response, pageHost);
 }

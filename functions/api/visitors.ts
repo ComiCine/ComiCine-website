@@ -29,12 +29,12 @@ const VISITOR_WINDOW_SECONDS = VISITOR_WINDOW_DAYS * 24 * 60 * 60;
 const MAX_VISITOR_MARKERS = 500;
 
 /**
- * Cache query results for 300 seconds, matching the AGENTS.md rule that pages must not poll D1 more often than every five minutes.
- *
- * The frontend polls every 600 seconds, so the 300-second cache mainly absorbs duplicate requests
- * within the same window (multiple tabs, manual refreshes, or external crawlers). The tradeoff is that
- * admins may wait up to five minutes to see new visitors; the user has accepted this to avoid one page
- * consuming the entire daily read quota.
+ * Cache query results for 300 seconds. The frontend polls every 600 seconds, so this mainly absorbs
+ * duplicate requests within a window (multiple tabs, manual refreshes, or external crawlers).
+ * A historical query read about 131,000 rows while the 30-day legacy detail table was populated;
+ * at that cost, 144 uncached polls per day would exceed the 5-million-row Free-plan limit. Retention
+ * and hourly rollups reduce the current scan, but check `rows_read_24h` before changing the window
+ * or refresh interval.
  */
 const VISITOR_CACHE_CONTROL = "public, max-age=300";
 const VISITOR_RESPONSE_CACHE_CONTROL = "private, no-store";
@@ -162,15 +162,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     ? (caches as unknown as { default?: VisitorCacheLike }).default
     : undefined;
   if (cache) {
-    const hit = await cache.match(new Request(cacheKeyUrl));
-    if (hit) {
-      const headers = new Headers(hit.headers);
-      headers.set("Cache-Control", VISITOR_RESPONSE_CACHE_CONTROL);
-      return new Response(hit.body, {
-        status: hit.status,
-        statusText: hit.statusText,
-        headers,
-      });
+    try {
+      const hit = await cache.match(new Request(cacheKeyUrl));
+      if (hit) {
+        const headers = new Headers(hit.headers);
+        headers.set("Cache-Control", VISITOR_RESPONSE_CACHE_CONTROL);
+        return new Response(hit.body, {
+          status: hit.status,
+          statusText: hit.statusText,
+          headers,
+        });
+      }
+    } catch {
+      // Cache failures must not prevent reading the source data.
     }
   }
 
@@ -271,11 +275,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     { headers: { "Cache-Control": VISITOR_RESPONSE_CACHE_CONTROL } },
   );
   if (cache) {
-      // A failed put must not turn the request into a 500; caching is only an optimization.
+    // A failed put must not turn the request into a 500; caching is only an optimization.
     try {
       const cached = response.clone();
       cached.headers.set("Cache-Control", VISITOR_CACHE_CONTROL);
-      await cache.put(new Request(cacheKeyUrl), cached);
+      const cacheWrite = cache.put(new Request(cacheKeyUrl), cached).catch(() => undefined);
+      if (typeof context.waitUntil === "function") {
+        context.waitUntil(cacheWrite);
+      } else {
+        await cacheWrite;
+      }
     } catch {
       // Ignore the failure; the next request will query the source as usual.
     }

@@ -58,6 +58,7 @@ REF=""
 RUN_TS=1
 RUN_PY=1
 DO_BUILD=1
+REQUIRED_CHECKS_UNVERIFIED=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -89,6 +90,7 @@ done
 # remove it on exit because it belongs to the caller.
 CI_TMP_PUBLIC=""
 CI_TMP_PREVIEW=""
+CI_TMP_GIT_HOME=""
 # macOS TMPDIR ends in /; strip it to avoid producing a double slash in paths.
 SCRATCH_ROOT="${TMPDIR:-/tmp}"
 SCRATCH_ROOT="${SCRATCH_ROOT%/}"
@@ -122,13 +124,18 @@ if [ -z "${PYTHON_BIN:-}" ]; then
 fi
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
+if [ "$RUN_TS" != 1 ] || [ "$RUN_PY" != 1 ] || [ "$DO_BUILD" != 1 ]; then
+    REQUIRED_CHECKS_UNVERIFIED=1
+fi
+
 # Install missing gate tools instead of silently skipping them (changed 2026-10-12).
 # Previously, ruff, mypy, and pytest-cov were only probed: if missing, a SKIP line still counted
-# as success. CI installs them from pinned versions in ops/requirements.txt, so local and CI
-# results could differ. This contributed to the 2026-10-12 case where local checks passed but CI
-# failed after a push. Install missing tools into the same interpreter CI uses; only fall back to
-# SKIP if installation fails, such as when offline, and make clear that the check was not run.
+# as success. CI installs pinned ruff/mypy versions from ops/requirements.txt and an unpinned
+# pytest-cov report tool. Constrain local installs to the target tree's requirements so the gate
+# uses the same versions; only fall back to SKIP if installation fails, such as when offline, and
+# make clear that the check was not run.
 ensure_gate_tools() {
+    [ "$RUN_PY" = 1 ] || return 0
     [ "${COMICINE_SKIP_TOOL_INSTALL:-0}" = 1 ] && return 0
     local missing=()
     "$PYTHON_BIN" -m ruff --version >/dev/null 2>&1 || missing+=(ruff)
@@ -136,9 +143,9 @@ ensure_gate_tools() {
     "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1 || missing+=(pytest-cov)
     [ ${#missing[@]} -eq 0 ] && return 0
     echo "[ci] installing gate tools into $PYTHON_BIN: ${missing[*]}"
-    "$PYTHON_BIN" -m pip install -q --disable-pip-version-check "${missing[@]}" >/dev/null 2>&1 || true
+    "$PYTHON_BIN" -m pip install -q --disable-pip-version-check \
+        -c "$TARGET/ops/requirements.txt" "${missing[@]}" >/dev/null 2>&1 || true
 }
-ensure_gate_tools
 
 WORKTREE=""
 cleanup() {
@@ -153,6 +160,9 @@ cleanup() {
     fi
     if [ -n "$CI_TMP_PREVIEW" ]; then
         rm -rf "$CI_TMP_PREVIEW"
+    fi
+    if [ -n "$CI_TMP_GIT_HOME" ]; then
+        rm -rf "$CI_TMP_GIT_HOME"
     fi
 }
 trap cleanup EXIT
@@ -176,17 +186,21 @@ else
     echo "[ci] checking working tree at $ROOT"
 fi
 
-# Guard 1: detect iCloud conflict copies such as "build 2.py" or ".venv-build 2".
+ensure_gate_tools
+
+# Guard 1: detect iCloud conflict copies across the repository, including root and docs files.
 # A conflict copy can be a file or an entire directory. When iCloud copies
 # `site/.venv-build` to `site/.venv-build 2`, only the directory name gets a suffix, so
 # `-type f` would miss it. Search both files and directories with `\( -type f -o -type d \)`.
-# Prune only the original dependency directories (node_modules/.venv-build/...), not numbered
-# copies; otherwise the copies would be skipped, which was a gap in the previous version.
-CONFLICTS="$(cd "$TARGET" && find functions src locales tests ops .github \
-    \( -type d \( -name node_modules -o -name .venv-build -o -name .wrangler \
+# Prune original dependency and generated-output directories, not numbered copies; otherwise
+# conflict copies could be skipped. The ignored `preview/` output is not source code.
+CONFLICTS="$(cd "$TARGET" && find . \
+    \( -type d \( -name .git -o -name node_modules -o -name .venv-build -o -name .wrangler \
+       -o -path ./preview \
        -o -name out -o -name coverage -o -name .pytest_cache -o -name .ruff_cache \
        -o -name __pycache__ \) \) -prune -o \
-    \( -type f -o -type d \) \( -name '* [0-9]' -o -name '* [0-9].*' \) -print 2>/dev/null | sort)"
+    \( -type f -o -type d \) \( -name '* [0-9]' -o -name '* [0-9].*' \) -print 2>/dev/null \
+    | sed 's#^\./##' | sort)"
 if [ -n "$CONFLICTS" ]; then
     echo "[ci] FAIL: iCloud conflict copies detected ('xxx 2.ext' / 'xxx 2'); resolve them before committing:" >&2
     echo "$CONFLICTS" | head -20 | sed 's/^/       /' >&2
@@ -333,6 +347,7 @@ if [ "$RUN_PY" = 1 ]; then
         (cd "$TARGET" && "$PYTHON_BIN" -m ruff check src ops tests)
     else
         echo "[ci] SKIP ruff: NOT VERIFIED locally (pip install -r ops/requirements.txt)"
+        REQUIRED_CHECKS_UNVERIFIED=1
     fi
 
     if (cd "$TARGET" && "$PYTHON_BIN" -m mypy --version >/dev/null 2>&1); then
@@ -340,6 +355,7 @@ if [ "$RUN_PY" = 1 ]; then
         (cd "$TARGET" && "$PYTHON_BIN" -m mypy src)
     else
         echo "[ci] SKIP mypy: NOT VERIFIED locally (pip install -r ops/requirements.txt)"
+        REQUIRED_CHECKS_UNVERIFIED=1
     fi
 
     echo "[ci] python -m pytest (no ambient git identity: a CI runner has none)"
@@ -352,6 +368,7 @@ if [ "$RUN_PY" = 1 ]; then
     # directory, disable global/system config, and disable identity auto-detection with
     # user.useConfigOnly=true. Tests that commit must set an identity in their repository config.
     GIT_HOSTILE_HOME="$(mktemp -d -t comicine-ci-home-XXXXXX)"
+    CI_TMP_GIT_HOME="$GIT_HOSTILE_HOME"
     if (cd "$TARGET" && "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1); then
         (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
@@ -362,7 +379,6 @@ if [ "$RUN_PY" = 1 ]; then
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
             "$PYTHON_BIN" -m pytest -q)
     fi
-    rm -rf "$GIT_HOSTILE_HOME"
     echo "[ci] python ops/check_config_contract.py"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_config_contract.py)
     # Added 2026-10-11: guard against runtime dependency pins drifting from requirements.lock
@@ -378,4 +394,8 @@ if [ "$RUN_PY" = 1 ]; then
     (cd "$TARGET" && "$PYTHON_BIN" ops/readme_facts.py --check)
 fi
 
-echo "[ci] OK: CI will pass."
+if [ "$REQUIRED_CHECKS_UNVERIFIED" = 1 ]; then
+    echo "[ci] NOT VERIFIED: this run did not execute every required CI check."
+else
+    echo "[ci] OK: all required CI checks passed."
+fi

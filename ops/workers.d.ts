@@ -49,7 +49,7 @@ declare interface D1Database {
   exec?(sql: string): Promise<unknown>;
 }
 
-/** Durable Object。 */
+/** Durable Object. */
 declare interface DurableObjectId {
   toString(): string;
 }

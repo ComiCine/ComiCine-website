@@ -266,7 +266,7 @@ export async function recordVisit(env: Env, request: Request, status: number): P
        ON CONFLICT(bucket_hour, ip_hash, country, status, page_slug) DO UPDATE SET
          requests = visitor_rollups.requests + 1,
          last_ts = excluded.last_ts,
-         -- 同 IP 每次加密的 IV 不同，只在原本为空（当时还没配密钥）时补写。
+         -- Each encryption uses a different IV; fill only rows that were empty before the key was configured.
          ip_enc = CASE
            WHEN visitor_rollups.ip_enc = '' THEN excluded.ip_enc
            ELSE visitor_rollups.ip_enc

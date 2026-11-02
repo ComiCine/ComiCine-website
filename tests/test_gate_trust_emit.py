@@ -30,7 +30,7 @@ def fake_repo(tmp_path, monkeypatch):
     """Redirect check_gate_trust inputs and outputs to tmp_path."""
     whitelist = tmp_path / "whitelist.txt"
     whitelist.write_text(
-        "# 注释行\n"
+        "# comment line\n"
         "ASN/64500\n"
         "ASN/64501\n"
         "ASN/64500\n"  # Count duplicate entries only once.
@@ -42,14 +42,14 @@ def fake_repo(tmp_path, monkeypatch):
     # explicit User-agent entries, excluding `*`, form the gate allowlist.
     robots = tmp_path / "robots.txt"
     robots.write_text(
-        "# 注释行\n"
+        "# comment line\n"
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/\n"
         "\n"
         "User-agent: GPTBot\n"
         "User-agent: ClaudeBot\n"
-        "User-agent: Screaming Frog SEO Spider  # 行尾注释也要能剥掉\n"
+        "User-agent: Screaming Frog SEO Spider  # trailing comments should also be stripped\n"
         "Allow: /\n"
         "Disallow: /api/\n",
         encoding="utf-8",
@@ -126,7 +126,7 @@ def test_readme_facts_counts_asns_from_whitelist(monkeypatch, tmp_path):
     """Read README ASN counts from docs/lists/whitelist.txt instead of using a regex on generated output."""
     (tmp_path / "docs" / "lists").mkdir(parents=True)
     (tmp_path / "docs" / "lists" / "whitelist.txt").write_text(
-        "# 注释\nASN/1\nASN/2\nASN/2\nIP-CIDR/10.0.0.1/32\n",
+        "# comment\nASN/1\nASN/2\nASN/2\nIP-CIDR/10.0.0.1/32\n",
         encoding="utf-8",
     )
     (tmp_path / "functions" / "_data").mkdir(parents=True)
@@ -175,8 +175,8 @@ def test_repo_whitelist_and_generated_file_agree():
     agents = check_gate_trust.load_crawler_agents(check_gate_trust.ROBOTS_PATH)
     # The ASN section **may be empty** (ASN allowlisting was disabled by default on 2026-10-11), so do not require entries.
     # Enforce that the loader matches the source list by requiring the counts to be equal.
-    assert len(networks) == 2, "两个固定 IP 仍应在名单里（own-ips.txt）"
-    assert len(agents) > 20, "robots.txt 里的显式爬虫不该被清空"
+    assert len(networks) == 2, "the two fixed IP entries must remain in the list (own-ips.txt)"
+    assert len(agents) > 20, "explicit crawlers from robots.txt must not be removed"
 
     emitted = check_gate_trust.OUTPUT_PATH.read_text(encoding="utf-8")
     assert "asns" not in emitted

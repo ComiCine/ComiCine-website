@@ -8,7 +8,3 @@
 UPDATE probes
 SET target = target
 WHERE 0;
-
-UPDATE probes
-SET target = target
-WHERE 0;

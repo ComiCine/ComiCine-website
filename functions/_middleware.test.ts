@@ -1509,4 +1509,30 @@ describe("cachedPageAsset passes the asset body through", () => {
       caches.restore();
     }
   });
+
+  it("serves the asset when cache reads and writes throw", async () => {
+    const original = (globalThis as { caches?: unknown }).caches;
+    const cache = {
+      match: async () => {
+        throw new Error("cache read failed");
+      },
+      put: () => {
+        throw new Error("cache write failed");
+      },
+    };
+    (globalThis as { caches?: unknown }).caches = { default: cache };
+    const assets = assetsEnv();
+
+    try {
+      const response = await handleOnRequest(
+        context(pageRequest({ Cookie: "user_lang_preference=zh-cn" }), { ASSETS: assets }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(BYTES);
+      expect(vi.mocked(assets.fetch)).toHaveBeenCalledOnce();
+    } finally {
+      (globalThis as { caches?: unknown }).caches = original;
+    }
+  });
 });

@@ -67,7 +67,7 @@ export interface Env {
   /**
    * The blocklist invariant check reads the Cloudflare IP List (blocklist.ts). If neither binding is configured,
    * this check only logs and does not alert (fail-open), so the binding is optional:
-   * `wrangler secret put CLOUDFLARE_API_TOKEN` / `... CLOUDFLARE_ACCOUNT_ID`。
+   * `wrangler secret put CLOUDFLARE_API_TOKEN` / `... CLOUDFLARE_ACCOUNT_ID`.
    */
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
@@ -859,7 +859,7 @@ export async function statusPayload(env: Env) {
 
 /** Compatible language detection entry point: `?lang=` > Accept-Language > zh-cn (implemented by pickLang in i18n.ts). */
 export function pageLang(request: Request): string {
-  return pickLang(request);
+  return pickLang(request, new URL(request.url));
 }
 
 /**
@@ -906,7 +906,7 @@ export async function renderStatusPage(env: Env, lang: string): Promise<string> 
 
 /**
  * Authentication for operational write endpoints (/run, /alert-test, /daily-checks): compare
- * `Authorization: Bearer <STATUS_TOKEN>`。
+ * `Authorization: Bearer <STATUS_TOKEN>`.
  *
  * This Worker is public at status.comicine.com and has no Cloudflare Access. These three endpoints
  * have meaningful costs: /run writes D1 (probes × heartbeats/probe_state/probe_uptime_daily,

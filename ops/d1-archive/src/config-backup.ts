@@ -158,7 +158,7 @@ export const CONFIG_TABLES: readonly ConfigTableSpec[] = [
   {
     name: "blocked_ips",
     orderBy: "cidr",
-    why: "The authoritative block list (AGENTS.md). data/blocklist.txt is only an auditable snapshot of it.",
+    why: "The authoritative block list (AGENTS.md). docs/lists/blocklist.txt is only an auditable snapshot of it.",
   },
   {
     name: "apple_accounts",

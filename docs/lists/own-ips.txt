@@ -1,20 +1,20 @@
-# 手工白名单（完全放行，不受门禁挑战）
+# Manual allowlist (fully trusted and exempt from gate challenges)
 #
-# 这个文件是**你手改的地方**：固定 IP、家里/公司出口、需要无条件放行的来源。
-# 部署时 ops/sync_whitelist.py 会把它生成到 docs/lists/whitelist.txt；
-# 后者是生成物，别直接改。
+# Edit this file directly to add fixed IPs, home or office egress IPs, or other sources
+# that need unconditional trust. During deployment, ops/sync_whitelist.py generates
+# docs/lists/whitelist.txt; do not edit the generated file.
 #
-# 格式：
-#   ASN/<ASN 编号>
-#   IP-CIDR/<IP>/<掩码>      IPv4 只接受 /24–/32，IPv6 只接受 /64–/128；单 IP 用 /32 或 /128
+# Format:
+#   ASN/<ASN number>
+#   IP-CIDR/<IP>/<prefix>    IPv4 accepts /24–/32; IPv6 accepts /64–/128. Use /32 or /128 for a single IP.
 #
-# 行尾 # 注释会被剥离；空行忽略。
+# Trailing comments after # are removed; blank lines are ignored.
 
-# 完全放行的单个 IP
+# Fully trusted individual IPs
 IP-CIDR/97.64.18.11/32
 IP-CIDR/176.122.161.108/32
 
-# 举例（下面两行是注释，取消注释即生效）
-# IP-CIDR/203.0.113.7/32          # 单个出口 IP
-# IP-CIDR/198.51.100.0/24         # 整段
-# ASN/64500                       # 某个你想放行的 ASN
+# Examples (uncomment a line to activate it)
+# IP-CIDR/203.0.113.7/32          # Single egress IP
+# IP-CIDR/198.51.100.0/24         # Entire network
+# ASN/64500                       # ASN to allow

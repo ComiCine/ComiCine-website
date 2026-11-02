@@ -64,7 +64,8 @@ CIDR24_RE = re.compile(r'^(\d+\.\d+\.\d+)\.0/24$')
 # Start marker for the managed section (2026-10-11). `reconcile` writes rows pulled from D1
 # after this line and rewrites the section each time; everything before it is the manual area
 # and is always preserved unchanged.
-MANAGED_MARKER = "# 以下是 D1 blocked_ips 的活跃行"
+MANAGED_MARKER = "# Active rows from D1 blocked_ips"
+LEGACY_MANAGED_MARKERS = ("# 以下是 D1 blocked_ips 的活跃行",)
 
 
 def read_blocklist_txt(path: str) -> tuple[list[str], set[str]]:
@@ -410,9 +411,8 @@ def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
     """
     lines = [
         "",
-        "# 以下是 D1 blocked_ips 的活跃行（自动维护，勿手改；本轮从 D1 拉回 "
-        f"{len(pulled)} 条）",
-        "# 手写区在上面；这一段每次 `auto_block.py reconcile` 都会整体重写。",
+        f"{MANAGED_MARKER} (managed automatically; do not edit; pulled from D1 this run: {len(pulled)})",
+        "# The handwritten section is above; this section is rewritten on every `auto_block.py reconcile` run.",
     ]
     for cidr in sorted(rows):
         src = rows[cidr] or "unknown"
@@ -424,7 +424,9 @@ def _write_pulled_section(path: str, rows: dict[str, str], pulled: list[str]) ->
     """Preserve the manually maintained section and rewrite the managed section."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    head = text.split(MANAGED_MARKER)[0].rstrip("\n")
+    markers = (MANAGED_MARKER, *LEGACY_MANAGED_MARKERS)
+    marker_positions = [position for marker in markers if (position := text.find(marker)) >= 0]
+    head = text[:min(marker_positions)].rstrip("\n") if marker_positions else text.rstrip("\n")
     with open(path, "w", encoding="utf-8") as f:
         f.write(head + _render_managed_section(rows, pulled))
 

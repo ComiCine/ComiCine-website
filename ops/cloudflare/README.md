@@ -194,7 +194,7 @@ Banning is carried by three layers, all driven by the same D1 table:
 | Edge | Cloudflare IP List `comicine_blocklist` | Written by `ops/sync-worker` (cron `30 3 * * *`); no live WAF rule currently references it, so D1-backed Worker checks remain the active block path |
 | Worker | `functions/_lib/gate.ts` | `BLOCKED_LIST_SQL` also filters `WHERE active = 1`, so both layers agree; returns 403 |
 
-`data/blocklist.txt` is a snapshot for auditing only. The WAF custom-firewall phase is
+`docs/lists/blocklist.txt` is a snapshot for auditing only. The WAF custom-firewall phase is
 currently **empty** (see the table above), so the IP List is the only edge-level
 enforcement.
 
@@ -336,7 +336,7 @@ the file header**, and both are kept verbatim in `schema.jsonl.gz` so nothing is
 | Table | Rows (2026-10-10) | Why |
 | --- | --- | --- |
 | `schema_version` | 19 | `migrate_d1.sh` skips already-applied files by these rows |
-| `blocked_ips` | 83 | authoritative block list; `data/blocklist.txt` is only a snapshot of it |
+| `blocked_ips` | 83 | authoritative block list; `docs/lists/blocklist.txt` is only a snapshot of it |
 | `apple_accounts` | 5 | account records, copied verbatim, never decrypted |
 | `auth_credentials` | 1 | pbkdf2 hashes and lockouts, copied verbatim |
 | `probes` / `probe_state` | 3 / 3 | probe definitions and alert state |

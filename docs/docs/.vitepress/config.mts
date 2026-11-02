@@ -80,7 +80,7 @@ function contentPath(basePath: string, code: string): string {
   return `${basePath}/${code}`
 }
 
-/** 每个语言一份 UI 文案；VitePress 不会自动翻译默认主题。 */
+/** UI copy for each language; VitePress does not translate the default theme automatically. */
 interface Labels {
   title: string
   description: string
@@ -252,8 +252,8 @@ function themeFor(code: string): DefaultTheme.Config {
   const securityAcknowledgments = contentPath('/security/acknowledgments', code)
   const articleUkMajors = contentPath('/articles/uk-undergraduate-majors', code)
   return {
-    // 页头/页脚由 fork 的 ComiCine 组件渲染（与主站 base.html 一致）
-    // 页头展示主站的三个相同入口，文档自己的导航在侧栏
+    // The VitePress fork's ComiCine components render the header and footer, matching the main site's base.html.
+    // The header shows the same three main-site links; documentation navigation stays in the sidebar.
     nav: [
       { text: L.navHome, link: MAIN_SITE },
       { text: L.navServices, link: SERVICES_SITE },
@@ -313,7 +313,7 @@ function themeFor(code: string): DefaultTheme.Config {
   } as DefaultTheme.Config
 }
 
-/** 每个语言的 lang / 标题 / 主题配置（纯数据，能安全序列化进客户端）。 */
+/** Per-language lang, title, and theme configuration as plain data that can be serialized for the client. */
 function localeConfigFor(code: string) {
   const L = labels[code] ?? labels[VITEPRESS_ROOT_LANG]
   return {
@@ -325,10 +325,10 @@ function localeConfigFor(code: string) {
 }
 
 /**
- * 源文件放各自的语言目录（zh-cn/index.md、en-us/index.md），用 rewrites 把路由改成
- * 「语言码在最后一段」（/en-us、/video-platform/en-us）。
- * 不用 additionalConfig 的函数形式：函数会被序列化进客户端而丢掉闭包。
- * 映射表同时被 ops/docs_deploy.sh 的产物校验读取，保持单一事实源。
+ * Source files live in language directories (zh-cn/index.md, en-us/index.md); rewrites put
+ * the language code at the end of each route (/en-us, /video-platform/en-us).
+ * Do not use a function for additionalConfig: it is serialized for the client and loses closures.
+ * ops/docs_deploy.sh also reads this mapping to validate build output, keeping one source of truth.
  */
 const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
@@ -372,9 +372,9 @@ function languageAlternatesForPage(page: string): [string, Record<string, string
 }
 
 /**
- * 价目表 CSV 现在在 site/docs/services/，与 VitePress 根（site/docs/docs/）
- * **同级**，本来就不会进入构建工作区，所以不再需要专门排除 services/。
- * 留一条 csv 兜底：万一以后有人往内容根里塞数据文件，也不会被原样发布出去。
+ * The pricing CSV now lives in site/docs/services/, alongside the VitePress root (site/docs/docs/),
+ * so it is already outside the build workspace and services/ needs no special exclusion.
+ * Keep a CSV fallback in case a data file is later added to the content root; do not publish it as-is.
  */
 const SRC_EXCLUDE = ['**/*.csv']
 
@@ -402,8 +402,8 @@ export default defineConfig({
       }
     ],
     ['link', { rel: 'stylesheet', href: '/fonts.css' }],
-    // 必须在 VitePress 的 check-dark-mode 之前执行：把主站 comicine_theme cookie
-    // 灌进 localStorage，避免与主站深浅模式不一致造成的首屏闪烁。
+    // Run before VitePress check-dark-mode: copy the main site's comicine_theme cookie into
+    // localStorage to prevent a first-paint flash when the themes differ.
     ['script', { id: 'comicine-theme-bridge' }, THEME_BOOTSTRAP_SCRIPT]
   ],
   sitemap: {
@@ -442,7 +442,7 @@ export default defineConfig({
   },
   rewrites: REWRITES,
   themeConfig: themeFor(VITEPRESS_ROOT_LANG),
-  // 按**源目录**给页面套上对应语言的 lang + themeConfig（纯数据，可序列化）
+  // Apply the matching lang and themeConfig by source directory using serializable plain data.
   additionalConfig: {
     '/zh-cn/': localeConfigFor('zh-cn'),
     '/en-us/': localeConfigFor('en-us'),

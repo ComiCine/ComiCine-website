@@ -42,6 +42,15 @@ describe("docs language selection follows the main site", () => {
     ).toBe("ko-kr");
   });
 
+  it("honors Accept-Language quality weights and excludes q=0 entries", () => {
+    expect(
+      detectMainSiteLanguage(request({ "Accept-Language": "en-US;q=0.2, ja-JP;q=0.9" })),
+    ).toBe("ja-jp");
+    expect(
+      detectMainSiteLanguage(request({ "Accept-Language": "zh-CN;q=0, ko-KR;q=0.1" })),
+    ).toBe("ko-kr");
+  });
+
   it("uses Cloudflare country metadata when cookie and Accept-Language do not match", () => {
     expect(detectMainSiteLanguage(request({ "Accept-Language": "de-DE" }, "JP"))).toBe("ja-jp");
   });

@@ -1,12 +1,13 @@
-# ComiCine Python 运行时锁定清单（2026-08-27，2026-10-27 重新对齐）
-# 由本仓库 ops/requirements.txt 在干净 Python 3.14 环境中生成；
-# CI 与本地构建统一使用本文件锁定版本。
+# ComiCine Python runtime lockfile (2026-08-27; realigned on 2026-10-27)
+# Generated from ops/requirements.txt in a clean Python 3.14 environment.
+# CI and local builds use the versions pinned in this file.
 #
-# 故意**不含** ruff / mypy：那两个是检查工具（在 ops/requirements.txt 里），
-# 不是运行时依赖。重新生成本文件时不要直接 `pip freeze`——那会把它们以及
-# 它们的传递依赖一起带进来，把构建 venv 撑大。生成方式：新建干净 venv →
-# `pip install -r ops/requirements.txt` → 只把该文件声明的 21 个包按
-# `名字==版本` 写回这里（大小写不敏感字母序）。当前清单包含 16 个包。
+# Deliberately excludes ruff and mypy: they are check tools listed in
+# ops/requirements.txt, not runtime dependencies. Do not regenerate this file with
+# `pip freeze`; that would also include the tools and their transitive dependencies,
+# making the build venv larger. To regenerate it, create a clean venv, install
+# `ops/requirements.txt`, then write only its 4 runtime requirements here as
+# `name==version`, sorted case-insensitively. The current lockfile contains 16 packages.
 blinker==1.9.0
 certifi==2026.7.22
 cffi==2.1.1

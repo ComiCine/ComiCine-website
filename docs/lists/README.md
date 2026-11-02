@@ -5,86 +5,85 @@ Section 7 additional terms apply when the work is used under GNU AGPL v3.
 See ADDITIONAL_TERMS.txt.
 -->
 
-# 名单目录（白名单 / 黑名单）
+# List Directory (Allowlist / Blocklist)
 
-这里存放门禁与封禁链路使用的名单。本目录不进入 docs.comicine.com 的部署产物。
+This directory contains lists used by the access gate and blocking flow. It is not included in the docs.comicine.com deployment artifacts.
 
-## 文件一览
+## Files
 
-| 文件 | 来源 | 如何维护 |
+| File | Source | How to maintain it |
 | --- | --- | --- |
-| `own-ips.txt` | 手工 | 编辑固定 IP、CIDR 或需要手动登记的 ASN。 |
-| `whitelist.txt` | `ops/sync_whitelist.py` 从 `own-ips.txt` 生成 | 不要手改。部署时自动生成；也可单独运行同步脚本。 |
-| `robots.txt` | 手工，标准 robots.txt 格式 | 同时作为线上 `/robots.txt` 规则和门禁爬虫 User-Agent 名单。 |
-| `blocklist.txt` | 手写区 + D1 拉回的受管段 | 要新增封禁时编辑手写区；D1 `blocked_ips` 是唯一权威。 |
+| `own-ips.txt` | Manual | Edit fixed IPs, CIDRs, or ASNs that need to be registered manually. |
+| `whitelist.txt` | Generated from `own-ips.txt` by `ops/sync_whitelist.py` | Do not edit it manually. Deployment regenerates it; you can also run the sync script directly. |
+| `robots.txt` | Manual, standard robots.txt format | Used both for the live `/robots.txt` rules and as the gate's crawler User-Agent list. |
+| `blocklist.txt` | Handwritten section plus a managed section pulled from D1 | Add manual blocks to the handwritten section. D1 `blocked_ips` is the source of truth. |
 
-名单不再从外部 ASN 目录抓取。`ASN/<number>` 仍可作为手工白名单条目，但完整部署不会自动更改 Cloudflare 区域级 ASN Access Rules；需要操作时显式运行 `bash ops/waf_whitelist.sh --apply`。
+Lists are no longer fetched from external ASN directories. `ASN/<number>` remains valid as a manual allowlist entry, but a full deployment does not automatically change Cloudflare zone-level ASN Access Rules. To change those rules, explicitly run `bash ops/waf_whitelist.sh --apply`.
 
-## 爬虫放行名单 = `robots.txt`
+## Crawler allowlist: `robots.txt`
 
-`docs/lists/robots.txt` 一份文件、两个用途：
+`docs/lists/robots.txt` has two uses:
 
-1. `src/build.py` 将爬虫规则发布到线上 `https://comicine.com/robots.txt`，并按契约追加 Sitemap 行。
-2. `ops/check_gate_trust.py` 解析每条显式 `User-agent:`（`*` 除外），生成 `functions/_data/gateTrust.ts` 中的 `GATE_TRUST_CRAWLER_UAS`。这些 User-Agent 只免人机验证，不免 D1 封禁、不签发 `__gate` cookie，也不计入访客。
+1. `src/build.py` publishes its crawler rules at `https://comicine.com/robots.txt` and appends the Sitemap line from the configuration contract.
+2. `ops/check_gate_trust.py` parses every explicit `User-agent:` entry except `*` and generates `GATE_TRUST_CRAWLER_UAS` in `functions/_data/gateTrust.ts`. These User-Agents bypass only human verification: they remain subject to D1 blocks, receive no `__gate` cookie, and are not counted as visitors.
 
-新增爬虫时，只需在 `robots.txt` 添加一条 `User-agent:`。`Allow`、`Disallow` 与注释不参与门禁名单解析。`Google-Extended` / `Applebot-Extended` 是 robots.txt 专用标记，没有对应的请求 User-Agent。
+To add a crawler, add one `User-agent:` line to `robots.txt`. `Allow`, `Disallow`, and comments are not used to build the gate allowlist. `Google-Extended` and `Applebot-Extended` are robots.txt-only markers and do not correspond to request User-Agents.
 
-User-Agent 由访客自行声明，不是身份认证。只登记有公开文档与联系方式的爬虫，不要添加 `curl`、`python-requests`、`Go-http-client` 或 `HeadlessChrome` 等通用客户端标记。
+User-Agent values are self-reported and are not authentication. Register only crawlers with public documentation and contact information. Do not add generic client identifiers such as `curl`, `python-requests`, `Go-http-client`, or `HeadlessChrome`.
 
-| 来源 | 免人机验证 | 免 D1 封禁 | 发 `__gate` cookie | 计访客 |
+| Source | Bypasses human verification | Bypasses D1 blocks | Receives `__gate` cookie | Counted as visitor |
 | --- | --- | --- | --- | --- |
-| `IP-CIDR`（`whitelist.txt`） | 是 | 是 | 是 | 是 |
-| Cloudflare verified bot | 是 | 是 | 是 | 否 |
-| `robots.txt` 显式 User-Agent | 是 | 否 | 否 | 否 |
+| `IP-CIDR` (`whitelist.txt`) | Yes | Yes | Yes | Yes |
+| Cloudflare verified bot | Yes | Yes | Yes | No |
+| Explicit User-Agent in `robots.txt` | Yes | No | No | No |
 
-## 格式
+## Format
 
-白名单每行一条，`#` 后为注释，空行忽略：
+Use one allowlist entry per line. Text after `#` is a comment, and blank lines are ignored:
 
 ```text
-# 固定 IP 或网段
+# Fixed IP or network
 IP-CIDR/97.64.18.11/32
 IP-CIDR/203.0.113.0/24
-# IPv4 只接受 /24–/32；IPv6 只接受 /64–/128
+# IPv4 accepts only /24–/32; IPv6 accepts only /64–/128
 
-# 手工 ASN 条目（仅供手动运行的 WAF 同步脚本使用）
+# Manual ASN entry (used only by the manual WAF sync script)
 ASN/64500
 ```
 
-白名单同步会解析 IP 地址和 CIDR，并拒绝短于 IPv4 `/24`、IPv6 `/64` 的前缀，
-避免误把过大的地址范围设为完全信任。ASN 仅接受 `1` 至 `4294967295`。
+The allowlist sync parses IP addresses and CIDRs and rejects prefixes shorter than IPv4 `/24` or IPv6 `/64`, preventing overly broad ranges from receiving full trust. ASN values must be between `1` and `4294967295`.
 
-`blocklist.txt` 使用裸 IP / CIDR，与白名单语法不同：
+`blocklist.txt` uses bare IPs and CIDRs, unlike the allowlist syntax:
 
 ```text
 1.2.3.4
 5.6.7.0/24
 ```
 
-## 改完之后
+## After editing
 
-| 目标 | 命令 |
+| Goal | Command |
 | --- | --- |
-| 从 `own-ips.txt` 重新生成白名单 | `python3 ops/sync_whitelist.py` |
-| 生成门禁边缘副本并运行构建检查 | `bash ops/ci_check.sh` |
-| 更新爬虫名单 | 编辑 `robots.txt` 后正常部署 |
-| 手动将 ASN 条目同步到 Cloudflare 区域 | `bash ops/waf_whitelist.sh --dry-run`，确认后运行 `bash ops/waf_whitelist.sh --apply` |
-| 封禁名单双向对账 | 先运行 `python3 src/auto_block.py reconcile --dry-run`；确认后去掉 `--dry-run` |
-| 只推送封禁条目 | `python3 src/auto_block.py d1 --dry-run` |
-| 查看或更新边缘 AI bot 策略 | `python3 ops/ai_bots.py --show` / `--apply` |
+| Regenerate the allowlist from `own-ips.txt` | `python3 ops/sync_whitelist.py` |
+| Generate the gate edge copy and run build checks | `bash ops/ci_check.sh` |
+| Update the crawler list | Edit `robots.txt`, then run the normal deployment |
+| Manually sync ASN entries to Cloudflare zone rules | Run `bash ops/waf_whitelist.sh --dry-run`, review the result, then run `bash ops/waf_whitelist.sh --apply` |
+| Reconcile the blocklist with D1 | First run `python3 src/auto_block.py reconcile --dry-run`; remove `--dry-run` after review |
+| Push blocklist entries only | `python3 src/auto_block.py d1 --dry-run` |
+| View or update the edge AI bot policy | `python3 ops/ai_bots.py --show` / `--apply` |
 
-## 黑名单对账
+## Blocklist reconciliation
 
-`python3 src/auto_block.py reconcile --dry-run` 会显示文件与 D1 的差异：
+`python3 src/auto_block.py reconcile --dry-run` shows differences between the file and D1:
 
-- **+N**：文件有、D1 没有，将写入 D1。
-- **-N**：文件没有、D1 仍有，将从 D1 软删除仅由 `auto_block` / `blocklist.txt` 管理的记录；管理员来源不动。
-- **pull=N**：D1 有活跃记录、文件没有，将其拉回文件受管段。
+- **+N**: present in the file but missing from D1; these entries will be written to D1.
+- **-N**: missing from the file but still present in D1; only records managed by `auto_block` or `blocklist.txt` will be soft-deleted. Administrator-sourced records are left alone.
+- **pull=N**: active in D1 but missing from the file; these entries will be restored to the managed section.
 
-`blocklist.txt` 分为手写区和受管段。受管段由 D1 活跃记录生成；手写区在受管标记之前并原样保留。文件是审计快照，不是封禁权威，也不会因 D1 软删除而自动删掉手写条目。
+`blocklist.txt` has a handwritten section and a managed section. D1 active records generate the managed section; the handwritten section above its marker is preserved as-is. The file is an audit snapshot, not the source of truth for blocking, and soft-deleting a D1 record does not automatically remove handwritten entries.
 
-## 维护约定
+## Maintenance rules
 
-1. `whitelist.txt` 是生成结果；信任 IP 的来源应编辑 `own-ips.txt`。
-2. `robots.txt` 是公开文件，其中显式 User-Agent 同时会被门禁解析为爬虫放行标记。
-3. `blocklist.txt` 是 D1 `blocked_ips` 的快照；变更后通过 `reconcile` 与 D1 对账。
+1. `whitelist.txt` is generated output. Edit `own-ips.txt` to change trusted IPs.
+2. `robots.txt` is public, and its explicit User-Agent entries are also parsed by the gate as crawler bypass markers.
+3. `blocklist.txt` is a snapshot of D1 `blocked_ips`; reconcile it with D1 after changes.

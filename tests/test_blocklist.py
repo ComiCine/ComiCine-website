@@ -102,10 +102,10 @@ def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
     """
     p = tmp_path / "blocklist.txt"
     p.write_text(
-        "# 自定义封禁列表\n"
-        "# 一行一个 IP 或 CIDR\n"
+        "# Custom blocklist\n"
+        "# One IP or CIDR per line\n"
         "1.2.3.4\n"
-        "5.6.7.0/24   # 我的备注\n",
+        "5.6.7.0/24   # My note\n",
         encoding="utf-8",
     )
 
@@ -113,19 +113,39 @@ def test_write_pulled_section_keeps_the_hand_written_area(tmp_path):
 
     text = p.read_text(encoding="utf-8")
     head, sep, managed = text.partition(auto_block.MANAGED_MARKER)
-    assert sep, "必须写出受管段标记"
+    assert sep, "the managed-section marker must be written"
     # Preserve all four hand-maintained lines exactly, including trailing comments.
-    assert "# 自定义封禁列表" in head
+    assert "# Custom blocklist" in head
     assert "1.2.3.4" in head
-    assert "5.6.7.0/24   # 我的备注" in head
+    assert "5.6.7.0/24   # My note" in head
     # Include the source marker in the managed section.
     assert "10.0.0.0/8" in managed and "source=cli/add" in managed
+
+
+def test_write_pulled_section_replaces_legacy_marker(tmp_path):
+    p = tmp_path / "blocklist.txt"
+    p.write_text(
+        "# Handwritten\n"
+        "1.2.3.4\n"
+        "# 以下是 D1 blocked_ips 的活跃行（自动维护）\n"
+        "9.9.9.9\n",
+        encoding="utf-8",
+    )
+
+    auto_block._write_pulled_section(str(p), {"10.0.0.0/8": "cli/add"}, [])
+
+    text = p.read_text(encoding="utf-8")
+    head, sep, managed = text.partition(auto_block.MANAGED_MARKER)
+    assert sep, "the English managed-section marker must be written"
+    assert "# Handwritten" in head and "1.2.3.4" in head
+    assert "9.9.9.9" not in managed
+    assert "10.0.0.0/8" in managed
 
 
 def test_write_pulled_section_is_idempotent(tmp_path):
     """Writing the section twice does not append duplicate entries."""
     p = tmp_path / "blocklist.txt"
-    p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
+    p.write_text("# Handwritten\n1.2.3.4\n", encoding="utf-8")
     rows = {"10.0.0.0/8": "admin", "10.1.0.0/16": "auto_block"}
 
     auto_block._write_pulled_section(str(p), rows, [])
@@ -133,29 +153,29 @@ def test_write_pulled_section_is_idempotent(tmp_path):
     auto_block._write_pulled_section(str(p), rows, [])
     second = p.read_text(encoding="utf-8")
 
-    assert first == second, "同样的输入必须产出同样的文件"
-    assert second.count("10.0.0.0/8") == 1, "不得重复追加"
+    assert first == second, "identical inputs must produce identical files"
+    assert second.count("10.0.0.0/8") == 1, "managed entries must not be appended more than once"
 
 
 def test_pulled_section_survives_being_read_back(tmp_path):
     """The written file remains parseable by read_blocklist for the next reconciliation."""
     p = tmp_path / "blocklist.txt"
-    p.write_text("# 手写\n1.2.3.4\n", encoding="utf-8")
+    p.write_text("# Handwritten\n1.2.3.4\n", encoding="utf-8")
 
     auto_block._write_pulled_section(str(p), {"58.222.33.0/24": "cli/add"}, ["58.222.33.0/24"])
 
     got = auto_block.read_blocklist(str(p))
-    assert "1.2.3.4/32" in got, "手写项要仍能读出来"
-    assert "58.222.33.0/24" in got, "拉回的项要能读出来"
+    assert "1.2.3.4/32" in got, "handwritten entries must remain readable"
+    assert "58.222.33.0/24" in got, "pulled entries must remain readable"
 
 
 def test_managed_section_starts_empty_and_grows(tmp_path):
     """Both an empty managed section and one with added rows must remain valid."""
     p = tmp_path / "blocklist.txt"
-    p.write_text("# 只有手写区\n", encoding="utf-8")
+    p.write_text("# Handwritten section only\n", encoding="utf-8")
 
     auto_block._write_pulled_section(str(p), {}, [])
-    assert "只有手写区" in p.read_text(encoding="utf-8")
+    assert "Handwritten section only" in p.read_text(encoding="utf-8")
     assert auto_block.read_blocklist(str(p)) == []
 
     auto_block._write_pulled_section(str(p), {"9.9.9.9": "cli/add"}, ["9.9.9.9"])
