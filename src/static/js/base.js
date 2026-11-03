@@ -167,13 +167,14 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /*
        Frontend translation utilities:
        - I18N: full dictionary for the current language, injected by the backend for the initial render.
-       - I18N_CACHE: dictionaries for every language; preload the others after page load.
+       - I18N_CACHE: dictionaries for the current language and any languages fetched after menu intent.
        - t(): look up text by key and replace {param} placeholders.
        - applyLang(): switch language in the browser by updating data-i18n elements without reloading.
        */
     var I18N = JSON.parse(document.body.getAttribute('data-i18n-dict') || '{}');
     var CURRENT_LANG = bodyAttr('data-lang', DEFAULT_LANG);
     var I18N_CACHE = window.I18N_CACHE || {};
+    var I18N_PREFETCH_STARTED = false;
     I18N_CACHE[CURRENT_LANG] = I18N;
 
     function t(key, params) {
@@ -284,8 +285,10 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         saveLangCookie(lang);
     }
 
-    /* Preload the other language dictionaries at low priority after page load. */
+    /* Preload the other language dictionaries only after the visitor opens a language menu. */
     function prefetchI18n() {
+        if (I18N_PREFETCH_STARTED) return;
+        I18N_PREFETCH_STARTED = true;
         SUPPORTED_LANGS.forEach(function(lang) {
             if (lang === CURRENT_LANG || I18N_CACHE[lang] != null) return;
             fetchI18n(lang, function() {});
@@ -295,9 +298,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /*
        After the current page loads, prefetch the other two home pages (HTML and images).
        - Use <link rel=prefetch> for HTML; its cache retains the language cookie and degrades gracefully.
-       - Use new Image() to warm the HTTP cache. Home images and contact-page QR codes use
-         images.comicine.com's static edge cache.
-       - Do not prefetch QR codes on mobile; the contact page only shows them on desktop hover.
+       - Use new Image() to warm the HTTP cache on desktop; touch devices load images when needed.
+         Home images and contact-page QR codes use images.comicine.com's static edge cache.
        - Keep this image list aligned with the src values in index.html and contact.html.
        */
     /* The template builds the home portfolio image list from src/static/portfolio and writes it to
@@ -369,8 +371,8 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             var l = document.createElement('link');
             l.rel = 'prefetch'; l.href = siblingHref(key);
             document.head.appendChild(l);
+            if (!desktop) return;
             PAGE_MANIFEST[key].images.forEach(function(rel) {
-                if (PAGE_MANIFEST[key].qr && !desktop) return;   /* Skip QR codes on mobile. */
                 var img = new Image();
                 img.referrerPolicy = 'origin';
                 img.fetchPriority = 'low';
@@ -387,6 +389,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (m) {
             var open = !m.classList.contains('open');
             m.classList.toggle('open', open);
+            if (open) prefetchI18n();
             var button = document.getElementById('lang-btn');
             if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
@@ -418,6 +421,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             fly.addEventListener('mouseenter', function() {
                 var m = document.getElementById('langMenu');
                 if (m) m.classList.add('open');
+                prefetchI18n();
                 var button = document.getElementById('lang-btn');
                 if (button) button.setAttribute('aria-expanded', 'true');
             });
@@ -449,6 +453,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (!list || !toggle) return;
         var open = list.inert;
         list.classList.toggle('open', open);
+        if (open) prefetchI18n();
         list.setAttribute('aria-hidden', open ? 'false' : 'true');
         list.inert = !open;
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -546,9 +551,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
 
 
-        /* Prefetch all language dictionaries after load so switching languages does not wait on the network.
-           Keep page prefetches at low priority so they do not compete for bandwidth after the initial view. */
-        prefetchI18n();
+        /* Keep page prefetches at low priority so they do not compete for bandwidth after the initial view. */
         if ('requestIdleCallback' in window) {
             requestIdleCallback(prefetchPages, { timeout: 3000 });
         } else {

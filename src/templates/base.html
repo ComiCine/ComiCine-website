@@ -27,14 +27,13 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=18" as="script">
+    <link rel="preload" href="/static/js/base.js?v=19" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
     <link rel="icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.svg?v=13" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ image_asset_base }}/static/icons/comicine-favicon.png?v=13">
     <link rel="preconnect" href="{{ image_asset_base }}">
-    <link rel="dns-prefetch" href="{{ image_asset_base }}">
 
 <!-- Locally precompiled Tailwind CSS replaces Play CDN runtime compilation, removing a ~400KB render-blocking script and third-party CDN dependency. -->
     <link rel="stylesheet" href="/static/tailwind.css?v=4">
@@ -182,7 +181,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=18" defer></script>
+    <script src="/static/js/base.js?v=19" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>
