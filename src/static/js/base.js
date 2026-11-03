@@ -32,21 +32,18 @@ function sharedCookieDomain() {
 }
 document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
-/*
-       Preload only small resources such as QR codes. Portfolio images with loading="lazy"
-       are excluded so preloading does not bypass lazy loading.
-       */
-    function preloadPageImages() {
-        if (!window.matchMedia('(hover: hover)').matches) return; // Do not preload QR codes on mobile.
-        var urls = new Set();
-        document.querySelectorAll('[data-qr]').forEach(function(el) { urls.add(el.dataset.qr); });
-        urls.forEach(function(url) {
-            var img = new Image();
-            img.referrerPolicy = 'origin';
-            img.onerror = function() {}; // Ignore 404s without logging a console error.
-            img.src = url;
-        });
-    }
+/* Warm QR image URLs after the page load so they are ready when their controls open. */
+function preloadPageImages() {
+    var urls = new Set();
+    document.querySelectorAll('[data-qr]').forEach(function(el) { urls.add(el.dataset.qr); });
+    urls.forEach(function(url) {
+        var img = new Image();
+        img.referrerPolicy = 'origin';
+        img.fetchPriority = 'low';
+        img.onerror = function() {}; // Ignore 404s without logging a console error.
+        img.src = url;
+    });
+}
 
     /*
        Theme switching follows VitePress appearance behavior:
@@ -285,7 +282,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         saveLangCookie(lang);
     }
 
-    /* Preload the other language dictionaries only after the visitor opens a language menu. */
+    /* Preload the other language dictionaries after the page load. */
     function prefetchI18n() {
         if (I18N_PREFETCH_STARTED) return;
         I18N_PREFETCH_STARTED = true;
@@ -298,7 +295,7 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     /*
        After the current page loads, prefetch the other two home pages (HTML and images).
        - Use <link rel=prefetch> for HTML; its cache retains the language cookie and degrades gracefully.
-       - Use new Image() to warm the HTTP cache on desktop; touch devices load images when needed.
+       - Use low-priority Image requests to warm the HTTP cache on all devices.
          Home images and contact-page QR codes use images.comicine.com's static edge cache.
        - Keep this image list aligned with the src values in index.html and contact.html.
        */
@@ -351,27 +348,22 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
     function prefetchPages() {
         var cur = currentPageKey();
         if (!PAGE_MANIFEST[cur]) return;
-        var desktop = window.matchMedia('(hover: hover)').matches;
         Object.keys(PAGE_MANIFEST).forEach(function(key) {
             var origin = pageOrigin();
             if (key === cur) {
-                /* The current page is already open. Warm portfolio images at low priority while idle
-                   so they are likely cached when the user scrolls to #portfolio. */
-                if (desktop) {
-                    PAGE_MANIFEST[key].images.forEach(function(rel) {
-                        var img = new Image();
-                        img.referrerPolicy = 'origin';
-                        img.fetchPriority = 'low';
-                        img.onerror = function() {};
-                        img.src = rel.indexOf('http') === 0 ? rel : origin + rel;
-                    });
-                }
+                /* Warm current-page images while idle so they are ready when needed. */
+                PAGE_MANIFEST[key].images.forEach(function(rel) {
+                    var img = new Image();
+                    img.referrerPolicy = 'origin';
+                    img.fetchPriority = 'low';
+                    img.onerror = function() {};
+                    img.src = rel.indexOf('http') === 0 ? rel : origin + rel;
+                });
                 return;
             }
             var l = document.createElement('link');
             l.rel = 'prefetch'; l.href = siblingHref(key);
             document.head.appendChild(l);
-            if (!desktop) return;
             PAGE_MANIFEST[key].images.forEach(function(rel) {
                 var img = new Image();
                 img.referrerPolicy = 'origin';
@@ -389,7 +381,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (m) {
             var open = !m.classList.contains('open');
             m.classList.toggle('open', open);
-            if (open) prefetchI18n();
             var button = document.getElementById('lang-btn');
             if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
@@ -421,7 +412,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
             fly.addEventListener('mouseenter', function() {
                 var m = document.getElementById('langMenu');
                 if (m) m.classList.add('open');
-                prefetchI18n();
                 var button = document.getElementById('lang-btn');
                 if (button) button.setAttribute('aria-expanded', 'true');
             });
@@ -453,7 +443,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         if (!list || !toggle) return;
         var open = list.inert;
         list.classList.toggle('open', open);
-        if (open) prefetchI18n();
         list.setAttribute('aria-hidden', open ? 'false' : 'true');
         list.inert = !open;
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -515,8 +504,6 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
 
     /* Initialize after the DOM has loaded. */
     window.addEventListener('load', function() {
-        preloadPageImages();
-
         /* Restore the saved theme, or follow the system when there is no saved choice. */
         applyTheme(effectiveTheme());
 
@@ -551,10 +538,15 @@ document.documentElement.lang = bodyAttr('data-lang', DEFAULT_LANG);
         });
 
 
-        /* Keep page prefetches at low priority so they do not compete for bandwidth after the initial view. */
+        /* Start speculative downloads after load, when the browser has idle time. */
+        var prefetchAfterLoad = function() {
+            preloadPageImages();
+            prefetchI18n();
+            prefetchPages();
+        };
         if ('requestIdleCallback' in window) {
-            requestIdleCallback(prefetchPages, { timeout: 3000 });
+            requestIdleCallback(prefetchAfterLoad, { timeout: 3000 });
         } else {
-            setTimeout(prefetchPages, 1500);
+            setTimeout(prefetchAfterLoad, 1500);
         }
     });
