@@ -160,11 +160,15 @@ Local development copies `.dev.vars.example`; production values are read from th
 local `secrets/webauthn.env` and the Pages project secrets (never committed, never
 echoed). There is no server-side credential source any more.
 
-## Shared Access identity application
+## Shared ComiCine Access application
 
-`ComiCine` protects only `identity.comicine.com/login`. Cloudflare Access sends
-the browser through the `comicine.cloudflareaccess.com` team domain and back to that
-route with its signed JWT. The Pages Function verifies the single application AUD
+The existing `ComiCine` application is the only Cloudflare Access application for
+internal services. Add service routes as destinations on it; never create a separate
+application for an internal service. It protects `identity.comicine.com/login`,
+`docs.comicine.com/private/*`, `comicine-docs.pages.dev/private/*`, and
+`*.comicine-docs.pages.dev/private/*` with one shared policy. Cloudflare Access sends
+the browser through the `comicine.cloudflareaccess.com` team domain and back to the
+requested route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
 registered source host. The source host consumes that code server-to-server, applies
 its local role from `identity_sites`, and sets its own host-only session cookie. Both
@@ -174,20 +178,19 @@ project: add the host to `managed_hosts`, `page_routes`, and `identity_sites` in
 `config-contract.json`, make its pages and APIs enforce the local role, and add its DNS
 and Pages custom domain. The host must use the shared Pages Functions bundle, D1
 database, and Secrets so its callback can create a host-only session. Adding a host already
-supported by the shared identity broker does not require another Access application. Other
-root domains or separate Pages projects need their own Access setup if they do not use that
-broker.
+supported by the shared identity broker does not require another Access application. Add any
+other internal host, root domain, or Pages project as a destination on this same Access
+application. If it needs the host-only identity handoff, implement its callback, session, and
+contract support before connecting it to the broker.
 
-The separate docs Pages project has a self-hosted app named `ComiCine Docs Private` protecting
-`docs.comicine.com/private/*`. Its app-specific policy copies the existing `ComiCine-Admins`
-allow, include, exclude, and require conditions; it does not use the identity handoff or grant
-access to other docs routes. Keep private docs out of public navigation and the sitemap.
-The `ComiCine Docs Private Preview Paths` app applies that same policy only to private paths on
-the public Pages preview aliases. Source files for both articles live under each language's
+The docs Pages project uses those destinations on the shared application; docs requests do not
+use the host-only identity handoff. `ops/docs_deploy.sh` verifies the shared policy, adds the docs
+destinations, and removes the redundant docs-specific applications after migration. Keep private
+docs out of public navigation and the sitemap. Source files for both articles live under each language's
 `private/articles/` directory and rewrite to `/private/articles/<slug>/<lang>`. Former public
 `/articles/<slug>/<lang>` paths return HTTP 404 and navigate the browser to `https://comicine.com/404`;
 they are not redirected to private pages. The deploy script removes the former article edge redirect
-and its obsolete Access destinations after publishing the new routes.
+after publishing the new routes.
 The `comicine-docs-legacy-404` Worker handles only the retired AMC 10 formula-guide and UK majors
 slugs on the docs host before Pages static caching can serve an old copy. Keep other `/articles/*`
 paths available for future public articles, and keep `/private/*` outside those routes so the
@@ -631,6 +634,11 @@ version 5)`) -- an index added inside it would never run. Index changes need a n
   now start the shared Pages identity handoff and receive host-only sessions. The unused legacy
   `ComiCine-Admin` app for `admin.limooo.cn` was deleted on 2026-10-29; the hostname has no DNS
   record or Pages custom domain.
+- **Consolidated 2026-11-05: internal Access destinations**. `identity.comicine.com/login`, the
+  production docs private path, and both Pages preview aliases now share the existing `ComiCine`
+  application and its unchanged admin policy. The two docs-specific Access applications were
+  deleted. `ops/docs_deploy.sh` adds future internal docs routes to the shared application and
+  removes redundant docs apps after verifying the same policy; it must not create an application.
 - **Completed 2026-10-29: Pages production migration**. The production project is now
   `comicine` (`comicine.pages.dev`) and owns the production custom domains, D1 binding, and
   encrypted runtime configuration. Main Pages DNS records now target `comicine.pages.dev`.

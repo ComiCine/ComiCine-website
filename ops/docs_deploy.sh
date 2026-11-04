@@ -258,7 +258,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
-# Publish the new private routes before removing public-path redirects and Access rules.
+# Publish private routes, merge them into the existing shared Access app, then remove duplicates.
 python3 - "$SECRETS_FILE" <<'PY'
 import json
 import os
@@ -315,57 +315,98 @@ if not zone:
 
 apps_url = f"{base_url}/accounts/{account_id}/access/apps"
 apps = call("GET", apps_url)
-app = next(
-    (item for item in apps or [] if item.get("name") in {
-        "ComiCine Docs Archived and Preview Paths",
-        "ComiCine Docs Private Preview Paths",
-    }),
-    None,
-)
-if not app:
-    raise SystemExit("FATAL: the docs preview Access application was not found")
-
-expected_private_destinations = {
-    "*.comicine-docs.pages.dev/private/*",
+identity_uri = "identity.comicine.com/login"
+docs_private_routes = {
+    "docs.comicine.com/private/*",
     "comicine-docs.pages.dev/private/*",
+    "*.comicine-docs.pages.dev/private/*",
 }
-private_destinations = [
-    item for item in app.get("destinations", [])
-    if item.get("type") == "public"
-    and item.get("uri") in expected_private_destinations
-]
-if {item.get("uri") for item in private_destinations} != expected_private_destinations:
-    raise SystemExit("FATAL: docs preview Access destinations do not match the expected private routes")
+legacy_docs_app_names = {
+    "ComiCine Docs Archived and Preview Paths",
+    "ComiCine Docs Private",
+    "ComiCine Docs Private Preview Paths",
+}
 
-policies = app.get("policies") or []
-if not policies:
-    raise SystemExit("FATAL: docs preview Access application has no policies to preserve")
-policy_links = []
-for policy in policies:
-    if not policy.get("id"):
-        raise SystemExit("FATAL: docs preview Access policy is missing its ID")
-    link = {key: policy[key] for key in ("id", "account_id", "precedence") if key in policy}
-    policy_links.append(link)
-policy_ids = sorted(item["id"] for item in policy_links)
-canonical_domain = "comicine-docs.pages.dev/private/*"
-updated_app = call(
-    "PUT",
-    f"{apps_url}/{app['id']}",
+def destination_uris(item):
+    destinations = item.get("destinations") or []
+    if not destinations and item.get("domain"):
+        return {item["domain"]}
+    return {destination.get("uri", "") for destination in destinations}
+
+shared_candidates = [
+    item for item in apps or []
+    if identity_uri in destination_uris(item)
+]
+if len(shared_candidates) != 1:
+    raise SystemExit("FATAL: expected exactly one existing Access application for the ComiCine identity route")
+shared_app = shared_candidates[0]
+shared_policies = shared_app.get("policies") or []
+if not shared_policies:
+    raise SystemExit("FATAL: the shared ComiCine Access application has no policies to preserve")
+
+def policy_signature(policies):
+    readonly = {"id", "account_id", "created_at", "updated_at", "app_count"}
+    values = [
+        {key: value for key, value in policy.items() if key not in readonly}
+        for policy in policies
+    ]
+    return sorted(values, key=lambda item: (item.get("precedence", 0), item.get("decision", "")))
+
+def policy_links(policies):
+    links = []
+    for policy in policies:
+        if not policy.get("id"):
+            raise SystemExit("FATAL: a shared Access policy is missing its ID")
+        links.append({key: policy[key] for key in ("id", "account_id", "precedence") if key in policy})
+    return links
+
+legacy_apps = [item for item in apps or [] if item.get("name") in legacy_docs_app_names]
+for legacy_app in legacy_apps:
+    routes = destination_uris(legacy_app)
+    if not routes or not routes.issubset(docs_private_routes):
+        raise SystemExit("FATAL: a docs Access application contains destinations outside the private docs routes")
+    if policy_signature(legacy_app.get("policies") or []) != policy_signature(shared_policies):
+        raise SystemExit("FATAL: a docs Access application has a different policy; refusing to merge it")
+
+merged_destinations = list(shared_app.get("destinations") or [])
+existing_uris = {item.get("uri", "") for item in merged_destinations}
+for uri in sorted(docs_private_routes | {identity_uri}):
+    if uri not in existing_uris:
+        merged_destinations.append({"type": "public", "uri": uri})
+
+update_body = {
+    key: value
+    for key, value in shared_app.items()
+    if key not in {"id", "created_at", "updated_at", "uid", "policies"}
+}
+update_body.update(
     {
-        "name": "ComiCine Docs Private Preview Paths",
+        "name": "ComiCine",
         "type": "self_hosted",
-        "domain": canonical_domain,
-        "destinations": private_destinations,
-        "policies": policy_links,
-    },
+        "domain": shared_app.get("domain") or identity_uri,
+        "destinations": merged_destinations,
+        "policies": policy_links(shared_policies),
+    }
 )
-updated_app = call("GET", f"{apps_url}/{app['id']}")
-updated_destinations = updated_app.get("destinations", [])
-if {item.get("uri") for item in updated_destinations} != expected_private_destinations:
-    raise SystemExit("FATAL: docs preview Access still includes a public article route")
-if sorted(item.get("id", "") for item in updated_app.get("policies", [])) != policy_ids:
-    raise SystemExit("FATAL: docs preview Access policy changed unexpectedly")
-print("[docs] preview Access protects private paths only")
+update_body.pop("self_hosted_domains", None)
+updated_app = call("PUT", f"{apps_url}/{shared_app['id']}", update_body)
+updated_app = call("GET", f"{apps_url}/{shared_app['id']}")
+updated_uris = destination_uris(updated_app)
+if not docs_private_routes.issubset(updated_uris) or identity_uri not in updated_uris:
+    raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
+if policy_signature(updated_app.get("policies") or []) != policy_signature(shared_policies):
+    raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
+if updated_app.get("name") != "ComiCine":
+    raise SystemExit("FATAL: the shared Access application name did not update")
+
+for legacy_app in legacy_apps:
+    call("DELETE", f"{apps_url}/{legacy_app['id']}")
+remaining_apps = call("GET", apps_url) or []
+if any(item.get("name") in legacy_docs_app_names for item in remaining_apps):
+    raise SystemExit("FATAL: a redundant docs Access application remains")
+print("[docs] private docs and identity share the existing ComiCine Access application")
+if legacy_apps:
+    print(f"[docs] removed {len(legacy_apps)} redundant docs Access application(s)")
 
 phase = "http_request_dynamic_redirect"
 ruleset = call("GET", f"{base_url}/zones/{zone['id']}/rulesets/phases/{phase}/entrypoint")
