@@ -294,6 +294,24 @@ check_access_challenge() {
     echo "[docs] ${path} requires Cloudflare Access OK"
 }
 
+check_redirect() {
+    local path="$1" expected_path="$2" expected_code="${3:-301}"
+    local i result code location expected_location
+    expected_location="https://${DOCS_HOST}${expected_path}"
+    for i in 1 2 3 4 5 6; do
+        result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
+        code="${result%%$'\n'*}"
+        location="${result#*$'\n'}"
+        if [ "$code" = "$expected_code" ] && [ "$location" = "$expected_location" ]; then break; fi
+        sleep 10
+    done
+    if [ "$code" != "$expected_code" ] || [ "$location" != "$expected_location" ]; then
+        echo "FATAL: https://${DOCS_HOST}${path} = ${code} Location: ${location:--} (expected ${expected_code} to ${expected_location})" >&2
+        exit 1
+    fi
+    echo "[docs] ${path} = ${expected_code} to ${expected_path} OK"
+}
+
 check_language_redirect() {
     local path="$1" expected_path="$2" cookie="${3:-}" accept="${4:-en-US}"
     local i result code location expected_location
@@ -324,11 +342,13 @@ check_language_redirect /security/acknowledgments /security/acknowledgments/en-u
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
 
-for path in / /docs-home /docs-home/ /docs-home/zh-cn /zh-cn /en-us /ja-jp /ko-kr \
-    /articles/uk-undergraduate-majors/zh-cn /articles/uk-undergraduate-majors/en-us \
-    /articles/uk-undergraduate-majors/ja-jp /articles/uk-undergraduate-majors/ko-kr \
-    /articles/uk-undergraduate-majors /articles/uk-undergraduate-majors/; do
-    check_code "$path" 404
+check_code / 404
+for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/ja-jp /docs-home/ko-kr \
+    /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
+    check_redirect "$path" / 302
+done
+for lang in zh-cn en-us ja-jp ko-kr; do
+    check_redirect "/articles/uk-undergraduate-majors/${lang}" "/private/articles/uk-undergraduate-majors/${lang}"
 done
 
 for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \

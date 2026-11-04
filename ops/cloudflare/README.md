@@ -182,6 +182,10 @@ The separate docs Pages project has a self-hosted app named `ComiCine Docs Priva
 `docs.comicine.com/private/*`. Its app-specific policy copies the existing `ComiCine-Admins`
 allow, include, exclude, and require conditions; it does not use the identity handoff or grant
 access to other docs routes. Keep private docs out of public navigation and the sitemap.
+The separate `ComiCine Docs Archived and Preview Paths` app applies that same policy to the former
+public UK article URL and the public Pages preview aliases for private and former article paths.
+The `comicine.com` zone's Single Redirect rules send the old article URLs to their private
+language-suffixed paths and send removed documentation-home URLs to `/`, which returns 404.
 An unauthenticated browser navigation to a protected page receives HTTP 401 HTML,
 sets the host-bound state cookie, and loads a same-origin external script that
 navigates to the shared identity URL. Cloudflare Access then redirects the browser
