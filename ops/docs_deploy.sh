@@ -333,6 +333,26 @@ check_code() {
     echo "[docs] ${path} = ${expected} OK"
 }
 
+check_custom_404() {
+    local path="$1" i result metadata code content_type body
+    for i in 1 2 3 4 5 6; do
+        result="$(curl -sS -w $'\n%{http_code}\t%{content_type}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
+        metadata="${result##*$'\n'}"
+        body="${result%$'\n'*}"
+        code="${metadata%%$'\t'*}"
+        content_type="${metadata#*$'\t'}"
+        if [ "$code" = 404 ] && [[ "$content_type" == text/html* ]] \
+            && [[ "$body" == *'id="app"'* ]] && [[ "$body" == *'name="generator" content="VitePress'* ]]; then break; fi
+        sleep 10
+    done
+    if [ "$code" != 404 ] || [[ "$content_type" != text/html* ]] \
+        || [[ "$body" != *'id="app"'* ]] || [[ "$body" != *'name="generator" content="VitePress'* ]]; then
+        echo "FATAL: https://${DOCS_HOST}${path} did not return the docs 404 page with HTTP 404 (status ${code}, content type ${content_type:--})" >&2
+        exit 1
+    fi
+    echo "[docs] ${path} = branded 404 OK"
+}
+
 check_access_challenge() {
     local path="$1" i result code location
     for i in 1 2 3 4 5 6; do
@@ -397,10 +417,11 @@ check_language_redirect /security/acknowledgments /security/acknowledgments/en-u
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
 
-check_code / 404
+check_custom_404 /
+check_custom_404 /__codex_missing_page__
 for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/ja-jp /docs-home/ko-kr \
     /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
-    check_code "$path" 404
+    check_custom_404 "$path"
 done
 for lang in zh-cn en-us ja-jp ko-kr; do
     check_redirect "/articles/uk-undergraduate-majors/${lang}" "/private/articles/uk-undergraduate-majors/${lang}"

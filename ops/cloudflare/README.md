@@ -185,8 +185,9 @@ access to other docs routes. Keep private docs out of public navigation and the 
 The separate `ComiCine Docs Archived and Preview Paths` app applies that same policy to the former
 public UK article URL and the public Pages preview aliases for private and former article paths.
 The `comicine.com` zone's Single Redirect rule sends the old article URLs to their private
-language-suffixed paths. Removed documentation-home URLs return direct 404 responses from the
-docs Pages Functions; the deploy script removes the temporary edge redirect after publishing them.
+language-suffixed paths. Removed documentation-home URLs return the docs site's branded 404 asset
+with HTTP 404 from Pages Functions; the deploy script removes the temporary edge redirect after
+publishing them.
 An unauthenticated browser navigation to a protected page receives HTTP 401 HTML,
 sets the host-bound state cookie, and loads a same-origin external script that
 navigates to the shared identity URL. Cloudflare Access then redirects the browser
