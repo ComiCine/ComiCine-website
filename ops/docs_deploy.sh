@@ -325,16 +325,15 @@ app = next(
 if not app:
     raise SystemExit("FATAL: the docs preview Access application was not found")
 
-private_destinations = [
-    item for item in app.get("destinations", [])
-    if item.get("type") == "public"
-    and ".comicine-docs.pages.dev/" in item.get("uri", "")
-    and "/private/" in item.get("uri", "")
-]
 expected_private_destinations = {
     "*.comicine-docs.pages.dev/private/*",
     "comicine-docs.pages.dev/private/*",
 }
+private_destinations = [
+    item for item in app.get("destinations", [])
+    if item.get("type") == "public"
+    and item.get("uri") in expected_private_destinations
+]
 if {item.get("uri") for item in private_destinations} != expected_private_destinations:
     raise SystemExit("FATAL: docs preview Access destinations do not match the expected private routes")
 
