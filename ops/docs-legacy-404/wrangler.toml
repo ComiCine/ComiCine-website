@@ -3,16 +3,24 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-# Intercepts public article paths before Pages static caching; private routes bypass it.
+# Intercepts only the two retired public article slugs before Pages static caching.
 name = "comicine-docs-legacy-404"
 main = "src/index.js"
 compatibility_date = "2026-11-04"
 account_id = "4a7fd8c8f1a59a265981a73e631b9e3f"
 
 [[routes]]
-pattern = "docs.comicine.com/articles"
+pattern = "docs.comicine.com/articles/amc-10-formula-guide"
 zone_name = "comicine.com"
 
 [[routes]]
-pattern = "docs.comicine.com/articles/*"
+pattern = "docs.comicine.com/articles/amc-10-formula-guide/*"
+zone_name = "comicine.com"
+
+[[routes]]
+pattern = "docs.comicine.com/articles/uk-undergraduate-majors"
+zone_name = "comicine.com"
+
+[[routes]]
+pattern = "docs.comicine.com/articles/uk-undergraduate-majors/*"
 zone_name = "comicine.com"
