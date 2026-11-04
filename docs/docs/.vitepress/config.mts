@@ -63,15 +63,6 @@ function langTag(code: string): string {
   return (LANGS.find((l) => l.code === code) ?? LANGS[0]).lang
 }
 
-/**
- * Every content route has an explicit language suffix, including the VitePress
- * root language zh-cn. Pages Functions resolve language-less entries with the
- * main site's cookie and language fallback order.
- */
-function contentPath(basePath: string, code: string): string {
-  return `${basePath}/${code}`
-}
-
 /** UI copy for each language; VitePress does not translate the default theme automatically. */
 interface Labels {
   title: string
@@ -79,18 +70,10 @@ interface Labels {
   navHome: string
   navServices: string
   navContact: string
-  docsSection: string
-  sidebarReadme: string
-  sidebarVideo: string
-  sidebarLicense: string
-  sidebarSecurity: string
-  sidebarSecurityPolicy: string
-  sidebarSecurityAcknowledgments: string
   notFoundTitle: string
   notFoundLinkLabel: string
   notFoundLinkText: string
   outlineTitle: string
-  sidebarMenuLabel: string
   darkModeSwitchLabel: string
   langMenuLabel: string
   navMenuLabel: string
@@ -105,18 +88,10 @@ const labels: Record<string, Labels> = {
     navHome: '主页',
     navServices: '服务',
     navContact: '联系方式',
-    docsSection: '文档',
-    sidebarReadme: '项目说明 README',
-    sidebarVideo: '视频平台',
-    sidebarLicense: '开源许可证',
-    sidebarSecurity: '安全',
-    sidebarSecurityPolicy: '安全漏洞披露政策',
-    sidebarSecurityAcknowledgments: '安全致谢',
     notFoundTitle: '页面未找到',
     notFoundLinkLabel: '返回 ComiCine 主站',
     notFoundLinkText: '带我回首页',
     outlineTitle: '本页目录',
-    sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '外观',
     langMenuLabel: '切换语言',
     navMenuLabel: '菜单',
@@ -129,18 +104,10 @@ const labels: Record<string, Labels> = {
     navHome: 'Home',
     navServices: 'Services',
     navContact: 'Contact',
-    docsSection: 'Documentation',
-    sidebarReadme: 'Project README',
-    sidebarVideo: 'Video platforms',
-    sidebarLicense: 'License',
-    sidebarSecurity: 'Security',
-    sidebarSecurityPolicy: 'Security Vulnerability Disclosure Policy',
-    sidebarSecurityAcknowledgments: 'Security Acknowledgments',
     notFoundTitle: 'PAGE NOT FOUND',
     notFoundLinkLabel: 'Go to the ComiCine main site',
     notFoundLinkText: 'Take me home',
     outlineTitle: 'On this page',
-    sidebarMenuLabel: 'Menu',
     darkModeSwitchLabel: 'Appearance',
     langMenuLabel: 'Change language',
     navMenuLabel: 'Menu',
@@ -153,18 +120,10 @@ const labels: Record<string, Labels> = {
     navHome: 'ホーム',
     navServices: 'サービス',
     navContact: 'お問い合わせ',
-    docsSection: 'ドキュメント',
-    sidebarReadme: 'プロジェクト README',
-    sidebarVideo: '動画プラットフォーム',
-    sidebarLicense: 'ライセンス',
-    sidebarSecurity: 'セキュリティ',
-    sidebarSecurityPolicy: 'セキュリティ脆弱性の報告ポリシー',
-    sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
     notFoundTitle: 'ページが見つかりません',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
     notFoundLinkText: 'ホームに戻る',
     outlineTitle: 'このページの目次',
-    sidebarMenuLabel: 'メニュー',
     darkModeSwitchLabel: '外観',
     langMenuLabel: '言語を変更',
     navMenuLabel: 'メニュー',
@@ -177,18 +136,10 @@ const labels: Record<string, Labels> = {
     navHome: '홈',
     navServices: '서비스',
     navContact: '문의',
-    docsSection: '문서',
-    sidebarReadme: '프로젝트 README',
-    sidebarVideo: '동영상 플랫폼',
-    sidebarLicense: '라이선스',
-    sidebarSecurity: '보안',
-    sidebarSecurityPolicy: '보안 취약점 공개 정책',
-    sidebarSecurityAcknowledgments: '보안 감사의 글',
     notFoundTitle: '페이지를 찾을 수 없습니다',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
     notFoundLinkText: '홈으로 돌아가기',
     outlineTitle: '이 페이지 목차',
-    sidebarMenuLabel: '메뉴',
     darkModeSwitchLabel: '테마',
     langMenuLabel: '언어 변경',
     navMenuLabel: '메뉴',
@@ -199,38 +150,15 @@ const labels: Record<string, Labels> = {
 
 function themeFor(code: string): DefaultTheme.Config {
   const L = labels[code] ?? labels[VITEPRESS_ROOT_LANG]
-  const readme = contentPath('/README', code)
-  const video = contentPath('/video-platform', code)
-  const license = contentPath('/LICENSE', code)
-  const securityPolicy = contentPath('/security/policy', code)
-  const securityAcknowledgments = contentPath('/security/acknowledgments', code)
   return {
     // The VitePress fork's ComiCine components render the header and footer, matching the main site's base.html.
-    // The header shows the same three main-site links; documentation navigation stays in the sidebar.
+    // Every document stands alone; the shared header contains only main-site links.
     nav: [
       { text: L.navHome, link: MAIN_SITE },
       { text: L.navServices, link: SERVICES_SITE },
       { text: L.navContact, link: CONTACT_SITE }
     ],
-    sidebar: [
-      {
-        text: L.docsSection,
-        items: [
-          { text: L.sidebarReadme, link: readme },
-          { text: L.sidebarVideo, link: video },
-          { text: L.sidebarLicense, link: license }
-        ]
-      },
-      {
-        text: L.sidebarSecurity,
-        items: [
-          { text: L.sidebarSecurityPolicy, link: securityPolicy },
-          { text: L.sidebarSecurityAcknowledgments, link: securityAcknowledgments }
-        ]
-      }
-    ],
     outline: { level: [2, 3], label: L.outlineTitle },
-    sidebarMenuLabel: L.sidebarMenuLabel,
     darkModeSwitchLabel: L.darkModeSwitchLabel,
     langMenuLabel: L.langMenuLabel,
     navMenuLabel: L.navMenuLabel,

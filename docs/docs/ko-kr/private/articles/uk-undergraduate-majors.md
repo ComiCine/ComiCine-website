@@ -1,7 +1,6 @@
 ---
 title: 영국 학부 지원 전공 5개 심층 분석
 description: "Imperial, UCL, UAL의 수학·미디어·영화 제작 전공 비교: 교과 내용, 2027년 지원 요건, 포트폴리오, 그리고 한 학생이 이 다섯 전공에 지원한다는 것의 의미."
-sidebar: false
 aside: false
 ---
 <!--

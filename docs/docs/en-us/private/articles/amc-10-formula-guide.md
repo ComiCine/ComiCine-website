@@ -1,13 +1,14 @@
 ---
 title: Complete AMC 10 Formula Guide
 description: Explanations of arithmetic, algebra, number theory, combinatorics, probability, and geometry formulas for the AMC 10, with problem-recognition strategies and a quick-reference sheet.
+outline: [2, 4]
 ---
 
 # Complete AMC 10 Formula Guide
 
-# Part I: Formula Explanations
+## Part I: Formula Explanations
 
-## A. Mathematical Notation
+### A. Mathematical Notation
 
 | Symbol | English | Meaning and how to calculate |
 | --- | --- | --- |
@@ -32,7 +33,7 @@ description: Explanations of arithmetic, algebra, number theory, combinatorics, 
 | $\exists$ | There Exists | There is at least one... |
 | $\iff$ | If and Only If | If and only if. |
 
-### A1. Summation
+#### A1. Summation
 
 $$ \boxed{\sum_{k=a}^{b}f(k)} $$
 
@@ -45,7 +46,7 @@ Here:
 - $b$: the ending value.
 - $f(k)$: the rule for calculating each term.
 
-### A2. Product
+#### A2. Product
 
 $$ \boxed{\prod_{k=a}^{b}f(k)} $$
 
@@ -53,7 +54,7 @@ How to calculate: Let $k$ run from $a$ to $b$, calculate each value of $f(k)$, a
 
 The difference from $\sum$ is that $\sum$ denotes addition, while $\prod$ denotes multiplication.
 
-### A3. Factorial
+#### A3. Factorial
 
 $$ \boxed{n!=n(n-1)(n-2)\cdots2\cdot1} $$
 
@@ -61,9 +62,9 @@ Here $n$ is a nonnegative integer, and $0!=1$.
 
 How to calculate: Start at $n$, count down by 1, and multiply all the positive integers.
 
-## B. Arithmetic
+### B. Arithmetic
 
-### B1. Fractions
+#### B1. Fractions
 
 Addition and subtraction:
 
@@ -86,7 +87,7 @@ How to calculate:
 
 All denominators must be nonzero, and the divisor must also be nonzero.
 
-### B2. Ratios
+#### B2. Ratios
 
 If:
 
@@ -104,7 +105,7 @@ $$ \boxed{b=\frac{n}{m+n}S} $$
 
 How to calculate: Add the ratio terms to find the total number of parts, then allocate the total according to each term's share.
 
-### B3. Direct and Inverse Proportion
+#### B3. Direct and Inverse Proportion
 
 Direct proportion:
 
@@ -122,7 +123,7 @@ How to calculate:
 - Inverse proportion: Given one pair of $x,y$ values, calculate $k=xy$.
 - Use the same $k$ to find other values.
 
-### B4. Percentage Change
+#### B4. Percentage Change
 
 $$ \boxed{N=O(1+r)} $$
 
@@ -147,7 +148,7 @@ $$ \boxed{N=O(1+r_1)(1+r_2)\cdots(1+r_k)} $$
 
 Each change is based on the value immediately before that change.
 
-### B5. Arithmetic Mean
+#### B5. Arithmetic Mean
 
 $$ \boxed{\bar x=\frac{x_1+x_2+\cdots+x_n}{n}} $$
 
@@ -157,7 +158,7 @@ Recover the sum:
 
 $$ \boxed{\text{Sum}=n\bar x} $$
 
-### B6. Weighted Average
+#### B6. Weighted Average
 
 $$ \boxed{ \bar x=\frac{w_1x_1+w_2x_2+\cdots+w_nx_n} {w_1+w_2+\cdots+w_n} } $$
 
@@ -165,7 +166,7 @@ Here $w_i$ is the weight corresponding to the data value.
 
 How to calculate: Multiply each value by its corresponding weight, add the products, then divide by the sum of the weights.
 
-### B7. Speed, Distance, and Time
+#### B7. Speed, Distance, and Time
 
 $$ \boxed{d=vt} $$
 
@@ -189,7 +190,7 @@ $$ \boxed{v_{\mathrm{avg}}=\frac{2v_1v_2}{v_1+v_2}} $$
 
 When two travelers move toward each other, their closing speed is $v_1+v_2$. When one chases the other in the same direction, the closing speed is the difference between their speeds, provided the pursuer is faster.
 
-### B8. Work and Rate
+#### B8. Work and Rate
 
 $$ \boxed{W=rt} $$
 
@@ -207,7 +208,7 @@ $$ \boxed{T=\frac{ab}{a+b}} $$
 
 How to calculate: Add the workers' rates, then divide the total amount of work by the combined rate.
 
-### B9. Mixtures and Concentrations
+#### B9. Mixtures and Concentrations
 
 $$ \boxed{c=\frac{m_{\mathrm{solute}}}{m_{\mathrm{solution}}}} $$
 
@@ -223,7 +224,7 @@ $$ \boxed{ c_{\mathrm{new}}= \frac{m_1c_1+m_2c_2}{m_1+m_2} } $$
 
 How to calculate: Find the solute mass in each part, add those masses, then divide by the total mass of the mixture.
 
-### B10. Compound Growth
+#### B10. Compound Growth
 
 $$ \boxed{A=P(1+r)^n} $$
 
@@ -240,9 +241,9 @@ If the amount decreases by a proportion $r>0$ each period:
 
 $$ \boxed{A=P(1-r)^n} $$
 
-## C. Algebra
+### C. Algebra
 
-### C1. Exponent Laws
+#### C1. Exponent Laws
 
 $$ \boxed{a^ma^n=a^{m+n}} $$
 
@@ -266,7 +267,7 @@ How to calculate:
 
 For division, the relevant base must be nonzero. For even roots, the expression must satisfy the conditions for a real value.
 
-### C2. Algebraic Identities
+#### C2. Algebraic Identities
 
 $$ \boxed{(a+b)^2=a^2+2ab+b^2} $$
 
@@ -284,7 +285,7 @@ $$ \boxed{(a-b)^3=a^3-3a^2b+3ab^2-b^3} $$
 
 How to calculate: Check whether the expression has the structure of a square, cube, or difference of squares, then expand or factor it accordingly.
 
-### C3. Quadratic Formula
+#### C3. Quadratic Formula
 
 For:
 
@@ -304,7 +305,7 @@ How to calculate: Identify $a,b,c$, calculate $\Delta$, and substitute into the 
 - $\Delta=0$: one repeated real root.
 - $\Delta<0$: no real roots.
 
-### C4. Vieta's Formulas
+#### C4. Vieta's Formulas
 
 If $r_1,r_2$ are the roots of the quadratic equation $ax^2+bx+c=0$:
 
@@ -322,7 +323,7 @@ $$ \boxed{(r_1-r_2)^2=(r_1+r_2)^2-4r_1r_2} $$
 
 Substitute the known sum and product of the roots into these identities.
 
-### C5. Completing the Square
+#### C5. Completing the Square
 
 $$ \boxed{ ax^2+bx+c= a\left(x+\frac{b}{2a}\right)^2+ c-\frac{b^2}{4a} } $$
 
@@ -345,7 +346,7 @@ The extremum occurs at:
 
 $$ \boxed{x=-\frac b{2a}} $$
 
-### C6. Absolute Value
+#### C6. Absolute Value
 
 $$ \boxed{ |x|= \begin{cases} x,&x\ge0\\ -x,&x<0 \end{cases} } $$
 
@@ -365,7 +366,7 @@ $$ \boxed{|x-a|<d\iff a-d<x<a+d} $$
 
 $$ \boxed{|x-a|>d\iff x<a-d\text{ 或 }x>a+d} $$
 
-### C7. Radicals
+#### C7. Radicals
 
 $$ \boxed{\sqrt{ab}=\sqrt a\sqrt b} \quad(a,b\ge0) $$
 
@@ -379,7 +380,7 @@ For real variables, require $b\ge0$ and $a^2\ne b$; this keeps both the original
 
 How to calculate: Multiply the numerator and denominator by the conjugate of the denominator, using the difference of squares to remove the radical from the denominator.
 
-### C8. Arithmetic–Geometric Mean Inequality
+#### C8. Arithmetic–Geometric Mean Inequality
 
 For nonnegative real numbers $a,b$:
 
@@ -400,7 +401,7 @@ For $n$ nonnegative real numbers:
 
 $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
-### C9. Cauchy–Schwarz Inequality
+#### C9. Cauchy–Schwarz Inequality
 
 $$ \boxed{ (a^2+b^2)(c^2+d^2)\ge(ac+bd)^2 } $$
 
@@ -414,7 +415,7 @@ A common consequence:
 
 $$ \boxed{a^2+b^2\ge\frac{(a+b)^2}{2}} $$
 
-### C10. Arithmetic Sequences
+#### C10. Arithmetic Sequences
 
 $$ \boxed{a_n=a_1+(n-1)d} $$
 
@@ -435,7 +436,7 @@ How to calculate:
 - To find the sum: Multiply the number of terms by the average of the first and last terms.
 - To find the number of terms: Substitute the sum or specified term into an equation and solve for $n$, then check that it is a positive integer.
 
-### C11. Geometric Sequences
+#### C11. Geometric Sequences
 
 $$ \boxed{a_n=a_1r^{n-1}} $$
 
@@ -451,7 +452,7 @@ How to calculate: Each term is multiplied by the fixed common ratio $r$. Choose 
 
 If $r=1$, the finite sum is simply $na_1$.
 
-### C12. Standard Sums
+#### C12. Standard Sums
 
 The first $n$ positive integers:
 
@@ -475,7 +476,7 @@ $$ \boxed{\sum_{k=1}^n2k=n(n+1)} $$
 
 How to calculate: Identify whether the terms are consecutive integers, squares, cubes, odd numbers, or even numbers, then substitute the number of terms.
 
-### C13. Telescoping Sums
+#### C13. Telescoping Sums
 
 $$ \boxed{\frac1{k(k+1)}=\frac1k-\frac1{k+1}} $$
 
@@ -490,7 +491,7 @@ How to calculate:
 3. Cancel matching positive and negative terms.
 4. Evaluate only the first and last terms that remain.
 
-### C14. Binomial Theorem
+#### C14. Binomial Theorem
 
 $$ \boxed{(a+b)^n=\sum_{r=0}^{n}\binom nr a^{n-r}b^r} $$
 
@@ -518,7 +519,7 @@ $$ \boxed{\binom nr+\binom n{r-1}=\binom{n+1}r} $$
 
 $$ \boxed{\sum_{r=0}^{n}\binom nr=2^n} $$
 
-### C15. Logarithms
+#### C15. Logarithms
 
 $$ \boxed{a^x=b\iff x=\log_a b} $$
 
@@ -536,9 +537,9 @@ $$ \boxed{\log_a b=\frac{\log_c b}{\log_c a}} $$
 
 How to calculate: Interpret a logarithm problem as an exponent problem, or combine and expand logarithms using the rules for products, quotients, and powers. All logarithm arguments must be positive.
 
-## D. Number Theory
+### D. Number Theory
 
-### D1. Divisibility
+#### D1. Divisibility
 
 $$ \boxed{a\mid b\iff b=ak,\quad k\in\mathbb Z,\quad a\ne0} $$
 
@@ -552,7 +553,7 @@ Here $m,n$ are integers.
 
 That is, if $a$ divides both $b,c$, it also divides any integer linear combination of them.
 
-### D2. Divisibility Tests
+#### D2. Divisibility Tests
 
 | Divisor | Test |
 | --- | --- |
@@ -568,7 +569,7 @@ That is, if $a$ divides both $b,c$, it also divides any integer linear combinati
 | 12 | Check divisibility by both 3 and 4. |
 | 25 | Check whether the number formed by the last two digits is divisible by 25. |
 
-### D3. Prime Numbers
+#### D3. Prime Numbers
 
 A positive integer $p>1$ is prime if and only if its only positive divisors are 1 and $p$.
 
@@ -580,7 +581,7 @@ to see whether any of them divides $N$.
 
 If no prime in the range divides it, $N$ is prime.
 
-### D4. Prime Factorisation
+#### D4. Prime Factorisation
 
 For $N>1$:
 
@@ -590,7 +591,7 @@ How to calculate: Start with the smallest primes and repeatedly divide, combinin
 
 The $p_i$ are distinct primes, and the $a_i$ are positive integers.
 
-### D5. Number of Divisors
+#### D5. Number of Divisors
 
 $$ \boxed{d(N)=\prod_{i=1}^k(a_i+1)} $$
 
@@ -602,7 +603,7 @@ How to calculate: Add 1 to each prime exponent, then multiply the results.
 
 For $N=1$, the number of divisors is 1.
 
-### D6. Sum of Divisors
+#### D6. Sum of Divisors
 
 $$ \boxed{ \sigma(N)= \prod_{i=1}^k \left(1+p_i+p_i^2+\cdots+p_i^{a_i}\right) } $$
 
@@ -612,7 +613,7 @@ $$ \boxed{ \sigma(N)= \prod_{i=1}^k \frac{p_i^{a_i+1}-1}{p_i-1} } $$
 
 How to calculate: For each prime factor, add all its powers from the zeroth power through its highest power, then multiply the sums for all prime factors.
 
-### D7. Product of Divisors
+#### D7. Product of Divisors
 
 $$ \boxed{P(N)=N^{d(N)/2}} $$
 
@@ -620,13 +621,13 @@ How to calculate: First find the number of positive divisors $d(N)$, then divide
 
 The formula still holds even when $d(N)$ is odd.
 
-### D8. Square Divisors
+#### D8. Square Divisors
 
 $$ \boxed{ d_{\mathrm{square}}(N)= \prod_{i=1}^k \left(\left\lfloor\frac{a_i}{2}\right\rfloor+1\right) } $$
 
 How to calculate: For each prime factor, count how many even exponents lie between 0 and $a_i$, then multiply the counts.
 
-### D9. Perfect Powers
+#### D9. Perfect Powers
 
 A positive integer $N$ is a perfect $m$th power if and only if every exponent in its prime factorisation is a multiple of $m$.
 
@@ -634,7 +635,7 @@ $$ \boxed{ N=x^m\iff m\mid a_i\text{ 对所有 }i } $$
 
 How to calculate: After factoring into primes, check whether each exponent is divisible by $m$.
 
-### D10. GCD and LCM
+#### D10. GCD and LCM
 
 $$ \boxed{\gcd(a,b)\operatorname{lcm}(a,b)=ab} $$
 
@@ -655,13 +656,13 @@ How to calculate:
 - Greatest common divisor: Use the smaller exponent for each prime.
 - Least common multiple: Use the larger exponent for each prime.
 
-### D11. Euclidean Algorithm
+#### D11. Euclidean Algorithm
 
 $$ \boxed{\gcd(a,b)=\gcd(b,a\bmod b)} $$
 
 How to calculate: Repeatedly replace the two numbers with the divisor and remainder until the remainder is zero. The last nonzero remainder is the GCD.
 
-### D12. Coprime
+#### D12. Coprime
 
 $$ \boxed{\gcd(a,b)=1} $$
 
@@ -671,7 +672,7 @@ Consecutive integers satisfy:
 
 $$ \boxed{\gcd(n,n+1)=1} $$
 
-### D13. Euler's Totient Function
+#### D13. Euler's Totient Function
 
 $$ \boxed{ \varphi(N)=N\prod_{p\mid N}\left(1-\frac1p\right) } $$
 
@@ -699,7 +700,7 @@ By definition:
 
 $$ \boxed{\varphi(1)=1} $$
 
-### D14. Modular Arithmetic
+#### D14. Modular Arithmetic
 
 $$ \boxed{a\equiv b\pmod m} $$
 
@@ -723,7 +724,7 @@ The last formula applies to nonnegative integer exponents.
 
 Note: Division in modular arithmetic cannot be used arbitrarily.
 
-### D15. Remainder Representation
+#### D15. Remainder Representation
 
 $$ \boxed{N=dq+r} $$
 
@@ -735,7 +736,7 @@ Here $d$ is a positive divisor, $q$ is the integer quotient, and $r$ is the rema
 
 How to calculate: Rewrite “division by $d$ leaves remainder $r$” as $N=dq+r$, then use the other conditions to find the integer $q$.
 
-### D16. Units Digit Cycles
+#### D16. Units Digit Cycles
 
 $$ \boxed{\text{Last digit of }N=N\bmod10} $$
 
@@ -764,7 +765,7 @@ The table applies to positive integer exponents.
 
 For the last two digits, use modulo 100; for the last three digits, use modulo 1000. The cycle must be determined again.
 
-### D17. Fermat's Little Theorem
+#### D17. Fermat's Little Theorem
 
 If $p$ is prime and $p\nmid a$:
 
@@ -772,7 +773,7 @@ $$ \boxed{a^{p-1}\equiv1\pmod p} $$
 
 How to calculate: Group the large exponent in blocks of $p-1$, using the fact that each block has remainder 1 modulo $p$ to simplify the calculation.
 
-### D18. Euler's Theorem
+#### D18. Euler's Theorem
 
 If:
 
@@ -784,7 +785,7 @@ $$ \boxed{a^{\varphi(m)}\equiv1\pmod m} $$
 
 How to calculate: First calculate $\varphi(m)$, then use the periodicity of powers to simplify the remainder.
 
-### D19. Prime Exponents in Factorials
+#### D19. Prime Exponents in Factorials
 
 $$ \boxed{ v_p(n!)= \sum_{j=1}^{\infty} \left\lfloor\frac n{p^j}\right\rfloor } $$
 
@@ -796,7 +797,7 @@ $$ \boxed{ \left\lfloor\frac np\right\rfloor+ \left\lfloor\frac n{p^2}\right\rfl
 
 How to calculate: Divide by $p,p^2,p^3,\ldots$ in turn, take the floor each time, and add the results until the quotient is less than 1.
 
-### D20. Trailing Zeros
+#### D20. Trailing Zeros
 
 In base 10:
 
@@ -804,7 +805,7 @@ $$ \boxed{ Z(n!)= \left\lfloor\frac n5\right\rfloor+ \left\lfloor\frac n{25}\rig
 
 How to calculate: Count the total exponent of 5 in $n!$, since there are always enough factors of 2.
 
-### D21. Number Bases
+#### D21. Number Bases
 
 $$ \boxed{ (a_na_{n-1}\cdots a_0)_b =\sum_{i=0}^{n}a_i b^i } $$
 
@@ -817,7 +818,7 @@ How to calculate: Starting from the rightmost digit, multiply the digits by $b^0
 
 To convert from decimal to base $b$, repeatedly divide by $b$, record the remainders, and read them in reverse order.
 
-### D22. Digit Sum
+#### D22. Digit Sum
 
 Let the base-10 integer $N$ have digit sum $S$:
 
@@ -827,7 +828,7 @@ $$ \boxed{N\equiv S\pmod3} $$
 
 How to calculate: Add the digits, then find the sum's remainder when divided by 3 or 9.
 
-### D23. Reversed Digits
+#### D23. Reversed Digits
 
 A three-digit number:
 
@@ -843,7 +844,7 @@ $$ \boxed{N-R=99(a-c)} $$
 
 How to calculate: Express each digit times its place value, write expressions for the original and reversed numbers, then subtract.
 
-### D24. Linear Diophantine Equations
+#### D24. Linear Diophantine Equations
 
 For integers $a,b,c$, with $a,b$ not both zero:
 
@@ -857,7 +858,7 @@ How to calculate: First find the GCD and check whether it divides $c$. If it doe
 
 If positive or nonnegative integer solutions are required, their ranges must also be checked.
 
-### D25. Counting Multiples
+#### D25. Counting Multiples
 
 $$ \boxed{ M(1,N;k)=\left\lfloor\frac Nk\right\rfloor } $$
 
@@ -867,9 +868,9 @@ Here $A,B,k$ are positive integers, with $A\le B$.
 
 How to calculate: Count the multiples up to the upper endpoint, then subtract the number of multiples below the lower endpoint.
 
-## E. Combinatorics
+### E. Combinatorics
 
-### E1. Addition Principle
+#### E1. Addition Principle
 
 $$ \boxed{N=N_1+N_2+\cdots+N_k} $$
 
@@ -877,7 +878,7 @@ How to calculate: Count each of the mutually exclusive cases separately, then ad
 
 If the cases overlap, correct for the overlap using the inclusion–exclusion principle.
 
-### E2. Multiplication Principle
+#### E2. Multiplication Principle
 
 $$ \boxed{N=N_1N_2\cdots N_k} $$
 
@@ -885,7 +886,7 @@ How to calculate: Divide the process into steps, count the choices at each step,
 
 The counts for the steps must be valid; if the choices at a step depend on earlier choices, further cases may need to be considered.
 
-### E3. Permutations
+#### E3. Permutations
 
 $$ \boxed{P(n,r)=\frac{n!}{(n-r)!}} $$
 
@@ -897,7 +898,7 @@ $$ \boxed{n(n-1)\cdots(n-r+1)} $$
 
 This is a product of $r$ factors.
 
-### E4. Combinations
+#### E4. Combinations
 
 $$ \boxed{\binom nr=\frac{n!}{r!(n-r)!}} $$
 
@@ -905,7 +906,7 @@ How to calculate: From $n$ distinct objects, choose $r$, where order does not ma
 
 You can first calculate the number of permutations, then divide by $r!$ to remove the different orderings of the same group.
 
-### E5. Selections with Repetition
+#### E5. Selections with Repetition
 
 Choose from $n$ distinct types a total of $r$ times:
 
@@ -922,7 +923,7 @@ How to calculate:
 - Order matters: There are $n$ choices for each position.
 - Order does not matter: Use stars and bars to count how many items of each type are chosen.
 
-### E6. Permutations of Identical Objects
+#### E6. Permutations of Identical Objects
 
 Suppose there are $n$ objects in total, with $a_1,a_2,\ldots,a_k$ identical objects of each type:
 
@@ -934,7 +935,7 @@ $$ a_1+\cdots+a_k=n $$
 
 How to calculate: First count the permutations as if all objects were distinct, then divide by the number of permutations within each group of identical objects.
 
-### E7. Circular Permutations
+#### E7. Circular Permutations
 
 Arrange $n$ distinct objects in a circle, with rotations considered equivalent:
 
@@ -946,7 +947,7 @@ $$ \boxed{\frac{(n-1)!}{2}} $$
 
 How to calculate: Fix one object to eliminate equivalent rotations. If reflections are also equivalent, divide by 2 as well.
 
-### E8. Stars and Bars
+#### E8. Stars and Bars
 
 Count the nonnegative integer solutions to:
 
@@ -967,7 +968,7 @@ How to calculate:
 
 If the variables have different lower bounds $L_i$, set $y_i=x_i-L_i$ first, then use the formula for nonnegative integer solutions.
 
-### E9. Inclusion–Exclusion Principle
+#### E9. Inclusion–Exclusion Principle
 
 For two sets:
 
@@ -979,13 +980,13 @@ $$ \boxed{ \begin{aligned} |A\cup B\cup C| ={}&|A|+|B|+|C|\\ &-|A\cap B|-|A\cap 
 
 How to calculate: Add the individual set counts, subtract the pairwise intersections, then add the three-way intersection back. For more sets, continue alternating between addition and subtraction.
 
-### E10. Complementary Counting
+#### E10. Complementary Counting
 
 $$ \boxed{N_{\mathrm{wanted}}=N_{\mathrm{total}}-N_{\mathrm{unwanted}}} $$
 
 How to calculate: Count all possibilities, then subtract the ones that do not satisfy the requirement.
 
-### E11. Block Method
+#### E11. Block Method
 
 If $k$ specified distinct objects must be adjacent, and there are $n$ distinct objects in total:
 
@@ -995,7 +996,7 @@ How to calculate: Treat the specified $k$ objects as one block, arrange the rema
 
 This formula applies only to linear arrangements with no other restrictions.
 
-### E12. Lattice Paths
+#### E12. Lattice Paths
 
 If a path uses only $m$ steps to the right and $n$ steps up:
 
@@ -1013,7 +1014,7 @@ $$ \boxed{N_{\mathrm{allowed}}=N_{\mathrm{total}}-N_{\mathrm{through}\ P}} $$
 
 The destination and intermediate points must be consistent with the permitted directions of travel.
 
-### E13. Pigeonhole Principle
+#### E13. Pigeonhole Principle
 
 If $N$ objects are placed into $k$ categories:
 
@@ -1027,7 +1028,7 @@ $$ \boxed{N_{\min}=k(r-1)+1} $$
 
 How to calculate: First place at most $r-1$ objects in every category, then add one more object.
 
-### E14. Recurrence Relations
+#### E14. Recurrence Relations
 
 $$ \boxed{a_n=f(a_{n-1},a_{n-2},\ldots)} $$
 
@@ -1039,7 +1040,7 @@ $$ \boxed{F_n=F_{n-1}+F_{n-2}} $$
 
 The starting terms must be determined by the definition in the problem.
 
-### E15. Derangements
+#### E15. Derangements
 
 Arrange $n$ distinct objects so that none returns to its original position:
 
@@ -1059,7 +1060,7 @@ Initial values:
 
 $$ D_0=1,\qquad D_1=0 $$
 
-### E16. Handshake Lemma
+#### E16. Handshake Lemma
 
 For an undirected graph:
 
@@ -1076,7 +1077,7 @@ If $n$ objects are connected in pairs with no duplicate connections:
 
 $$ \boxed{E=\binom n2=\frac{n(n-1)}2} $$
 
-### E17. Line Intersections
+#### E17. Line Intersections
 
 For $n$ distinct lines, with no two parallel and no three concurrent:
 
@@ -1084,7 +1085,7 @@ $$ \boxed{I=\binom n2} $$
 
 How to calculate: Choose two lines from the set; each pair produces a distinct intersection.
 
-### E18. Circle Chord Intersections
+#### E18. Circle Chord Intersections
 
 Given $n$ distinct points on a circle, connect every pair, and assume no three chords intersect at the same interior point:
 
@@ -1092,9 +1093,9 @@ $$ \boxed{I=\binom n4} $$
 
 How to calculate: Each choice of four points determines a pair of chords that intersect inside the circle, so choose four points from the $n$.
 
-## F. Probability and Statistics
+### F. Probability and Statistics
 
-### F1. Classical Probability
+#### F1. Classical Probability
 
 When all elementary outcomes are equally likely:
 
@@ -1107,13 +1108,13 @@ Here:
 
 How to calculate: Count the outcomes that meet the requirement, then divide by the total number of outcomes.
 
-### F2. Complement Rule
+#### F2. Complement Rule
 
 $$ \boxed{P(A^c)=1-P(A)} $$
 
 How to calculate: Subtract the probability of the complementary event from 1.
 
-### F3. Addition Rule
+#### F3. Addition Rule
 
 $$ \boxed{P(A\cup B)=P(A)+P(B)-P(A\cap B)} $$
 
@@ -1123,7 +1124,7 @@ $$ \boxed{P(A\cup B)=P(A)+P(B)} $$
 
 How to calculate: Add the probabilities of the two events, then subtract the probability of their intersection, which was counted twice.
 
-### F4. Multiplication Rule
+#### F4. Multiplication Rule
 
 $$ \boxed{P(A\cap B)=P(A)P(B\mid A)} $$
 
@@ -1135,7 +1136,7 @@ How to calculate: Multiply the probability of the first event by the conditional
 
 For independent events, the probability of the second event is not affected by the first.
 
-### F5. Conditional Probability
+#### F5. Conditional Probability
 
 $$ \boxed{P(A\mid B)=\frac{P(A\cap B)}{P(B)}} $$
 
@@ -1143,7 +1144,7 @@ This requires $P(B)>0$.
 
 How to calculate: Given that B occurred, consider only the outcomes corresponding to B and find the proportion of those that also satisfy A.
 
-### F6. Binomial Probability
+#### F6. Binomial Probability
 
 $$ \boxed{ P(X=k)=\binom nk p^k(1-p)^{n-k} } $$
 
@@ -1162,7 +1163,7 @@ How to calculate:
 
 The trials must be independent and have the same probability of success.
 
-### F7. Hypergeometric Probability
+#### F7. Hypergeometric Probability
 
 From $N$ distinct objects, draw $n$ without replacement. Of these, $K$ are target objects. The probability of drawing exactly $k$ target objects is:
 
@@ -1170,7 +1171,7 @@ $$ \boxed{ P(X=k)= \frac{\binom Kk\binom{N-K}{n-k}}{\binom Nn} } $$
 
 How to calculate: Choose the required number from the target group and from the nontarget group, multiply those two combination counts, then divide by the total number of possible selections.
 
-### F8. Expected Value
+#### F8. Expected Value
 
 $$ \boxed{E(X)=\sum_i x_iP(X=x_i)} $$
 
@@ -1182,7 +1183,7 @@ $$ \boxed{E(X+Y)=E(X)+E(Y)} $$
 
 This holds even if the random variables are not independent.
 
-### F9. Geometric Probability
+#### F9. Geometric Probability
 
 For a uniform random choice:
 
@@ -1194,7 +1195,7 @@ $$ \boxed{ P(A)=\frac{\text{Favourable Length}}{\text{Total Length}} } $$
 
 How to calculate: Determine whether the basic random quantity is area, length, or another measure, then find the ratio of the favourable part to the whole.
 
-### F10. Mean, Median, Mode, and Range
+#### F10. Mean, Median, Mode, and Range
 
 Mean:
 
@@ -1211,9 +1212,9 @@ How to calculate:
 - Mode: Find the value that occurs most often.
 - Range: Subtract the minimum value from the maximum.
 
-## G. Plane Geometry
+### G. Plane Geometry
 
-### G1. Basic Angle Rules
+#### G1. Basic Angle Rules
 
 Straight angle:
 
@@ -1235,7 +1236,7 @@ When a transversal crosses parallel lines:
 - Alternate Interior Angles are equal.
 - Co-interior Angles sum to $180^\circ$.
 
-### G2. Triangle Angle Sum
+#### G2. Triangle Angle Sum
 
 $$ \boxed{A+B+C=180^\circ} $$
 
@@ -1247,7 +1248,7 @@ Here A and B are the two interior angles not adjacent to the exterior angle.
 
 How to calculate: If two interior angles are known, subtract them from 180°. If the two remote interior angles are known, add them to get the corresponding exterior angle.
 
-### G3. Isosceles and Equilateral Triangles
+#### G3. Isosceles and Equilateral Triangles
 
 In an isosceles triangle, equal sides have equal opposite base angles.
 
@@ -1265,7 +1266,7 @@ $$ \boxed{S=\frac{\sqrt3}{4}a^2} $$
 
 How to calculate: Draw the height of an equilateral triangle to divide it into two 30°–60°–90° right triangles, then use the side ratios to find the height and area.
 
-### G4. Triangle Inequality
+#### G4. Triangle Inequality
 
 $$ \boxed{|a-b|<c<a+b} $$
 
@@ -1275,7 +1276,7 @@ How to calculate: Given two sides, the third side must be greater than the absol
 
 If the third side must be an integer, count the integers in this open interval.
 
-### G5. Pythagorean Theorem
+#### G5. Pythagorean Theorem
 
 For a right triangle:
 
@@ -1298,7 +1299,7 @@ Common integer side triples:
 
 Integer multiples of these triples also satisfy the Pythagorean theorem.
 
-### G6. Special Right Triangles
+#### G6. Special Right Triangles
 
 45°–45°–90°
 
@@ -1310,7 +1311,7 @@ $$ \boxed{1:\sqrt3:2} $$
 
 How to calculate: Identify the triangle from its angles, use the corresponding side ratio, and take the given side length as the scale factor.
 
-### G7. Triangle Area
+#### G7. Triangle Area
 
 $$ \boxed{S=\frac12 bh} $$
 
@@ -1329,7 +1330,7 @@ For triangles with the same base:
 
 $$ \boxed{\frac{S_1}{S_2}=\frac{h_1}{h_2}} $$
 
-### G8. Heron's Formula
+#### G8. Heron's Formula
 
 $$ \boxed{s=\frac{a+b+c}{2}} $$
 
@@ -1339,7 +1340,7 @@ Here $s$ is the semiperimeter.
 
 How to calculate: Given the three side lengths, first find the semiperimeter, then multiply the four factors and take the square root.
 
-### G9. Similar Triangles
+#### G9. Similar Triangles
 
 If two triangles are similar and the ratio of corresponding side lengths is $k$:
 
@@ -1355,13 +1356,13 @@ Similarity tests:
 - SAS: Two pairs of corresponding sides are proportional, and the included angles are equal.
 - SSS: All three pairs of corresponding sides are proportional.
 
-### G10. Congruent Triangles
+#### G10. Congruent Triangles
 
 Common congruence tests are SSS, SAS, ASA, AAS, and RHS/HL.
 
 How to calculate: Determine whether the corresponding sides and angles satisfy a congruence test. Once the triangles are congruent, all corresponding sides, angles, and areas are equal.
 
-### G11. Angle Bisector Theorem
+#### G11. Angle Bisector Theorem
 
 In triangle $ABC$, $AD$ bisects $\angle A$, and $D$ lies on $BC$:
 
@@ -1369,7 +1370,7 @@ $$ \boxed{\frac{BD}{DC}=\frac{AB}{AC}} $$
 
 How to calculate: Use the ratio of the two adjacent sides to find the ratio in which the angle bisector divides the opposite side, then use $BD+DC=BC$ to find the lengths.
 
-### G12. Median and Centroid
+#### G12. Median and Centroid
 
 If $AD$ is a median of a triangle and $G$ is the centroid:
 
@@ -1385,7 +1386,7 @@ A median divides a triangle into two equal areas:
 
 $$ \boxed{S_1=S_2} $$
 
-### G13. Incenter and Incircle
+#### G13. Incenter and Incircle
 
 $$ \boxed{S=rs} $$
 
@@ -1397,7 +1398,7 @@ Here:
 
 How to calculate: Divide the area by the semiperimeter to find the inradius, or multiply the inradius by the semiperimeter to find the area.
 
-### G14. Circumcenter and Circumcircle
+#### G14. Circumcenter and Circumcircle
 
 $$ \boxed{S=\frac{abc}{4R}} $$
 
@@ -1419,7 +1420,7 @@ $$ \boxed{R=\frac c2} $$
 
 Here $c$ is the hypotenuse.
 
-### G15. Right Triangle Altitude Theorem
+#### G15. Right Triangle Altitude Theorem
 
 If the hypotenuse has length $c$ and the altitude $h$ divides it into segments $m,n$:
 
@@ -1435,7 +1436,7 @@ $$ \boxed{b^2=cn} $$
 
 How to calculate: Use the ratios of corresponding sides in the similar triangles to form the squared relationships and find the altitude or a leg.
 
-### G16. Quadrilaterals
+#### G16. Quadrilaterals
 
 | Shape | Formula | Calculation |
 | --- | --- | --- |
@@ -1449,7 +1450,7 @@ How to calculate: Use the ratios of corresponding sides in the similar triangles
 
 Here $l,w$ are the length and width, $b,h$ are the base and perpendicular height, and $d_i$ are diagonal lengths.
 
-### G17. Polygon Angles
+#### G17. Polygon Angles
 
 Sum of the interior angles of an $n$-gon:
 
@@ -1465,13 +1466,13 @@ $$ \boxed{\frac{360^\circ}{n}} $$
 
 How to calculate: Substitute the number of sides $n$ into the appropriate formula. For a convex polygon, if one exterior angle is taken in the same direction at each vertex, the exterior angles sum to $360^\circ$.
 
-### G18. Polygon Diagonals
+#### G18. Polygon Diagonals
 
 $$ \boxed{D=\frac{n(n-3)}2} $$
 
 How to calculate: From each vertex, draw diagonals to the $n-3$ nonadjacent vertices, multiply by $n$, then divide by 2 to remove duplicate counts.
 
-### G19. Regular Polygon Area
+#### G19. Regular Polygon Area
 
 $$ \boxed{S=\frac12Pa} $$
 
@@ -1486,7 +1487,7 @@ For a regular hexagon with side length $s$:
 
 $$ \boxed{S=\frac{3\sqrt3}{2}s^2} $$
 
-### G20. Circle
+#### G20. Circle
 
 Circumference:
 
@@ -1502,7 +1503,7 @@ $$ \boxed{d=2r} $$
 
 How to calculate: Use the radius in the relevant formula.
 
-### G21. Arc Length
+#### G21. Arc Length
 
 For a central angle of $\theta^\circ$:
 
@@ -1510,7 +1511,7 @@ $$ \boxed{L=\frac{\theta}{360^\circ}2\pi r} $$
 
 How to calculate: Divide the central angle by 360° to find the fraction of the circle represented by the arc, then multiply by the full circumference.
 
-### G22. Sector Area
+#### G22. Sector Area
 
 $$ \boxed{S_{\mathrm{sector}}=\frac{\theta}{360^\circ}\pi r^2} $$
 
@@ -1524,7 +1525,7 @@ Annulus area:
 
 $$ \boxed{S_{\mathrm{annulus}}=\pi(R^2-r^2)} $$
 
-### G23. Inscribed Angle Theorem
+#### G23. Inscribed Angle Theorem
 
 For the same arc:
 
@@ -1536,7 +1537,7 @@ An angle subtended by a semicircle:
 
 $$ \boxed{90^\circ} $$
 
-### G24. Cyclic Quadrilaterals
+#### G24. Cyclic Quadrilaterals
 
 For a cyclic quadrilateral $ABCD$:
 
@@ -1546,7 +1547,7 @@ $$ \boxed{B+D=180^\circ} $$
 
 How to calculate: Given one interior angle, subtract it from $180^\circ$ to find the opposite angle.
 
-### G25. Tangents
+#### G25. Tangents
 
 The radius is perpendicular to the tangent at the point of tangency:
 
@@ -1558,7 +1559,7 @@ $$ \boxed{PA=PB} $$
 
 How to calculate: Use the perpendicular relationship to form a right triangle, or use the equal lengths of tangents from the same point.
 
-### G26. Chord Length
+#### G26. Chord Length
 
 For a circle of radius $r$, with perpendicular distance $d$ from the centre to the chord:
 
@@ -1566,7 +1567,7 @@ $$ \boxed{L=2\sqrt{r^2-d^2}} $$
 
 How to calculate: Bisect the chord, use the Pythagorean theorem to find half its length, then multiply by 2.
 
-### G27. Intersecting Chords Theorem
+#### G27. Intersecting Chords Theorem
 
 Two chords $AB,CD$ intersect at P inside a circle:
 
@@ -1574,7 +1575,7 @@ $$ \boxed{PA\cdot PB=PC\cdot PD} $$
 
 How to calculate: Multiply the lengths of the two segments on each chord, then set the products equal.
 
-### G28. Power of a Point
+#### G28. Power of a Point
 
 Two secants from the same external point P:
 
@@ -1588,7 +1589,7 @@ $$ \boxed{PT^2=PA\cdot PB} $$
 
 How to calculate: Multiply the external segment by the full length from P to the farther intersection. For a tangent, square its length.
 
-### G29. Circle Intersection Angles
+#### G29. Circle Intersection Angles
 
 Two chords intersect inside a circle:
 
@@ -1602,21 +1603,21 @@ Here $\alpha,\beta$ are the measures of the corresponding intercepted arcs. In t
 
 How to calculate: Depending on whether the intersection is inside or outside the circle, add or subtract the arc measures, then divide by 2.
 
-## H. Coordinate Geometry
+### H. Coordinate Geometry
 
-### H1. Distance Formula
+#### H1. Distance Formula
 
 $$ \boxed{ d=\sqrt{(x_2-x_1)^2+(y_2-y_1)^2} } $$
 
 How to calculate: Square the difference of the x-coordinates, add the square of the difference of the y-coordinates, then take the square root.
 
-### H2. Midpoint Formula
+#### H2. Midpoint Formula
 
 $$ \boxed{ M=\left(\frac{x_1+x_2}{2},\frac{y_1+y_2}{2}\right) } $$
 
 How to calculate: Find the mean of the two x-coordinates and the mean of the two y-coordinates.
 
-### H3. Slope
+#### H3. Slope
 
 $$ \boxed{m=\frac{y_2-y_1}{x_2-x_1}} $$
 
@@ -1624,7 +1625,7 @@ This requires $x_1\ne x_2$.
 
 How to calculate: Divide the change in the y-coordinate by the change in the x-coordinate.
 
-### H4. Equations of Lines
+#### H4. Equations of Lines
 
 Slope–intercept form:
 
@@ -1644,13 +1645,13 @@ $$ \boxed{m_1m_2=-1} $$
 
 How to calculate: Given a point and a slope, use point–slope form. Given two points, first calculate the slope, then substitute one of the points.
 
-### H5. Triangle Area from Coordinates
+#### H5. Triangle Area from Coordinates
 
 $$ \boxed{ S=\frac12\left| x_1(y_2-y_3)+x_2(y_3-y_1)+x_3(y_1-y_2) \right| } $$
 
 How to calculate: Multiply across and add as indicated by the formula, then take the absolute value and divide by 2.
 
-### H6. Shoelace Formula
+#### H6. Shoelace Formula
 
 For polygon vertices listed in boundary order:
 
@@ -1666,7 +1667,7 @@ $$ \boxed{ S=\frac12\left| \sum_{i=1}^n x_i y_{i+1} - \sum_{i=1}^n y_i x_{i+1} \
 
 How to calculate: Add the products along one diagonal direction, add the products in the opposite direction, subtract the sums, take the absolute value, and divide by 2.
 
-### H7. Pick's Theorem
+#### H7. Pick's Theorem
 
 Applies to a simple polygon whose vertices lie on lattice points:
 
@@ -1679,7 +1680,7 @@ Here:
 
 How to calculate: Add the number of interior lattice points to half the number of boundary lattice points, then subtract 1.
 
-### H8. Coordinate Transformations
+#### H8. Coordinate Transformations
 
 | Transformation | New coordinates |
 | --- | --- |
@@ -1693,9 +1694,9 @@ How to calculate: Add the number of interior lattice points to half the number o
 
 Rotations are centred at the origin.
 
-## I. Solid Geometry
+### I. Solid Geometry
 
-### I1. Cube
+#### I1. Cube
 
 For side length $a$:
 
@@ -1709,7 +1710,7 @@ $$ \boxed{d=a\sqrt3} $$
 
 How to calculate: Cube the side length for the volume. Add the areas of the six equal squares for the surface area. Use the three-dimensional Pythagorean relationship for the space diagonal.
 
-### I2. Rectangular Prism
+#### I2. Rectangular Prism
 
 $$ \boxed{V=lwh} $$
 
@@ -1719,7 +1720,7 @@ $$ \boxed{d=\sqrt{l^2+w^2+h^2}} $$
 
 Here $l,w,h$ are the length, width, and height, respectively.
 
-### I3. Cylinder
+#### I3. Cylinder
 
 $$ \boxed{V=\pi r^2h} $$
 
@@ -1727,7 +1728,7 @@ $$ \boxed{S=2\pi r^2+2\pi rh} $$
 
 How to calculate: Multiply the base area by the height to find the volume. Add the areas of the two circular bases and the lateral surface to find the total surface area.
 
-### I4. Cone
+#### I4. Cone
 
 $$ \boxed{V=\frac13\pi r^2h} $$
 
@@ -1745,7 +1746,7 @@ Total surface area:
 
 $$ \boxed{S=\pi r^2+\pi rl} $$
 
-### I5. Sphere
+#### I5. Sphere
 
 $$ \boxed{V=\frac43\pi r^3} $$
 
@@ -1753,7 +1754,7 @@ $$ \boxed{S=4\pi r^2} $$
 
 How to calculate: Multiply the cube of the radius by $4\pi/3$ for the volume, and multiply the square of the radius by $4\pi$ for the surface area.
 
-### I6. Prism and Pyramid
+#### I6. Prism and Pyramid
 
 Prism:
 
@@ -1765,7 +1766,7 @@ $$ \boxed{V=\frac13S_{\mathrm{base}}h} $$
 
 How to calculate: Multiply the base area by the perpendicular height. For a pyramid, divide the result by 3.
 
-### I7. Similar Solids
+#### I7. Similar Solids
 
 If the ratio of corresponding lengths is $k$:
 
@@ -1775,7 +1776,7 @@ $$ \boxed{\frac{V_1}{V_2}=k^3} $$
 
 How to calculate: The area ratio is the square of the length ratio, and the volume ratio is the cube of the length ratio.
 
-### I8. Euler's Polyhedron Formula
+#### I8. Euler's Polyhedron Formula
 
 For a convex polyhedron:
 
@@ -1789,9 +1790,9 @@ Here:
 
 How to calculate: Substitute the two known quantities into the formula and solve for the third.
 
-## J. Other Mathematical Techniques
+### J. Other Mathematical Techniques
 
-### J1. Parity
+#### J1. Parity
 
 Even integer:
 
@@ -1805,7 +1806,7 @@ Here $k\in\mathbb Z$.
 
 How to calculate: Express integers in the forms $2m$ or $2m+1$, simplify the result, then determine whether it is even or odd.
 
-### J2. Invariants
+#### J2. Invariants
 
 If an operation always changes a number by $km$, then:
 
@@ -1813,7 +1814,7 @@ $$ \boxed{N_{\mathrm{new}}\equiv N_{\mathrm{old}}\pmod m} $$
 
 How to calculate: Look for a remainder, parity, difference in colour counts, or other quantity that does not change under each operation. Use it to determine whether a particular outcome is possible.
 
-### J3. Bounds
+#### J3. Bounds
 
 $$ \boxed{L\le x\le U} $$
 
@@ -1821,7 +1822,7 @@ Here $L$ is a lower bound and $U$ is an upper bound.
 
 How to calculate: Use nonnegativity, comparisons, monotonicity, or inequalities to establish a range, then compare it with the answer choices or integer conditions.
 
-### J4. Symmetric Expressions
+#### J4. Symmetric Expressions
 
 Given:
 
@@ -1837,7 +1838,7 @@ $$ \boxed{(a-b)^2=s^2-4p} $$
 
 How to calculate: Express higher powers of two numbers in terms of their sum and product, avoiding the need to find $a,b$ first.
 
-### J5. Clock Angles
+#### J5. Clock Angles
 
 Using a 12-hour clock, let $h\in\{0,1,\ldots,11\}$, and let $m$ be the number of minutes:
 
@@ -1859,7 +1860,7 @@ $$ \boxed{\theta=\min(\Delta,360^\circ-\Delta)} $$
 
 How to calculate: Find the angle of each hand measured from the 12 o'clock direction, find the difference, then take the smaller angle.
 
-### J6. Double Counting
+#### J6. Double Counting
 
 Core relationship:
 
@@ -1871,7 +1872,7 @@ A common example:
 
 $$ \boxed{\sum\deg(v)=2E} $$
 
-### J7. AM–GM for Multiple Nonnegative Numbers
+#### J7. AM–GM for Multiple Nonnegative Numbers
 
 For nonnegative real numbers $x_1,\ldots,x_n$:
 
@@ -1881,13 +1882,13 @@ How to calculate: When the sum of nonnegative variables is fixed, use this inequ
 
 Equality holds when all the variables are equal.
 
-# Part II: How to Choose a Formula
+## Part II: How to Choose a Formula
 
 This section groups problems by the English keywords in the question, the given conditions, and what is being asked.
 
 The same keyword may point to different formulas; choose based on the actual restrictions in the problem.
 
-## 1. Arithmetic and Algebra
+### 1. Arithmetic and Algebra
 
 | Problem conditions / English Keywords | How to recognize it | Formula to use |
 | --- | --- | --- |
@@ -1913,7 +1914,7 @@ The same keyword may point to different formulas; choose based on the actual res
 | coefficient of a term | Find the coefficient of a specified term in a binomial expansion. | Binomial Theorem |
 | exponential growth | A fixed percentage change occurs each period. | Compound Growth |
 
-## 2. Number Theory
+### 2. Number Theory
 
 | Problem conditions / English Keywords | How to recognize it | Formula to use |
 | --- | --- | --- |
@@ -1940,7 +1941,7 @@ The same keyword may point to different formulas; choose based on the actual res
 | sum of digits | Use the digit sum to test divisibility. | Modulo 3 / 9 |
 | reversed digits | Work with a number whose digits are reversed. | Place-value expansion |
 
-## 3. Counting
+### 3. Counting
 
 First determine whether order matters, then whether repetition is allowed:
 
@@ -1975,7 +1976,7 @@ Other counting problems:
 | no one gets their own item | Every object is out of its original position. | Derangements |
 | handshakes / pairwise meetings | Count pairs of objects. | $\binom n2$ |
 
-## 4. Probability
+### 4. Probability
 
 | Problem conditions / English Keywords | How to recognize it | Formula to use |
 | --- | --- | --- |
@@ -1991,7 +1992,7 @@ Other counting problems:
 | random point in a region | A point is chosen uniformly at random from a region. | Area ratio |
 | random point on a segment | A point is chosen uniformly at random from a line segment. | Length ratio |
 
-## 5. Geometry
+### 5. Geometry
 
 | Problem conditions / English Keywords | How to recognize it | Formula to use |
 | --- | --- | --- |
@@ -2020,7 +2021,7 @@ Other counting problems:
 | distance from center to chord | Distance from the centre to a chord. | $L=2\sqrt{r^2-d^2}$ |
 | lattice polygon | A polygon with lattice-point vertices. | Pick's Theorem |
 
-## 6. Coordinate and Solid Geometry
+### 6. Coordinate and Solid Geometry
 
 | Problem condition | Formula to use |
 | --- | --- |
@@ -2040,11 +2041,11 @@ Other counting problems:
 | Volume ratio of similar solids | Cube of the length ratio. |
 | Number of vertices, edges, and faces of a polyhedron | Euler's Polyhedron Formula |
 
-# Part III: Formula Quick Reference
+## Part III: Formula Quick Reference
 
 This section lists only the formulas, their English names, and essential conditions.
 
-## 1. Arithmetic
+### 1. Arithmetic
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2060,7 +2061,7 @@ This section lists only the formulas, their English names, and essential conditi
 | Concentration | $c=\frac{\text{Solute}}{\text{Solution}}$ |
 | Compound Growth | $A=P(1+r)^n$ |
 
-## 2. Algebra
+### 2. Algebra
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2088,7 +2089,7 @@ This section lists only the formulas, their English names, and essential conditi
 
 Conditions: Denominators must be nonzero. Logarithm bases must be positive and not equal to 1, and logarithm arguments must be positive. Radicals and inequalities must satisfy their corresponding real-number conditions.
 
-## 3. Sequences and Series
+### 3. Sequences and Series
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2108,7 +2109,7 @@ Conditions: Denominators must be nonzero. Logarithm bases must be positive and n
 | Pascal's Identity | $\binom nr+\binom n{r-1}=\binom{n+1}r$ |
 | Sum of Combinations | $\sum_{r=0}^n\binom nr=2^n$ |
 
-## 4. Number Theory
+### 4. Number Theory
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2138,7 +2139,7 @@ Conditions: Denominators must be nonzero. Logarithm bases must be positive and n
 | Multiples from 1 to N | $\lfloor N/k\rfloor$ |
 | Multiples from A to B | $\lfloor B/k\rfloor-\lfloor(A-1)/k\rfloor$ |
 
-## 5. Combinatorics
+### 5. Combinatorics
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2168,7 +2169,7 @@ Conditions: Denominators must be nonzero. Logarithm bases must be positive and n
 
 Counting formulas must be used with the corresponding assumptions about order, repetition, whether objects are distinguishable, and any other restrictions.
 
-## 6. Probability and Statistics
+### 6. Probability and Statistics
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2185,7 +2186,7 @@ Counting formulas must be used with the corresponding assumptions about order, r
 | Geometric Probability | $P=\text{Favourable measure}/\text{Total measure}$ |
 | Range | $R=x_{\max}-x_{\min}$ |
 
-## 7. Triangle Geometry
+### 7. Triangle Geometry
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2212,7 +2213,7 @@ Counting formulas must be used with the corresponding assumptions about order, r
 | Cosine Rule | $a^2=b^2+c^2-2bc\cos A$ |
 | Sine Area | $S=\frac12bc\sin A$ |
 
-## 8. Polygons and Circles
+### 8. Polygons and Circles
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2242,7 +2243,7 @@ Counting formulas must be used with the corresponding assumptions about order, r
 | Interior Chord Angle | $\theta=(\alpha+\beta)/2$ |
 | Exterior Secant Angle | $\theta=(\alpha-\beta)/2$ |
 
-## 9. Coordinate Geometry
+### 9. Coordinate Geometry
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2264,7 +2265,7 @@ Counting formulas must be used with the corresponding assumptions about order, r
 
 The parallel and perpendicular slope formulas require the relevant slopes to exist; vertical lines must be handled separately.
 
-## 10. Solid Geometry
+### 10. Solid Geometry
 
 | Formula Name | Formula |
 | --- | --- |
@@ -2287,7 +2288,7 @@ The parallel and perpendicular slope formulas require the relevant slopes to exi
 | Similar Solid Volume Ratio | $V_1/V_2=k^3$ |
 | Euler's Polyhedron Formula | $V-E+F=2$ |
 
-## 11. Additional Formulae
+### 11. Additional Formulae
 
 | Formula Name | Formula |
 | --- | --- |

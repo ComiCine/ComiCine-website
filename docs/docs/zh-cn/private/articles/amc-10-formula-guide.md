@@ -1,13 +1,14 @@
 ---
 title: AMC 10 完整公式讲义
 description: AMC 10 算术、代数、数论、组合、概率与几何公式讲解、题型识别方法和公式速查表。
+outline: [2, 4]
 ---
 
 # AMC 10 完整公式讲义
 
-# 第一部分：公式讲解
+## 第一部分：公式讲解
 
-## A. 数学符号（Mathematical Notation）
+### A. 数学符号（Mathematical Notation）
 
 | 符号                            | 英文名称                 | 含义与计算方式                           |
 | ----------------------------- | ------------------------ | --------------------------------- |
@@ -32,7 +33,7 @@ description: AMC 10 算术、代数、数论、组合、概率与几何公式讲
 | $\exists$                 | There Exists             | 至少存在……                            |
 | $\iff$                    | If and Only If           | 当且仅当                              |
 
-### A1. 求和（Summation）
+#### A1. 求和（Summation）
 
 $$ \boxed{\sum_{k=a}^{b}f(k)} $$
 
@@ -45,7 +46,7 @@ $$ \boxed{\sum_{k=a}^{b}f(k)} $$
 - $b$：终止值。
 - $f(k)$：每一项的计算规则。
 
-### A2. 连乘（Product）
+#### A2. 连乘（Product）
 
 $$ \boxed{\prod_{k=a}^{b}f(k)} $$
 
@@ -53,7 +54,7 @@ $$ \boxed{\prod_{k=a}^{b}f(k)} $$
 
 与 $\sum$ 的区别是：$\sum$ 做加法，$\prod$ 做乘法。
 
-### A3. 阶乘（Factorial）
+#### A3. 阶乘（Factorial）
 
 $$ \boxed{n!=n(n-1)(n-2)\cdots2\cdot1} $$
 
@@ -61,9 +62,9 @@ $$ \boxed{n!=n(n-1)(n-2)\cdots2\cdot1} $$
 
 怎么算： 从 $n$ 开始不断减 1，并将所有正整数相乘。
 
-## B. 算术（Arithmetic）
+### B. 算术（Arithmetic）
 
-### B1. 分数（Fractions）
+#### B1. 分数（Fractions）
 
 加减：
 
@@ -86,7 +87,7 @@ $$ \boxed{\frac ab\div\frac cd=\frac{ad}{bc}} $$
 
 所有分母必须非零，除数也不能为零。
 
-### B2. 比例（Ratios）
+#### B2. 比例（Ratios）
 
 若：
 
@@ -104,7 +105,7 @@ $$ \boxed{b=\frac{n}{m+n}S} $$
 
 怎么算： 将比例数字加起来得到总份数，再按各自所占份数分配总量。
 
-### B3. 正比例与反比例（Direct & Inverse Proportion）
+#### B3. 正比例与反比例（Direct & Inverse Proportion）
 
 正比例：
 
@@ -122,7 +123,7 @@ $$ \boxed{xy=k} $$
 - 反比例：已知一组 $x,y$，计算 $k=xy$。
 - 再使用相同的 $k$ 求其他数值。
 
-### B4. 百分数变化（Percentage Change）
+#### B4. 百分数变化（Percentage Change）
 
 $$ \boxed{N=O(1+r)} $$
 
@@ -147,7 +148,7 @@ $$ \boxed{N=O(1+r_1)(1+r_2)\cdots(1+r_k)} $$
 
 各次变化均以变化前的数值为基准。
 
-### B5. 算术平均数（Arithmetic Mean）
+#### B5. 算术平均数（Arithmetic Mean）
 
 $$ \boxed{\bar x=\frac{x_1+x_2+\cdots+x_n}{n}} $$
 
@@ -157,7 +158,7 @@ $$ \boxed{\bar x=\frac{x_1+x_2+\cdots+x_n}{n}} $$
 
 $$ \boxed{\text{Sum}=n\bar x} $$
 
-### B6. 加权平均数（Weighted Average）
+#### B6. 加权平均数（Weighted Average）
 
 $$ \boxed{ \bar x=\frac{w_1x_1+w_2x_2+\cdots+w_nx_n} {w_1+w_2+\cdots+w_n} } $$
 
@@ -165,7 +166,7 @@ $$ \boxed{ \bar x=\frac{w_1x_1+w_2x_2+\cdots+w_nx_n} {w_1+w_2+\cdots+w_n} } $$
 
 怎么算： 每个数值先乘对应权重，再求总和，最后除以权重之和。
 
-### B7. 速度、路程与时间（Speed, Distance & Time）
+#### B7. 速度、路程与时间（Speed, Distance & Time）
 
 $$ \boxed{d=vt} $$
 
@@ -189,7 +190,7 @@ $$ \boxed{v_{\mathrm{avg}}=\frac{2v_1v_2}{v_1+v_2}} $$
 
 相向而行的接近速度为 $v_1+v_2$；同向追及速度为两者的速度差，前提是追赶者更快。
 
-### B8. 工作效率（Work & Rate）
+#### B8. 工作效率（Work & Rate）
 
 $$ \boxed{W=rt} $$
 
@@ -207,7 +208,7 @@ $$ \boxed{T=\frac{ab}{a+b}} $$
 
 怎么算： 将各人的工作效率相加，用总工作量除以总效率。
 
-### B9. 混合与浓度（Mixtures & Concentrations）
+#### B9. 混合与浓度（Mixtures & Concentrations）
 
 $$ \boxed{c=\frac{m_{\mathrm{solute}}}{m_{\mathrm{solution}}}} $$
 
@@ -223,7 +224,7 @@ $$ \boxed{ c_{\mathrm{new}}= \frac{m_1c_1+m_2c_2}{m_1+m_2} } $$
 
 怎么算： 分别求出各部分的溶质质量，相加后除以混合物总质量。
 
-### B10. 复合增长（Compound Growth）
+#### B10. 复合增长（Compound Growth）
 
 $$ \boxed{A=P(1+r)^n} $$
 
@@ -240,9 +241,9 @@ $$ \boxed{A=P(1+r)^n} $$
 
 $$ \boxed{A=P(1-r)^n} $$
 
-## C. 代数（Algebra）
+### C. 代数（Algebra）
 
-### C1. 指数运算法则（Exponent Laws）
+#### C1. 指数运算法则（Exponent Laws）
 
 $$ \boxed{a^ma^n=a^{m+n}} $$
 
@@ -266,7 +267,7 @@ $$ \boxed{a^{1/n}=\sqrt[n]{a}} $$
 
 有除法时要求相应底数非零；涉及偶次根时，要满足实数定义条件。
 
-### C2. 代数恒等式（Algebraic Identities）
+#### C2. 代数恒等式（Algebraic Identities）
 
 $$ \boxed{(a+b)^2=a^2+2ab+b^2} $$
 
@@ -284,7 +285,7 @@ $$ \boxed{(a-b)^3=a^3-3a^2b+3ab^2-b^3} $$
 
 怎么算： 观察式子是否符合平方、立方或平方差结构，选择展开或反向因式分解。
 
-### C3. 二次方程求根（Quadratic Formula）
+#### C3. 二次方程求根（Quadratic Formula）
 
 对：
 
@@ -304,7 +305,7 @@ $$ \boxed{\Delta=b^2-4ac} $$
 - $\Delta=0$：一个重复实根。
 - $\Delta<0$：没有实根。
 
-### C4. 韦达定理（Vieta's Formulas）
+#### C4. 韦达定理（Vieta's Formulas）
 
 如果 $r_1,r_2$ 是二次方程 $ax^2+bx+c=0$ 的两个根：
 
@@ -322,7 +323,7 @@ $$ \boxed{(r_1-r_2)^2=(r_1+r_2)^2-4r_1r_2} $$
 
 用已知的根之和、根之积代入这些恒等式。
 
-### C5. 配方法（Completing the Square）
+#### C5. 配方法（Completing the Square）
 
 $$ \boxed{ ax^2+bx+c= a\left(x+\frac{b}{2a}\right)^2+ c-\frac{b^2}{4a} } $$
 
@@ -345,7 +346,7 @@ $$ \boxed{c-\frac{b^2}{4a}} $$
 
 $$ \boxed{x=-\frac b{2a}} $$
 
-### C6. 绝对值（Absolute Value）
+#### C6. 绝对值（Absolute Value）
 
 $$ \boxed{ |x|= \begin{cases} x,&x\ge0\\ -x,&x<0 \end{cases} } $$
 
@@ -365,7 +366,7 @@ $$ \boxed{|x-a|<d\iff a-d<x<a+d} $$
 
 $$ \boxed{|x-a|>d\iff x<a-d\text{ 或 }x>a+d} $$
 
-### C7. 根式（Radicals）
+#### C7. 根式（Radicals）
 
 $$ \boxed{\sqrt{ab}=\sqrt a\sqrt b} \quad(a,b\ge0) $$
 
@@ -379,7 +380,7 @@ $$ \boxed{ \frac1{a+\sqrt b} =\frac{a-\sqrt b}{a^2-b} } $$
 
 怎么算： 分子分母同时乘以分母的共轭式，利用平方差消去分母中的根号。
 
-### C8. 算术—几何平均不等式（Arithmetic–Geometric Mean Inequality）
+#### C8. 算术—几何平均不等式（Arithmetic–Geometric Mean Inequality）
 
 对于非负实数 $a,b$：
 
@@ -400,7 +401,7 @@ $$ \boxed{(a+b)^2\ge4ab} $$
 
 $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
-### C9. 柯西—施瓦茨不等式（Cauchy–Schwarz Inequality）
+#### C9. 柯西—施瓦茨不等式（Cauchy–Schwarz Inequality）
 
 $$ \boxed{ (a^2+b^2)(c^2+d^2)\ge(ac+bd)^2 } $$
 
@@ -414,7 +415,7 @@ $$ \boxed{ \left(\sum_{i=1}^n a_i^2\right) \left(\sum_{i=1}^n b_i^2\right) \ge \
 
 $$ \boxed{a^2+b^2\ge\frac{(a+b)^2}{2}} $$
 
-### C10. 等差数列（Arithmetic Sequences）
+#### C10. 等差数列（Arithmetic Sequences）
 
 $$ \boxed{a_n=a_1+(n-1)d} $$
 
@@ -435,7 +436,7 @@ $$ \boxed{S_n=\frac n2[2a_1+(n-1)d]} $$
 - 求总和：项数乘首尾两项的平均值。
 - 求项数：将总和或指定项代入方程求 $n$，再检查是否为正整数。
 
-### C11. 等比数列（Geometric Sequences）
+#### C11. 等比数列（Geometric Sequences）
 
 $$ \boxed{a_n=a_1r^{n-1}} $$
 
@@ -451,7 +452,7 @@ $$ \boxed{S_\infty=\frac{a_1}{1-r}} $$
 
 如果 $r=1$，有限项和直接为 $na_1$。
 
-### C12. 常见求和（Standard Sums）
+#### C12. 常见求和（Standard Sums）
 
 前 $n$ 个正整数：
 
@@ -475,7 +476,7 @@ $$ \boxed{\sum_{k=1}^n2k=n(n+1)} $$
 
 怎么算： 识别求和对象是否为连续整数、平方、立方、奇数或偶数，再代入项数。
 
-### C13. 裂项相消（Telescoping Sums）
+#### C13. 裂项相消（Telescoping Sums）
 
 $$ \boxed{\frac1{k(k+1)}=\frac1k-\frac1{k+1}} $$
 
@@ -490,7 +491,7 @@ $$ \boxed{ \sum_{k=1}^n\frac1{k(k+1)} =1-\frac1{n+1} =\frac n{n+1} } $$
 3. 让正负相同项互相抵消。
 4. 只计算没有被抵消的首尾项。
 
-### C14. 二项式定理（Binomial Theorem）
+#### C14. 二项式定理（Binomial Theorem）
 
 $$ \boxed{(a+b)^n=\sum_{r=0}^{n}\binom nr a^{n-r}b^r} $$
 
@@ -518,7 +519,7 @@ $$ \boxed{\binom nr+\binom n{r-1}=\binom{n+1}r} $$
 
 $$ \boxed{\sum_{r=0}^{n}\binom nr=2^n} $$
 
-### C15. 对数（Logarithms）
+#### C15. 对数（Logarithms）
 
 $$ \boxed{a^x=b\iff x=\log_a b} $$
 
@@ -536,9 +537,9 @@ $$ \boxed{\log_a b=\frac{\log_c b}{\log_c a}} $$
 
 怎么算： 将对数问题理解成指数问题，或利用乘法、除法、乘方的对数规则进行合并与拆分。所有真数必须为正数。
 
-## D. 数论（Number Theory）
+### D. 数论（Number Theory）
 
-### D1. 整除（Divisibility）
+#### D1. 整除（Divisibility）
 
 $$ \boxed{a\mid b\iff b=ak,\quad k\in\mathbb Z,\quad a\ne0} $$
 
@@ -552,7 +553,7 @@ $$ \boxed{ a\mid b,\ a\mid c \Longrightarrow a\mid(mb+nc) } $$
 
 也就是说，如果 $a$ 同时整除 $b,c$，就能整除它们的任意整数线性组合。
 
-### D2. 整除判定（Divisibility Tests）
+#### D2. 整除判定（Divisibility Tests）
 
 | 除数 | 计算方法                         |
 | -- | ---------------------------- |
@@ -568,7 +569,7 @@ $$ \boxed{ a\mid b,\ a\mid c \Longrightarrow a\mid(mb+nc) } $$
 | 12 | 同时通过 3、4 的判定                 |
 | 25 | 检查末两位能否被 25 整除               |
 
-### D3. 质数（Prime Numbers）
+#### D3. 质数（Prime Numbers）
 
 正整数 $p>1$ 为质数，当且仅当正约数只有 1 和 $p$。
 
@@ -580,7 +581,7 @@ $$ \boxed{p\le\sqrt N} $$
 
 如果都不能整除，$N$ 就是质数。
 
-### D4. 质因数分解（Prime Factorisation）
+#### D4. 质因数分解（Prime Factorisation）
 
 对于 $N>1$：
 
@@ -590,7 +591,7 @@ $$ \boxed{N=p_1^{a_1}p_2^{a_2}\cdots p_k^{a_k}} $$
 
 这里的 $p_i$ 是互不相同的质数，$a_i$ 是正整数。
 
-### D5. 正约数个数（Number of Divisors）
+#### D5. 正约数个数（Number of Divisors）
 
 $$ \boxed{d(N)=\prod_{i=1}^k(a_i+1)} $$
 
@@ -602,7 +603,7 @@ $$ \boxed{d(N)=(a_1+1)(a_2+1)\cdots(a_k+1)} $$
 
 对于 $N=1$，约数个数为 1。
 
-### D6. 正约数之和（Sum of Divisors）
+#### D6. 正约数之和（Sum of Divisors）
 
 $$ \boxed{ \sigma(N)= \prod_{i=1}^k \left(1+p_i+p_i^2+\cdots+p_i^{a_i}\right) } $$
 
@@ -612,7 +613,7 @@ $$ \boxed{ \sigma(N)= \prod_{i=1}^k \frac{p_i^{a_i+1}-1}{p_i-1} } $$
 
 怎么算： 对每一种质因数，把零次方到最高次方全部相加，再把各组结果相乘。
 
-### D7. 正约数乘积（Product of Divisors）
+#### D7. 正约数乘积（Product of Divisors）
 
 $$ \boxed{P(N)=N^{d(N)/2}} $$
 
@@ -620,13 +621,13 @@ $$ \boxed{P(N)=N^{d(N)/2}} $$
 
 即使 $d(N)$ 为奇数，公式仍成立。
 
-### D8. 完全平方约数个数（Square Divisors）
+#### D8. 完全平方约数个数（Square Divisors）
 
 $$ \boxed{ d_{\mathrm{square}}(N)= \prod_{i=1}^k \left(\left\lfloor\frac{a_i}{2}\right\rfloor+1\right) } $$
 
 怎么算： 对每个质因数，统计其指数从 0 到 $a_i$ 之间有几个偶数，再将选择数量相乘。
 
-### D9. 完全幂（Perfect Powers）
+#### D9. 完全幂（Perfect Powers）
 
 正整数 $N$ 是完全 $m$ 次幂，当且仅当其质因数分解中每个指数都是 $m$ 的倍数。
 
@@ -634,7 +635,7 @@ $$ \boxed{ N=x^m\iff m\mid a_i\text{ 对所有 }i } $$
 
 怎么算： 分解质因数后，逐一检查指数能否被 $m$ 整除。
 
-### D10. 最大公因数与最小公倍数（GCD & LCM）
+#### D10. 最大公因数与最小公倍数（GCD & LCM）
 
 $$ \boxed{\gcd(a,b)\operatorname{lcm}(a,b)=ab} $$
 
@@ -655,13 +656,13 @@ $$ \boxed{\operatorname{lcm}(a,b)=\prod p_i^{\max(\alpha_i,\beta_i)}} $$
 - 最大公因数：每种质因数取较小指数。
 - 最小公倍数：每种质因数取较大指数。
 
-### D11. 欧几里得算法（Euclidean Algorithm）
+#### D11. 欧几里得算法（Euclidean Algorithm）
 
 $$ \boxed{\gcd(a,b)=\gcd(b,a\bmod b)} $$
 
 怎么算： 反复用「除数和余数」替代原来的两个数，直到余数为零；最后一个非零余数就是 GCD。
 
-### D12. 互质（Coprime）
+#### D12. 互质（Coprime）
 
 $$ \boxed{\gcd(a,b)=1} $$
 
@@ -671,7 +672,7 @@ $$ \boxed{\gcd(a,b)=1} $$
 
 $$ \boxed{\gcd(n,n+1)=1} $$
 
-### D13. 欧拉函数（Euler's Totient Function）
+#### D13. 欧拉函数（Euler's Totient Function）
 
 $$ \boxed{ \varphi(N)=N\prod_{p\mid N}\left(1-\frac1p\right) } $$
 
@@ -699,7 +700,7 @@ $$ \boxed{\varphi(p^a)=p^a-p^{a-1}} $$
 
 $$ \boxed{\varphi(1)=1} $$
 
-### D14. 模运算（Modular Arithmetic）
+#### D14. 模运算（Modular Arithmetic）
 
 $$ \boxed{a\equiv b\pmod m} $$
 
@@ -723,7 +724,7 @@ $$ \boxed{a^n\bmod m=((a\bmod m)^n)\bmod m} $$
 
 注意： 模运算中的除法不能随意使用。
 
-### D15. 余数表示法（Remainder Representation）
+#### D15. 余数表示法（Remainder Representation）
 
 $$ \boxed{N=dq+r} $$
 
@@ -735,7 +736,7 @@ $d$ 是正整数除数，$q$ 是整数商，$r$ 是余数。
 
 怎么算： 将「除以 $d$ 余 $r$」转化成 $N=dq+r$，再结合其他条件求整数 $q$。
 
-### D16. 个位循环（Units Digit Cycles）
+#### D16. 个位循环（Units Digit Cycles）
 
 $$ \boxed{\text{Last digit of }N=N\bmod10} $$
 
@@ -764,7 +765,7 @@ $$ \boxed{r=n\bmod L} $$
 
 求末两位时改成模 100；求末三位则改成模 1000，循环需要重新确定。
 
-### D17. 费马小定理（Fermat's Little Theorem）
+#### D17. 费马小定理（Fermat's Little Theorem）
 
 若 $p$ 为质数且 $p\nmid a$：
 
@@ -772,7 +773,7 @@ $$ \boxed{a^{p-1}\equiv1\pmod p} $$
 
 怎么算： 将大指数按 $p-1$ 分组，利用每组对 $p$ 取余为 1 的性质简化计算。
 
-### D18. 欧拉定理（Euler's Theorem）
+#### D18. 欧拉定理（Euler's Theorem）
 
 若：
 
@@ -784,7 +785,7 @@ $$ \boxed{a^{\varphi(m)}\equiv1\pmod m} $$
 
 怎么算： 先计算 $\varphi(m)$，再利用指数的周期性质简化幂的余数。
 
-### D19. 阶乘中的质因数指数（Factorial Prime Exponents）
+#### D19. 阶乘中的质因数指数（Factorial Prime Exponents）
 
 $$ \boxed{ v_p(n!)= \sum_{j=1}^{\infty} \left\lfloor\frac n{p^j}\right\rfloor } $$
 
@@ -796,7 +797,7 @@ $$ \boxed{ \left\lfloor\frac np\right\rfloor+ \left\lfloor\frac n{p^2}\right\rfl
 
 怎么算： 依次除以 $p,p^2,p^3,\ldots$，每次向下取整并相加，直到商小于 1。
 
-### D20. 阶乘末尾零（Trailing Zeros）
+#### D20. 阶乘末尾零（Trailing Zeros）
 
 十进制下：
 
@@ -804,7 +805,7 @@ $$ \boxed{ Z(n!)= \left\lfloor\frac n5\right\rfloor+ \left\lfloor\frac n{25}\rig
 
 怎么算： 计算 $n!$ 中因数 5 的总指数，因为因数 2 的数量总是足够多。
 
-### D21. 进制（Number Bases）
+#### D21. 进制（Number Bases）
 
 $$ \boxed{ (a_na_{n-1}\cdots a_0)_b =\sum_{i=0}^{n}a_i b^i } $$
 
@@ -817,7 +818,7 @@ $$ \boxed{ (a_na_{n-1}\cdots a_0)_b =\sum_{i=0}^{n}a_i b^i } $$
 
 反过来由十进制转换为 $b$ 进制，可以不断除以 $b$，记录余数，最后倒序排列。
 
-### D22. 数位和（Digit Sum）
+#### D22. 数位和（Digit Sum）
 
 设十进制整数 $N$ 的数位之和为 $S$：
 
@@ -827,7 +828,7 @@ $$ \boxed{N\equiv S\pmod3} $$
 
 怎么算： 把每一位数字相加，再判断所得和对 3 或 9 的余数。
 
-### D23. 数位倒序（Reversed Digits）
+#### D23. 数位倒序（Reversed Digits）
 
 三位数：
 
@@ -843,7 +844,7 @@ $$ \boxed{N-R=99(a-c)} $$
 
 怎么算： 将每一位的数字乘对应的位值，按原顺序和倒序分别写出表达式后相减。
 
-### D24. 线性整数方程（Linear Diophantine Equations）
+#### D24. 线性整数方程（Linear Diophantine Equations）
 
 对于整数 $a,b,c$，且 $a,b$ 不同时为零：
 
@@ -857,7 +858,7 @@ $$ \boxed{\gcd(a,b)\mid c} $$
 
 若要求正整数或非负整数解，还需要额外检查范围。
 
-### D25. 倍数计数（Counting Multiples）
+#### D25. 倍数计数（Counting Multiples）
 
 $$ \boxed{ M(1,N;k)=\left\lfloor\frac Nk\right\rfloor } $$
 
@@ -867,9 +868,9 @@ $$ \boxed{ M(A,B;k)= \left\lfloor\frac Bk\right\rfloor- \left\lfloor\frac{A-1}{k
 
 怎么算： 求区间上界之前的倍数数量，减去区间下界之前的倍数数量。
 
-## E. 组合计数（Combinatorics）
+### E. 组合计数（Combinatorics）
 
-### E1. 加法原理（Addition Principle）
+#### E1. 加法原理（Addition Principle）
 
 $$ \boxed{N=N_1+N_2+\cdots+N_k} $$
 
@@ -877,7 +878,7 @@ $$ \boxed{N=N_1+N_2+\cdots+N_k} $$
 
 如果情况有重叠，必须使用容斥原理修正。
 
-### E2. 乘法原理（Multiplication Principle）
+#### E2. 乘法原理（Multiplication Principle）
 
 $$ \boxed{N=N_1N_2\cdots N_k} $$
 
@@ -885,7 +886,7 @@ $$ \boxed{N=N_1N_2\cdots N_k} $$
 
 这里要求对应的分步计数正确；如果每步选择数取决于之前的选择，需要进一步分类。
 
-### E3. 排列（Permutations）
+#### E3. 排列（Permutations）
 
 $$ \boxed{P(n,r)=\frac{n!}{(n-r)!}} $$
 
@@ -897,7 +898,7 @@ $$ \boxed{n(n-1)\cdots(n-r+1)} $$
 
 共 $r$ 个因数。
 
-### E4. 组合（Combinations）
+#### E4. 组合（Combinations）
 
 $$ \boxed{\binom nr=\frac{n!}{r!(n-r)!}} $$
 
@@ -905,7 +906,7 @@ $$ \boxed{\binom nr=\frac{n!}{r!(n-r)!}} $$
 
 可以先计算排列数量，再除以 $r!$，消除同一组元素的不同排列顺序。
 
-### E5. 可重复选择（Selections with Repetition）
+#### E5. 可重复选择（Selections with Repetition）
 
 从 $n$ 种不同类型中选择 $r$ 次：
 
@@ -922,7 +923,7 @@ $$ \boxed{\binom{n+r-1}{r}} $$
 - 顺序重要：每个位置都有 $n$ 种选择。
 - 顺序不重要：使用隔板法计算各类型分别选取多少个。
 
-### E6. 相同元素排列（Permutations of Identical Objects）
+#### E6. 相同元素排列（Permutations of Identical Objects）
 
 若总共 $n$ 个对象，其中各类相同对象分别有 $a_1,a_2,\ldots,a_k$ 个：
 
@@ -934,7 +935,7 @@ $$ a_1+\cdots+a_k=n $$
 
 怎么算： 先计算所有对象互不相同时的排列数，再除以各组相同对象内部的排列数。
 
-### E7. 圆形排列（Circular Permutations）
+#### E7. 圆形排列（Circular Permutations）
 
 $n$ 个不同对象围成一个圆，仅旋转视为相同：
 
@@ -946,7 +947,7 @@ $$ \boxed{\frac{(n-1)!}{2}} $$
 
 怎么算： 固定一个对象消除旋转重复；如果翻面也相同，再除以 2。
 
-### E8. 隔板法（Stars and Bars）
+#### E8. 隔板法（Stars and Bars）
 
 求非负整数解：
 
@@ -967,7 +968,7 @@ $$ \boxed{N=\binom{n-1}{k-1}} $$
 
 如果各变量还有不同的最小值 $L_i$，可以先令 $y_i=x_i-L_i$，再使用非负整数解公式。
 
-### E9. 容斥原理（Inclusion–Exclusion Principle）
+#### E9. 容斥原理（Inclusion–Exclusion Principle）
 
 两个集合：
 
@@ -979,13 +980,13 @@ $$ \boxed{ \begin{aligned} |A\cup B\cup C| ={}&|A|+|B|+|C|\\ &-|A\cap B|-|A\cap 
 
 怎么算： 单个集合加起来，两个集合的交集减掉，三个集合的交集加回来；更多集合继续交替加减。
 
-### E10. 补集计数（Complementary Counting）
+#### E10. 补集计数（Complementary Counting）
 
 $$ \boxed{N_{\mathrm{wanted}}=N_{\mathrm{total}}-N_{\mathrm{unwanted}}} $$
 
 怎么算： 先计算所有情况，再减去不满足要求的情况。
 
-### E11. 捆绑法（Block Method）
+#### E11. 捆绑法（Block Method）
 
 若 $k$ 个指定的不同对象必须相邻，且总共有 $n$ 个不同对象：
 
@@ -995,7 +996,7 @@ $$ \boxed{N=(n-k+1)!\,k!} $$
 
 这个公式仅适用于没有其他额外限制的线性排列。
 
-### E12. 网格路径（Lattice Paths）
+#### E12. 网格路径（Lattice Paths）
 
 只能向右走 $m$ 步、向上走 $n$ 步：
 
@@ -1013,7 +1014,7 @@ $$ \boxed{N_{\mathrm{allowed}}=N_{\mathrm{total}}-N_{\mathrm{through}\ P}} $$
 
 前提是目标点和中间点满足移动方向要求。
 
-### E13. 鸽巢原理（Pigeonhole Principle）
+#### E13. 鸽巢原理（Pigeonhole Principle）
 
 把 $N$ 个对象分进 $k$ 个类别：
 
@@ -1027,7 +1028,7 @@ $$ \boxed{N_{\min}=k(r-1)+1} $$
 
 怎么算： 先让每个类别最多有 $r-1$ 个，再增加一个对象。
 
-### E14. 递推关系（Recurrence Relations）
+#### E14. 递推关系（Recurrence Relations）
 
 $$ \boxed{a_n=f(a_{n-1},a_{n-2},\ldots)} $$
 
@@ -1039,7 +1040,7 @@ $$ \boxed{F_n=F_{n-1}+F_{n-2}} $$
 
 但起始项必须根据题目的定义确定。
 
-### E15. 错位排列（Derangements）
+#### E15. 错位排列（Derangements）
 
 $n$ 个不同对象排列，要求没有对象回到原来的位置：
 
@@ -1059,7 +1060,7 @@ $$ \boxed{D_n=(n-1)(D_{n-1}+D_{n-2})} $$
 
 $$ D_0=1,\qquad D_1=0 $$
 
-### E16. 握手引理（Handshake Lemma）
+#### E16. 握手引理（Handshake Lemma）
 
 在无向图中：
 
@@ -1076,7 +1077,7 @@ $$ \boxed{\sum_{v\in V}\deg(v)=2E} $$
 
 $$ \boxed{E=\binom n2=\frac{n(n-1)}2} $$
 
-### E17. 直线交点（Line Intersections）
+#### E17. 直线交点（Line Intersections）
 
 $n$ 条不同直线，任意两条不平行、任意三条不共点：
 
@@ -1084,7 +1085,7 @@ $$ \boxed{I=\binom n2} $$
 
 怎么算： 从所有直线中选择两条，每一对产生一个不同交点。
 
-### E18. 圆内弦交点（Circle Chord Intersections）
+#### E18. 圆内弦交点（Circle Chord Intersections）
 
 圆周上有 $n$ 个不同点，连接任意两点，且任意三条弦不在圆内同一点相交：
 
@@ -1092,9 +1093,9 @@ $$ \boxed{I=\binom n4} $$
 
 怎么算： 每四个圆周点确定一组在圆内相交的两条弦，因此从 $n$ 个点中选择四个。
 
-## F. 概率与统计（Probability & Statistics）
+### F. 概率与统计（Probability & Statistics）
 
-### F1. 古典概率（Classical Probability）
+#### F1. 古典概率（Classical Probability）
 
 当所有基本结果等可能：
 
@@ -1107,13 +1108,13 @@ $$ \boxed{P(A)=\frac{N(A)}{N(S)}} $$
 
 怎么算： 先算符合要求的结果数量，再除以总结果数。
 
-### F2. 补事件概率（Complement Rule）
+#### F2. 补事件概率（Complement Rule）
 
 $$ \boxed{P(A^c)=1-P(A)} $$
 
 怎么算： 用 1 减去相反事件发生的概率。
 
-### F3. 概率加法法则（Addition Rule）
+#### F3. 概率加法法则（Addition Rule）
 
 $$ \boxed{P(A\cup B)=P(A)+P(B)-P(A\cap B)} $$
 
@@ -1123,7 +1124,7 @@ $$ \boxed{P(A\cup B)=P(A)+P(B)} $$
 
 怎么算： 两个事件概率相加，再减去重复计入的交集概率。
 
-### F4. 概率乘法法则（Multiplication Rule）
+#### F4. 概率乘法法则（Multiplication Rule）
 
 $$ \boxed{P(A\cap B)=P(A)P(B\mid A)} $$
 
@@ -1135,7 +1136,7 @@ $$ \boxed{P(A\cap B)=P(A)P(B)} $$
 
 独立时，第二事件概率不受第一事件影响。
 
-### F5. 条件概率（Conditional Probability）
+#### F5. 条件概率（Conditional Probability）
 
 $$ \boxed{P(A\mid B)=\frac{P(A\cap B)}{P(B)}} $$
 
@@ -1143,7 +1144,7 @@ $$ \boxed{P(A\mid B)=\frac{P(A\cap B)}{P(B)}} $$
 
 怎么算： 已知 B 发生后，只在 B 对应的可能情况中，计算其中满足 A 的比例。
 
-### F6. 二项概率（Binomial Probability）
+#### F6. 二项概率（Binomial Probability）
 
 $$ \boxed{ P(X=k)=\binom nk p^k(1-p)^{n-k} } $$
 
@@ -1162,7 +1163,7 @@ $$ \boxed{ P(X=k)=\binom nk p^k(1-p)^{n-k} } $$
 
 要求每次试验相互独立，且成功概率相同。
 
-### F7. 超几何概率（Hypergeometric Probability）
+#### F7. 超几何概率（Hypergeometric Probability）
 
 从 $N$ 个不同对象中不放回抽取 $n$ 个，其中有 $K$ 个目标对象，要求恰好抽到 $k$ 个目标对象：
 
@@ -1170,7 +1171,7 @@ $$ \boxed{ P(X=k)= \frac{\binom Kk\binom{N-K}{n-k}}{\binom Nn} } $$
 
 怎么算： 分别从目标类和非目标类选取所需数量，将两种组合数相乘，再除以总选法数量。
 
-### F8. 期望值（Expected Value）
+#### F8. 期望值（Expected Value）
 
 $$ \boxed{E(X)=\sum_i x_iP(X=x_i)} $$
 
@@ -1182,7 +1183,7 @@ $$ \boxed{E(X+Y)=E(X)+E(Y)} $$
 
 即使两个随机变量不独立也成立。
 
-### F9. 几何概率（Geometric Probability）
+#### F9. 几何概率（Geometric Probability）
 
 在均匀随机选择的条件下：
 
@@ -1194,7 +1195,7 @@ $$ \boxed{ P(A)=\frac{\text{Favourable Length}}{\text{Total Length}} } $$
 
 怎么算： 先确定随机选择的基本对象是面积、长度还是其他测度，再计算有利部分与整体的比例。
 
-### F10. 平均数、中位数、众数与极差（Mean, Median, Mode & Range）
+#### F10. 平均数、中位数、众数与极差（Mean, Median, Mode & Range）
 
 平均数：
 
@@ -1211,9 +1212,9 @@ $$ \boxed{R=x_{\max}-x_{\min}} $$
 - Mode：找出现频率最高的数据。
 - Range：最大值减最小值。
 
-## G. 平面几何（Plane Geometry）
+### G. 平面几何（Plane Geometry）
 
-### G1. 基本角度（Basic Angle Rules）
+#### G1. 基本角度（Basic Angle Rules）
 
 平角：
 
@@ -1235,7 +1236,7 @@ $$ \boxed{\angle1=\angle2} $$
 - Alternate Interior Angles（内错角）相等。
 - Co-interior Angles（同旁内角）之和为 $180^\circ$。
 
-### G2. 三角形内角和（Triangle Angle Sum）
+#### G2. 三角形内角和（Triangle Angle Sum）
 
 $$ \boxed{A+B+C=180^\circ} $$
 
@@ -1247,7 +1248,7 @@ $$ \boxed{\text{Exterior Angle}=A+B} $$
 
 怎么算： 已知两个内角就用 180° 减去它们；已知远端两个内角，直接相加得到对应外角。
 
-### G3. 等腰与等边三角形（Isosceles & Equilateral Triangles）
+#### G3. 等腰与等边三角形（Isosceles & Equilateral Triangles）
 
 等腰三角形两条边相等时，对应底角相等。
 
@@ -1265,7 +1266,7 @@ $$ \boxed{S=\frac{\sqrt3}{4}a^2} $$
 
 怎么算： 将等边三角形通过高分成两个 30°–60°–90° 直角三角形，利用边长比例求高和面积。
 
-### G4. 三角形不等式（Triangle Inequality）
+#### G4. 三角形不等式（Triangle Inequality）
 
 $$ \boxed{|a-b|<c<a+b} $$
 
@@ -1275,7 +1276,7 @@ $$ \boxed{|a-b|<c<a+b} $$
 
 如果第三边限定为整数，只需要在这个开区间内数整数。
 
-### G5. 勾股定理（Pythagorean Theorem）
+#### G5. 勾股定理（Pythagorean Theorem）
 
 直角三角形：
 
@@ -1298,7 +1299,7 @@ $$ \boxed{a^2+b^2=c^2} $$
 
 这些比例的整数倍也满足勾股定理。
 
-### G6. 特殊直角三角形（Special Right Triangles）
+#### G6. 特殊直角三角形（Special Right Triangles）
 
 45°–45°–90°
 
@@ -1310,7 +1311,7 @@ $$ \boxed{1:\sqrt3:2} $$
 
 怎么算： 根据三角形角度识别对应的三条边，把给定边长作为比例单位，再计算其他边长。
 
-### G7. 三角形面积（Triangle Area）
+#### G7. 三角形面积（Triangle Area）
 
 $$ \boxed{S=\frac12 bh} $$
 
@@ -1329,7 +1330,7 @@ $$ \boxed{\frac{S_1}{S_2}=\frac{b_1}{b_2}} $$
 
 $$ \boxed{\frac{S_1}{S_2}=\frac{h_1}{h_2}} $$
 
-### G8. 海伦公式（Heron's Formula）
+#### G8. 海伦公式（Heron's Formula）
 
 $$ \boxed{s=\frac{a+b+c}{2}} $$
 
@@ -1339,7 +1340,7 @@ $$ \boxed{S=\sqrt{s(s-a)(s-b)(s-c)}} $$
 
 怎么算： 已知三边长度，先求半周长，再计算四个因数的乘积，最后开平方。
 
-### G9. 相似三角形（Similar Triangles）
+#### G9. 相似三角形（Similar Triangles）
 
 如果两三角形相似，且对应边长比例为 $k$：
 
@@ -1355,13 +1356,13 @@ $$ \boxed{\frac{S_1}{S_2}=k^2} $$
 - SAS：两组对应边成比例，夹角相等。
 - SSS：三组对应边成比例。
 
-### G10. 全等三角形（Congruent Triangles）
+#### G10. 全等三角形（Congruent Triangles）
 
 常见判定为 SSS、SAS、ASA、AAS、RHS/HL。
 
 怎么算： 根据对应边、对应角是否相等判断全等；一旦全等，所有对应边、对应角以及面积都相等。
 
-### G11. 角平分线定理（Angle Bisector Theorem）
+#### G11. 角平分线定理（Angle Bisector Theorem）
 
 三角形 $ABC$ 中，$AD$ 平分 $\angle A$，且 $D$ 位于 $BC$ 上：
 
@@ -1369,7 +1370,7 @@ $$ \boxed{\frac{BD}{DC}=\frac{AB}{AC}} $$
 
 怎么算： 利用两条邻边的比，得到对边被角平分线分出的两段长度比，再结合 $BD+DC=BC$ 求具体长度。
 
-### G12. 中线与重心（Median & Centroid）
+#### G12. 中线与重心（Median & Centroid）
 
 如果 $AD$ 是三角形中线，$G$ 是重心：
 
@@ -1385,7 +1386,7 @@ $$ \boxed{AG=\frac23AD} \qquad \boxed{GD=\frac13AD} $$
 
 $$ \boxed{S_1=S_2} $$
 
-### G13. 内心与内切圆（Incenter & Inradius）
+#### G13. 内心与内切圆（Incenter & Inradius）
 
 $$ \boxed{S=rs} $$
 
@@ -1397,7 +1398,7 @@ $$ \boxed{S=rs} $$
 
 怎么算： 用面积除以半周长求内切圆半径，或者用半径乘半周长求面积。
 
-### G14. 外心与外接圆（Circumcenter & Circumradius）
+#### G14. 外心与外接圆（Circumcenter & Circumradius）
 
 $$ \boxed{S=\frac{abc}{4R}} $$
 
@@ -1419,7 +1420,7 @@ $$ \boxed{R=\frac c2} $$
 
 这里 $c$ 为斜边。
 
-### G15. 直角三角形斜边上的高（Right Triangle Altitude Theorem）
+#### G15. 直角三角形斜边上的高（Right Triangle Altitude Theorem）
 
 如果斜边为 $c$，被高 $h$ 分成 $m,n$：
 
@@ -1435,7 +1436,7 @@ $$ \boxed{b^2=cn} $$
 
 怎么算： 直接用相似三角形对应边比例建立平方关系，求高或直角边长度。
 
-### G16. 四边形（Quadrilaterals）
+#### G16. 四边形（Quadrilaterals）
 
 | 图形                  | 公式                    | 计算方法             |
 | ------------------- | --------------------- | ---------------- |
@@ -1449,7 +1450,7 @@ $$ \boxed{b^2=cn} $$
 
 其中 $l,w$ 是长宽，$b,h$ 是底和垂直高，$d_i$ 是对角线长度。
 
-### G17. 多边形角度（Polygon Angle Sum）
+#### G17. 多边形角度（Polygon Angle Sum）
 
 $n$ 边形内角和：
 
@@ -1465,13 +1466,13 @@ $$ \boxed{\frac{360^\circ}{n}} $$
 
 怎么算： 根据边数 $n$，代入对应公式。凸多边形每个顶点各取一个同向外角时，外角和为 $360^\circ$。
 
-### G18. 多边形对角线（Polygon Diagonals）
+#### G18. 多边形对角线（Polygon Diagonals）
 
 $$ \boxed{D=\frac{n(n-3)}2} $$
 
 怎么算： 每个顶点能向其余 $n-3$ 个非相邻顶点连对角线，乘顶点数 $n$，再除以 2，消除重复计数。
 
-### G19. 正多边形面积（Regular Polygon Area）
+#### G19. 正多边形面积（Regular Polygon Area）
 
 $$ \boxed{S=\frac12Pa} $$
 
@@ -1486,7 +1487,7 @@ $$ \boxed{S=\frac12Pa} $$
 
 $$ \boxed{S=\frac{3\sqrt3}{2}s^2} $$
 
-### G20. 圆（Circle）
+#### G20. 圆（Circle）
 
 周长：
 
@@ -1502,7 +1503,7 @@ $$ \boxed{d=2r} $$
 
 怎么算： 根据半径直接计算。
 
-### G21. 弧长（Arc Length）
+#### G21. 弧长（Arc Length）
 
 当圆心角为 $\theta^\circ$：
 
@@ -1510,7 +1511,7 @@ $$ \boxed{L=\frac{\theta}{360^\circ}2\pi r} $$
 
 怎么算： 用圆心角除以 360°，计算弧占整圆的比例，再乘整圆周长。
 
-### G22. 扇形面积（Sector Area）
+#### G22. 扇形面积（Sector Area）
 
 $$ \boxed{S_{\mathrm{sector}}=\frac{\theta}{360^\circ}\pi r^2} $$
 
@@ -1524,7 +1525,7 @@ $$ \boxed{S_{\mathrm{segment}}=S_{\mathrm{sector}}-S_{\mathrm{triangle}}} $$
 
 $$ \boxed{S_{\mathrm{annulus}}=\pi(R^2-r^2)} $$
 
-### G23. 圆周角定理（Inscribed Angle Theorem）
+#### G23. 圆周角定理（Inscribed Angle Theorem）
 
 对同一条弧：
 
@@ -1536,7 +1537,7 @@ $$ \boxed{\theta_{\mathrm{inscribed}}=\frac12\theta_{\mathrm{central}}} $$
 
 $$ \boxed{90^\circ} $$
 
-### G24. 圆内接四边形（Cyclic Quadrilaterals）
+#### G24. 圆内接四边形（Cyclic Quadrilaterals）
 
 对于圆内接四边形 $ABCD$：
 
@@ -1546,7 +1547,7 @@ $$ \boxed{B+D=180^\circ} $$
 
 怎么算： 已知某个内角，直接用 $180^\circ$ 减它，得到对角。
 
-### G25. 切线（Tangents）
+#### G25. 切线（Tangents）
 
 切点处的半径与切线垂直：
 
@@ -1558,7 +1559,7 @@ $$ \boxed{PA=PB} $$
 
 怎么算： 使用垂直关系建立直角三角形，或利用同点切线长度相等的性质。
 
-### G26. 弦长（Chord Length）
+#### G26. 弦长（Chord Length）
 
 半径为 $r$，圆心到弦的垂直距离为 $d$：
 
@@ -1566,7 +1567,7 @@ $$ \boxed{L=2\sqrt{r^2-d^2}} $$
 
 怎么算： 将弦平分为两段，通过勾股定理求半弦长度，再乘 2。
 
-### G27. 相交弦定理（Intersecting Chords Theorem）
+#### G27. 相交弦定理（Intersecting Chords Theorem）
 
 圆内两条弦 $AB,CD$ 交于 P：
 
@@ -1574,7 +1575,7 @@ $$ \boxed{PA\cdot PB=PC\cdot PD} $$
 
 怎么算： 将每条弦在交点两侧的长度相乘，再令两组乘积相等。
 
-### G28. 点的幂（Power of a Point）
+#### G28. 点的幂（Power of a Point）
 
 两条割线从圆外同一点 P 出发：
 
@@ -1588,7 +1589,7 @@ $$ \boxed{PT^2=PA\cdot PB} $$
 
 怎么算： 用圆外部分长度乘从 P 到远端交点的完整长度；如果是切线，则用切线长度的平方。
 
-### G29. 圆中的交角（Circle Intersection Angles）
+#### G29. 圆中的交角（Circle Intersection Angles）
 
 两弦在圆内相交：
 
@@ -1602,21 +1603,21 @@ $$ \boxed{\theta=\frac{\alpha-\beta}{2}} $$
 
 怎么算： 根据交点在圆内还是圆外，选择弧度数的和或差，再除以 2。
 
-## H. 坐标几何（Coordinate Geometry）
+### H. 坐标几何（Coordinate Geometry）
 
-### H1. 两点距离（Distance Formula）
+#### H1. 两点距离（Distance Formula）
 
 $$ \boxed{ d=\sqrt{(x_2-x_1)^2+(y_2-y_1)^2} } $$
 
 怎么算： 横坐标之差平方，加纵坐标之差平方，最后开平方。
 
-### H2. 中点（Midpoint Formula）
+#### H2. 中点（Midpoint Formula）
 
 $$ \boxed{ M=\left(\frac{x_1+x_2}{2},\frac{y_1+y_2}{2}\right) } $$
 
 怎么算： 两个横坐标取平均，两个纵坐标取平均。
 
-### H3. 斜率（Slope）
+#### H3. 斜率（Slope）
 
 $$ \boxed{m=\frac{y_2-y_1}{x_2-x_1}} $$
 
@@ -1624,7 +1625,7 @@ $$ \boxed{m=\frac{y_2-y_1}{x_2-x_1}} $$
 
 怎么算： 纵坐标变化量除以横坐标变化量。
 
-### H4. 直线方程（Equations of Lines）
+#### H4. 直线方程（Equations of Lines）
 
 斜截式：
 
@@ -1644,13 +1645,13 @@ $$ \boxed{m_1m_2=-1} $$
 
 怎么算： 已知一点和斜率，用点斜式；已知两点，先计算斜率，再代入其中一个点。
 
-### H5. 坐标三角形面积（Triangle Area from Coordinates）
+#### H5. 坐标三角形面积（Triangle Area from Coordinates）
 
 $$ \boxed{ S=\frac12\left| x_1(y_2-y_3)+x_2(y_3-y_1)+x_3(y_1-y_2) \right| } $$
 
 怎么算： 按公式交叉相乘并求和，最后取绝对值除以 2。
 
-### H6. 鞋带公式（Shoelace Formula）
+#### H6. 鞋带公式（Shoelace Formula）
 
 对于按边界顺序排列的多边形顶点：
 
@@ -1666,7 +1667,7 @@ $$ \boxed{ S=\frac12\left| \sum_{i=1}^n x_i y_{i+1} - \sum_{i=1}^n y_i x_{i+1} \
 
 怎么算： 一组按顺序交叉相乘求和，另一组反向交叉相乘求和，两组相减后取绝对值，再除以 2。
 
-### H7. 皮克定理（Pick's Theorem）
+#### H7. 皮克定理（Pick's Theorem）
 
 适用于顶点位于整数格点上的简单多边形：
 
@@ -1679,7 +1680,7 @@ $$ \boxed{S=I+\frac B2-1} $$
 
 怎么算： 数内部格点，加上边界格点的一半，再减 1。
 
-### H8. 坐标变换（Coordinate Transformations）
+#### H8. 坐标变换（Coordinate Transformations）
 
 | 变换             | 新坐标             |
 | -------------- | --------------- |
@@ -1693,9 +1694,9 @@ $$ \boxed{S=I+\frac B2-1} $$
 
 旋转均以原点为中心。
 
-## I. 立体几何（Solid Geometry）
+### I. 立体几何（Solid Geometry）
 
-### I1. 正方体（Cube）
+#### I1. 正方体（Cube）
 
 边长 $a$：
 
@@ -1709,7 +1710,7 @@ $$ \boxed{d=a\sqrt3} $$
 
 怎么算： 边长三次方求体积，六个相同正方形面积相加求表面积，空间对角线使用三维勾股关系。
 
-### I2. 长方体（Rectangular Prism）
+#### I2. 长方体（Rectangular Prism）
 
 $$ \boxed{V=lwh} $$
 
@@ -1719,7 +1720,7 @@ $$ \boxed{d=\sqrt{l^2+w^2+h^2}} $$
 
 其中 $l,w,h$ 分别是长、宽、高。
 
-### I3. 圆柱（Cylinder）
+#### I3. 圆柱（Cylinder）
 
 $$ \boxed{V=\pi r^2h} $$
 
@@ -1727,7 +1728,7 @@ $$ \boxed{S=2\pi r^2+2\pi rh} $$
 
 怎么算： 底面积乘高得到体积；两个圆形底面面积加侧面积得到完整表面积。
 
-### I4. 圆锥（Cone）
+#### I4. 圆锥（Cone）
 
 $$ \boxed{V=\frac13\pi r^2h} $$
 
@@ -1745,7 +1746,7 @@ $$ \boxed{l=\sqrt{r^2+h^2}} $$
 
 $$ \boxed{S=\pi r^2+\pi rl} $$
 
-### I5. 球（Sphere）
+#### I5. 球（Sphere）
 
 $$ \boxed{V=\frac43\pi r^3} $$
 
@@ -1753,7 +1754,7 @@ $$ \boxed{S=4\pi r^2} $$
 
 怎么算： 半径的三次方乘 $4\pi/3$ 求体积，半径平方乘 $4\pi$ 求表面积。
 
-### I6. 棱柱与棱锥（Prism & Pyramid）
+#### I6. 棱柱与棱锥（Prism & Pyramid）
 
 棱柱：
 
@@ -1765,7 +1766,7 @@ $$ \boxed{V=\frac13S_{\mathrm{base}}h} $$
 
 怎么算： 底面积乘垂直高度；如果是棱锥，再除以 3。
 
-### I7. 相似立体（Similar Solids）
+#### I7. 相似立体（Similar Solids）
 
 对应长度比为 $k$：
 
@@ -1775,7 +1776,7 @@ $$ \boxed{\frac{V_1}{V_2}=k^3} $$
 
 怎么算： 面积比是长度比的平方，体积比是长度比的立方。
 
-### I8. 欧拉多面体公式（Euler's Polyhedron Formula）
+#### I8. 欧拉多面体公式（Euler's Polyhedron Formula）
 
 对于凸多面体：
 
@@ -1789,9 +1790,9 @@ $$ \boxed{V-E+F=2} $$
 
 怎么算： 将已知的两个数量代入公式，解出第三个数量。
 
-## J. 其他数学技巧（Other Mathematical Techniques）
+### J. 其他数学技巧（Other Mathematical Techniques）
 
-### J1. 奇偶性（Parity）
+#### J1. 奇偶性（Parity）
 
 偶数：
 
@@ -1805,7 +1806,7 @@ $$ \boxed{2k+1} $$
 
 怎么算： 用整数的奇偶表示法，把运算结果整理成 $2m$ 或 $2m+1$，判断结果的奇偶性。
 
-### J2. 不变量（Invariants）
+#### J2. 不变量（Invariants）
 
 如果操作始终让一个数改变 $km$，则：
 
@@ -1813,7 +1814,7 @@ $$ \boxed{N_{\mathrm{new}}\equiv N_{\mathrm{old}}\pmod m} $$
 
 怎么算： 寻找每次操作都不会改变的余数、奇偶性、颜色数量差或其他量，用来判断某个结果能否出现。
 
-### J3. 上下界（Bounds）
+#### J3. 上下界（Bounds）
 
 $$ \boxed{L\le x\le U} $$
 
@@ -1821,7 +1822,7 @@ $$ \boxed{L\le x\le U} $$
 
 怎么算： 利用非负性、大小比较、单调性或不等式建立范围，再与选项或整数条件比较。
 
-### J4. 对称代数式（Symmetric Expressions）
+#### J4. 对称代数式（Symmetric Expressions）
 
 已知：
 
@@ -1837,7 +1838,7 @@ $$ \boxed{(a-b)^2=s^2-4p} $$
 
 怎么算： 用两个数的和与积表示较高次的代数式，避免先求出 $a,b$。
 
-### J5. 时钟夹角（Clock Angles）
+#### J5. 时钟夹角（Clock Angles）
 
 使用 12 小时制，令 $h\in\{0,1,\ldots,11\}$，$m$ 为分钟数：
 
@@ -1859,7 +1860,7 @@ $$ \boxed{\theta=\min(\Delta,360^\circ-\Delta)} $$
 
 怎么算： 分别计算两根指针相对于 12 点方向的角度，求差，再取较小的夹角。
 
-### J6. 双重计数（Double Counting）
+#### J6. 双重计数（Double Counting）
 
 核心关系：
 
@@ -1871,7 +1872,7 @@ $$ \boxed{\text{Count by Method A}=\text{Count by Method B}} $$
 
 $$ \boxed{\sum\deg(v)=2E} $$
 
-### J7. 多个非负数的算术—几何平均不等式（AM–GM for Multiple Numbers）
+#### J7. 多个非负数的算术—几何平均不等式（AM–GM for Multiple Numbers）
 
 对于非负实数 $x_1,\ldots,x_n$：
 
@@ -1881,13 +1882,13 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 等号成立当所有变量相等。
 
-# 第二部分：如何判断使用哪个公式
+## 第二部分：如何判断使用哪个公式
 
 这一部分按照题目中的英文关键词、已知条件和所求量分类。
 
 同一个关键词可能对应多种公式，必须结合题目的实际限制判断。
 
-## 1. 算术与代数（Arithmetic & Algebra）
+### 1. 算术与代数（Arithmetic & Algebra）
 
 | 题目条件 / English Keywords             | 判断方法        | 使用公式                            |
 | ----------------------------------- | ----------- | ------------------------------- |
@@ -1913,7 +1914,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | coefficient of a term               | 二项式展开的指定项系数 | Binomial Theorem                |
 | exponential growth                  | 每周期固定比例增长   | Compound Growth                 |
 
-## 2. 数论（Number Theory）
+### 2. 数论（Number Theory）
 
 | 题目条件 / English Keywords               | 判断方法          | 使用公式                                |
 | ------------------------------------- | ------------- | ----------------------------------- |
@@ -1940,7 +1941,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | sum of digits                         | 数位和与整除        | Modulo 3 / 9                        |
 | reversed digits                       | 倒序数字          | 位值展开                                |
 
-## 3. 组合计数（Counting）
+### 3. 组合计数（Counting）
 
 先判断顺序是否重要，再判断是否允许重复选择：
 
@@ -1975,7 +1976,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | no one gets their own item     | 所有对象错位      | Derangements                     |
 | handshakes / pairwise meetings | 两两配对        | $\binom n2$                  |
 
-## 4. 概率（Probability）
+### 4. 概率（Probability）
 
 | 题目条件 / English Keywords   | 判断方法       | 使用公式                         |
 | ------------------------- | ---------- | ---------------------------- |
@@ -1991,7 +1992,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | random point in a region  | 区域均匀随机取点   | 面积比                          |
 | random point on a segment | 线段均匀随机取点   | 长度比                          |
 
-## 5. 几何（Geometry）
+### 5. 几何（Geometry）
 
 | 题目条件 / English Keywords        | 判断方法       | 使用公式                                  |
 | ------------------------------ | ---------- | ------------------------------------- |
@@ -2020,7 +2021,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | distance from center to chord  | 圆心到弦的距离    | $L=2\sqrt{r^2-d^2}$               |
 | lattice polygon                | 整数格点多边形    | Pick's Theorem                        |
 
-## 6. 坐标及立体几何（Coordinate & Solid Geometry）
+### 6. 坐标及立体几何（Coordinate & Solid Geometry）
 
 | 题目条件        | 使用公式                       |
 | ----------- | -------------------------- |
@@ -2040,11 +2041,11 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | 相似立体体积比     | 长度比立方                      |
 | 多面体顶点、棱、面数量 | Euler's Polyhedron Formula |
 
-# 第三部分：公式速查表
+## 第三部分：公式速查表
 
 这一部分只保留公式、英文名称和必要条件。
 
-## 1. 算术（Arithmetic）
+### 1. 算术（Arithmetic）
 
 | 英文名称                      | 公式                                                      |
 | ---------------------------- | ------------------------------------------------------- |
@@ -2060,7 +2061,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Concentration                | $c=\frac{\text{Solute}}{\text{Solution}}$           |
 | Compound Growth              | $A=P(1+r)^n$                                        |
 
-## 2. 代数（Algebra）
+### 2. 代数（Algebra）
 
 | 英文名称               | 公式                                               |
 | --------------------- | ------------------------------------------------ |
@@ -2088,7 +2089,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 适用条件：分母非零；对数底数为正且不为 1，真数为正；开方和不等式满足对应实数定义条件。
 
-## 3. 数列与求和（Sequences & Series）
+### 3. 数列与求和（Sequences & Series）
 
 | 英文名称                | 公式                                                    |
 | ---------------------- | ----------------------------------------------------- |
@@ -2108,7 +2109,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Pascal's Identity      | $\binom nr+\binom n{r-1}=\binom{n+1}r$            |
 | Sum of Combinations    | $\sum_{r=0}^n\binom nr=2^n$                      |
 
-## 4. 数论（Number Theory）
+### 4. 数论（Number Theory）
 
 | 英文名称                    | 公式                                                     |
 | -------------------------- | ------------------------------------------------------ |
@@ -2138,7 +2139,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Multiples from 1 to N      | $\lfloor N/k\rfloor$                               |
 | Multiples from A to B      | $\lfloor B/k\rfloor-\lfloor(A-1)/k\rfloor$         |
 
-## 5. 组合计数（Combinatorics）
+### 5. 组合计数（Combinatorics）
 
 | 英文名称                        | 公式                                                     |
 | ------------------------------ | ------------------------------------------------------ |
@@ -2168,7 +2169,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 计数公式必须满足对应的顺序、重复、对象是否可区分及其他限制条件。
 
-## 6. 概率与统计（Probability & Statistics）
+### 6. 概率与统计（Probability & Statistics）
 
 | 英文名称                    | 公式                                                       |
 | -------------------------- | -------------------------------------------------------- |
@@ -2185,7 +2186,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Geometric Probability      | $P=\text{Favourable measure}/\text{Total measure}$   |
 | Range                      | $R=x_{\max}-x_{\min}$                              |
 
-## 7. 三角形几何（Triangle Geometry）
+### 7. 三角形几何（Triangle Geometry）
 
 | 英文名称                     | 公式                               |
 | --------------------------- | -------------------------------- |
@@ -2212,7 +2213,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Cosine Rule                 | $a^2=b^2+c^2-2bc\cos A$      |
 | Sine Area                   | $S=\frac12bc\sin A$          |
 
-## 8. 多边形与圆（Polygons & Circles）
+### 8. 多边形与圆（Polygons & Circles）
 
 | 英文名称                        | 公式                                                    |
 | ------------------------------ | ----------------------------------------------------- |
@@ -2242,7 +2243,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Interior Chord Angle           | $\theta=(\alpha+\beta)/2$                         |
 | Exterior Secant Angle          | $\theta=(\alpha-\beta)/2$                         |
 
-## 9. 坐标几何（Coordinate Geometry）
+### 9. 坐标几何（Coordinate Geometry）
 
 | 英文名称                  | 公式                                                      |
 | ------------------------ | ------------------------------------------------------- |
@@ -2264,7 +2265,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 斜率平行与垂直公式要求相关斜率存在；竖直线须单独判断。
 
-## 10. 立体几何（Solid Geometry）
+### 10. 立体几何（Solid Geometry）
 
 | 英文名称                        | 公式                            |
 | ------------------------------ | ----------------------------- |
@@ -2287,7 +2288,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Similar Solid Volume Ratio     | $V_1/V_2=k^3$             |
 | Euler's Polyhedron Formula     | $V-E+F=2$                 |
 
-## 11. 其他公式（Additional Formulae）
+### 11. 其他公式（Additional Formulae）
 
 | 英文名称                     | 公式                                                                    |
 | --------------------------- | --------------------------------------------------------------------- |

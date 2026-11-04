@@ -1,13 +1,14 @@
 ---
 title: AMC 10 完全公式ガイド
 description: AMC 10で使う算術、代数、数論、組合せ、確率、幾何の公式、問題形式の見分け方、公式早見表。
+outline: [2, 4]
 ---
 
 # AMC 10 完全公式ガイド
 
-# 第1部：公式の解説
+## 第1部：公式の解説
 
-## A. 数学記号（Mathematical Notation）
+### A. 数学記号（Mathematical Notation）
 
 | 記号                            | English                  | 意味と計算方法                           |
 | ----------------------------- | ------------------------ | --------------------------------- |
@@ -32,7 +33,7 @@ description: AMC 10で使う算術、代数、数論、組合せ、確率、幾�
 | $\exists$                 | There Exists             | 少なくとも一つ……が存在する                            |
 | $\iff$                    | If and Only If           | そのとき、かつそのときに限る                              |
 
-### A1. 総和（Summation）
+#### A1. 総和（Summation）
 
 $$ \boxed{\sum_{k=a}^{b}f(k)} $$
 
@@ -45,7 +46,7 @@ $$ \boxed{\sum_{k=a}^{b}f(k)} $$
 - $b$：終了値。
 - $f(k)$：各項の計算規則。
 
-### A2. 総乗（Product）
+#### A2. 総乗（Product）
 
 $$ \boxed{\prod_{k=a}^{b}f(k)} $$
 
@@ -53,7 +54,7 @@ $$ \boxed{\prod_{k=a}^{b}f(k)} $$
 
 $\sum$ との違いは、$\sum$ は足し算、$\prod$ は掛け算を表すことです。
 
-### A3. 階乗（Factorial）
+#### A3. 階乗（Factorial）
 
 $$ \boxed{n!=n(n-1)(n-2)\cdots2\cdot1} $$
 
@@ -61,9 +62,9 @@ $$ \boxed{n!=n(n-1)(n-2)\cdots2\cdot1} $$
 
 計算方法： $n$ から1ずつ減らしながら、すべての正整数を掛け合わせます。
 
-## B. 算術（Arithmetic）
+### B. 算術（Arithmetic）
 
-### B1. 分数（Fractions）
+#### B1. 分数（Fractions）
 
 加減：
 
@@ -86,7 +87,7 @@ $$ \boxed{\frac ab\div\frac cd=\frac{ad}{bc}} $$
 
 すべての分母は0以外でなければならず、除数も0であってはなりません。
 
-### B2. 比（Ratios）
+#### B2. 比（Ratios）
 
 $$ a:b=m:n $$
 
@@ -102,7 +103,7 @@ $$ \boxed{b=\frac{n}{m+n}S} $$
 
 計算方法： 比の数を足して全体の比の単位数を求め、各部分の比が占める割合に応じて全体量を配分します。
 
-### B3. 正比例と反比例（Direct & Inverse Proportion）
+#### B3. 正比例と反比例（Direct & Inverse Proportion）
 
 正比例：
 
@@ -120,7 +121,7 @@ $$ \boxed{xy=k} $$
 - 反比例：$x,y$ の組が一つ分かっている場合、$k=xy$ を計算します。
 - 同じ $k$ を使って、ほかの値を求めます。
 
-### B4. 百分率の変化（Percentage Change）
+#### B4. 百分率の変化（Percentage Change）
 
 $$ \boxed{N=O(1+r)} $$
 
@@ -145,7 +146,7 @@ $$ \boxed{N=O(1+r_1)(1+r_2)\cdots(1+r_k)} $$
 
 各回の変化率は、変化直前の値を基準にします。
 
-### B5. 算術平均（Arithmetic Mean）
+#### B5. 算術平均（Arithmetic Mean）
 
 $$ \boxed{\bar x=\frac{x_1+x_2+\cdots+x_n}{n}} $$
 
@@ -155,7 +156,7 @@ $$ \boxed{\bar x=\frac{x_1+x_2+\cdots+x_n}{n}} $$
 
 $$ \boxed{\text{Sum}=n\bar x} $$
 
-### B6. 加重平均（Weighted Average）
+#### B6. 加重平均（Weighted Average）
 
 $$ \boxed{ \bar x=\frac{w_1x_1+w_2x_2+\cdots+w_nx_n} {w_1+w_2+\cdots+w_n} } $$
 
@@ -163,7 +164,7 @@ $$ \boxed{ \bar x=\frac{w_1x_1+w_2x_2+\cdots+w_nx_n} {w_1+w_2+\cdots+w_n} } $$
 
 計算方法： 各値に対応する重みを掛けてから合計し、最後に重みの合計で割ります。
 
-### B7. 速さ・距離・時間（Speed, Distance & Time）
+#### B7. 速さ・距離・時間（Speed, Distance & Time）
 
 $$ \boxed{d=vt} $$
 
@@ -187,7 +188,7 @@ $$ \boxed{v_{\mathrm{avg}}=\frac{2v_1v_2}{v_1+v_2}} $$
 
 向かい合って進む場合、接近する速さは $v_1+v_2$ です。同じ方向に進んで追いつく場合、追いかける側の速さが大きいことを前提として、追いつく速さは二者の速さの差です。
 
-### B8. 仕事率（Work & Rate）
+#### B8. 仕事率（Work & Rate）
 
 $$ \boxed{W=rt} $$
 
@@ -205,7 +206,7 @@ $$ \boxed{T=\frac{ab}{a+b}} $$
 
 計算方法： 各人の仕事率を足し、全体の仕事量を合計の仕事率で割ります。
 
-### B9. 混合物と濃度（Mixtures & Concentrations）
+#### B9. 混合物と濃度（Mixtures & Concentrations）
 
 $$ \boxed{c=\frac{m_{\mathrm{solute}}}{m_{\mathrm{solution}}}} $$
 
@@ -221,7 +222,7 @@ $$ \boxed{ c_{\mathrm{new}}= \frac{m_1c_1+m_2c_2}{m_1+m_2} } $$
 
 計算方法： 各部分に含まれる溶質の質量をそれぞれ求めて足し、混合物全体の質量で割ります。
 
-### B10. 複利成長（Compound Growth）
+#### B10. 複利成長（Compound Growth）
 
 $$ \boxed{A=P(1+r)^n} $$
 
@@ -238,9 +239,9 @@ $$ \boxed{A=P(1+r)^n} $$
 
 $$ \boxed{A=P(1-r)^n} $$
 
-## C. 代数（Algebra）
+### C. 代数（Algebra）
 
-### C1. 指数法則（Exponent Laws）
+#### C1. 指数法則（Exponent Laws）
 
 $$ \boxed{a^ma^n=a^{m+n}} $$
 
@@ -264,7 +265,7 @@ $$ \boxed{a^{1/n}=\sqrt[n]{a}} $$
 
 除法を含む場合、該当する底は0以外でなければなりません。偶数乗根を含む場合は、実数の範囲で定義される条件を満たす必要があります。
 
-### C2. 代数恒等式（Algebraic Identities）
+#### C2. 代数恒等式（Algebraic Identities）
 
 $$ \boxed{(a+b)^2=a^2+2ab+b^2} $$
 
@@ -282,7 +283,7 @@ $$ \boxed{(a-b)^3=a^3-3a^2b+3ab^2-b^3} $$
 
 計算方法： 式が平方、立方、平方差の形に当てはまるかを見て、展開するか、逆に因数分解するかを選びます。
 
-### C3. 二次方程式の解の公式（Quadratic Formula）
+#### C3. 二次方程式の解の公式（Quadratic Formula）
 
 次の方程式に対して：
 
@@ -302,7 +303,7 @@ $$ \boxed{\Delta=b^2-4ac} $$
 - $\Delta=0$：重解となる実数解が一つ。
 - $\Delta<0$：実数解はありません。
 
-### C4. ヴィエタの公式（Vieta's Formulas）
+#### C4. ヴィエタの公式（Vieta's Formulas）
 
 $r_1,r_2$ が二次方程式 $ax^2+bx+c=0$ の二つの解なら：
 
@@ -320,7 +321,7 @@ $$ \boxed{(r_1-r_2)^2=(r_1+r_2)^2-4r_1r_2} $$
 
 既知の解の和と積をこれらの恒等式に代入します。
 
-### C5. 平方完成（Completing the Square）
+#### C5. 平方完成（Completing the Square）
 
 $$ \boxed{ ax^2+bx+c= a\left(x+\frac{b}{2a}\right)^2+ c-\frac{b^2}{4a} } $$
 
@@ -343,7 +344,7 @@ $a<0$ の場合、同じ値が最大値になります。
 
 $$ \boxed{x=-\frac b{2a}} $$
 
-### C6. 絶対値（Absolute Value）
+#### C6. 絶対値（Absolute Value）
 
 $$ \boxed{ |x|= \begin{cases} x,&x\ge0\\ -x,&x<0 \end{cases} } $$
 
@@ -363,7 +364,7 @@ $$ \boxed{|x-a|<d\iff a-d<x<a+d} $$
 
 $$ \boxed{|x-a|>d\iff x<a-d\text{ 或 }x>a+d} $$
 
-### C7. 根号（Radicals）
+#### C7. 根号（Radicals）
 
 $$ \boxed{\sqrt{ab}=\sqrt a\sqrt b} \quad(a,b\ge0) $$
 
@@ -377,7 +378,7 @@ $$ \boxed{ \frac1{a+\sqrt b} =\frac{a-\sqrt b}{a^2-b} } $$
 
 計算方法： 分子と分母に分母の共役式を掛け、平方差を利用して分母の根号を消します。
 
-### C8. 相加相乗平均不等式（Arithmetic–Geometric Mean Inequality）
+#### C8. 相加相乗平均不等式（Arithmetic–Geometric Mean Inequality）
 
 非負の実数 $a,b$ に対して：
 
@@ -398,7 +399,7 @@ $$ \boxed{(a+b)^2\ge4ab} $$
 
 $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
-### C9. コーシー・シュワルツの不等式（Cauchy–Schwarz Inequality）
+#### C9. コーシー・シュワルツの不等式（Cauchy–Schwarz Inequality）
 
 $$ \boxed{ (a^2+b^2)(c^2+d^2)\ge(ac+bd)^2 } $$
 
@@ -412,7 +413,7 @@ $$ \boxed{ \left(\sum_{i=1}^n a_i^2\right) \left(\sum_{i=1}^n b_i^2\right) \ge \
 
 $$ \boxed{a^2+b^2\ge\frac{(a+b)^2}{2}} $$
 
-### C10. 等差数列（Arithmetic Sequences）
+#### C10. 等差数列（Arithmetic Sequences）
 
 $$ \boxed{a_n=a_1+(n-1)d} $$
 
@@ -433,7 +434,7 @@ $$ \boxed{S_n=\frac n2[2a_1+(n-1)d]} $$
 - 和を求める：項数に初項と末項の平均を掛けます。
 - 項数を求める：和または指定された項を方程式に代入して $n$ を求め、正の整数であることを確認します。
 
-### C11. 等比数列（Geometric Sequences）
+#### C11. 等比数列（Geometric Sequences）
 
 $$ \boxed{a_n=a_1r^{n-1}} $$
 
@@ -449,7 +450,7 @@ $$ \boxed{S_\infty=\frac{a_1}{1-r}} $$
 
 $r=1$ の場合、有限項の和は $na_1$ です。
 
-### C12. よく使う総和（Standard Sums）
+#### C12. よく使う総和（Standard Sums）
 
 最初の $n$ 個の正の整数：
 
@@ -473,7 +474,7 @@ $$ \boxed{\sum_{k=1}^n2k=n(n+1)} $$
 
 計算方法： 和を取る対象が連続する整数、平方、立方、奇数、偶数のどれに当たるかを見分け、項数を代入します。
 
-### C13. 望遠鏡和（Telescoping Sums）
+#### C13. 望遠鏡和（Telescoping Sums）
 
 $$ \boxed{\frac1{k(k+1)}=\frac1k-\frac1{k+1}} $$
 
@@ -488,7 +489,7 @@ $$ \boxed{ \sum_{k=1}^n\frac1{k(k+1)} =1-\frac1{n+1} =\frac n{n+1} } $$
 3. 正負が一致する隣接項を互いに打ち消します。
 4. 相殺されずに残った最初と最後の項だけを計算します。
 
-### C14. 二項定理（Binomial Theorem）
+#### C14. 二項定理（Binomial Theorem）
 
 $$ \boxed{(a+b)^n=\sum_{r=0}^{n}\binom nr a^{n-r}b^r} $$
 
@@ -516,7 +517,7 @@ $$ \boxed{\binom nr+\binom n{r-1}=\binom{n+1}r} $$
 
 $$ \boxed{\sum_{r=0}^{n}\binom nr=2^n} $$
 
-### C15. 対数（Logarithms）
+#### C15. 対数（Logarithms）
 
 $$ \boxed{a^x=b\iff x=\log_a b} $$
 
@@ -534,9 +535,9 @@ $$ \boxed{\log_a b=\frac{\log_c b}{\log_c a}} $$
 
 計算方法： 対数の問題を指数の問題として捉えるか、積・商・べき乗に関する対数の法則を使ってまとめたり分解したりします。すべての真数は正でなければなりません。
 
-## D. 数論（Number Theory）
+### D. 数論（Number Theory）
 
-### D1. 整除（Divisibility）
+#### D1. 整除（Divisibility）
 
 $$ \boxed{a\mid b\iff b=ak,\quad k\in\mathbb Z,\quad a\ne0} $$
 
@@ -550,7 +551,7 @@ $$ \boxed{ a\mid b,\ a\mid c \Longrightarrow a\mid(mb+nc) } $$
 
 つまり、$a$ が $b,c$ の両方を割り切るなら、それらの整数係数線形結合もすべて割り切ります。
 
-### D2. 整除判定法（Divisibility Tests）
+#### D2. 整除判定法（Divisibility Tests）
 
 | 除数 | 判定方法                         |
 | -- | ---------------------------- |
@@ -566,7 +567,7 @@ $$ \boxed{ a\mid b,\ a\mid c \Longrightarrow a\mid(mb+nc) } $$
 | 12 | 3と4の両方の判定を満たす                 |
 | 25 | 下二桁でできる数が25で割り切れるか確認する               |
 
-### D3. 素数（Prime Numbers）
+#### D3. 素数（Prime Numbers）
 
 正整数 $p>1$ が素数であるのは、正の約数が1と $p$ だけであるとき、かつそのときに限ります。
 
@@ -578,7 +579,7 @@ $$ \boxed{p\le\sqrt N} $$
 
 どの素数でも割り切れなければ、$N$ は素数です。
 
-### D4. 素因数分解（Prime Factorisation）
+#### D4. 素因数分解（Prime Factorisation）
 
 $N>1$ に対して：
 
@@ -588,7 +589,7 @@ $$ \boxed{N=p_1^{a_1}p_2^{a_2}\cdots p_k^{a_k}} $$
 
 ここで $p_i$ は互いに異なる素数、$a_i$ は正整数です。
 
-### D5. 正の約数の個数（Number of Divisors）
+#### D5. 正の約数の個数（Number of Divisors）
 
 $$ \boxed{d(N)=\prod_{i=1}^k(a_i+1)} $$
 
@@ -600,7 +601,7 @@ $$ \boxed{d(N)=(a_1+1)(a_2+1)\cdots(a_k+1)} $$
 
 $N=1$ の場合、約数の個数は1です。
 
-### D6. 正の約数の和（Sum of Divisors）
+#### D6. 正の約数の和（Sum of Divisors）
 
 $$ \boxed{ \sigma(N)= \prod_{i=1}^k \left(1+p_i+p_i^2+\cdots+p_i^{a_i}\right) } $$
 
@@ -610,7 +611,7 @@ $$ \boxed{ \sigma(N)= \prod_{i=1}^k \frac{p_i^{a_i+1}-1}{p_i-1} } $$
 
 計算方法： 各素因数について、0乗から最大の指数までのべき乗をすべて足し、それぞれの和を掛け合わせます。
 
-### D7. 正の約数の積（Product of Divisors）
+#### D7. 正の約数の積（Product of Divisors）
 
 $$ \boxed{P(N)=N^{d(N)/2}} $$
 
@@ -618,13 +619,13 @@ $$ \boxed{P(N)=N^{d(N)/2}} $$
 
 $d(N)$ が奇数の場合も、この公式は成り立ちます。
 
-### D8. 平方数である約数の個数（Square Divisors）
+#### D8. 平方数である約数の個数（Square Divisors）
 
 $$ \boxed{ d_{\mathrm{square}}(N)= \prod_{i=1}^k \left(\left\lfloor\frac{a_i}{2}\right\rfloor+1\right) } $$
 
 計算方法： 各素因数について、指数が0から $a_i$ までの範囲に偶数がいくつあるか数え、それぞれの個数を掛け合わせます。
 
-### D9. 完全べき（Perfect Powers）
+#### D9. 完全べき（Perfect Powers）
 
 正整数 $N$ が完全 $m$ 乗数であるのは、その素因数分解に現れるすべての指数が $m$ の倍数であるとき、かつそのときに限ります。
 
@@ -632,7 +633,7 @@ $$ \boxed{ N=x^m\iff m\mid a_i\text{ 对所有 }i } $$
 
 計算方法： 素因数分解してから、各指数が $m$ で割り切れるか確認します。
 
-### D10. 最大公約数と最小公倍数（GCD & LCM）
+#### D10. 最大公約数と最小公倍数（GCD & LCM）
 
 $$ \boxed{\gcd(a,b)\operatorname{lcm}(a,b)=ab} $$
 
@@ -651,13 +652,13 @@ $$ \boxed{\operatorname{lcm}(a,b)=\prod p_i^{\max(\alpha_i,\beta_i)}} $$
 - 最大公約数：各素因数について小さい方の指数を取ります。
 - 最小公倍数：各素因数について大きい方の指数を取ります。
 
-### D11. ユークリッドの互除法（Euclidean Algorithm）
+#### D11. ユークリッドの互除法（Euclidean Algorithm）
 
 $$ \boxed{\gcd(a,b)=\gcd(b,a\bmod b)} $$
 
 計算方法： 余りが0になるまで、「割る数と余り」の組で元の二つの数を繰り返し置き換えます。最後の0以外の余りがGCDです。
 
-### D12. 互いに素（Coprime）
+#### D12. 互いに素（Coprime）
 
 $$ \boxed{\gcd(a,b)=1} $$
 
@@ -667,7 +668,7 @@ $$ \boxed{\gcd(a,b)=1} $$
 
 $$ \boxed{\gcd(n,n+1)=1} $$
 
-### D13. オイラーのトーシェント関数（Euler's Totient Function）
+#### D13. オイラーのトーシェント関数（Euler's Totient Function）
 
 $$ \boxed{ \varphi(N)=N\prod_{p\mid N}\left(1-\frac1p\right) } $$
 
@@ -695,7 +696,7 @@ $$ \boxed{\varphi(p^a)=p^a-p^{a-1}} $$
 
 $$ \boxed{\varphi(1)=1} $$
 
-### D14. 合同式（Modular Arithmetic）
+#### D14. 合同式（Modular Arithmetic）
 
 $$ \boxed{a\equiv b\pmod m} $$
 
@@ -719,7 +720,7 @@ $$ \boxed{a^n\bmod m=((a\bmod m)^n)\bmod m} $$
 
 注意： 合同式の計算で除法を無条件に使うことはできません。
 
-### D15. 余りの表し方（Remainder Representation）
+#### D15. 余りの表し方（Remainder Representation）
 
 $$ \boxed{N=dq+r} $$
 
@@ -731,7 +732,7 @@ $d$ は正の除数、$q$ は整数の商、$r$ は余りです。
 
 計算方法： 「$d$ で割ると余りが $r$」という条件を $N=dq+r$ に置き換え、ほかの条件と合わせて整数 $q$ を求めます。
 
-### D16. 一の位の周期（Units Digit Cycles）
+#### D16. 一の位の周期（Units Digit Cycles）
 
 $$ \boxed{\text{Last digit of }N=N\bmod10} $$
 
@@ -760,7 +761,7 @@ $$ \boxed{r=n\bmod L} $$
 
 下二桁を求める場合は法100、下三桁なら法1000を使い、周期を改めて確認します。
 
-### D17. フェルマーの小定理（Fermat's Little Theorem）
+#### D17. フェルマーの小定理（Fermat's Little Theorem）
 
 $p$ が素数で、$p\nmid a$ の場合：
 
@@ -768,7 +769,7 @@ $$ \boxed{a^{p-1}\equiv1\pmod p} $$
 
 計算方法： 大きな指数を $p-1$ 個ずつのまとまりに分け、各まとまりの値が $p$ を法として1になる性質を使って計算を簡単にします。
 
-### D18. オイラーの定理（Euler's Theorem）
+#### D18. オイラーの定理（Euler's Theorem）
 
 次の条件を満たす場合：
 
@@ -778,7 +779,7 @@ $$ \boxed{a^{\varphi(m)}\equiv1\pmod m} $$
 
 計算方法： まず $\varphi(m)$ を計算し、指数の周期性を使ってべき乗の余りを簡単にします。
 
-### D19. 階乗に含まれる素因数の指数（Factorial Prime Exponents）
+#### D19. 階乗に含まれる素因数の指数（Factorial Prime Exponents）
 
 $$ \boxed{ v_p(n!)= \sum_{j=1}^{\infty} \left\lfloor\frac n{p^j}\right\rfloor } $$
 
@@ -790,7 +791,7 @@ $$ \boxed{ \left\lfloor\frac np\right\rfloor+ \left\lfloor\frac n{p^2}\right\rfl
 
 計算方法： $p,p^2,p^3,\ldots$ で順に割り、各商を切り捨てて足します。商が1未満になったら終了します。
 
-### D20. 階乗の末尾の0（Trailing Zeros）
+#### D20. 階乗の末尾の0（Trailing Zeros）
 
 十進法では：
 
@@ -798,7 +799,7 @@ $$ \boxed{ Z(n!)= \left\lfloor\frac n5\right\rfloor+ \left\lfloor\frac n{25}\rig
 
 計算方法： $n!$ に含まれる因数5の指数の合計を計算します。因数2は常に十分な数だけあります。
 
-### D21. 位取り記数法（Number Bases）
+#### D21. 位取り記数法（Number Bases）
 
 $$ \boxed{ (a_na_{n-1}\cdots a_0)_b =\sum_{i=0}^{n}a_i b^i } $$
 
@@ -811,7 +812,7 @@ $$ \boxed{ (a_na_{n-1}\cdots a_0)_b =\sum_{i=0}^{n}a_i b^i } $$
 
 十進法から底 $b$ の記数法へ変換するには、$b$ で繰り返し割り、余りを記録して、最後に逆順に並べます。
 
-### D22. 各位の数字の和（Digit Sum）
+#### D22. 各位の数字の和（Digit Sum）
 
 十進整数 $N$ の各位の数字の和を $S$ とすると：
 
@@ -821,7 +822,7 @@ $$ \boxed{N\equiv S\pmod3} $$
 
 計算方法： 各桁の数字を足し、その和を3または9で割った余りを調べます。
 
-### D23. 数字の逆順（Reversed Digits）
+#### D23. 数字の逆順（Reversed Digits）
 
 三桁の数：
 
@@ -837,7 +838,7 @@ $$ \boxed{N-R=99(a-c)} $$
 
 計算方法： 各桁の数字に対応する位の値を掛けます。元の順序と逆順の式をそれぞれ書き、引き算します。
 
-### D24. 一次不定方程式（Linear Diophantine Equations）
+#### D24. 一次不定方程式（Linear Diophantine Equations）
 
 $a,b,c$ が整数で、$a,b$ が同時に0ではない場合：
 
@@ -851,7 +852,7 @@ $$ \boxed{\gcd(a,b)\mid c} $$
 
 正整数解または非負整数解が必要な場合は、さらに範囲も確認します。
 
-### D25. 倍数の個数（Counting Multiples）
+#### D25. 倍数の個数（Counting Multiples）
 
 $$ \boxed{ M(1,N;k)=\left\lfloor\frac Nk\right\rfloor } $$
 
@@ -861,9 +862,9 @@ $$ \boxed{ M(A,B;k)= \left\lfloor\frac Bk\right\rfloor- \left\lfloor\frac{A-1}{k
 
 計算方法： 区間の上限までにある倍数の個数から、区間の下限より前にある倍数の個数を引きます。
 
-## E. 組合せ計数（Combinatorics）
+### E. 組合せ計数（Combinatorics）
 
-### E1. 加法原理（Addition Principle）
+#### E1. 加法原理（Addition Principle）
 
 $$ \boxed{N=N_1+N_2+\cdots+N_k} $$
 
@@ -871,7 +872,7 @@ $$ \boxed{N=N_1+N_2+\cdots+N_k} $$
 
 場合に重複がある場合は、包除原理で補正する必要があります。
 
-### E2. 乗法原理（Multiplication Principle）
+#### E2. 乗法原理（Multiplication Principle）
 
 $$ \boxed{N=N_1N_2\cdots N_k} $$
 
@@ -879,7 +880,7 @@ $$ \boxed{N=N_1N_2\cdots N_k} $$
 
 段階ごとの選択数が正しく数えられている必要があります。各段階の選択数が前の選択に依存する場合は、さらに場合分けします。
 
-### E3. 順列（Permutations）
+#### E3. 順列（Permutations）
 
 $$ \boxed{P(n,r)=\frac{n!}{(n-r)!}} $$
 
@@ -891,7 +892,7 @@ $$ \boxed{n(n-1)\cdots(n-r+1)} $$
 
 因数は合計 $r$ 個です。
 
-### E4. 組合せ（Combinations）
+#### E4. 組合せ（Combinations）
 
 $$ \boxed{\binom nr=\frac{n!}{r!(n-r)!}} $$
 
@@ -899,7 +900,7 @@ $$ \boxed{\binom nr=\frac{n!}{r!(n-r)!}} $$
 
 まず順列の数を計算し、同じ組に含まれる要素の並べ替え $r!$ 通りで割ります。
 
-### E5. 重複を許す選択（Selections with Repetition）
+#### E5. 重複を許す選択（Selections with Repetition）
 
 $n$ 種類の異なるものから $r$ 回選ぶ場合：
 
@@ -916,7 +917,7 @@ $$ \boxed{\binom{n+r-1}{r}} $$
 - 順序が重要：各位置に $n$ 通りの選択肢があります。
 - 順序が重要でない：仕切り法を使って、各種類から何個選ぶかを数えます。
 
-### E6. 同じ対象を含む順列（Permutations of Identical Objects）
+#### E6. 同じ対象を含む順列（Permutations of Identical Objects）
 
 合計 $n$ 個の対象があり、各種類の同一対象がそれぞれ $a_1,a_2,\ldots,a_k$ 個ある場合：
 
@@ -928,7 +929,7 @@ $$ a_1+\cdots+a_k=n $$
 
 計算方法： すべての対象が異なると仮定した順列数を求め、同一対象の各グループ内の並べ替えの数で割ります。
 
-### E7. 円順列（Circular Permutations）
+#### E7. 円順列（Circular Permutations）
 
 $n$ 個の異なる対象を円形に並べ、回転だけを同じとみなす場合：
 
@@ -940,7 +941,7 @@ $$ \boxed{\frac{(n-1)!}{2}} $$
 
 計算方法： 一つの対象を固定して回転による重複をなくします。裏返しも同じとみなす場合は、さらに2で割ります。
 
-### E8. 仕切り法（Stars and Bars）
+#### E8. 仕切り法（Stars and Bars）
 
 非負整数解を求める場合：
 
@@ -961,7 +962,7 @@ $$ \boxed{N=\binom{n-1}{k-1}} $$
 
 各変数に異なる下限 $L_i$ がある場合は、まず $y_i=x_i-L_i$ と置いてから、非負整数解の公式を使います。
 
-### E9. 包除原理（Inclusion–Exclusion Principle）
+#### E9. 包除原理（Inclusion–Exclusion Principle）
 
 二つの集合：
 
@@ -973,13 +974,13 @@ $$ \boxed{ \begin{aligned} |A\cup B\cup C| ={}&|A|+|B|+|C|\\ &-|A\cap B|-|A\cap 
 
 計算方法： 各集合の個数を足し、二集合の共通部分を引き、三集合の共通部分を足します。集合がさらに増える場合は、符号を交互にして足し引きします。
 
-### E10. 補集合による計数（Complementary Counting）
+#### E10. 補集合による計数（Complementary Counting）
 
 $$ \boxed{N_{\mathrm{wanted}}=N_{\mathrm{total}}-N_{\mathrm{unwanted}}} $$
 
 計算方法： まずすべての場合を数え、条件を満たさない場合を引きます。
 
-### E11. ひとかたまりとして数える方法（Block Method）
+#### E11. ひとかたまりとして数える方法（Block Method）
 
 指定された異なる $k$ 個の対象が隣り合い、異なる対象が合計 $n$ 個ある場合：
 
@@ -989,7 +990,7 @@ $$ \boxed{N=(n-k+1)!\,k!} $$
 
 この公式は、ほかに制限のない一列の順列に限って適用できます。
 
-### E12. 格子経路（Lattice Paths）
+#### E12. 格子経路（Lattice Paths）
 
 右に $m$ 歩、上に $n$ 歩だけ進む場合：
 
@@ -1007,7 +1008,7 @@ $$ \boxed{N_{\mathrm{allowed}}=N_{\mathrm{total}}-N_{\mathrm{through}\ P}} $$
 
 目標点と中間点が移動方向の条件を満たしていることが前提です。
 
-### E13. 鳩の巣原理（Pigeonhole Principle）
+#### E13. 鳩の巣原理（Pigeonhole Principle）
 
 $N$ 個の対象を $k$ 個の分類に分ける場合：
 
@@ -1021,7 +1022,7 @@ $$ \boxed{N_{\min}=k(r-1)+1} $$
 
 計算方法： まず各分類に最大 $r-1$ 個ずつ入れ、さらに対象を一つ追加します。
 
-### E14. 漸化式（Recurrence Relations）
+#### E14. 漸化式（Recurrence Relations）
 
 $$ \boxed{a_n=f(a_{n-1},a_{n-2},\ldots)} $$
 
@@ -1033,7 +1034,7 @@ $$ \boxed{F_n=F_{n-1}+F_{n-2}} $$
 
 ただし、初項は問題での定義に従って決める必要があります。
 
-### E15. 完全順列（Derangements）
+#### E15. 完全順列（Derangements）
 
 $n$ 個の異なる対象を並べ、どの対象も元の位置に戻らないようにする場合：
 
@@ -1053,7 +1054,7 @@ $$ \boxed{D_n=(n-1)(D_{n-1}+D_{n-2})} $$
 
 $$ D_0=1,\qquad D_1=0 $$
 
-### E16. 握手定理（Handshake Lemma）
+#### E16. 握手定理（Handshake Lemma）
 
 無向グラフでは：
 
@@ -1070,7 +1071,7 @@ $n$ 個の対象を重複なくすべてペアにする場合：
 
 $$ \boxed{E=\binom n2=\frac{n(n-1)}2} $$
 
-### E17. 直線の交点（Line Intersections）
+#### E17. 直線の交点（Line Intersections）
 
 異なる $n$ 本の直線があり、どの二本も平行でなく、どの三本も同一点を通らない場合：
 
@@ -1078,7 +1079,7 @@ $$ \boxed{I=\binom n2} $$
 
 計算方法： すべての直線から二本を選びます。それぞれの組が異なる一つの交点を作ります。
 
-### E18. 円内の弦の交点（Circle Chord Intersections）
+#### E18. 円内の弦の交点（Circle Chord Intersections）
 
 円周上に異なる $n$ 個の点があり、任意の二点を結び、どの三本の弦も円内の同一点で交わらない場合：
 
@@ -1086,9 +1087,9 @@ $$ \boxed{I=\binom n4} $$
 
 計算方法： 円周上の四点ごとに、円内で交わる二本の弦が一組決まります。したがって $n$ 個の点から四つを選びます。
 
-## F. 確率と統計（Probability & Statistics）
+### F. 確率と統計（Probability & Statistics）
 
-### F1. 古典的確率（Classical Probability）
+#### F1. 古典的確率（Classical Probability）
 
 すべての基本事象が同じ確率で起こるとき：
 
@@ -1101,13 +1102,13 @@ $$ \boxed{P(A)=\frac{N(A)}{N(S)}} $$
 
 計算方法： 条件に合う結果の数を求め、全結果数で割ります。
 
-### F2. 余事象の確率（Complement Rule）
+#### F2. 余事象の確率（Complement Rule）
 
 $$ \boxed{P(A^c)=1-P(A)} $$
 
 計算方法： 1から反対の事象が起こる確率を引きます。
 
-### F3. 確率の加法定理（Addition Rule）
+#### F3. 確率の加法定理（Addition Rule）
 
 $$ \boxed{P(A\cup B)=P(A)+P(B)-P(A\cap B)} $$
 
@@ -1117,7 +1118,7 @@ $$ \boxed{P(A\cup B)=P(A)+P(B)} $$
 
 計算方法： 二つの事象の確率を足し、重複して数えた共通部分の確率を引きます。
 
-### F4. 確率の乗法定理（Multiplication Rule）
+#### F4. 確率の乗法定理（Multiplication Rule）
 
 $$ \boxed{P(A\cap B)=P(A)P(B\mid A)} $$
 
@@ -1129,7 +1130,7 @@ $$ \boxed{P(A\cap B)=P(A)P(B)} $$
 
 独立の場合、第二の事象の確率は最初の事象の影響を受けません。
 
-### F5. 条件付き確率（Conditional Probability）
+#### F5. 条件付き確率（Conditional Probability）
 
 $$ \boxed{P(A\mid B)=\frac{P(A\cap B)}{P(B)}} $$
 
@@ -1137,7 +1138,7 @@ $P(B)>0$ が必要です。
 
 計算方法： Bが起きたと分かっているとき、Bに該当する場合だけを考え、そのうちAも満たす割合を求めます。
 
-### F6. 二項確率（Binomial Probability）
+#### F6. 二項確率（Binomial Probability）
 
 $$ \boxed{ P(X=k)=\binom nk p^k(1-p)^{n-k} } $$
 
@@ -1156,7 +1157,7 @@ $$ \boxed{ P(X=k)=\binom nk p^k(1-p)^{n-k} } $$
 
 各試行は互いに独立で、成功確率が同じでなければなりません。
 
-### F7. 超幾何確率（Hypergeometric Probability）
+#### F7. 超幾何確率（Hypergeometric Probability）
 
 異なる $N$ 個の対象から $n$ 個を非復元抽出し、そのうち目標の対象が $K$ 個あるとき、ちょうど $k$ 個の目標対象を引く確率：
 
@@ -1164,7 +1165,7 @@ $$ \boxed{ P(X=k)= \frac{\binom Kk\binom{N-K}{n-k}}{\binom Nn} } $$
 
 計算方法： 目標の種類とそれ以外の種類から必要な数をそれぞれ選び、二つの組合せ数を掛けてから、選び方の総数で割ります。
 
-### F8. 期待値（Expected Value）
+#### F8. 期待値（Expected Value）
 
 $$ \boxed{E(X)=\sum_i x_iP(X=x_i)} $$
 
@@ -1176,7 +1177,7 @@ $$ \boxed{E(X+Y)=E(X)+E(Y)} $$
 
 二つの確率変数が独立でなくても成り立ちます。
 
-### F9. 幾何学的確率（Geometric Probability）
+#### F9. 幾何学的確率（Geometric Probability）
 
 一様ランダムに選ぶ場合：
 
@@ -1188,7 +1189,7 @@ $$ \boxed{ P(A)=\frac{\text{Favourable Length}}{\text{Total Length}} } $$
 
 計算方法： ランダムに選ぶ基本対象が面積、長さ、または別の測度のどれかを特定し、有利な部分と全体の比を求めます。
 
-### F10. 平均値・中央値・最頻値・範囲（Mean, Median, Mode & Range）
+#### F10. 平均値・中央値・最頻値・範囲（Mean, Median, Mode & Range）
 
 平均値：
 
@@ -1205,9 +1206,9 @@ $$ \boxed{R=x_{\max}-x_{\min}} $$
 - Mode：最も頻繁に現れるデータを探します。
 - Range：最大値から最小値を引きます。
 
-## G. 平面幾何（Plane Geometry）
+### G. 平面幾何（Plane Geometry）
 
-### G1. 基本的な角の規則（Basic Angle Rules）
+#### G1. 基本的な角の規則（Basic Angle Rules）
 
 平角：
 
@@ -1229,7 +1230,7 @@ $$ \boxed{\angle1=\angle2} $$
 - Alternate Interior Angles（錯角）は等しい。
 - Co-interior Angles（同側内角）の和は $180^\circ$。
 
-### G2. 三角形の内角の和（Triangle Angle Sum）
+#### G2. 三角形の内角の和（Triangle Angle Sum）
 
 $$ \boxed{A+B+C=180^\circ} $$
 
@@ -1241,7 +1242,7 @@ $$ \boxed{\text{Exterior Angle}=A+B} $$
 
 計算方法： 二つの内角が分かっていれば180°から引きます。離れた二つの内角が分かっていれば、それらを足して対応する外角を求めます。
 
-### G3. 二等辺三角形と正三角形（Isosceles & Equilateral Triangles）
+#### G3. 二等辺三角形と正三角形（Isosceles & Equilateral Triangles）
 
 二等辺三角形では、二つの辺が等しければ、それらに対する底角も等しくなります。
 
@@ -1259,7 +1260,7 @@ $$ \boxed{S=\frac{\sqrt3}{4}a^2} $$
 
 計算方法： 正三角形を高さで二つの30°–60°–90°の直角三角形に分け、辺の比から高さと面積を求めます。
 
-### G4. 三角形の不等式（Triangle Inequality）
+#### G4. 三角形の不等式（Triangle Inequality）
 
 $$ \boxed{|a-b|<c<a+b} $$
 
@@ -1269,7 +1270,7 @@ $$ \boxed{|a-b|<c<a+b} $$
 
 第三辺が整数に限られる場合は、この開区間に含まれる整数だけを数えます。
 
-### G5. ピタゴラスの定理（Pythagorean Theorem）
+#### G5. ピタゴラスの定理（Pythagorean Theorem）
 
 直角三角形では：
 
@@ -1292,7 +1293,7 @@ $$ \boxed{a^2+b^2=c^2} $$
 
 これらの組を同じ整数倍しても、ピタゴラスの定理を満たします。
 
-### G6. 特殊な直角三角形（Special Right Triangles）
+#### G6. 特殊な直角三角形（Special Right Triangles）
 
 45°–45°–90°
 
@@ -1304,7 +1305,7 @@ $$ \boxed{1:\sqrt3:2} $$
 
 計算方法： 三角形の角度から該当する辺の比を特定し、与えられた辺の長さを比の単位として、ほかの辺の長さを求めます。
 
-### G7. 三角形の面積（Triangle Area）
+#### G7. 三角形の面積（Triangle Area）
 
 $$ \boxed{S=\frac12 bh} $$
 
@@ -1323,7 +1324,7 @@ $$ \boxed{\frac{S_1}{S_2}=\frac{b_1}{b_2}} $$
 
 $$ \boxed{\frac{S_1}{S_2}=\frac{h_1}{h_2}} $$
 
-### G8. ヘロンの公式（Heron's Formula）
+#### G8. ヘロンの公式（Heron's Formula）
 
 $$ \boxed{s=\frac{a+b+c}{2}} $$
 
@@ -1333,7 +1334,7 @@ $$ \boxed{S=\sqrt{s(s-a)(s-b)(s-c)}} $$
 
 計算方法： 三辺の長さが分かっている場合、まず半周長を求め、四つの因数を掛け合わせてから平方根を取ります。
 
-### G9. 相似三角形（Similar Triangles）
+#### G9. 相似三角形（Similar Triangles）
 
 二つの三角形が相似で、対応する辺の比が $k$ の場合：
 
@@ -1349,13 +1350,13 @@ $$ \boxed{\frac{S_1}{S_2}=k^2} $$
 - SAS：対応する二組の辺が比例し、その間の角が等しい。
 - SSS：対応する三組の辺が比例する。
 
-### G10. 合同な三角形（Congruent Triangles）
+#### G10. 合同な三角形（Congruent Triangles）
 
 よく使われる合同条件はSSS、SAS、ASA、AAS、RHS/HLです。
 
 計算方法： 対応する辺や角が等しいかに基づいて合同を判定します。合同であれば、対応するすべての辺、角、面積がそれぞれ等しくなります。
 
-### G11. 角の二等分線定理（Angle Bisector Theorem）
+#### G11. 角の二等分線定理（Angle Bisector Theorem）
 
 三角形 $ABC$ で、$AD$ が $\angle A$ の二等分線であり、$D$ が $BC$ 上にある場合：
 
@@ -1363,7 +1364,7 @@ $$ \boxed{\frac{BD}{DC}=\frac{AB}{AC}} $$
 
 計算方法： 隣り合う二辺の比から、角の二等分線が対辺を分ける二つの部分の比を求めます。その後、$BD+DC=BC$ を使って長さを求めます。
 
-### G12. 中線と重心（Median & Centroid）
+#### G12. 中線と重心（Median & Centroid）
 
 $AD$ が三角形の中線で、$G$ が重心なら：
 
@@ -1379,7 +1380,7 @@ $$ \boxed{AG=\frac23AD} \qquad \boxed{GD=\frac13AD} $$
 
 $$ \boxed{S_1=S_2} $$
 
-### G13. 内心と内接円（Incenter & Inradius）
+#### G13. 内心と内接円（Incenter & Inradius）
 
 $$ \boxed{S=rs} $$
 
@@ -1391,7 +1392,7 @@ $$ \boxed{S=rs} $$
 
 計算方法： 面積を半周長で割ると内接円の半径が求まり、半径に半周長を掛けると面積が求まります。
 
-### G14. 外心と外接円（Circumcenter & Circumradius）
+#### G14. 外心と外接円（Circumcenter & Circumradius）
 
 $$ \boxed{S=\frac{abc}{4R}} $$
 
@@ -1413,7 +1414,7 @@ $$ \boxed{R=\frac c2} $$
 
 ここで $c$ は斜辺です。
 
-### G15. 直角三角形の斜辺に対する高さ（Right Triangle Altitude Theorem）
+#### G15. 直角三角形の斜辺に対する高さ（Right Triangle Altitude Theorem）
 
 斜辺が $c$ で、高さ $h$ によって $m,n$ に分けられる場合：
 
@@ -1429,7 +1430,7 @@ $$ \boxed{b^2=cn} $$
 
 計算方法： 相似な三角形の対応する辺の比から平方の関係を立て、高さや直角辺の長さを求めます。
 
-### G16. 四角形（Quadrilaterals）
+#### G16. 四角形（Quadrilaterals）
 
 | 図形                  | 公式                    | 計算方法             |
 | ------------------- | --------------------- | ---------------- |
@@ -1443,7 +1444,7 @@ $$ \boxed{b^2=cn} $$
 
 ここで $l,w$ は縦と横、$b,h$ は底辺と垂直な高さ、$d_i$ は対角線の長さです。
 
-### G17. 多角形の角（Polygon Angle Sum）
+#### G17. 多角形の角（Polygon Angle Sum）
 
 $n$ 角形の内角の和：
 
@@ -1459,13 +1460,13 @@ $$ \boxed{\frac{360^\circ}{n}} $$
 
 計算方法： 辺の数 $n$ を該当する公式に代入します。凸多角形で各頂点から同じ向きに外角を一つずつ取ると、外角の和は $360^\circ$ です。
 
-### G18. 多角形の対角線（Polygon Diagonals）
+#### G18. 多角形の対角線（Polygon Diagonals）
 
 $$ \boxed{D=\frac{n(n-3)}2} $$
 
 計算方法： 各頂点から、隣り合わない $n-3$ 個の頂点へ対角線を引けます。頂点数 $n$ を掛けてから2で割り、重複を除きます。
 
-### G19. 正多角形の面積（Regular Polygon Area）
+#### G19. 正多角形の面積（Regular Polygon Area）
 
 $$ \boxed{S=\frac12Pa} $$
 
@@ -1480,7 +1481,7 @@ $$ \boxed{S=\frac12Pa} $$
 
 $$ \boxed{S=\frac{3\sqrt3}{2}s^2} $$
 
-### G20. 円（Circle）
+#### G20. 円（Circle）
 
 円周：
 
@@ -1496,7 +1497,7 @@ $$ \boxed{d=2r} $$
 
 計算方法： 半径から直接計算します。
 
-### G21. 弧の長さ（Arc Length）
+#### G21. 弧の長さ（Arc Length）
 
 中心角が $\theta^\circ$ の場合：
 
@@ -1504,7 +1505,7 @@ $$ \boxed{L=\frac{\theta}{360^\circ}2\pi r} $$
 
 計算方法： 中心角を360°で割り、弧が円全体に占める割合を求めてから、円周を掛けます。
 
-### G22. 扇形の面積（Sector Area）
+#### G22. 扇形の面積（Sector Area）
 
 $$ \boxed{S_{\mathrm{sector}}=\frac{\theta}{360^\circ}\pi r^2} $$
 
@@ -1518,7 +1519,7 @@ $$ \boxed{S_{\mathrm{segment}}=S_{\mathrm{sector}}-S_{\mathrm{triangle}}} $$
 
 $$ \boxed{S_{\mathrm{annulus}}=\pi(R^2-r^2)} $$
 
-### G23. 円周角の定理（Inscribed Angle Theorem）
+#### G23. 円周角の定理（Inscribed Angle Theorem）
 
 同じ弧に対して：
 
@@ -1530,7 +1531,7 @@ $$ \boxed{\theta_{\mathrm{inscribed}}=\frac12\theta_{\mathrm{central}}} $$
 
 $$ \boxed{90^\circ} $$
 
-### G24. 円に内接する四角形（Cyclic Quadrilaterals）
+#### G24. 円に内接する四角形（Cyclic Quadrilaterals）
 
 円に内接する四角形 $ABCD$ では：
 
@@ -1540,7 +1541,7 @@ $$ \boxed{B+D=180^\circ} $$
 
 計算方法： 一つの内角が分かっていれば、$180^\circ$ から引くと対角が得られます。
 
-### G25. 接線（Tangents）
+#### G25. 接線（Tangents）
 
 接点における半径は接線に垂直です：
 
@@ -1552,7 +1553,7 @@ $$ \boxed{PA=PB} $$
 
 計算方法： 垂直の関係を使って直角三角形を立てるか、同じ外部の点から引いた接線の長さが等しい性質を使います。
 
-### G26. 弦の長さ（Chord Length）
+#### G26. 弦の長さ（Chord Length）
 
 半径が $r$、円の中心から弦までの垂直距離が $d$ の場合：
 
@@ -1560,7 +1561,7 @@ $$ \boxed{L=2\sqrt{r^2-d^2}} $$
 
 計算方法： 弦を二等分し、半弦の長さをピタゴラスの定理で求めてから2倍します。
 
-### G27. 交わる弦の定理（Intersecting Chords Theorem）
+#### G27. 交わる弦の定理（Intersecting Chords Theorem）
 
 円内で二つの弦 $AB,CD$ がPで交わる場合：
 
@@ -1568,7 +1569,7 @@ $$ \boxed{PA\cdot PB=PC\cdot PD} $$
 
 計算方法： 交点の両側にある各弦の長さを掛け合わせ、二組の積を等しいとします。
 
-### G28. 点の冪（Power of a Point）
+#### G28. 点の冪（Power of a Point）
 
 円の外にある同一点Pから二本の割線を引く場合：
 
@@ -1582,7 +1583,7 @@ $$ \boxed{PT^2=PA\cdot PB} $$
 
 計算方法： Pから遠い交点までの全長に、円外部分の長さを掛けます。接線の場合は接線の長さを二乗します。
 
-### G29. 円の交角（Circle Intersection Angles）
+#### G29. 円の交角（Circle Intersection Angles）
 
 円内で二つの弦が交わる場合：
 
@@ -1596,21 +1597,21 @@ $$ \boxed{\theta=\frac{\alpha-\beta}{2}} $$
 
 計算方法： 交点が円の内側か外側かに応じて弧の度数の和または差を選び、2で割ります。
 
-## H. 座標幾何（Coordinate Geometry）
+### H. 座標幾何（Coordinate Geometry）
 
-### H1. 2点間の距離（Distance Formula）
+#### H1. 2点間の距離（Distance Formula）
 
 $$ \boxed{ d=\sqrt{(x_2-x_1)^2+(y_2-y_1)^2} } $$
 
 計算方法： x座標の差の二乗とy座標の差の二乗を足し、平方根を取ります。
 
-### H2. 中点（Midpoint Formula）
+#### H2. 中点（Midpoint Formula）
 
 $$ \boxed{ M=\left(\frac{x_1+x_2}{2},\frac{y_1+y_2}{2}\right) } $$
 
 計算方法： 二つのx座標の平均と、二つのy座標の平均をそれぞれ求めます。
 
-### H3. 傾き（Slope）
+#### H3. 傾き（Slope）
 
 $$ \boxed{m=\frac{y_2-y_1}{x_2-x_1}} $$
 
@@ -1618,7 +1619,7 @@ $x_1\ne x_2$ が必要です。
 
 計算方法： y座標の変化量をx座標の変化量で割ります。
 
-### H4. 直線の方程式（Equations of Lines）
+#### H4. 直線の方程式（Equations of Lines）
 
 傾き切片形：
 
@@ -1638,13 +1639,13 @@ $$ \boxed{m_1m_2=-1} $$
 
 計算方法： 一点と傾きが分かっていれば点傾き形を使います。二点が分かっていれば、先に傾きを求めてから、そのうちの一点を代入します。
 
-### H5. 座標から三角形の面積を求める（Triangle Area from Coordinates）
+#### H5. 座標から三角形の面積を求める（Triangle Area from Coordinates）
 
 $$ \boxed{ S=\frac12\left| x_1(y_2-y_3)+x_2(y_3-y_1)+x_3(y_1-y_2) \right| } $$
 
 計算方法： 公式に沿って交差する項を掛けて足し、最後に絶対値を取って2で割ります。
 
-### H6. 靴紐公式（Shoelace Formula）
+#### H6. 靴紐公式（Shoelace Formula）
 
 境界に沿う順に並べた多角形の頂点：
 
@@ -1660,7 +1661,7 @@ $$ \boxed{ S=\frac12\left| \sum_{i=1}^n x_i y_{i+1} - \sum_{i=1}^n y_i x_{i+1} \
 
 計算方法： 一方向の交差積を順に足し、逆方向の交差積も足します。二つの和の差の絶対値を取って2で割ります。
 
-### H7. ピックの定理（Pick's Theorem）
+#### H7. ピックの定理（Pick's Theorem）
 
 頂点が整数格子点上にある単純多角形に適用します：
 
@@ -1673,7 +1674,7 @@ $$ \boxed{S=I+\frac B2-1} $$
 
 計算方法： 内部の格子点数に境界上の格子点数の半分を足し、1を引きます。
 
-### H8. 座標変換（Coordinate Transformations）
+#### H8. 座標変換（Coordinate Transformations）
 
 | 変換             | 新しい座標             |
 | -------------- | --------------- |
@@ -1687,9 +1688,9 @@ $$ \boxed{S=I+\frac B2-1} $$
 
 回転の中心はすべて原点です。
 
-## I. 立体幾何（Solid Geometry）
+### I. 立体幾何（Solid Geometry）
 
-### I1. 立方体（Cube）
+#### I1. 立方体（Cube）
 
 辺の長さが $a$ のとき：
 
@@ -1703,7 +1704,7 @@ $$ \boxed{d=a\sqrt3} $$
 
 計算方法： 辺の長さの3乗で体積を求めます。表面積は同じ正方形六つの面積の合計です。空間対角線には三次元のピタゴラスの定理を使います。
 
-### I2. 直方体（Rectangular Prism）
+#### I2. 直方体（Rectangular Prism）
 
 $$ \boxed{V=lwh} $$
 
@@ -1713,7 +1714,7 @@ $$ \boxed{d=\sqrt{l^2+w^2+h^2}} $$
 
 ここで $l,w,h$ はそれぞれ縦、横、高さです。
 
-### I3. 円柱（Cylinder）
+#### I3. 円柱（Cylinder）
 
 $$ \boxed{V=\pi r^2h} $$
 
@@ -1721,7 +1722,7 @@ $$ \boxed{S=2\pi r^2+2\pi rh} $$
 
 計算方法： 底面積に高さを掛けて体積を求めます。二つの円形の底面積と側面積を足すと全表面積になります。
 
-### I4. 円錐（Cone）
+#### I4. 円錐（Cone）
 
 $$ \boxed{V=\frac13\pi r^2h} $$
 
@@ -1739,7 +1740,7 @@ $$ \boxed{l=\sqrt{r^2+h^2}} $$
 
 $$ \boxed{S=\pi r^2+\pi rl} $$
 
-### I5. 球（Sphere）
+#### I5. 球（Sphere）
 
 $$ \boxed{V=\frac43\pi r^3} $$
 
@@ -1747,7 +1748,7 @@ $$ \boxed{S=4\pi r^2} $$
 
 計算方法： 半径の3乗に $4\pi/3$ を掛けて体積を求め、半径の二乗に $4\pi$ を掛けて表面積を求めます。
 
-### I6. 角柱と角錐（Prism & Pyramid）
+#### I6. 角柱と角錐（Prism & Pyramid）
 
 角柱：
 
@@ -1759,7 +1760,7 @@ $$ \boxed{V=\frac13S_{\mathrm{base}}h} $$
 
 計算方法： 底面積に垂直な高さを掛けます。角錐の場合はさらに3で割ります。
 
-### I7. 相似な立体（Similar Solids）
+#### I7. 相似な立体（Similar Solids）
 
 対応する長さの比が $k$ の場合：
 
@@ -1769,7 +1770,7 @@ $$ \boxed{\frac{V_1}{V_2}=k^3} $$
 
 計算方法： 面積比は長さの比の二乗、体積比は長さの比の三乗です。
 
-### I8. オイラーの多面体公式（Euler's Polyhedron Formula）
+#### I8. オイラーの多面体公式（Euler's Polyhedron Formula）
 
 凸多面体に対して：
 
@@ -1783,9 +1784,9 @@ $$ \boxed{V-E+F=2} $$
 
 計算方法： 分かっている二つの数を代入し、残る数を解きます。
 
-## J. その他の数学的手法（Other Mathematical Techniques）
+### J. その他の数学的手法（Other Mathematical Techniques）
 
-### J1. 偶奇性（Parity）
+#### J1. 偶奇性（Parity）
 
 偶数：
 
@@ -1799,7 +1800,7 @@ $$ \boxed{2k+1} $$
 
 計算方法： 整数の偶奇の表し方を使い、演算の結果を $2m$ または $2m+1$ の形に整理して、偶数か奇数かを判定します。
 
-### J2. 不変量（Invariants）
+#### J2. 不変量（Invariants）
 
 ある操作で数が常に $km$ だけ変化する場合：
 
@@ -1807,7 +1808,7 @@ $$ \boxed{N_{\mathrm{new}}\equiv N_{\mathrm{old}}\pmod m} $$
 
 計算方法： 各操作で変わらない余り、偶奇、色の個数の差などを探し、ある結果が実現できるかを判定します。
 
-### J3. 上限と下限（Bounds）
+#### J3. 上限と下限（Bounds）
 
 $$ \boxed{L\le x\le U} $$
 
@@ -1815,7 +1816,7 @@ $$ \boxed{L\le x\le U} $$
 
 計算方法： 非負性、大きさの比較、単調性、不等式を使って範囲を定め、選択肢や整数条件と照合します。
 
-### J4. 対称式（Symmetric Expressions）
+#### J4. 対称式（Symmetric Expressions）
 
 次が分かっている場合：
 
@@ -1829,7 +1830,7 @@ $$ \boxed{(a-b)^2=s^2-4p} $$
 
 計算方法： 二つの数の和と積で高次の式を表し、$a,b$ を先に求めずに計算します。
 
-### J5. 時計の針の角度（Clock Angles）
+#### J5. 時計の針の角度（Clock Angles）
 
 12時間制を使い、$h\in\{0,1,\ldots,11\}$、$m$ は分を表す数とします。
 
@@ -1851,7 +1852,7 @@ $$ \boxed{\theta=\min(\Delta,360^\circ-\Delta)} $$
 
 計算方法： 12時の方向を基準に二つの針の角度をそれぞれ求め、差を取ってから小さい方の角を選びます。
 
-### J6. 二重計数（Double Counting）
+#### J6. 二重計数（Double Counting）
 
 基本関係：
 
@@ -1863,7 +1864,7 @@ $$ \boxed{\text{Count by Method A}=\text{Count by Method B}} $$
 
 $$ \boxed{\sum\deg(v)=2E} $$
 
-### J7. 複数の非負数に対する相加相乗平均不等式（AM–GM for Multiple Numbers）
+#### J7. 複数の非負数に対する相加相乗平均不等式（AM–GM for Multiple Numbers）
 
 非負の実数 $x_1,\ldots,x_n$ に対して：
 
@@ -1873,13 +1874,13 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 すべての変数が等しいとき、等号が成り立ちます。
 
-# 第2部：使う公式の見分け方
+## 第2部：使う公式の見分け方
 
 この部では、問題文の英語キーワード、既知の条件、求める量に沿って分類します。
 
 同じキーワードでも複数の公式に対応する場合があります。問題の実際の条件に基づいて判断してください。
 
-## 1. 算術と代数（Arithmetic & Algebra）
+### 1. 算術と代数（Arithmetic & Algebra）
 
 | 問題の条件 / English Keywords             | 見分け方        | 使用する公式                            |
 | ----------------------------------- | ----------- | ------------------------------- |
@@ -1905,7 +1906,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | coefficient of a term               | 二項展開の特定の項の係数 | Binomial Theorem                |
 | exponential growth                  | 各期間の増加率が一定   | Compound Growth                 |
 
-## 2. 数論（Number Theory）
+### 2. 数論（Number Theory）
 
 | 問題の条件 / English Keywords               | 見分け方          | 使用する公式                                |
 | ------------------------------------- | ------------- | ----------------------------------- |
@@ -1932,7 +1933,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | sum of digits                         | 各位の数字の和と整除        | Modulo 3 / 9                        |
 | reversed digits                       | 数字の逆順          | 位取りによる展開                                |
 
-## 3. 組合せ計数（Counting）
+### 3. 組合せ計数（Counting）
 
 まず順序が重要かどうかを判断し、次に重複を許すかどうかを判断します。
 
@@ -1967,7 +1968,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | no one gets their own item     | すべての対象が元の位置から外れる      | Derangements                     |
 | handshakes / pairwise meetings | 二者間の組み合わせ | $\binom n2$                  |
 
-## 4. 確率（Probability）
+### 4. 確率（Probability）
 
 | 問題の条件 / English Keywords   | 見分け方       | 使用する公式                         |
 | ------------------------- | ---------- | ---------------------------- |
@@ -1983,7 +1984,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | random point in a region  | 領域内で一様に点を選ぶ   | 面積比                          |
 | random point on a segment | 線分上で一様に点を選ぶ   | 長さの比                          |
 
-## 5. 幾何（Geometry）
+### 5. 幾何（Geometry）
 
 | 問題の条件 / English Keywords        | 見分け方       | 使用する公式                                  |
 | ------------------------------ | ---------- | ------------------------------------- |
@@ -2012,7 +2013,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | distance from center to chord  | 円の中心から弦までの距離  | $L=2\sqrt{r^2-d^2}$               |
 | lattice polygon                | 整数格子点上の多角形    | Pick's Theorem                        |
 
-## 6. 座標幾何と立体幾何（Coordinate & Solid Geometry）
+### 6. 座標幾何と立体幾何（Coordinate & Solid Geometry）
 
 | 問題の条件        | 使用する公式                       |
 | ----------- | -------------------------- |
@@ -2033,11 +2034,11 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | 多面体の頂点、辺、面の数 | Euler's Polyhedron Formula |
 
 
-# 第3部：公式早見表
+## 第3部：公式早見表
 
 この部では、公式、英語名、必要な条件だけを掲載します。
 
-## 1. 算術（Arithmetic）
+### 1. 算術（Arithmetic）
 
 | 英語名                        | 公式                                                      |
 | ---------------------------- | ------------------------------------------------------- |
@@ -2053,7 +2054,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Concentration                | $c=\frac{\text{Solute}}{\text{Solution}}$           |
 | Compound Growth              | $A=P(1+r)^n$                                        |
 
-## 2. 代数（Algebra）
+### 2. 代数（Algebra）
 
 | 英語名               | 公式                                               |
 | --------------------- | ------------------------------------------------ |
@@ -2081,7 +2082,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 適用条件：分母は0以外。対数の底は正で1以外、真数は正。根号や不等式はそれぞれの実数の定義域を満たすこと。
 
-## 3. 数列と級数（Sequences & Series）
+### 3. 数列と級数（Sequences & Series）
 
 | 英語名                | 公式                                                    |
 | ---------------------- | ----------------------------------------------------- |
@@ -2101,7 +2102,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Pascal's Identity      | $\binom nr+\binom n{r-1}=\binom{n+1}r$            |
 | Sum of Combinations    | $\sum_{r=0}^n\binom nr=2^n$                      |
 
-## 4. 数論（Number Theory）
+### 4. 数論（Number Theory）
 
 | 英語名                    | 公式                                                     |
 | -------------------------- | ------------------------------------------------------ |
@@ -2131,7 +2132,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Multiples from 1 to N      | $\lfloor N/k\rfloor$                               |
 | Multiples from A to B      | $\lfloor B/k\rfloor-\lfloor(A-1)/k\rfloor$         |
 
-## 5. 組合せ計数（Combinatorics）
+### 5. 組合せ計数（Combinatorics）
 
 | 英語名                        | 公式                                                     |
 | ------------------------------ | ------------------------------------------------------ |
@@ -2161,7 +2162,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 計数公式は、順序、重複の有無、対象を区別できるかどうか、およびそのほかの条件を満たす場合に使います。
 
-## 6. 確率と統計（Probability & Statistics）
+### 6. 確率と統計（Probability & Statistics）
 
 | 英語名                    | 公式                                                       |
 | -------------------------- | -------------------------------------------------------- |
@@ -2178,7 +2179,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Geometric Probability      | $P=\text{Favourable measure}/\text{Total measure}$   |
 | Range                      | $R=x_{\max}-x_{\min}$                              |
 
-## 7. 三角形の幾何（Triangle Geometry）
+### 7. 三角形の幾何（Triangle Geometry）
 
 | 英語名                     | 公式                               |
 | --------------------------- | -------------------------------- |
@@ -2205,7 +2206,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Cosine Rule                 | $a^2=b^2+c^2-2bc\cos A$      |
 | Sine Area                   | $S=\frac12bc\sin A$          |
 
-## 8. 多角形と円（Polygons & Circles）
+### 8. 多角形と円（Polygons & Circles）
 
 | 英語名                        | 公式                                                    |
 | ------------------------------ | ----------------------------------------------------- |
@@ -2235,7 +2236,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Interior Chord Angle           | $\theta=(\alpha+\beta)/2$                         |
 | Exterior Secant Angle          | $\theta=(\alpha-\beta)/2$                         |
 
-## 9. 座標幾何（Coordinate Geometry）
+### 9. 座標幾何（Coordinate Geometry）
 
 | 英語名                  | 公式                                                      |
 | ------------------------ | ------------------------------------------------------- |
@@ -2257,7 +2258,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 
 傾きによる平行・垂直の公式は、該当する傾きが存在する場合に適用します。垂直線は別に判定してください。
 
-## 10. 立体幾何（Solid Geometry）
+### 10. 立体幾何（Solid Geometry）
 
 | 英語名                        | 公式                            |
 | ------------------------------ | ----------------------------- |
@@ -2280,7 +2281,7 @@ $$ \boxed{ \frac{x_1+\cdots+x_n}{n} \ge\sqrt[n]{x_1x_2\cdots x_n} } $$
 | Similar Solid Volume Ratio     | $V_1/V_2=k^3$             |
 | Euler's Polyhedron Formula     | $V-E+F=2$                 |
 
-## 11. その他の公式（Additional Formulae）
+### 11. その他の公式（Additional Formulae）
 
 | 英語名                     | 公式                                                                    |
 | --------------------------- | --------------------------------------------------------------------- |
