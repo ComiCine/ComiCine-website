@@ -188,9 +188,10 @@ the public Pages preview aliases. Source files for both articles live under each
 `/articles/<slug>/<lang>` paths return HTTP 404 and navigate the browser to `https://comicine.com/404`;
 they are not redirected to private pages. The deploy script removes the former article edge redirect
 and its obsolete Access destinations after publishing the new routes.
-The `comicine-docs-legacy-404` Worker handles `/articles` and `/articles/*` on the docs host before
-Pages static caching can serve an old copy. Keep `/private/*` outside those routes; the production
-Access application protects it.
+The `comicine-docs-legacy-404` Worker handles only the retired AMC 10 formula-guide and UK majors
+slugs on the docs host before Pages static caching can serve an old copy. Keep other `/articles/*`
+paths available for future public articles, and keep `/private/*` outside those routes so the
+production Access application protects it.
 User-facing HTML 404s across docs Pages, the main Pages subdomains, the status Worker, and the image
 Worker keep HTTP 404 and send the browser to `https://comicine.com/404` with a Refresh navigation,
 not a 3xx response. The main site's `/404` remains the canonical localized page. API and asset 404s

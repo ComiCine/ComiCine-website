@@ -14,7 +14,7 @@
 #   - comicine-image-watermark (ops/image-watermark; image.comicine.com route)
 #   - comicine-d1-archive (ops/d1-archive; D1 export archive)
 #   - comicine-status (ops/status-worker; probes / status page / alerts / D1 retention)
-#   - comicine-docs-legacy-404 (ops/docs-legacy-404; public docs article paths)
+#   - comicine-docs-legacy-404 (ops/docs-legacy-404; retired article slugs)
 #
 # Usage:
 #   bash ops/workers_deploy.sh --dry-run                 # print the exact commands, run nothing
