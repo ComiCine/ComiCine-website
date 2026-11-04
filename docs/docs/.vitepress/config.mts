@@ -97,6 +97,7 @@ interface Labels {
   sidebarSecurityAcknowledgments: string
   sidebarArticles: string
   sidebarArticleUkMajors: string
+  sidebarArticleAmc10FormulaGuide: string
   notFoundTitle: string
   notFoundQuote: string
   notFoundLinkLabel: string
@@ -130,6 +131,7 @@ const labels: Record<string, Labels> = {
     sidebarSecurityAcknowledgments: '安全致谢',
     sidebarArticles: '文章',
     sidebarArticleUkMajors: '英国本科五个申请专业深度解析',
+    sidebarArticleAmc10FormulaGuide: 'AMC 10 完整公式讲义',
     notFoundTitle: '页面未找到',
     notFoundQuote: '如果不改变方向并继续寻找，你最终可能会到达自己正前往的地方。',
     notFoundLinkLabel: '返回 ComiCine 主站',
@@ -161,6 +163,7 @@ const labels: Record<string, Labels> = {
     sidebarSecurityAcknowledgments: 'Security Acknowledgments',
     sidebarArticles: 'Articles',
     sidebarArticleUkMajors: 'An In-Depth Look at Five UK Undergraduate Programmes',
+    sidebarArticleAmc10FormulaGuide: 'AMC 10 Complete Formula Guide',
     notFoundTitle: 'PAGE NOT FOUND',
     notFoundQuote: "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
     notFoundLinkLabel: 'Go to the ComiCine main site',
@@ -192,6 +195,7 @@ const labels: Record<string, Labels> = {
     sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
     sidebarArticles: '記事',
     sidebarArticleUkMajors: '英国学部課程・5つの出願専攻の徹底解説',
+    sidebarArticleAmc10FormulaGuide: 'AMC 10 公式総合ガイド',
     notFoundTitle: 'ページが見つかりません',
     notFoundQuote: '進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
@@ -223,6 +227,7 @@ const labels: Record<string, Labels> = {
     sidebarSecurityAcknowledgments: '보안 감사의 글',
     sidebarArticles: '아티클',
     sidebarArticleUkMajors: '영국 학부 지원 전공 5개 심층 분석',
+    sidebarArticleAmc10FormulaGuide: 'AMC 10 공식 총정리',
     notFoundTitle: '페이지를 찾을 수 없습니다',
     notFoundQuote: '방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
@@ -251,6 +256,7 @@ function themeFor(code: string): DefaultTheme.Config {
   const securityPolicy = contentPath('/security/policy', code)
   const securityAcknowledgments = contentPath('/security/acknowledgments', code)
   const articleUkMajors = contentPath('/articles/uk-undergraduate-majors', code)
+  const articleAmc10FormulaGuide = contentPath('/articles/amc-10-formula-guide', code)
   return {
     // The VitePress fork's ComiCine components render the header and footer, matching the main site's base.html.
     // The header shows the same three main-site links; documentation navigation stays in the sidebar.
@@ -280,7 +286,8 @@ function themeFor(code: string): DefaultTheme.Config {
       {
         text: L.sidebarArticles,
         items: [
-          { text: L.sidebarArticleUkMajors, link: articleUkMajors }
+          { text: L.sidebarArticleUkMajors, link: articleUkMajors },
+          { text: L.sidebarArticleAmc10FormulaGuide, link: articleAmc10FormulaGuide }
         ]
       }
     ],
@@ -385,6 +392,7 @@ export default defineConfig({
   cleanUrls: true,
   metaChunk: true,
   srcExclude: SRC_EXCLUDE,
+  markdown: { math: true },
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/comicine-favicon.svg?v=13' }],
     ['link', { rel: 'apple-touch-icon', href: '/comicine-favicon.png?v=13' }],
