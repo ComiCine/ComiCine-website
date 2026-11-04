@@ -1,6 +1,3 @@
-# Redirect the root to the main site; documentation content uses explicit paths.
-/ https://comicine.com 302
-
 # Redirect legacy language-prefixed URLs to routes with the language code as the final segment (2026-09-27).
 /en-us/video-platform  /video-platform/en-us  301
 /ja-jp/video-platform  /video-platform/ja-jp  301

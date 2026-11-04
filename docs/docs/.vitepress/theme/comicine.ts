@@ -19,7 +19,7 @@
  *   /video-platform/zh-cn      zh-cn (/video-platform redirects here)
  *   /video-platform/en-us      en-us
  *   /README/zh-cn              README page
- *   /en-us                     English home page (/ is the zh-cn home page)
+ *   /en-us                     former home route (now a 404)
  *
  * This bridge has three responsibilities:
  *   1. Prefer the main site's theme cookie over origin-local VitePress storage on every visit.
@@ -32,7 +32,6 @@ export const LANG_COOKIE = 'user_lang_preference'
 export const THEME_COOKIE = 'comicine_theme'
 export const APPEARANCE_KEY = 'vitepress-theme-appearance'
 
-export const VITEPRESS_ROOT_LANG = 'zh-cn'
 export const LANGS = ['zh-cn', 'en-us', 'ja-jp', 'ko-kr'] as const
 
 const ROOT_DOMAIN = 'comicine.com'
@@ -99,11 +98,7 @@ export function hasLangSuffix(path: string): boolean {
 export function pathForLang(path: string, lang: string): string {
   const segments = pathSegments(path)
   if (hasLangSuffix(path)) segments.pop()
-  const base = segments.length ? '/' + segments.join('/') : '/'
-  // The Chinese home page uses an explicit route because / redirects to the main site.
-  if (base === '/' || base === '/docs-home') {
-    return lang === VITEPRESS_ROOT_LANG ? '/docs-home/zh-cn' : `/${lang}`
-  }
+  const base = segments.length ? '/' + segments.join('/') : ''
   return `${base}/${lang}`
 }
 

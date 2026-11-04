@@ -7,14 +7,10 @@
     "/README/",
     "/LICENSE",
     "/LICENSE/",
-    "/docs-home",
-    "/docs-home/",
     "/security/policy",
     "/security/policy/",
     "/security/acknowledgments",
-    "/security/acknowledgments/",
-    "/articles/uk-undergraduate-majors",
-    "/articles/uk-undergraduate-majors/"
+    "/security/acknowledgments/"
   ],
   "exclude": []
 }

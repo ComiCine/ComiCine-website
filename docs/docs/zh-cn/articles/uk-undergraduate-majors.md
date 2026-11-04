@@ -1,6 +1,8 @@
 ---
 title: 英国本科五个申请专业深度解析
 description: Imperial、UCL、UAL 的数学、媒体与电影制作专业对比：课程内容、2027 年申请要求、作品集，以及同一名学生申请这五个专业意味着什么。
+sidebar: false
+aside: false
 ---
 <!--
 Copyright (C) 2026-Present ComiCine

@@ -1,6 +1,8 @@
 ---
 title: An In-Depth Look at Five UK Undergraduate Programmes
 description: "Mathematics, Media, and Film Production at Imperial, UCL, and UAL compared: course content, 2027 entry requirements, portfolios, and what it means for one student to apply to all five programmes."
+sidebar: false
+aside: false
 ---
 <!--
 Copyright (C) 2026-Present ComiCine
