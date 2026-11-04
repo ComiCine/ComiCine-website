@@ -186,6 +186,7 @@ cat > "$SRC_DIR/package.json" <<JSON
     "preview": "vitepress preview ."
   },
   "devDependencies": {
+    "markdown-it-mathjax3": "^4.0.0",
     "vitepress": "file:$TARBALL",
     "vue": "^3.5.42"
   }
