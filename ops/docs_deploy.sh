@@ -258,6 +258,61 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
+# The removed-home routes now return direct 404 responses from Pages Functions.
+# Remove the temporary edge redirect only after the new Function bundle is deployed.
+python3 - "$SECRETS_FILE" <<'PY'
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+
+secrets_path = pathlib.Path(sys.argv[1])
+token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+if not token and secrets_path.is_file():
+    match = re.search(r"^CLOUDFLARE_API_TOKEN=(.*)$", secrets_path.read_text(), re.M)
+    token = match.group(1).strip() if match else ""
+if not token:
+    raise SystemExit("FATAL: Cloudflare API token is missing; cannot remove the obsolete docs-home redirect")
+
+base_url = "https://api.cloudflare.com/client/v4"
+
+def call(method, url):
+    config = f'header = "Authorization: Bearer {token}"\nurl = "{url}"\n'
+    if method != "GET":
+        config += f'request = "{method}"\n'
+    response = subprocess.run(
+        ["curl", "--http1.1", "-sS", "--config", "-"],
+        input=config,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    try:
+        payload = json.loads(response.stdout)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"FATAL: Cloudflare API returned invalid JSON: {error}")
+    if not payload.get("success"):
+        errors = json.dumps(payload.get("errors", []), ensure_ascii=True)
+        raise SystemExit(f"FATAL: Cloudflare API request failed: {errors}")
+    return payload.get("result")
+
+zones = call("GET", f"{base_url}/zones?name=comicine.com&status=active")
+zone = next((item for item in zones or [] if item.get("name") == "comicine.com"), None)
+if not zone:
+    raise SystemExit("FATAL: active comicine.com zone was not found")
+
+phase = "http_request_dynamic_redirect"
+ruleset = call("GET", f"{base_url}/zones/{zone['id']}/rulesets/phases/{phase}/entrypoint")
+rule = next((item for item in ruleset.get("rules", []) if item.get("ref") == "comicine_docs_removed_home_routes"), None)
+if not rule:
+    print("[docs] removed-home edge redirect already absent")
+else:
+    call("DELETE", f"{base_url}/zones/{zone['id']}/rulesets/{ruleset['id']}/rules/{rule['id']}")
+    print("[docs] removed-home edge redirect deleted")
+PY
+
 # Stage 7: smoke checks.
 echo "[docs] post-deploy check"
 # Immediately after deployment, the custom domain may still serve the previous deployment.
@@ -345,7 +400,7 @@ check_language_redirect /security/acknowledgments /security/acknowledgments/ko-k
 check_code / 404
 for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/ja-jp /docs-home/ko-kr \
     /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
-    check_redirect "$path" / 302
+    check_code "$path" 404
 done
 for lang in zh-cn en-us ja-jp ko-kr; do
     check_redirect "/articles/uk-undergraduate-majors/${lang}" "/private/articles/uk-undergraduate-majors/${lang}"
