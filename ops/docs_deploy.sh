@@ -354,7 +354,7 @@ def policy_links(policies):
         links.append({key: policy[key] for key in ("id", "account_id", "precedence") if key in policy})
     return links
 
-def update_app_destinations(app, required_routes):
+def update_app_destinations(app, required_routes, name=None):
     destinations = list(app.get("destinations") or [])
     existing = {destination.get("uri", "") for destination in destinations}
     for uri in sorted(required_routes):
@@ -374,6 +374,8 @@ def update_app_destinations(app, required_routes):
             "policies": policy_links(policies),
         }
     )
+    if name:
+        body["name"] = name
     body.pop("self_hosted_domains", None)
     call("PUT", f"{apps_url}/{app['id']}", body)
     return call("GET", f"{apps_url}/{app['id']}")
@@ -399,7 +401,7 @@ for legacy_app in legacy_apps:
         raise SystemExit("FATAL: a legacy docs Access application did not protect private article assets")
     call("DELETE", f"{apps_url}/{legacy_app['id']}")
     shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
-    shared_app = update_app_destinations(shared_app, routes | asset_routes | {identity_uri})
+    shared_app = update_app_destinations(shared_app, routes | asset_routes | {identity_uri}, "ComiCine")
     updated_uris = destination_uris(shared_app)
     if not (routes | asset_routes | {identity_uri}).issubset(updated_uris):
         raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
@@ -409,7 +411,7 @@ for legacy_app in legacy_apps:
         raise SystemExit("FATAL: the shared Access application name did not update")
 
 shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
-shared_app = update_app_destinations(shared_app, docs_access_routes | {identity_uri})
+shared_app = update_app_destinations(shared_app, docs_access_routes | {identity_uri}, "ComiCine")
 updated_uris = destination_uris(shared_app)
 if not docs_access_routes.issubset(updated_uris) or identity_uri not in updated_uris:
     raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
