@@ -345,7 +345,7 @@ if not shared_policies:
     raise SystemExit("FATAL: the shared ComiCine Access application has no policies to preserve")
 
 def policy_signature(policies):
-    readonly = {"id", "account_id", "created_at", "updated_at", "app_count"}
+    readonly = {"id", "uid", "account_id", "created_at", "updated_at", "app_count"}
     values = [
         {key: value for key, value in policy.items() if key not in readonly}
         for policy in policies
