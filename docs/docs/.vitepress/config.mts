@@ -89,7 +89,6 @@ interface Labels {
   sidebarArticles: string
   sidebarArticleAmc10FormulaGuide: string
   notFoundTitle: string
-  notFoundQuote: string
   notFoundLinkLabel: string
   notFoundLinkText: string
   outlineTitle: string
@@ -118,7 +117,6 @@ const labels: Record<string, Labels> = {
     sidebarArticles: '文章',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 完整公式讲义',
     notFoundTitle: '页面未找到',
-    notFoundQuote: '如果不改变方向并继续寻找，你最终可能会到达自己正前往的地方。',
     notFoundLinkLabel: '返回 ComiCine 主站',
     notFoundLinkText: '带我回首页',
     outlineTitle: '本页目录',
@@ -145,7 +143,6 @@ const labels: Record<string, Labels> = {
     sidebarArticles: 'Articles',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 Complete Formula Guide',
     notFoundTitle: 'PAGE NOT FOUND',
-    notFoundQuote: "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
     notFoundLinkLabel: 'Go to the ComiCine main site',
     notFoundLinkText: 'Take me home',
     outlineTitle: 'On this page',
@@ -172,7 +169,6 @@ const labels: Record<string, Labels> = {
     sidebarArticles: '記事',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 公式総合ガイド',
     notFoundTitle: 'ページが見つかりません',
-    notFoundQuote: '進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
     notFoundLinkText: 'ホームに戻る',
     outlineTitle: 'このページの目次',
@@ -199,7 +195,6 @@ const labels: Record<string, Labels> = {
     sidebarArticles: '아티클',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 공식 총정리',
     notFoundTitle: '페이지를 찾을 수 없습니다',
-    notFoundQuote: '방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
     notFoundLinkText: '홈으로 돌아가기',
     outlineTitle: '이 페이지 목차',
@@ -272,7 +267,6 @@ function themeFor(code: string): DefaultTheme.Config {
     comicine: { languages: LANGS, langSegmentAlways: true },
     notFound: {
       title: L.notFoundTitle,
-      quote: L.notFoundQuote,
       link: MAIN_SITE,
       linkLabel: L.notFoundLinkLabel,
       linkText: L.notFoundLinkText

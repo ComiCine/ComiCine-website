@@ -16,7 +16,7 @@ See ADDITIONAL_TERMS.txt.
 {% block title %}{{ _('not_found_title') }}{% endblock %}
 
 {% block head_links %}
-<link rel="stylesheet" href="/static/css/404.css?v=2">
+<link rel="stylesheet" href="/static/css/404.css?v=3">
 {% endblock %}
 
 {% block content %}
@@ -25,7 +25,6 @@ See ADDITIONAL_TERMS.txt.
         <p class="not-found-code" aria-hidden="true">404</p>
         <h1 id="not-found-heading" data-i18n="not_found_heading">{{ _('not_found_heading') }}</h1>
         <span class="not-found-divider" aria-hidden="true"></span>
-        <p class="not-found-message" data-i18n="not_found_message">{{ _('not_found_message') }}</p>
         <a class="not-found-home" href="https://{{ root_domain }}/" data-i18n="not_found_home">{{ _('not_found_home') }}</a>
     </section>
 </main>

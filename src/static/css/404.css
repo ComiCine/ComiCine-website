@@ -47,14 +47,6 @@
     background: var(--line);
 }
 
-.not-found-message {
-    max-width: 360px;
-    margin: 0 auto 28px;
-    color: var(--text-muted);
-    font-size: clamp(1rem, 2.5vw, 1.125rem);
-    line-height: 1.55;
-}
-
 .not-found-home {
     display: inline-flex;
     align-items: center;
