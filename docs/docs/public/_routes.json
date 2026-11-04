@@ -1,6 +1,17 @@
 {
   "version": 1,
   "include": [
+    "/docs-home",
+    "/docs-home/",
+    "/docs-home/*",
+    "/zh-cn",
+    "/zh-cn/",
+    "/en-us",
+    "/en-us/",
+    "/ja-jp",
+    "/ja-jp/",
+    "/ko-kr",
+    "/ko-kr/",
     "/video-platform",
     "/video-platform/",
     "/README",
