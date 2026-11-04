@@ -723,14 +723,16 @@ describe("status page routing", () => {
     expect(await res.json()).toEqual({ error: "unavailable" });
   });
 
-  it("gives browsers a branded 404 and every other client plain text", async () => {
+  it("sends browser 404s to the main site's 404 without using a 3xx response", async () => {
     const html = await worker.fetch(
       new Request(`${URL_BASE}/nope`, { headers: { Accept: "text/html,application/xhtml+xml" } }),
       okEnv(),
     );
     expect(html.status).toBe(404);
     expect(html.headers.get("Cache-Control")).toBe("no-store");
-    expect(await html.text()).toContain("页面不存在");
+    expect(html.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+    expect(html.headers.get("Location")).toBeNull();
+    expect(await html.text()).toContain("https://comicine.com/404");
 
     const text = await worker.fetch(new Request(`${URL_BASE}/nope`), okEnv());
     expect(text.status).toBe(404);

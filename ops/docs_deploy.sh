@@ -258,8 +258,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
-# The removed-home routes now return direct 404 responses from Pages Functions.
-# Remove the temporary edge redirect only after the new Function bundle is deployed.
+# Publish the new private routes before removing public-path redirects and Access rules.
 python3 - "$SECRETS_FILE" <<'PY'
 import json
 import os
@@ -270,18 +269,29 @@ import sys
 
 secrets_path = pathlib.Path(sys.argv[1])
 token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
-if not token and secrets_path.is_file():
-    match = re.search(r"^CLOUDFLARE_API_TOKEN=(.*)$", secrets_path.read_text(), re.M)
-    token = match.group(1).strip() if match else ""
+account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+if (not token or not account_id) and secrets_path.is_file():
+    secret_text = secrets_path.read_text()
+    if not token:
+        match = re.search(r"^CLOUDFLARE_API_TOKEN=(.*)$", secret_text, re.M)
+        token = match.group(1).strip() if match else ""
+    if not account_id:
+        match = re.search(r"^CLOUDFLARE_ACCOUNT_ID=(.*)$", secret_text, re.M)
+        account_id = match.group(1).strip() if match else ""
 if not token:
-    raise SystemExit("FATAL: Cloudflare API token is missing; cannot remove the obsolete docs-home redirect")
+    raise SystemExit("FATAL: Cloudflare API token is missing; cannot reconcile docs routes and Access")
+if not account_id:
+    raise SystemExit("FATAL: Cloudflare account ID is missing; cannot reconcile docs Access")
 
 base_url = "https://api.cloudflare.com/client/v4"
 
-def call(method, url):
+def call(method, url, body=None):
     config = f'header = "Authorization: Bearer {token}"\nurl = "{url}"\n'
     if method != "GET":
         config += f'request = "{method}"\n'
+    if body is not None:
+        config += 'header = "Content-Type: application/json"\n'
+        config += f"data = {json.dumps(json.dumps(body, separators=(',', ':')))}\n"
     response = subprocess.run(
         ["curl", "--http1.1", "-sS", "--config", "-"],
         input=config,
@@ -303,14 +313,79 @@ zone = next((item for item in zones or [] if item.get("name") == "comicine.com")
 if not zone:
     raise SystemExit("FATAL: active comicine.com zone was not found")
 
+apps_url = f"{base_url}/accounts/{account_id}/access/apps"
+apps = call("GET", apps_url)
+app = next(
+    (item for item in apps or [] if item.get("name") in {
+        "ComiCine Docs Archived and Preview Paths",
+        "ComiCine Docs Private Preview Paths",
+    }),
+    None,
+)
+if not app:
+    raise SystemExit("FATAL: the docs preview Access application was not found")
+
+private_destinations = [
+    item for item in app.get("destinations", [])
+    if item.get("type") == "public"
+    and ".comicine-docs.pages.dev/" in item.get("uri", "")
+    and "/private/" in item.get("uri", "")
+]
+expected_private_destinations = {
+    "*.comicine-docs.pages.dev/private/*",
+    "comicine-docs.pages.dev/private/*",
+}
+if {item.get("uri") for item in private_destinations} != expected_private_destinations:
+    raise SystemExit("FATAL: docs preview Access destinations do not match the expected private routes")
+
+policies = app.get("policies") or []
+if not policies:
+    raise SystemExit("FATAL: docs preview Access application has no policies to preserve")
+policy_links = []
+for policy in policies:
+    if not policy.get("id"):
+        raise SystemExit("FATAL: docs preview Access policy is missing its ID")
+    link = {key: policy[key] for key in ("id", "account_id", "precedence") if key in policy}
+    policy_links.append(link)
+policy_ids = sorted(item["id"] for item in policy_links)
+canonical_domain = "comicine-docs.pages.dev/private/*"
+updated_app = call(
+    "PUT",
+    f"{apps_url}/{app['id']}",
+    {
+        "name": "ComiCine Docs Private Preview Paths",
+        "type": "self_hosted",
+        "domain": canonical_domain,
+        "destinations": private_destinations,
+        "policies": policy_links,
+    },
+)
+updated_app = call("GET", f"{apps_url}/{app['id']}")
+updated_destinations = updated_app.get("destinations", [])
+if {item.get("uri") for item in updated_destinations} != expected_private_destinations:
+    raise SystemExit("FATAL: docs preview Access still includes a public article route")
+if sorted(item.get("id", "") for item in updated_app.get("policies", [])) != policy_ids:
+    raise SystemExit("FATAL: docs preview Access policy changed unexpectedly")
+print("[docs] preview Access protects private paths only")
+
 phase = "http_request_dynamic_redirect"
 ruleset = call("GET", f"{base_url}/zones/{zone['id']}/rulesets/phases/{phase}/entrypoint")
-rule = next((item for item in ruleset.get("rules", []) if item.get("ref") == "comicine_docs_removed_home_routes"), None)
-if not rule:
-    print("[docs] removed-home edge redirect already absent")
-else:
+obsolete_rules = [
+    rule for rule in ruleset.get("rules", [])
+    if rule.get("ref") == "comicine_docs_removed_home_routes"
+    or rule.get("description") == "Move former public UK undergraduate article URLs to the private route"
+]
+for rule in obsolete_rules:
     call("DELETE", f"{base_url}/zones/{zone['id']}/rulesets/{ruleset['id']}/rules/{rule['id']}")
-    print("[docs] removed-home edge redirect deleted")
+
+ruleset = call("GET", f"{base_url}/zones/{zone['id']}/rulesets/phases/{phase}/entrypoint")
+if any(
+    rule.get("ref") == "comicine_docs_removed_home_routes"
+    or rule.get("description") == "Move former public UK undergraduate article URLs to the private route"
+    for rule in ruleset.get("rules", [])
+):
+    raise SystemExit("FATAL: an obsolete public docs redirect remains active")
+print("[docs] obsolete public docs redirects removed")
 PY
 
 # Stage 7: smoke checks.
@@ -334,23 +409,27 @@ check_code() {
 }
 
 check_custom_404() {
-    local path="$1" i result metadata code content_type body
+    local path="$1" i result metadata code content_type headers refresh_ok location_present
     for i in 1 2 3 4 5 6; do
-        result="$(curl -sS -w $'\n%{http_code}\t%{content_type}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
+        result="$(curl -sS -H 'Accept: text/html' -D - -o /dev/null -w $'\n%{http_code}\t%{content_type}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
         metadata="${result##*$'\n'}"
-        body="${result%$'\n'*}"
+        headers="${result%$'\n'*}"
         code="${metadata%%$'\t'*}"
         content_type="${metadata#*$'\t'}"
+        refresh_ok=0
+        location_present=0
+        if printf '%s\n' "$headers" | grep -Eiq '^refresh:[[:space:]]*0;[[:space:]]*url=https://comicine[.]com/404'; then refresh_ok=1; fi
+        if printf '%s\n' "$headers" | grep -Eiq '^location:'; then location_present=1; fi
         if [ "$code" = 404 ] && [[ "$content_type" == text/html* ]] \
-            && [[ "$body" == *'id="app"'* ]] && [[ "$body" == *'name="generator" content="VitePress'* ]]; then break; fi
+            && [ "$refresh_ok" = 1 ] && [ "$location_present" = 0 ]; then break; fi
         sleep 10
     done
     if [ "$code" != 404 ] || [[ "$content_type" != text/html* ]] \
-        || [[ "$body" != *'id="app"'* ]] || [[ "$body" != *'name="generator" content="VitePress'* ]]; then
-        echo "FATAL: https://${DOCS_HOST}${path} did not return the docs 404 page with HTTP 404 (status ${code}, content type ${content_type:--})" >&2
+        || [ "$refresh_ok" != 1 ] || [ "$location_present" != 0 ]; then
+        echo "FATAL: https://${DOCS_HOST}${path} did not navigate to the main 404 with HTTP 404 (status ${code}, content type ${content_type:--})" >&2
         exit 1
     fi
-    echo "[docs] ${path} = branded 404 OK"
+    echo "[docs] ${path} = main 404 navigation with HTTP 404 OK"
 }
 
 check_access_challenge() {
@@ -423,8 +502,11 @@ for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/
     /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
     check_custom_404 "$path"
 done
-for lang in zh-cn en-us ja-jp ko-kr; do
-    check_redirect "/articles/uk-undergraduate-majors/${lang}" "/private/articles/uk-undergraduate-majors/${lang}"
+for slug in amc-10-formula-guide uk-undergraduate-majors; do
+    for lang in zh-cn en-us ja-jp ko-kr; do
+        check_custom_404 "/articles/${slug}/${lang}"
+        check_custom_404 "/articles/${slug}/${lang}/"
+    done
 done
 
 for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \
@@ -432,13 +514,12 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     /LICENSE/zh-cn /LICENSE/en-us /LICENSE/ja-jp /LICENSE/ko-kr \
     /security/policy/zh-cn /security/policy/en-us /security/policy/ja-jp /security/policy/ko-kr \
     /security/acknowledgments/zh-cn /security/acknowledgments/en-us \
-    /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr \
-    /articles/amc-10-formula-guide/zh-cn /articles/amc-10-formula-guide/en-us \
-    /articles/amc-10-formula-guide/ja-jp /articles/amc-10-formula-guide/ko-kr; do
+    /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
     check_code "$path" 200
 done
-for path in /private/articles/uk-undergraduate-majors/zh-cn /private/articles/uk-undergraduate-majors/en-us \
-    /private/articles/uk-undergraduate-majors/ja-jp /private/articles/uk-undergraduate-majors/ko-kr; do
-    check_access_challenge "$path"
+for slug in amc-10-formula-guide uk-undergraduate-majors; do
+    for lang in zh-cn en-us ja-jp ko-kr; do
+        check_access_challenge "/private/articles/${slug}/${lang}"
+    done
 done
 echo "[docs] done."

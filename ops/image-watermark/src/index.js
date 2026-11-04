@@ -47,12 +47,42 @@ const KNOWN_DIR_RE = /^\/(?:qr-codes|icons)(?:\/|$)/;
 // Browser cache for one day; under A2, all request sources receive the same response.
 const CLIENT_CACHE =
   "public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400";
+const MAIN_404_URL = "https://comicine.com/404";
 
 // Increment after changing watermark appearance or build.py parameters so the Worker fetches a
 // new origin URL and bypasses old watermark images in CDN and local caches.
 const WM_VERSION = "6";
 const BRAND_XTEXT_VERSION = "4";
 const BRAND_FAVICON_VERSION = "13";
+
+function isHtmlNavigation(request) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (new URL(request.url).pathname.startsWith("/api/")) return false;
+  if (
+    request.headers.get("Sec-Fetch-Dest") === "document" ||
+    request.headers.get("Sec-Fetch-Mode") === "navigate"
+  ) {
+    return true;
+  }
+  return (request.headers.get("Accept") || "")
+    .split(",")
+    .some((value) => value.trim().split(";", 1)[0].toLowerCase() === "text/html");
+}
+
+function mainSite404Response(request, response) {
+  if (response.status !== 404 || !isHtmlNavigation(request)) return response;
+  const headers = new Headers(response.headers);
+  headers.delete("Location");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Content-Type", "text/html; charset=utf-8");
+  headers.set("Refresh", `0; url=${MAIN_404_URL}`);
+  headers.set("X-Robots-Tag", "noindex, nofollow");
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${MAIN_404_URL}"><title>Page not found</title></head><body><a href="${MAIN_404_URL}">Continue to ComiCine</a></body></html>`;
+  return new Response(request.method === "HEAD" ? null : body, {
+    status: 404,
+    headers,
+  });
+}
 
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
 const BRAND_ICON_ALIASES = new Map([
@@ -173,10 +203,13 @@ async function headResponse(request, origin) {
   const url = new URL(request.url);
   const route = routeFor(url, request, origin);
   if (!route.target) {
-    return new Response(null, {
-      status: 404,
-      headers: { "X-ComiCine-Watermark": "0" },
-    });
+    return mainSite404Response(
+      request,
+      new Response(null, {
+        status: 404,
+        headers: { "X-ComiCine-Watermark": "0" },
+      }),
+    );
   }
   const resp = await fetch(route.target, { method: "HEAD" });
   const headers = new Headers({
@@ -184,7 +217,7 @@ async function headResponse(request, origin) {
     "Cache-Control": CLIENT_CACHE,
     "X-ComiCine-Watermark": route.watermarked ? "1" : "0",
   });
-  return new Response(null, { status: resp.status, headers });
+  return mainSite404Response(request, new Response(null, { status: resp.status, headers }));
 }
 
 /**
@@ -239,12 +272,13 @@ export default {
       return headResponse(request, origin);
     }
     const route = routeFor(url, request, origin);
-    if (!route.target) return new Response("Not Found", { status: 404 });
-    if (!route.image) return fetch(route.target);
+    if (!route.target) {
+      return mainSite404Response(request, new Response("Not Found", { status: 404 }));
+    }
+    if (!route.image) return mainSite404Response(request, await fetch(route.target));
 
     const resp = await proxyAndCache(route.target, ctx, route.watermarked);
     // If the watermark variant is missing (not rebuilt yet), return 404 without falling back to the clean original.
-    if (route.watermarked && resp.status === 404) return resp;
-    return resp;
+    return mainSite404Response(request, resp);
   },
 };

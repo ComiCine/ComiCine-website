@@ -182,12 +182,16 @@ The separate docs Pages project has a self-hosted app named `ComiCine Docs Priva
 `docs.comicine.com/private/*`. Its app-specific policy copies the existing `ComiCine-Admins`
 allow, include, exclude, and require conditions; it does not use the identity handoff or grant
 access to other docs routes. Keep private docs out of public navigation and the sitemap.
-The separate `ComiCine Docs Archived and Preview Paths` app applies that same policy to the former
-public UK article URL and the public Pages preview aliases for private and former article paths.
-The `comicine.com` zone's Single Redirect rule sends the old article URLs to their private
-language-suffixed paths. Removed documentation-home URLs return the docs site's branded 404 asset
-with HTTP 404 from Pages Functions; the deploy script removes the temporary edge redirect after
-publishing them.
+The `ComiCine Docs Private Preview Paths` app applies that same policy only to private paths on
+the public Pages preview aliases. Source files for both articles live under each language's
+`private/articles/` directory and rewrite to `/private/articles/<slug>/<lang>`. Former public
+`/articles/<slug>/<lang>` paths return HTTP 404 and navigate the browser to `https://comicine.com/404`;
+they are not redirected to private pages. The deploy script removes the former article edge redirect
+and its obsolete Access destinations after publishing the new routes.
+User-facing HTML 404s across docs Pages, the main Pages subdomains, the status Worker, and the image
+Worker keep HTTP 404 and send the browser to `https://comicine.com/404` with a Refresh navigation,
+not a 3xx response. The main site's `/404` remains the canonical localized page. API and asset 404s
+retain their native response formats.
 An unauthenticated browser navigation to a protected page receives HTTP 401 HTML,
 sets the host-bound state cookie, and loads a same-origin external script that
 navigates to the shared identity URL. Cloudflare Access then redirects the browser

@@ -110,8 +110,8 @@ describe("shared identity navigation", () => {
   });
 });
 
-describe("localized not-found page", () => {
-  it("uses the request language selected by the main-site resolver", async () => {
+describe("subsite not-found navigation", () => {
+  it("moves browsers to the main-site 404 while preserving the 404 status", async () => {
     const fetchedPaths: string[] = [];
     const assets = {
       fetch: async (input: string | URL | Request) => {
@@ -141,8 +141,10 @@ describe("localized not-found page", () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    await expect(response.text()).resolves.toBe("localized 404");
-    expect(fetchedPaths).toEqual(["/static/missing-page", "/ja-jp/not-found.html"]);
+    expect(response.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+    expect(response.headers.get("Location")).toBeNull();
+    await expect(response.text()).resolves.toContain("https://comicine.com/404");
+    expect(fetchedPaths).toEqual(["/static/missing-page"]);
   });
 });
 
@@ -445,7 +447,7 @@ describe("legacy HTML redirects", () => {
     expect(resp.headers.get("Location")).toBe("https://comicine.com/");
   });
 
-  it("returns HTTP 404 for unknown html targets without redirecting", async () => {
+  it("keeps main-site 404s local and sends subsite 404s to the main path without 3xx", async () => {
     const aliases = [
       "https://comicine.com/not-a-page.html",
       "https://services.comicine.com/fail.html?from=legacy",
@@ -455,14 +457,23 @@ describe("legacy HTML redirects", () => {
       const resp = await handleOnRequest(
         context(
           new Request(url, {
-            headers: { "CF-Connecting-IP": "97.64.18.11" },
+            headers: {
+              Accept: "text/html",
+              "CF-Connecting-IP": "97.64.18.11",
+            },
           }),
         ),
       );
 
       expect(resp.status).toBe(404);
       expect(resp.headers.get("Location")).toBeNull();
-      await expect(resp.text()).resolves.toBe("Not Found");
+      if (new URL(url).hostname === "comicine.com") {
+        expect(resp.headers.get("Refresh")).toBeNull();
+        await expect(resp.text()).resolves.toBe("Not Found");
+      } else {
+        expect(resp.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+        await expect(resp.text()).resolves.toContain("https://comicine.com/404");
+      }
     }
   });
 
