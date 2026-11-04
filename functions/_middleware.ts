@@ -228,7 +228,7 @@ const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
   ["visitor", `https://${VISITOR_HOSTNAME}/`],
   ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/`],
   ["redirect", `https://${REDIRECT_HOSTNAME}/`],
-  // The docs root redirects to the main site via its own _redirects file.
+  // This legacy .html alias is separate from docs.comicine.com, whose root is a 404.
   ["docs", `${BASE_URL}/`],
   ["status", `https://status.${ROOT_DOMAIN}/`],
 ]);

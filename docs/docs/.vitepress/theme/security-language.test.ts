@@ -74,17 +74,4 @@ describe("docs language selection follows the main site", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("uses the localized home routes for the docs-home alias", () => {
-    const chinese = redirectLocalizedEntry(
-      request({ Cookie: "user_lang_preference=zh-cn" }),
-      "/docs-home",
-    );
-    const english = redirectLocalizedEntry(
-      request({ Cookie: "user_lang_preference=en-us" }),
-      "/docs-home",
-    );
-
-    expect(chinese.headers.get("Location")).toBe("https://docs.comicine.com/docs-home/zh-cn");
-    expect(english.headers.get("Location")).toBe("https://docs.comicine.com/en-us");
-  });
 });

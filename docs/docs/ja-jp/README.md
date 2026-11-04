@@ -508,7 +508,7 @@ docs.comicine.com に公開されることはありません。
 4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリは 2026-10-29 に削除しました。`admin.limooo.cn` に DNS レコードや Pages ドメインはありません。
 5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの稼働確認後に旧名前空間を削除しました。Sink の有効なショートリンクは Location ヘッダー付きの 302 を返しました。
 6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
-7. **スモークチェック**：各リリース後に `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/`、`https://sink.comicine.com/` を確認します。`https://comicine.com/?challenge=1` での実ブラウザーチャレンジ成功はまだ確認されていません。
+7. **スモークチェック**：各リリース後に `https://comicine.com/_health` が 200、`https://docs.comicine.com/` が 404 であること、および `https://status.comicine.com/` と `https://sink.comicine.com/` にアクセスできることを確認します。`https://comicine.com/?challenge=1` での実ブラウザーチャレンジ成功はまだ確認されていません。
 
 > Cloudflare アカウントの表示名はまだ更新されていません。権限不足のため名前の変更は拒否されました。Turnstile API の権限は有効になりましたが、正式な `.com` ホストでの実ブラウザーチャレンジ成功はまだ確認されていません。
 注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。スクリーンショットの `comicine.pages.dev` は正式ホストの検査で拒否されています。確認する場合は `comicine.com` を使用してください。

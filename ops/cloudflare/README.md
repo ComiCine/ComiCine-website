@@ -173,9 +173,15 @@ sessions. This registration path supports `.comicine.com` subdomains in the main
 project: add the host to `managed_hosts`, `page_routes`, and `identity_sites` in
 `config-contract.json`, make its pages and APIs enforce the local role, and add its DNS
 and Pages custom domain. The host must use the shared Pages Functions bundle, D1
-database, and Secrets so its callback can create a host-only session. Other root domains
-or separate Pages projects need additional callback, session, and contract support.
-Adding a supported host does not require another Access application.
+database, and Secrets so its callback can create a host-only session. Adding a host already
+supported by the shared identity broker does not require another Access application. Other
+root domains or separate Pages projects need their own Access setup if they do not use that
+broker.
+
+The separate docs Pages project has a self-hosted app named `ComiCine Docs Private` protecting
+`docs.comicine.com/private/*`. Its app-specific policy copies the existing `ComiCine-Admins`
+allow, include, exclude, and require conditions; it does not use the identity handoff or grant
+access to other docs routes. Keep private docs out of public navigation and the sitemap.
 An unauthenticated browser navigation to a protected page receives HTTP 401 HTML,
 sets the host-bound state cookie, and loads a same-origin external script that
 navigates to the shared identity URL. Cloudflare Access then redirects the browser

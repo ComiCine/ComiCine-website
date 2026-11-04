@@ -79,10 +79,7 @@ export function detectMainSiteLanguage(request) {
 export function redirectLocalizedEntry(request, entryPath) {
   const url = new URL(request.url);
   const language = detectMainSiteLanguage(request);
-  const targetPath = entryPath === "/docs-home" && language !== "zh-cn"
-    ? `/${language}`
-    : `${entryPath}/${language}`;
-  url.pathname = targetPath;
+  url.pathname = `${entryPath}/${language}`;
 
   return new Response(null, {
     status: 302,

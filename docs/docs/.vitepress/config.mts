@@ -13,11 +13,11 @@
  * place the language code at the end of every content URL. Every content page
  * has all four localized source files.
  *
- * Language-less entry URLs are resolved by Pages Functions using the main
+ * Language-less content entries are resolved by Pages Functions using the main
  * site's preference order: cookie, Accept-Language, Cloudflare country
  * metadata, then the config-contract fallback (currently en-us). The docs root
- * redirects to the main site; localized home pages use /docs-home/zh-cn,
- * /en-us, /ja-jp, and /ko-kr.
+ * /, /docs-home/, and the former localized home routes return 404. Private
+ * articles live under /private/ and are protected by Cloudflare Access.
  *
  * VitePress locales only support language prefixes, so additionalConfig and
  * rewrites apply each page's lang and themeConfig based on its source directory.
@@ -63,18 +63,10 @@ function langTag(code: string): string {
   return (LANGS.find((l) => l.code === code) ?? LANGS[0]).lang
 }
 
-/** Return the language route for a localized page. */
-function routePath(basePath: string, code: string): string {
-  const base = basePath === '/' ? '' : basePath
-  if (code === VITEPRESS_ROOT_LANG) return base || '/'
-  return `${base}/${code}`
-}
-
 /**
  * Every content route has an explicit language suffix, including the VitePress
  * root language zh-cn. Pages Functions resolve language-less entries with the
- * main site's cookie and language fallback order. The Chinese home uses
- * `/docs-home/zh-cn` to avoid the root redirect.
+ * main site's cookie and language fallback order.
  */
 function contentPath(basePath: string, code: string): string {
   return `${basePath}/${code}`
@@ -88,7 +80,6 @@ interface Labels {
   navServices: string
   navContact: string
   docsSection: string
-  sidebarHome: string
   sidebarReadme: string
   sidebarVideo: string
   sidebarLicense: string
@@ -96,20 +87,16 @@ interface Labels {
   sidebarSecurityPolicy: string
   sidebarSecurityAcknowledgments: string
   sidebarArticles: string
-  sidebarArticleUkMajors: string
   sidebarArticleAmc10FormulaGuide: string
   notFoundTitle: string
   notFoundQuote: string
   notFoundLinkLabel: string
   notFoundLinkText: string
-  sidebarMain: string
   outlineTitle: string
   sidebarMenuLabel: string
   darkModeSwitchLabel: string
   langMenuLabel: string
   navMenuLabel: string
-  prev: string
-  next: string
   footerRights: string
   footerSource: string
 }
@@ -122,7 +109,6 @@ const labels: Record<string, Labels> = {
     navServices: '服务',
     navContact: '联系方式',
     docsSection: '文档',
-    sidebarHome: '文档首页',
     sidebarReadme: '项目说明 README',
     sidebarVideo: '视频平台',
     sidebarLicense: '开源许可证',
@@ -130,20 +116,16 @@ const labels: Record<string, Labels> = {
     sidebarSecurityPolicy: '安全漏洞披露政策',
     sidebarSecurityAcknowledgments: '安全致谢',
     sidebarArticles: '文章',
-    sidebarArticleUkMajors: '英国本科五个申请专业深度解析',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 完整公式讲义',
     notFoundTitle: '页面未找到',
     notFoundQuote: '如果不改变方向并继续寻找，你最终可能会到达自己正前往的地方。',
     notFoundLinkLabel: '返回 ComiCine 主站',
     notFoundLinkText: '带我回首页',
-    sidebarMain: '返回主站',
     outlineTitle: '本页目录',
     sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '外观',
     langMenuLabel: '切换语言',
     navMenuLabel: '菜单',
-    prev: '上一页',
-    next: '下一页',
     footerRights: '保留所有权利',
     footerSource: '源码'
   },
@@ -154,7 +136,6 @@ const labels: Record<string, Labels> = {
     navServices: 'Services',
     navContact: 'Contact',
     docsSection: 'Documentation',
-    sidebarHome: 'Docs home',
     sidebarReadme: 'Project README',
     sidebarVideo: 'Video platforms',
     sidebarLicense: 'License',
@@ -162,20 +143,16 @@ const labels: Record<string, Labels> = {
     sidebarSecurityPolicy: 'Security Vulnerability Disclosure Policy',
     sidebarSecurityAcknowledgments: 'Security Acknowledgments',
     sidebarArticles: 'Articles',
-    sidebarArticleUkMajors: 'An In-Depth Look at Five UK Undergraduate Programmes',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 Complete Formula Guide',
     notFoundTitle: 'PAGE NOT FOUND',
     notFoundQuote: "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
     notFoundLinkLabel: 'Go to the ComiCine main site',
     notFoundLinkText: 'Take me home',
-    sidebarMain: 'Main site',
     outlineTitle: 'On this page',
     sidebarMenuLabel: 'Menu',
     darkModeSwitchLabel: 'Appearance',
     langMenuLabel: 'Change language',
     navMenuLabel: 'Menu',
-    prev: 'Previous page',
-    next: 'Next page',
     footerRights: 'All rights reserved',
     footerSource: 'Source'
   },
@@ -186,7 +163,6 @@ const labels: Record<string, Labels> = {
     navServices: 'サービス',
     navContact: 'お問い合わせ',
     docsSection: 'ドキュメント',
-    sidebarHome: 'ドキュメント ホーム',
     sidebarReadme: 'プロジェクト README',
     sidebarVideo: '動画プラットフォーム',
     sidebarLicense: 'ライセンス',
@@ -194,20 +170,16 @@ const labels: Record<string, Labels> = {
     sidebarSecurityPolicy: 'セキュリティ脆弱性の報告ポリシー',
     sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
     sidebarArticles: '記事',
-    sidebarArticleUkMajors: '英国学部課程・5つの出願専攻の徹底解説',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 公式総合ガイド',
     notFoundTitle: 'ページが見つかりません',
     notFoundQuote: '進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
     notFoundLinkText: 'ホームに戻る',
-    sidebarMain: 'メインサイト',
     outlineTitle: 'このページの目次',
     sidebarMenuLabel: 'メニュー',
     darkModeSwitchLabel: '外観',
     langMenuLabel: '言語を変更',
     navMenuLabel: 'メニュー',
-    prev: '前のページ',
-    next: '次のページ',
     footerRights: 'All rights reserved',
     footerSource: 'ソース'
   },
@@ -218,7 +190,6 @@ const labels: Record<string, Labels> = {
     navServices: '서비스',
     navContact: '문의',
     docsSection: '문서',
-    sidebarHome: '문서 홈',
     sidebarReadme: '프로젝트 README',
     sidebarVideo: '동영상 플랫폼',
     sidebarLicense: '라이선스',
@@ -226,20 +197,16 @@ const labels: Record<string, Labels> = {
     sidebarSecurityPolicy: '보안 취약점 공개 정책',
     sidebarSecurityAcknowledgments: '보안 감사의 글',
     sidebarArticles: '아티클',
-    sidebarArticleUkMajors: '영국 학부 지원 전공 5개 심층 분석',
     sidebarArticleAmc10FormulaGuide: 'AMC 10 공식 총정리',
     notFoundTitle: '페이지를 찾을 수 없습니다',
     notFoundQuote: '방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
     notFoundLinkText: '홈으로 돌아가기',
-    sidebarMain: '메인 사이트',
     outlineTitle: '이 페이지 목차',
     sidebarMenuLabel: '메뉴',
     darkModeSwitchLabel: '테마',
     langMenuLabel: '언어 변경',
     navMenuLabel: '메뉴',
-    prev: '이전 페이지',
-    next: '다음 페이지',
     footerRights: '모든 권리 보유',
     footerSource: '소스'
   }
@@ -247,15 +214,11 @@ const labels: Record<string, Labels> = {
 
 function themeFor(code: string): DefaultTheme.Config {
   const L = labels[code] ?? labels[VITEPRESS_ROOT_LANG]
-  const home = code === VITEPRESS_ROOT_LANG
-    ? contentPath('/docs-home', code)
-    : routePath('/', code)
   const readme = contentPath('/README', code)
   const video = contentPath('/video-platform', code)
   const license = contentPath('/LICENSE', code)
   const securityPolicy = contentPath('/security/policy', code)
   const securityAcknowledgments = contentPath('/security/acknowledgments', code)
-  const articleUkMajors = contentPath('/articles/uk-undergraduate-majors', code)
   const articleAmc10FormulaGuide = contentPath('/articles/amc-10-formula-guide', code)
   return {
     // The VitePress fork's ComiCine components render the header and footer, matching the main site's base.html.
@@ -269,11 +232,9 @@ function themeFor(code: string): DefaultTheme.Config {
       {
         text: L.docsSection,
         items: [
-          { text: L.sidebarHome, link: home },
           { text: L.sidebarReadme, link: readme },
           { text: L.sidebarVideo, link: video },
-          { text: L.sidebarLicense, link: license },
-          { text: L.sidebarMain, link: MAIN_SITE }
+          { text: L.sidebarLicense, link: license }
         ]
       },
       {
@@ -286,7 +247,6 @@ function themeFor(code: string): DefaultTheme.Config {
       {
         text: L.sidebarArticles,
         items: [
-          { text: L.sidebarArticleUkMajors, link: articleUkMajors },
           { text: L.sidebarArticleAmc10FormulaGuide, link: articleAmc10FormulaGuide }
         ]
       }
@@ -296,7 +256,7 @@ function themeFor(code: string): DefaultTheme.Config {
     darkModeSwitchLabel: L.darkModeSwitchLabel,
     langMenuLabel: L.langMenuLabel,
     navMenuLabel: L.navMenuLabel,
-    docFooter: { prev: L.prev, next: L.next },
+    docFooter: { prev: false, next: false },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/ComiCine/ComiCine-website' },
       { icon: 'bilibili', link: 'https://space.bilibili.com/1234163143', ariaLabel: 'Bilibili' }
@@ -332,8 +292,8 @@ function localeConfigFor(code: string) {
 }
 
 /**
- * Source files live in language directories (zh-cn/index.md, en-us/index.md); rewrites put
- * the language code at the end of each route (/en-us, /video-platform/en-us).
+ * Source files live in language directories; rewrites put the language code at the end
+ * of each route (/video-platform/en-us).
  * Do not use a function for additionalConfig: it is serialized for the client and loses closures.
  * ops/docs_deploy.sh also reads this mapping to validate build output, keeping one source of truth.
  */
@@ -347,7 +307,7 @@ const SOCIAL_IMAGE_PNG = 'https://images.comicine.com/static/icons/comicine-xtex
 function canonicalUrlForPage(page: string): string | null {
   const sourcePage = page.startsWith('/') ? page.slice(1) : page
   if (sourcePage === '404.md') return null
-  const outputPage = REWRITES[sourcePage] ?? (sourcePage === 'index.md' ? '' : sourcePage)
+  const outputPage = REWRITES[sourcePage] ?? sourcePage
   const route = outputPage.endsWith('/index.md')
     ? outputPage.slice(0, -'/index.md'.length)
     : outputPage.endsWith('.md')
@@ -416,17 +376,19 @@ export default defineConfig({
   ],
   sitemap: {
     hostname: SITE_URL,
-    transformItems: (items) => items.filter((item) => new URL(item.url, SITE_URL).pathname !== '/')
+    transformItems: (items) =>
+      items.filter((item) => !new URL(item.url, SITE_URL).pathname.startsWith('/private/'))
   },
   transformHead({ page, title, description }) {
     const canonicalUrl = canonicalUrlForPage(page)
     if (!canonicalUrl) return []
     const pathname = new URL(canonicalUrl).pathname
-    const isHome = pathname === '/' || pathname === '/docs-home/zh-cn' || pathname === '/en-us'
-      || pathname === '/ja-jp' || pathname === '/ko-kr'
-    const pageType = isHome ? 'website' : 'article'
+    const pageType = 'article'
     return [
       ['link', { rel: 'canonical', href: canonicalUrl }],
+      ...(pathname.startsWith('/private/')
+        ? [['meta', { name: 'robots', content: 'noindex, nofollow' }] as [string, Record<string, string>]]
+        : []),
       ...languageAlternatesForPage(page),
       ['meta', { property: 'og:type', content: pageType }],
       ['meta', { property: 'og:title', itemprop: 'name', content: title }],

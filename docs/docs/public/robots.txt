@@ -1,12 +1,12 @@
 # https://docs.comicine.com/robots.txt
 #
-# ComiCine documentation site. Every page is public and is meant to be
-# readable by search engines, crawlers and AI agents: nothing is disallowed.
+# ComiCine documentation site. Public pages are readable by search engines,
+# crawlers and AI agents. Private articles require Cloudflare Access.
 # Language is the last path segment (/README/zh-cn, /video-platform/en-us).
-# The bare docs root redirects to comicine.com; translated home routes are /en-us,
-# /ja-jp and /ko-kr.
+# The root and former documentation-home routes return 404.
 
 User-agent: *
 Allow: /
+Disallow: /private/
 
 Sitemap: https://docs.comicine.com/sitemap.xml

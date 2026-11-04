@@ -497,7 +497,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；visitor/account 使用共享身份交接。未使用的 `ComiCine-Admin` 应用已于 2026-10-29 删除；`admin.limooo.cn` 没有 DNS 记录或 Pages 域名。
 5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 Worker 使用 `comicine-status_ComiCineProbeStateV2`；确认新绑定可用后，已删除旧命名空间。Sink 的 D1 与 Analytics Engine dataset 已迁移；一条有效短链返回了带 Location 的 302。
 6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；IP List 名为 `comicine_blocklist`，目前没有 WAF 过滤器引用。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将 GET/HEAD 请求以 301、其他方法以 308 跳到对应 `.com` URL，并保留路径和查询参数。随后 `comicine.com/feishu/<path>` 与 `/lark/<path>` 由 Pages 返回 302，转到 `https://comicine.feishu.cn/<path>` 并保留路径和查询参数。
-7. **冒烟检查**：部署后应核实 `https://comicine.com/_health`、`https://docs.comicine.com/`、`https://status.comicine.com/` 与 `https://sink.comicine.com/`。`https://comicine.com/?challenge=1` 上的真实浏览器挑战尚未确认成功。
+7. **冒烟检查**：部署后应核实 `https://comicine.com/_health` 为 200、`https://docs.comicine.com/` 为 404，以及 `https://status.comicine.com/` 与 `https://sink.comicine.com/` 可访问。`https://comicine.com/?challenge=1` 上的真实浏览器挑战尚未确认成功。
 
 > Cloudflare 账号显示名尚未更新：更名 API 请求被 Cloudflare 以权限不足拒绝。Turnstile API 权限现已生效，但正式 `.com` 主机上的真实浏览器挑战尚未确认成功。
 注意：`?challenge=1` 返回 403 只证明门禁页已渲染，不证明 Turnstile 可验证。截图中的 `comicine.pages.dev` 被正式主机校验拒绝；需在 `comicine.com` 上确认验证结果。

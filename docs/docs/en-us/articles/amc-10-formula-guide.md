@@ -5,18 +5,6 @@ description: Explanations of arithmetic, algebra, number theory, combinatorics, 
 
 # Complete AMC 10 Formula Guide
 
-Formula explanations · Problem recognition · Quick reference
-
-This guide covers formulas that may be useful on the AMC 10, including arithmetic, algebra, number theory, permutations and combinations, probability, plane geometry, solid geometry, and commonly used contest techniques.
-
-The guide has three parts:
-
-1. Formula explanations: English names, formulas, symbol meanings, and calculation methods.
-2. How to choose: Select a formula based on the English wording of a problem, the given conditions, and what it asks you to find.
-3. Quick-reference sheet: Formulas and the conditions needed to use them.
-
-The guide does not distinguish between material covered in P1 and P2, and it does not include numerical examples.
-
 # Part I: Formula Explanations
 
 ## A. Mathematical Notation

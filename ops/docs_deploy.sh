@@ -278,22 +278,20 @@ check_code() {
     echo "[docs] ${path} = ${expected} OK"
 }
 
-check_root_redirect() {
-    local i result code location
+check_access_challenge() {
+    local path="$1" i result code location
     for i in 1 2 3 4 5 6; do
-        result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}/" || true)"
+        result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
         code="${result%%$'\n'*}"
         location="${result#*$'\n'}"
-        if [ "$code" = 302 ] && [ "$location" = "https://comicine.com/" ]; then
-            break
-        fi
+        if [ "$code" = 302 ] && [[ "$location" == https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then break; fi
         sleep 10
     done
-    if [ "$code" != 302 ] || [ "$location" != "https://comicine.com/" ]; then
-        echo "FATAL: https://${DOCS_HOST}/ = ${code} Location: ${location:--} (expected 302 to https://comicine.com/)" >&2
+    if [ "$code" != 302 ] || [[ "$location" != https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then
+        echo "FATAL: https://${DOCS_HOST}${path} did not redirect to Cloudflare Access (status ${code})" >&2
         exit 1
     fi
-    echo "[docs] / = 302 to https://comicine.com OK"
+    echo "[docs] ${path} requires Cloudflare Access OK"
 }
 
 check_language_redirect() {
@@ -321,24 +319,30 @@ check_language_redirect() {
 check_language_redirect /video-platform /video-platform/en-us
 check_language_redirect /README /README/en-us
 check_language_redirect /LICENSE /LICENSE/en-us
-check_language_redirect /docs-home /en-us
 check_language_redirect /security/policy /security/policy/en-us
 check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
-check_language_redirect /articles/uk-undergraduate-majors /articles/uk-undergraduate-majors/en-us
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
 
-check_root_redirect
+for path in / /docs-home /docs-home/ /docs-home/zh-cn /zh-cn /en-us /ja-jp /ko-kr \
+    /articles/uk-undergraduate-majors/zh-cn /articles/uk-undergraduate-majors/en-us \
+    /articles/uk-undergraduate-majors/ja-jp /articles/uk-undergraduate-majors/ko-kr \
+    /articles/uk-undergraduate-majors /articles/uk-undergraduate-majors/; do
+    check_code "$path" 404
+done
 
 for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /video-platform/ko-kr \
     /README/zh-cn /README/en-us /README/ja-jp /README/ko-kr \
     /LICENSE/zh-cn /LICENSE/en-us /LICENSE/ja-jp /LICENSE/ko-kr \
-    /docs-home/zh-cn /en-us /ja-jp /ko-kr \
     /security/policy/zh-cn /security/policy/en-us /security/policy/ja-jp /security/policy/ko-kr \
     /security/acknowledgments/zh-cn /security/acknowledgments/en-us \
     /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr \
-    /articles/uk-undergraduate-majors/zh-cn /articles/uk-undergraduate-majors/en-us \
-    /articles/uk-undergraduate-majors/ja-jp /articles/uk-undergraduate-majors/ko-kr; do
+    /articles/amc-10-formula-guide/zh-cn /articles/amc-10-formula-guide/en-us \
+    /articles/amc-10-formula-guide/ja-jp /articles/amc-10-formula-guide/ko-kr; do
     check_code "$path" 200
+done
+for path in /private/articles/uk-undergraduate-majors/zh-cn /private/articles/uk-undergraduate-majors/en-us \
+    /private/articles/uk-undergraduate-majors/ja-jp /private/articles/uk-undergraduate-majors/ko-kr; do
+    check_access_challenge "$path"
 done
 echo "[docs] done."
