@@ -1,0 +1,18 @@
+# Copyright (C) 2026-Present ComiCine
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Section 7 additional terms apply when the work is used under GNU AGPL v3.
+# See ADDITIONAL_TERMS.txt.
+
+# Intercepts public article paths before Pages static caching; private routes bypass it.
+name = "comicine-docs-legacy-404"
+main = "src/index.js"
+compatibility_date = "2026-11-04"
+account_id = "4a7fd8c8f1a59a265981a73e631b9e3f"
+
+[[routes]]
+pattern = "docs.comicine.com/articles"
+zone_name = "comicine.com"
+
+[[routes]]
+pattern = "docs.comicine.com/articles/*"
+zone_name = "comicine.com"
