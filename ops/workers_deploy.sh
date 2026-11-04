@@ -14,6 +14,7 @@
 #   - comicine-image-watermark (ops/image-watermark; image.comicine.com route)
 #   - comicine-d1-archive (ops/d1-archive; D1 export archive)
 #   - comicine-status (ops/status-worker; probes / status page / alerts / D1 retention)
+#   - comicine-docs-legacy-404 (ops/docs-legacy-404; public docs article paths)
 #
 # Usage:
 #   bash ops/workers_deploy.sh --dry-run                 # print the exact commands, run nothing
@@ -69,15 +70,16 @@ if ! command -v git >/dev/null 2>&1; then
     exit 1
 fi
 
-WORKERS=("$ROOT/ops/sync-worker" "$ROOT/ops/image-watermark" "$ROOT/ops/d1-archive" "$ROOT/ops/status-worker")
+WORKERS=("$ROOT/ops/sync-worker" "$ROOT/ops/image-watermark" "$ROOT/ops/d1-archive" "$ROOT/ops/status-worker" "$ROOT/ops/docs-legacy-404")
 if [ -n "$SELECTED" ]; then
     case "$SELECTED" in
         comicine-blocklist-sync) WORKERS=("$ROOT/ops/sync-worker") ;;
         comicine-image-watermark) WORKERS=("$ROOT/ops/image-watermark") ;;
         comicine-d1-archive) WORKERS=("$ROOT/ops/d1-archive") ;;
         comicine-status) WORKERS=("$ROOT/ops/status-worker") ;;
+        comicine-docs-legacy-404) WORKERS=("$ROOT/ops/docs-legacy-404") ;;
         *)
-            echo "FATAL: unknown Worker $SELECTED (available: comicine-blocklist-sync / comicine-image-watermark / comicine-d1-archive / comicine-status)" >&2
+            echo "FATAL: unknown Worker $SELECTED (available: comicine-blocklist-sync / comicine-image-watermark / comicine-d1-archive / comicine-status / comicine-docs-legacy-404)" >&2
             exit 2
             ;;
     esac
