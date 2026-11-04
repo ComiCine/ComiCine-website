@@ -3,7 +3,6 @@
   "redirect_text": "リダイレクト中... (・ω・)",
   "not_found_title": "ページが見つかりません",
   "not_found_heading": "ページが見つかりません",
-  "not_found_message": "しかし、進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。",
   "not_found_home": "ホームに戻る",
   "not_found_redirect": "{seconds} 秒後にホームページへ移動します。",
   "gate_title": "人間であることを確認しています…",

@@ -86,8 +86,6 @@ interface Labels {
   sidebarSecurity: string
   sidebarSecurityPolicy: string
   sidebarSecurityAcknowledgments: string
-  sidebarArticles: string
-  sidebarArticleAmc10FormulaGuide: string
   notFoundTitle: string
   notFoundLinkLabel: string
   notFoundLinkText: string
@@ -114,8 +112,6 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: '安全',
     sidebarSecurityPolicy: '安全漏洞披露政策',
     sidebarSecurityAcknowledgments: '安全致谢',
-    sidebarArticles: '文章',
-    sidebarArticleAmc10FormulaGuide: 'AMC 10 完整公式讲义',
     notFoundTitle: '页面未找到',
     notFoundLinkLabel: '返回 ComiCine 主站',
     notFoundLinkText: '带我回首页',
@@ -140,8 +136,6 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: 'Security',
     sidebarSecurityPolicy: 'Security Vulnerability Disclosure Policy',
     sidebarSecurityAcknowledgments: 'Security Acknowledgments',
-    sidebarArticles: 'Articles',
-    sidebarArticleAmc10FormulaGuide: 'AMC 10 Complete Formula Guide',
     notFoundTitle: 'PAGE NOT FOUND',
     notFoundLinkLabel: 'Go to the ComiCine main site',
     notFoundLinkText: 'Take me home',
@@ -166,8 +160,6 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: 'セキュリティ',
     sidebarSecurityPolicy: 'セキュリティ脆弱性の報告ポリシー',
     sidebarSecurityAcknowledgments: 'セキュリティ謝辞',
-    sidebarArticles: '記事',
-    sidebarArticleAmc10FormulaGuide: 'AMC 10 公式総合ガイド',
     notFoundTitle: 'ページが見つかりません',
     notFoundLinkLabel: 'ComiCine メインサイトへ戻る',
     notFoundLinkText: 'ホームに戻る',
@@ -192,8 +184,6 @@ const labels: Record<string, Labels> = {
     sidebarSecurity: '보안',
     sidebarSecurityPolicy: '보안 취약점 공개 정책',
     sidebarSecurityAcknowledgments: '보안 감사의 글',
-    sidebarArticles: '아티클',
-    sidebarArticleAmc10FormulaGuide: 'AMC 10 공식 총정리',
     notFoundTitle: '페이지를 찾을 수 없습니다',
     notFoundLinkLabel: 'ComiCine 메인 사이트로 이동',
     notFoundLinkText: '홈으로 돌아가기',
@@ -214,7 +204,6 @@ function themeFor(code: string): DefaultTheme.Config {
   const license = contentPath('/LICENSE', code)
   const securityPolicy = contentPath('/security/policy', code)
   const securityAcknowledgments = contentPath('/security/acknowledgments', code)
-  const articleAmc10FormulaGuide = contentPath('/articles/amc-10-formula-guide', code)
   return {
     // The VitePress fork's ComiCine components render the header and footer, matching the main site's base.html.
     // The header shows the same three main-site links; documentation navigation stays in the sidebar.
@@ -237,12 +226,6 @@ function themeFor(code: string): DefaultTheme.Config {
         items: [
           { text: L.sidebarSecurityPolicy, link: securityPolicy },
           { text: L.sidebarSecurityAcknowledgments, link: securityAcknowledgments }
-        ]
-      },
-      {
-        text: L.sidebarArticles,
-        items: [
-          { text: L.sidebarArticleAmc10FormulaGuide, link: articleAmc10FormulaGuide }
         ]
       }
     ],

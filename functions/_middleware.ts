@@ -116,7 +116,28 @@ async function brandedNotFoundResponse(
   response: Response,
 ): Promise<Response> {
   const { request, env } = context;
-  if (response.status !== 404 || !isHtmlNavigation(request) || !env.ASSETS) return response;
+  if (
+    response.status !== 404 ||
+    !isHtmlNavigation(request) ||
+    isApiPath(new URL(request.url).pathname)
+  ) return response;
+
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  if (hostname !== ROOT_DOMAIN && hostname !== WWW_HOSTNAME) {
+    const target = `${BASE_URL}/404`;
+    const headers = new Headers({
+      "Cache-Control": "no-store",
+      "Content-Type": "text/html; charset=utf-8",
+      "Refresh": `0; url=${target}`,
+      "X-Robots-Tag": "noindex, nofollow",
+    });
+    const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${target}"><title>Page not found</title></head><body><a href="${target}">Continue to ComiCine</a></body></html>`;
+    return new Response(request.method === "HEAD" ? null : body, {
+      status: 404,
+      headers,
+    });
+  }
+  if (!env.ASSETS) return response;
 
   const lang = detectLang(request);
   let page = await env.ASSETS.fetch(new URL(`/${lang}/not-found.html`, BASE_URL));
@@ -490,10 +511,10 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     pathname !== "/login" &&
     pathname !== "/api/identity/exchange"
   ) {
-    return new Response("Not Found\n", {
+    return brandedNotFoundResponse(context, new Response("Not Found\n", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-    });
+    }));
   }
 
   // The images host is static-only and never an API origin.

@@ -3,15 +3,5 @@
 /ja-jp/video-platform  /video-platform/ja-jp  301
 /ko-kr/video-platform  /video-platform/ko-kr  301
 
-# Keep the former public article URLs pointed at the Access-protected pages.
-/articles/uk-undergraduate-majors/zh-cn  /private/articles/uk-undergraduate-majors/zh-cn  301
-/articles/uk-undergraduate-majors/en-us  /private/articles/uk-undergraduate-majors/en-us  301
-/articles/uk-undergraduate-majors/ja-jp  /private/articles/uk-undergraduate-majors/ja-jp  301
-/articles/uk-undergraduate-majors/ko-kr  /private/articles/uk-undergraduate-majors/ko-kr  301
-/articles/uk-undergraduate-majors/zh-cn/  /private/articles/uk-undergraduate-majors/zh-cn  301
-/articles/uk-undergraduate-majors/en-us/  /private/articles/uk-undergraduate-majors/en-us  301
-/articles/uk-undergraduate-majors/ja-jp/  /private/articles/uk-undergraduate-majors/ja-jp  301
-/articles/uk-undergraduate-majors/ko-kr/  /private/articles/uk-undergraduate-majors/ko-kr  301
-
 # Language-less content entry routes use Pages Functions so they can read the
 # shared preference cookie and follow the main site's language fallback order.

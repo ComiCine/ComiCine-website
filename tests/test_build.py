@@ -9,7 +9,6 @@
 
 import json
 import re
-from html import unescape
 from pathlib import Path
 
 import pytest
@@ -35,13 +34,7 @@ def test_render_page_switches_language():
     assert '<html lang="en-us">' in html_en
 
 
-def test_not_found_page_matches_reference_copy_in_every_language(tmp_path):
-    expected_quotes = {
-        "zh-cn": "但如果你不改变方向，仍继续寻找，最终可能会到达自己正前往的地方。",
-        "en-us": "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
-        "ja-jp": "しかし、進む方向を変えずに探し続けると、向かっている場所にたどり着くかもしれません。",
-        "ko-kr": "하지만 방향을 바꾸지 않고 계속 찾아가면, 결국 자신이 향하던 곳에 도착할지도 모릅니다.",
-    }
+def test_not_found_page_is_localized_without_a_quote_in_every_language(tmp_path):
     expected_home_labels = {
         "zh-cn": "带我回首页",
         "en-us": "Take me home",
@@ -49,11 +42,11 @@ def test_not_found_page_matches_reference_copy_in_every_language(tmp_path):
         "ko-kr": "홈으로 돌아가기",
     }
 
-    for lang, quote in expected_quotes.items():
+    for lang, home_label in expected_home_labels.items():
         html = build.render_page(RENDER_APP, "404.html", "/404", lang)
         assert f'<html lang="{lang}">' in html
-        assert quote in unescape(html)
-        assert expected_home_labels[lang] in html
+        assert home_label in html
+        assert "not-found-message" not in html
         assert 'href="https://comicine.com/"' in html
         assert "not-found-countdown" not in html
         assert "/static/js/404.js" not in html

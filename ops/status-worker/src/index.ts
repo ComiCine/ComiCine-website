@@ -16,7 +16,6 @@ import {
   STATUS_JS,
   THEME_JS,
   esc,
-  notFoundHtml,
   renderErrorHtml,
   statusPageHtml,
 } from "./page";
@@ -1109,13 +1108,24 @@ export default {
         ...result,
       });
     }
-    // Unknown paths: browsers (Accept: text/html) receive the branded four-language 404 page,
-    // while other clients keep receiving plain text so probes and scrapers do not need to handle added HTML.
-    if (request.method === "GET" && (request.headers.get("Accept") ?? "").includes("text/html")) {
-      const lang = pickLang(request, url);
-      return new Response(notFoundHtml(lang), {
+    // Unknown page navigations keep the 404 status and move the browser to the main site's 404 page.
+    if (
+      !url.pathname.startsWith("/api/") &&
+      (request.method === "GET" || request.method === "HEAD") &&
+      ((request.headers.get("Sec-Fetch-Dest") === "document") ||
+        (request.headers.get("Sec-Fetch-Mode") === "navigate") ||
+        (request.headers.get("Accept") ?? "").includes("text/html"))
+    ) {
+      const target = "https://comicine.com/404";
+      const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${target}"><title>Page not found</title></head><body><a href="${target}">Continue to ComiCine</a></body></html>`;
+      return new Response(request.method === "HEAD" ? null : body, {
         status: 404,
-        headers: { ...PAGE_HEADERS, "Cache-Control": "no-store" },
+        headers: {
+          ...PAGE_HEADERS,
+          "Cache-Control": "no-store",
+          "Refresh": `0; url=${target}`,
+          "X-Robots-Tag": "noindex, nofollow",
+        },
       });
     }
     return new Response("Not Found", { status: 404 });
