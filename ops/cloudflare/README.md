@@ -166,7 +166,9 @@ The existing `ComiCine` application is the only Cloudflare Access application fo
 internal services. Add service routes as destinations on it; never create a separate
 application for an internal service. It protects `identity.comicine.com/login`,
 `docs.comicine.com/private/*`, `comicine-docs.pages.dev/private/*`, and
-`*.comicine-docs.pages.dev/private/*` with one shared policy. Cloudflare Access sends
+`*.comicine-docs.pages.dev/private/*`, plus generated article bundles under
+`/assets/private_articles_*` on those production and preview hosts, with one shared policy.
+Cloudflare Access sends
 the browser through the `comicine.cloudflareaccess.com` team domain and back to the
 requested route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
@@ -184,9 +186,10 @@ application. If it needs the host-only identity handoff, implement its callback,
 contract support before connecting it to the broker.
 
 The docs Pages project uses those destinations on the shared application; docs requests do not
-use the host-only identity handoff. `ops/docs_deploy.sh` verifies the shared policy, adds the docs
-destinations, and removes the redundant docs-specific applications after migration. Keep private
-docs out of public navigation and the sitemap. Source files for both articles live under each language's
+use the host-only identity handoff. `ops/docs_deploy.sh` verifies the shared policy, protects the
+private article bundles before publishing, adds the docs destinations, and removes redundant
+docs-specific applications after migration. Keep private docs out of public navigation and the
+sitemap. Source files for both articles live under each language's
 `private/articles/` directory and rewrite to `/private/articles/<slug>/<lang>`. Former public
 `/articles/<slug>/<lang>` paths return HTTP 404 and navigate the browser to `https://comicine.com/404`;
 they are not redirected to private pages. The deploy script removes the former article edge redirect

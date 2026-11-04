@@ -245,20 +245,8 @@ strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
-# Stage 6: deploy to Pages.
-# Run from the staged docs source so Wrangler finds this Pages project's Functions without
-# discovering the main site's wrangler.toml.
-echo "[docs] deploying Pages project: $PAGES_PROJECT"
-export CI=1 WRANGLER_SEND_METRICS=false
-(
-    cd "$SRC_DIR"
-    "$WRANGLER_BIN" pages deploy "$DIST_DIR" \
-        --project-name "$PAGES_PROJECT" \
-        --branch "$PAGES_BRANCH" \
-        --commit-dirty=true 2>&1 | strip_emoji
-)
-
-# Publish private routes, merge them into the existing shared Access app, then remove duplicates.
+# Stage 6: reconcile Cloudflare Access.
+# Protect private routes and assets on the existing shared Access app before publishing the build.
 python3 - "$SECRETS_FILE" <<'PY'
 import json
 import os
@@ -321,6 +309,12 @@ docs_private_routes = {
     "comicine-docs.pages.dev/private/*",
     "*.comicine-docs.pages.dev/private/*",
 }
+docs_private_asset_routes = {
+    "docs.comicine.com/assets/private_articles_*",
+    "comicine-docs.pages.dev/assets/private_articles_*",
+    "*.comicine-docs.pages.dev/assets/private_articles_*",
+}
+docs_access_routes = docs_private_routes | docs_private_asset_routes
 legacy_docs_app_names = {
     "ComiCine Docs Archived and Preview Paths",
     "ComiCine Docs Private",
@@ -360,6 +354,36 @@ def policy_links(policies):
         links.append({key: policy[key] for key in ("id", "account_id", "precedence") if key in policy})
     return links
 
+def update_app_destinations(app, required_routes):
+    destinations = list(app.get("destinations") or [])
+    existing = {destination.get("uri", "") for destination in destinations}
+    for uri in sorted(required_routes):
+        if uri not in existing:
+            destinations.append({"type": "public", "uri": uri})
+    policies = app.get("policies") or []
+    body = {
+        key: value
+        for key, value in app.items()
+        if key not in {"id", "created_at", "updated_at", "uid", "policies"}
+    }
+    body.update(
+        {
+            "type": "self_hosted",
+            "domain": app.get("domain") or identity_uri,
+            "destinations": destinations,
+            "policies": policy_links(policies),
+        }
+    )
+    body.pop("self_hosted_domains", None)
+    call("PUT", f"{apps_url}/{app['id']}", body)
+    return call("GET", f"{apps_url}/{app['id']}")
+
+def asset_routes_for(private_routes):
+    return {
+        f"{route.split('/', 1)[0]}/assets/private_articles_*"
+        for route in private_routes
+    }
+
 legacy_apps = [item for item in apps or [] if item.get("name") in legacy_docs_app_names]
 for legacy_app in legacy_apps:
     routes = destination_uris(legacy_app)
@@ -367,40 +391,33 @@ for legacy_app in legacy_apps:
         raise SystemExit("FATAL: a docs Access application contains destinations outside the private docs routes")
     if policy_signature(legacy_app.get("policies") or []) != policy_signature(shared_policies):
         raise SystemExit("FATAL: a docs Access application has a different policy; refusing to merge it")
+for legacy_app in legacy_apps:
+    routes = destination_uris(legacy_app)
+    asset_routes = asset_routes_for(routes)
+    legacy_with_assets = update_app_destinations(legacy_app, asset_routes)
+    if not asset_routes.issubset(destination_uris(legacy_with_assets)):
+        raise SystemExit("FATAL: a legacy docs Access application did not protect private article assets")
+    call("DELETE", f"{apps_url}/{legacy_app['id']}")
+    shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
+    shared_app = update_app_destinations(shared_app, routes | asset_routes | {identity_uri})
+    updated_uris = destination_uris(shared_app)
+    if not (routes | asset_routes | {identity_uri}).issubset(updated_uris):
+        raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
+    if policy_signature(shared_app.get("policies") or []) != policy_signature(shared_policies):
+        raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
+    if shared_app.get("name") != "ComiCine":
+        raise SystemExit("FATAL: the shared Access application name did not update")
 
-merged_destinations = list(shared_app.get("destinations") or [])
-existing_uris = {item.get("uri", "") for item in merged_destinations}
-for uri in sorted(docs_private_routes | {identity_uri}):
-    if uri not in existing_uris:
-        merged_destinations.append({"type": "public", "uri": uri})
-
-update_body = {
-    key: value
-    for key, value in shared_app.items()
-    if key not in {"id", "created_at", "updated_at", "uid", "policies"}
-}
-update_body.update(
-    {
-        "name": "ComiCine",
-        "type": "self_hosted",
-        "domain": shared_app.get("domain") or identity_uri,
-        "destinations": merged_destinations,
-        "policies": policy_links(shared_policies),
-    }
-)
-update_body.pop("self_hosted_domains", None)
-updated_app = call("PUT", f"{apps_url}/{shared_app['id']}", update_body)
-updated_app = call("GET", f"{apps_url}/{shared_app['id']}")
-updated_uris = destination_uris(updated_app)
-if not docs_private_routes.issubset(updated_uris) or identity_uri not in updated_uris:
+shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
+shared_app = update_app_destinations(shared_app, docs_access_routes | {identity_uri})
+updated_uris = destination_uris(shared_app)
+if not docs_access_routes.issubset(updated_uris) or identity_uri not in updated_uris:
     raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
-if policy_signature(updated_app.get("policies") or []) != policy_signature(shared_policies):
+if policy_signature(shared_app.get("policies") or []) != policy_signature(shared_policies):
     raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
-if updated_app.get("name") != "ComiCine":
+if shared_app.get("name") != "ComiCine":
     raise SystemExit("FATAL: the shared Access application name did not update")
 
-for legacy_app in legacy_apps:
-    call("DELETE", f"{apps_url}/{legacy_app['id']}")
 remaining_apps = call("GET", apps_url) or []
 if any(item.get("name") in legacy_docs_app_names for item in remaining_apps):
     raise SystemExit("FATAL: a redundant docs Access application remains")
@@ -428,7 +445,21 @@ if any(
 print("[docs] obsolete public docs redirects removed")
 PY
 
-# Stage 7: smoke checks.
+
+# Stage 7: deploy to Pages.
+# Run from the staged docs source so Wrangler finds this Pages project's Functions without
+# discovering the main site's wrangler.toml.
+echo "[docs] deploying Pages project: $PAGES_PROJECT"
+export CI=1 WRANGLER_SEND_METRICS=false
+(
+    cd "$SRC_DIR"
+    "$WRANGLER_BIN" pages deploy "$DIST_DIR" \
+        --project-name "$PAGES_PROJECT" \
+        --branch "$PAGES_BRANCH" \
+        --commit-dirty=true 2>&1 | strip_emoji
+)
+
+# Stage 8: smoke checks.
 echo "[docs] post-deploy check"
 # Immediately after deployment, the custom domain may still serve the previous deployment.
 # This happened on 2026-10-08: the new deployment was live, but the first probe saw old output.
@@ -562,4 +593,10 @@ for slug in amc-10-formula-guide uk-undergraduate-majors; do
         check_access_challenge "/private/articles/${slug}/${lang}"
     done
 done
+private_asset_path="$(find "$DIST_DIR/assets" -maxdepth 1 -type f -name 'private_articles_amc-10-formula-guide_zh-cn.md.*' -print -quit)"
+if [ -z "$private_asset_path" ]; then
+    echo "FATAL: the built private article JavaScript bundle was not found" >&2
+    exit 1
+fi
+check_access_challenge "/assets/${private_asset_path##*/}"
 echo "[docs] done."
