@@ -293,6 +293,52 @@ fi
 
 echo "[d1] apply: database=$D1_DATABASE_NAME target=remote files=${#MIGRATION_NAMES[@]}"
 
+# Check the blocklist rebuild's recoverable state before the first SQL write. Migration 004 runs
+# its statements separately; after DROP TABLE blocked_ips but before renaming blocked_ips_new, a
+# retry would otherwise delete the only surviving copy of the blocklist at the start of the file.
+preflight_log="$(mktemp -t comicine-d1-preflight-XXXXXX.log)"
+if preflight_raw="$("${WRANGLER_CMD[@]}" d1 execute "$D1_DATABASE_NAME" --remote \
+    --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('blocked_ips', 'blocked_ips_new') ORDER BY name" \
+    --json 2>"$preflight_log")"; then
+    rm -f "$preflight_log"
+else
+    echo "FATAL: could not inspect blocklist migration state in remote D1 ($D1_DATABASE_NAME)" >&2
+    cat "$preflight_log" >&2
+    rm -f "$preflight_log"
+    exit 1
+fi
+
+if ! blocklist_tables="$(python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+if isinstance(payload, list):
+    if len(payload) != 1:
+        raise SystemExit("expected one result set")
+    payload = payload[0]
+if not isinstance(payload, dict) or payload.get("success") is not True:
+    raise SystemExit("unexpected Wrangler response")
+rows = payload.get("results")
+if not isinstance(rows, list):
+    raise SystemExit("missing result rows")
+for row in rows:
+    if not isinstance(row, dict) or not isinstance(row.get("name"), str):
+        raise SystemExit("unexpected table row")
+    print(row["name"])
+' <<< "$preflight_raw" 2>/dev/null)"; then
+    echo "FATAL: could not parse the remote blocklist migration state; refusing to run migrations" >&2
+    exit 1
+fi
+
+if grep -Fxq -- blocked_ips_new <<< "$blocklist_tables" \
+    && ! grep -Fxq -- blocked_ips <<< "$blocklist_tables"; then
+    echo "FATAL: interrupted blocklist migration detected: blocked_ips_new exists but blocked_ips is missing" >&2
+    echo "       blocked_ips_new may be the only surviving copy of the blocklist; no SQL write was executed" >&2
+    echo "       inspect the table and restore the blocklist manually before rerunning migrations" >&2
+    exit 1
+fi
+
 # Create the state table first; it is the sole source of truth for migration state.
 d1_execute_sql "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));" || exit 1
 
