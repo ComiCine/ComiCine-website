@@ -253,6 +253,7 @@ const SRC_EXCLUDE = ['**/*.csv']
 export default defineConfig({
   lang: langTag(VITEPRESS_ROOT_LANG),
   title: labels[VITEPRESS_ROOT_LANG].title,
+  titleTemplate: false,
   description: labels[VITEPRESS_ROOT_LANG].description,
   cleanUrls: true,
   metaChunk: true,

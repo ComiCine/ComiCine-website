@@ -7,6 +7,7 @@
     "/images/*",
     "/icons/*",
     "/fonts/*",
+    "/fonts.css",
     "/favicon.ico",
     "/favicon.svg",
     "/robots.txt",
