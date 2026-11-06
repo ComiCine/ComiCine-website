@@ -1,7 +1,7 @@
 /* Self-hosted fonts for docs.comicine.com, matching the source and licenses used by
    the main site's /static/fonts-round75.css.
    Delius Swash Caps: exact ComiCine brand words, including the Copyright name (OFL 1.1; see site/src/static/fonts/delius-swash-caps/OFL.txt).
-   Inter: body text (SIL OFL 1.1). */
+   Inter: body text (SIL OFL 1.1; see fonts/inter-OFL.txt). */
 @font-face {
   font-family: 'Inter';
   font-style: normal;

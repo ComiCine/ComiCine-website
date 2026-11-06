@@ -553,9 +553,14 @@ describe("public /files", () => {
     ASSETS: {
       fetch: async (input: RequestInfo | URL) => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (url.endsWith("/static/files/after_sign_in.png")) {
+        if (url.endsWith("/public/files/after_sign_in.png")) {
           return new Response("png-bytes", {
             headers: { "Content-Type": "image/png", ETag: '"abc"' },
+          });
+        }
+        if (url.endsWith("/public/files/PCL/PCL-2.14.0.0.zip")) {
+          return new Response("zip-bytes", {
+            headers: { "Content-Type": "application/zip" },
           });
         }
         return new Response("missing", { status: 404 });
@@ -564,7 +569,7 @@ describe("public /files", () => {
     ...env,
   });
 
-  it("serves /files/<name> without the gate, even for an unverified visitor", async () => {
+  it("serves /files/<path> without the gate, even for an unverified visitor", async () => {
     const resp = await handleOnRequest(
       context(new Request("https://comicine.com/files/after_sign_in.png"), assetsEnv()),
     );
@@ -573,6 +578,19 @@ describe("public /files", () => {
     expect(resp.headers.get("Content-Type")).toBe("image/png");
     expect(resp.headers.get("Cache-Control")).toContain("max-age=86400");
     await expect(resp.text()).resolves.toBe("png-bytes");
+  });
+
+  it("serves nested files from the published directory", async () => {
+    const resp = await handleOnRequest(
+      context(
+        new Request("https://comicine.com/files/PCL/PCL-2.14.0.0.zip"),
+        assetsEnv(),
+      ),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get("Content-Type")).toBe("application/zip");
+    await expect(resp.text()).resolves.toBe("zip-bytes");
   });
 
   it("also maps the clean URL on the images subdomain", async () => {

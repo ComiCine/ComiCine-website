@@ -70,23 +70,42 @@ import {
 type PagesFunction = (context: RequestContext) => Promise<Response>;
 
 /**
- * Map `/files/<name>` to the generated `/static/files/<name>` asset and serve it publicly.
+ * Map `/files/<path>` to the generated `/public/files/<path>` asset and serve it publicly.
  *
- * Accept only a single-level filename with no dot traversal to prevent reads
- * such as `/files/../secrets`. Do not list directories; return 404 when missing.
+ * Reject hidden, empty, and traversal path segments before looking up the asset.
  */
 async function servePublicFile(
   context: RequestContext,
   pathname: string,
 ): Promise<Response> {
-  const name = pathname.slice(PUBLIC_FILES_PREFIX.length);
-  if (!name || name.includes("/") || name.includes("..") || name.startsWith(".")) {
+  let relativePath: string;
+  try {
+    relativePath = decodeURIComponent(pathname.slice(PUBLIC_FILES_PREFIX.length));
+  } catch {
+    return new Response("Not Found", { status: 404 });
+  }
+  const segments = relativePath.split("/");
+  if (
+    !relativePath ||
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        segment.startsWith(".") ||
+        segment.includes("\\") ||
+        /[\u0000-\u001f\u007f]/.test(segment),
+    )
+  ) {
     return new Response("Not Found", { status: 404 });
   }
   if (!context.env.ASSETS) return new Response("Not Found", { status: 404 });
 
   const asset = await context.env.ASSETS.fetch(
-    new URL(`/static/files/${name}`, BASE_URL),
+    new URL(
+      `/public/files/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`,
+      BASE_URL,
+    ),
   );
   if (!asset.ok) return new Response("Not Found", { status: 404 });
 
@@ -547,7 +566,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // page. Do this before blocklist checks because static assets and /files/ do
 // not require a database lookup.
   if (isPublicAssetPath(pathname) || isApiPath(pathname)) {
-// Clean file URL `/files/<name>` maps to `/static/files/<name>` in the build
+// Clean file URL `/files/<path>` maps to `/public/files/<path>` in the build
 // output. It is public and bypasses the gate, including on the images host.
     if (pathname.startsWith(PUBLIC_FILES_PREFIX)) {
       const response = await servePublicFile(context, pathname);

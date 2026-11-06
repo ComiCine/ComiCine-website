@@ -286,7 +286,7 @@ VitePress ルートが、`services/` には services.comicine.com の価格表 C
 言語コードは URL の**最後**のセグメントで、内容ページは常に明示的に付けます（`/README/zh-cn`、
 `/README/en-us`）。サフィックスなしの `/README` はドキュメントサイトの Pages Function が
 メインサイトと同じ順序（言語 cookie、`Accept-Language`、Cloudflare の国情報、最後に契約の既定言語）で
-解決します。ドキュメントサイトのルート `/` は `https://comicine.com` へ 302 で転送されます。
+解決します。ドキュメントサイトにホームページはありません。`/`、`/docs-home/*`、以前のローカライズ済みホームページのパスは、いずれも直接 404 を返します。
 
 `.vitepress/rewrites.json` が各 `<lang>/<page>.md` ソースをサフィックス付きルートにマッピングし、
 `.vitepress/config.mts` が `additionalConfig` を通じて各言語ディレクトリに固有の `lang` / `themeConfig` を与えます。
@@ -409,7 +409,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.comicine.com/` → ビジターパネル（要ログイン）、`account.comicine.com/apple` → Apple Account マネージャー（要ログイン）
 - `images.comicine.com/` → `comicine.com/` へ 301、その他のパスはポートフォリオ画像、favicon、ロゴ、QR などの静的アセットを配信します。`image.comicine.com/portfolio/<img>` → 正規化 Worker によるウォーターマーク版（そのルートも `comicine.com/` へ 301）
 - `www.comicine.com` → メインサイトへ 301
-- ルート直下の `x.html` は、`x` が公開ホームページを持つ稼働中のサブドメイン（`services`、`contact`、`docs`、`status`）なら `x.comicine.com/` へ 302 で転送し、不明な名前なら現在のサイトのホームへ 302 で転送します。`index.html` は現在のホストの正規ホームへ転送します。
+- `comicine.com`、`www`、`images`、`services`、`contact`、`visitor`、`account` の各ホストでは、旧 `/<name>.html` エイリアスとして `www`、`images`、`portfolio`、`services`、`contact`、`visitor`、`apple-account`、`redirect`、`docs`、`status` を認識し、それぞれ設定済みの転送先へ案内します。`docs.html` はメインサイトのルートへ、`/index.html` はそのホストに設定されたルートへ転送します。形式に合う未登録名は 404 を返します。
 - ナビのリンクは絶対サブドメイン URL（`https://services.comicine.com` など）を維持します。言語切り替えは純粋にフロントエンドの `applyLang()` で、リロードも URL 変更もありません
 
 ### services.comicine.com の価格表（CSV 駆動）

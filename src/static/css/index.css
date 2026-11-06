@@ -63,15 +63,13 @@
 @media (hover: hover) and (pointer: fine) {
     .work-box:hover .work-box-hint { opacity: 1; color: var(--hover-highlight); }
 }
-/* Keep the clipping layer radius fixed (outer 16px minus 10px padding), independent of hover.
-   The template sets aspect-ratio from each image's dimensions (3:4, 3:2, 2:3, etc.);
-   3 / 4 here is only the fallback when no inline value is present. */
+/* Keep the clipping layer radius fixed (outer 16px minus 10px padding), independent of hover. */
 .work-frame {
-    width: 100%; height: 100%;
-    aspect-ratio: 3 / 4;
+    width: 100%;
     border-radius: calc(var(--radius-lg) - 10px);
     overflow: hidden;
 }
+.work-frame picture { display: block; width: 100%; }
 /* Landscape images such as 3:2 span the full row to preserve their composition. */
 .work-box[data-orientation="landscape"] { grid-column: 1 / -1; }
 @media (min-width: 640px) {
@@ -81,8 +79,7 @@
    tallest card in their row. Align cards by content height so each frame fits its own image. */
 .work-box { align-self: start; }
 .work-img {
-    display: block; width: 100%; height: 100%;
-    object-fit: cover;
+    display: block; width: 100%; height: auto;
 }
 /* Set portfolio image src only after load; hide the empty placeholder to avoid showing alt text. */
 .work-img:not([src]) { opacity: 0; }

@@ -39,7 +39,7 @@ import json
 import os
 import re
 import sys
-from typing import Any
+from typing import Any, TextIO
 
 # Number of rows per INSERT batch; too many rows in one SQL statement can exceed D1's per-statement limit.
 BATCH_ROWS = 100
@@ -115,6 +115,19 @@ def open_jsonl(path: str):
     if magic == b"\x1f\x8b":
         return gzip.open(path, "rt", encoding="utf-8")
     return open(path, encoding="utf-8")
+
+
+def open_private(path: str) -> TextIO:
+    """Create or replace a restore script without exposing account data to other users."""
+    flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        os.ftruncate(fd, 0)
+        return os.fdopen(fd, "w", encoding="utf-8")
+    except BaseException:
+        os.close(fd)
+        raise
 
 
 def read_jsonl_gz(path: str) -> list[dict[str, Any]]:
@@ -263,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.out == "-":
         sys.stdout.write(sql)
     else:
-        with open(args.out, "w", encoding="utf-8") as handle:
+        with open_private(args.out) as handle:
             handle.write(sql)
         print(f"wrote {args.out} ({len(sql.encode('utf-8'))} bytes)")
     return 0

@@ -17,7 +17,9 @@ from __future__ import annotations
 import gzip
 import importlib.util
 import json
+import os
 import sqlite3
+import stat
 from pathlib import Path
 
 import pytest
@@ -162,6 +164,32 @@ def test_round_trip_preserves_every_value_and_type(tmp_path, request):
     # DDL is included too, including indexes and autoincrement tables.
     objects = {row[0] for row in con.execute("SELECT name FROM sqlite_master")}
     assert {"blocked_ips", "apple_accounts", "idx_blocked_ips_active"} <= objects
+
+
+def test_restore_sql_is_private_before_overwriting_existing_file(tmp_path):
+    directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
+    out = tmp_path / "restore.sql"
+    out.write_text("old data", encoding="utf-8")
+    out.chmod(0o644)
+
+    code, _, _ = run_restore(tmp_path, directory)
+
+    assert code == 0
+    assert stat.S_IMODE(out.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="O_NOFOLLOW is not available")
+def test_restore_sql_refuses_to_follow_symlinks(tmp_path):
+    directory = write_snapshot(tmp_path / "backup", {"apple_accounts": APPLE_ROWS})
+    protected = tmp_path / "protected.sql"
+    protected.write_text("keep this data", encoding="utf-8")
+    out = tmp_path / "restore.sql"
+    out.symlink_to(protected)
+
+    with pytest.raises(OSError):
+        restore.main(["--dir", str(directory), "--out", str(out)])
+
+    assert protected.read_text(encoding="utf-8") == "keep this data"
 
 
 def test_batches_large_tables_into_several_inserts(tmp_path, request):

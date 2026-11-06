@@ -412,7 +412,7 @@ function closeModal() {
 async function saveAccount() {
     const emailDomain = document.querySelector('.email-domain').textContent.trim();
     const email = document.getElementById('field-email').value.trim().split('@')[0] + emailDomain;
-    const password = (document.getElementById('field-password').dataset.real || '').trim();
+    const password = document.getElementById('field-password').dataset.real || '';
     const notes = document.getElementById('field-notes').value.trim();
     if (!password) { toast(t('toast_enter_pw')); return; }
     const btn = document.getElementById('modal-save-btn');

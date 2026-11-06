@@ -196,9 +196,12 @@ def _wait_operation(token: str, account_id: str, operation_id: str | None):
         resp = _call(token, "GET",
                      f"{API}/accounts/{account_id}/rules/lists/bulk_operations/{operation_id}")
         status = resp.get("result", {}).get("status")
-        if status in ("completed", "failed"):
+        if status == "completed":
             return
+        if status == "failed":
+            raise RuntimeError("Cloudflare list operation failed")
         time.sleep(2)
+    raise TimeoutError("Cloudflare list operation did not complete within 80 seconds")
 
 
 def _add_items(token: str, account_id: str, list_id: str, ips: list[str]):

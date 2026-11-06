@@ -282,7 +282,7 @@ VitePress 根，`services/` 存放 services.comicine.com 的价目表 CSV。`doc
 与共用的 `.vitepress/`、`functions/`、`public/` 目录并列。语言码是 URL 的**最后**一段，
 内容页一律显式带上（`/README/zh-cn`、`/README/en-us`）。无后缀的 `/README` 由文档站的
 Pages Function 按主站顺序解析（语言 cookie、`Accept-Language`、Cloudflare 国家信息，最后是
-契约默认语言）；文档站根路径 `/` 会 302 到 `https://comicine.com`。
+契约默认语言）。文档站没有首页：`/` 返回 404；`/docs-home/*` 和以前的本地化首页路径也直接返回 404。
 
 `.vitepress/rewrites.json` 把每个 `<lang>/<page>.md` 源文件映射到带后缀的路由，
 `.vitepress/config.mts` 通过 `additionalConfig` 为每个语言目录设置各自的 `lang` / `themeConfig`。
@@ -403,7 +403,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.comicine.com/` → 访客面板（需要登录）；`account.comicine.com/apple` → Apple Account 管理器（需要登录）
 - `images.comicine.com/` → 301 到 `comicine.com/`；其他路径提供作品集图片、favicon、logo 与二维码等静态资源。`image.comicine.com/portfolio/<img>` → 来自归一化 Worker 的加水印版本（其根路径也 301 到 `comicine.com/`）
 - `www.comicine.com` → 301 到主站
-- 根路径下的 `x.html` 别名在 `x` 是现有公开首页子域名（`services`、`contact`、`docs`、`status`）时返回 302 到 `x.comicine.com/`；名称无效时返回 302 到当前站点首页。`index.html` 返回当前主机的规范首页
+- 在 `comicine.com`、`www`、`images`、`services`、`contact`、`visitor` 和 `account` 主机上，`/<name>.html` 兼容别名识别 `www`、`images`、`portfolio`、`services`、`contact`、`visitor`、`apple-account`、`redirect`、`docs` 和 `status`，并按配置跳转；`docs.html` 指向主站根路径，`/index.html` 指向当前主机配置的根路径。格式有效但未识别的名称返回 404。
 - 导航链接保持绝对子域 URL（`https://services.comicine.com` 等）；语言切换是纯前端的 `applyLang()`，不重新加载、不改变 URL
 
 ### services.comicine.com 价目表（CSV 驱动）
