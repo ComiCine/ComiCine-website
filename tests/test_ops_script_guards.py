@@ -151,10 +151,18 @@ def wrangler_payload(names: list[str]) -> str:
 
 
 def write_fake_wrangler(
-    path: Path, command_error: str, versions: list[int], failure_fragment: str | None = None
+    path: Path,
+    command_error: str,
+    versions: list[int],
+    failure_fragment: str | None = None,
+    tables: list[str] | None = None,
 ) -> Path:
-    """Fake Wrangler: selected SQL commands fail, and SELECT version returns the supplied state."""
+    """Fake Wrangler: log commands, return migration state, and optionally fail selected SQL."""
     rows = ",".join(f'{{"version":{v}}}' for v in versions)
+    table_rows = [{"name": name} for name in (tables if tables is not None else ["blocked_ips"])]
+    table_payload = json.dumps(
+        [{"results": table_rows, "success": True, "meta": {"rows_read": len(table_rows)}}]
+    )
     path.write_text(
         "#!/bin/bash\n"
         'cmd=""\n'
@@ -164,12 +172,13 @@ def write_fake_wrangler(
         "    esac\n"
         "    shift\n"
         "done\n"
+        'if [ -n "${FAKE_WRANGLER_LOG:-}" ]; then printf "%s\\n" "$cmd" >> "$FAKE_WRANGLER_LOG"; fi\n'
         'if [[ "$cmd" == --* ]]; then echo "Unknown arguments: SQL comment"; exit 2; fi\n'
         'case "$cmd" in\n'
+        f'    *"FROM sqlite_master"*) echo \'{table_payload}\'; exit 0 ;;\n'
         f'    *"FROM schema_version"*) echo \'[{{"results":[{rows}],"success":true,"meta":{{"rows_read":{len(versions)}}}}}]\'; exit 0 ;;\n'
         '    *"CREATE TABLE IF NOT EXISTS schema_version"*|*"INSERT OR REPLACE INTO schema_version"*) echo "ok"; exit 0 ;;\n'
         '    *)\n'
-        '        if [ -n "${FAKE_WRANGLER_LOG:-}" ]; then printf "%s\\n" "$cmd" >> "$FAKE_WRANGLER_LOG"; fi\n'
         + (
             f'        if [[ "$cmd" == *"{failure_fragment}"* ]]; then echo "{command_error}"; exit 1; fi\n'
             if failure_fragment is not None
@@ -666,6 +675,32 @@ def test_waf_rules_plan_deletes_a_migrated_enabled_skip_rule(tmp_path):
 
 
 # W3-5 / W3-8: D1 schema_version is the only source of truth; failed migrations are never recorded.
+
+
+def test_blocklist_recovery_guard_fails_before_any_sql_write(tmp_path):
+    fake = write_fake_wrangler(
+        tmp_path / "wrangler",
+        "unexpected write",
+        [],
+        tables=["blocked_ips_new"],
+    )
+    command_log = tmp_path / "commands.log"
+
+    result = run(
+        [BASH, "ops/migrate_d1.sh", "--remote"],
+        env={
+            "WRANGLER_BIN": str(fake),
+            "D1_STATE_FILE": str(tmp_path / "applied"),
+            "FAKE_WRANGLER_LOG": str(command_log),
+        },
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "blocked_ips_new exists but blocked_ips is missing" in result.stderr
+    assert "no SQL write was executed" in result.stderr
+    commands = command_log.read_text().splitlines()
+    assert len(commands) == 1
+    assert commands[0].startswith("SELECT name FROM sqlite_master")
 
 
 def test_duplicate_column_statement_does_not_skip_remaining_migration_statements(tmp_path):
