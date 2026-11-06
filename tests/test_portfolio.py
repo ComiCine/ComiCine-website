@@ -81,22 +81,22 @@ def test_portfolio_items_expose_ratio_and_orientation(tmp_path):
     items = {i["stem"]: i for i in portfolio.portfolio_items(str(tmp_path))}
 
     # Ratios are reduced integer pairs (3:2 rather than an approximate 1.5).
-    assert items["portrait"]["ratio"] == "3 / 4"
-    assert items["landscape"]["ratio"] == "3 / 2"
-    assert items["square"]["ratio"] == "1 / 1"
+    assert (items["portrait"]["width"], items["portrait"]["height"]) == (3, 4)
+    assert (items["landscape"]["width"], items["landscape"]["height"]) == (3, 2)
+    assert (items["square"]["width"], items["square"]["height"]) == (1, 1)
     assert items["portrait"]["orientation"] == "portrait"
     assert items["landscape"]["orientation"] == "landscape"
     assert items["square"]["orientation"] == "square"
 
 
-def test_home_cards_carry_per_image_aspect_ratio():
+def test_home_cards_use_intrinsic_image_aspect_ratio():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
 
-    # Each card declares its own aspect ratio and intrinsic dimensions to avoid cropping everything to 3:4 and to prevent CLS.
+    # Intrinsic dimensions preserve the image ratio and prevent CLS without inline CSS blocked by the site's CSP.
     for item in portfolio.portfolio_items():
-        assert f'style="aspect-ratio: {item["ratio"]}"' in html
         assert f'width="{item["width"]}" height="{item["height"]}"' in html
         assert f'data-orientation="{item["orientation"]}"' in html
+    assert 'style="aspect-ratio:' not in html
 
 
 def test_generate_portfolio_thumbs_writes_webp_and_avif(tmp_path):

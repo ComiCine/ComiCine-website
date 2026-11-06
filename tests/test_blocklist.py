@@ -7,6 +7,8 @@
 
 """Tests for blocklist parsing and D1 sync (Nginx scanning was removed with the VPS)."""
 
+import pytest
+
 import auto_block
 
 
@@ -16,6 +18,29 @@ def test_normalize_cidr():
     assert auto_block._normalize_cidr("1.2.3.4") == "1.2.3.4/32"
     assert auto_block._normalize_cidr("2001:db8::1/64") == "2001:db8::/64"
     assert auto_block._normalize_cidr("# comment") is None
+
+
+def test_cloudflare_list_operation_failure_is_not_reported_as_success(monkeypatch):
+    monkeypatch.setattr(
+        auto_block,
+        "_call",
+        lambda *_args, **_kwargs: {"result": {"status": "failed"}},
+    )
+
+    with pytest.raises(RuntimeError, match="Cloudflare list operation failed"):
+        auto_block._wait_operation("token", "account", "operation")
+
+
+def test_cloudflare_list_operation_timeout_is_not_reported_as_success(monkeypatch):
+    monkeypatch.setattr(
+        auto_block,
+        "_call",
+        lambda *_args, **_kwargs: {"result": {"status": "pending"}},
+    )
+    monkeypatch.setattr(auto_block.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(TimeoutError, match="did not complete within 80 seconds"):
+        auto_block._wait_operation("token", "account", "operation")
 
 
 def test_read_blocklist_txt(tmp_path):

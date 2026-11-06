@@ -296,7 +296,8 @@ each hold the same file tree (`<lang>/<page>.md`), beside the shared `.vitepress
 content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`). A suffix-less
 `/README` is resolved by a docs Pages Function in the main site's order (language
 cookie, `Accept-Language`, Cloudflare country, then the contract default). The bare docs
-root `/` 302s to `https://comicine.com`.
+site has no home page: `/` returns 404. `/docs-home/*` and the former localized home routes
+also return 404 directly.
 
 `.vitepress/rewrites.json` maps each `<lang>/<page>.md` source onto its suffixed route, and
 `.vitepress/config.mts` gives each language directory its own `lang` / `themeConfig`
@@ -481,7 +482,7 @@ The middleware also enforces the normalized D1 blocklist and records privacy-min
 - `visitor.comicine.com/` → visitor panel (login required); `account.comicine.com/apple` → Apple Account manager (login required)
 - `images.comicine.com/` → 301 to `comicine.com/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.comicine.com/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `comicine.com/`)
 - `www.comicine.com` → 301 to the main site
-- Root-level `x.html` aliases return 302 to `x.comicine.com/` for active public homepage subdomains (`services`, `contact`, `docs`, `status`); an unknown name returns 302 to the current site's homepage. `index.html` returns to the current canonical homepage.
+- On `comicine.com`, `www`, `images`, `services`, `contact`, `visitor` and `account`, legacy `/<name>.html` aliases recognize `www`, `images`, `portfolio`, `services`, `contact`, `visitor`, `apple-account`, `redirect`, `docs` and `status`, routing each to its configured target. The `docs.html` alias goes to the main site root; `/index.html` goes to the configured root for that host. Unknown names matching the alias format return 404.
 - Nav links keep absolute subdomain URLs (`https://services.comicine.com` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
 
 ### services.comicine.com pricing (CSV-driven)
@@ -583,7 +584,7 @@ The live deployment and external resource status, re-read any time with
 4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The obsolete `identity.limooo.cn/login` destination was removed on 2026-10-29 while preserving the application AUD and policy. The unused `ComiCine-Admin` app for `admin.limooo.cn` was also removed; that hostname has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
 5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. The `comicine-sink` database is imported, the `comicine_sink` dataset is configured, and the Sink Worker is deployed; an active short link returned 302 with a Location header
 6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
-7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 302 to `https://comicine.com`, `https://status.comicine.com/` → 200
+7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 404, `https://status.comicine.com/` → 200
 
 The Cloudflare account display name has not yet been updated because the configured API token lacks `Account Settings Write`. Sink's target D1 database is `comicine-sink`, with the `comicine_sink` Analytics Engine dataset. The status Durable Object target is listed above.
 

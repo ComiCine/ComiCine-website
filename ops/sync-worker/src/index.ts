@@ -215,6 +215,11 @@ export async function sync(
   const lists = await cf(token, "GET", `${API}/accounts/${accountId}/rules/lists?per_page=100`);
   let list = (lists?.result ?? []).find((l: { name: string }) => l.name === LIST_NAME);
   if (!list) {
+    if (options.dryRun) {
+      const { toAdd, toRemove } = diffSync(desired, new Map());
+      console.log(`[cf] dry-run: create list; +${toAdd.length} -${toRemove.length}`);
+      return { toAdd, toRemove };
+    }
     const created = await cf(token, "POST", `${API}/accounts/${accountId}/rules/lists`, {
       name: LIST_NAME,
       kind: "ip",

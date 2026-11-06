@@ -27,6 +27,10 @@ import shutil
 import subprocess
 import sys
 
+# Set build mode before importing config.py, which otherwise creates the runtime data directory.
+if __name__ == "__main__":
+    os.environ.setdefault("COMICINE_BUILD", "1")
+
 from flask import Flask, g, render_template
 
 # These are **optional dependencies**: use None when they are unavailable. Whether to fail is decided by
@@ -346,11 +350,12 @@ def write_discovery_files(out_dir: str) -> None:
         "\n"
         f"## Documentation (docs.{ROOT_DOMAIN})\n"
         "\n"
-        f"- [Documentation home](https://docs.{ROOT_DOMAIN}/): project documentation in\n"
-        "  zh-cn, en-us, ja-jp and ko-kr; `/`, `/en-us`, `/ja-jp`, `/ko-kr` are the\n"
-        "  per-language entry points and every content page carries its language as\n"
+        f"- [README (en-us)](https://docs.{ROOT_DOMAIN}/README/en-us): project documentation in\n"
+        "  zh-cn, en-us, ja-jp and ko-kr; every content page carries its language as\n"
         "  the last path segment.\n"
-        f"- [README](https://docs.{ROOT_DOMAIN}/README/zh-cn)\n"
+        f"- [README (zh-cn)](https://docs.{ROOT_DOMAIN}/README/zh-cn)\n"
+        f"- [README (ja-jp)](https://docs.{ROOT_DOMAIN}/README/ja-jp)\n"
+        f"- [README (ko-kr)](https://docs.{ROOT_DOMAIN}/README/ko-kr)\n"
         f"- [License](https://docs.{ROOT_DOMAIN}/LICENSE/zh-cn)\n"
         f"- [Sitemap](https://docs.{ROOT_DOMAIN}/sitemap.xml)\n"
         "\n"
@@ -1117,9 +1122,8 @@ def main() -> int:
     )
     # Locale integrity: fail if any language is missing a key; English pages must not silently fall back to Chinese.
     validate_locale_completeness()
-    # Build-mode flag: use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
+    # Use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    os.environ.setdefault("COMICINE_BUILD", "1")
     from render_app import RENDER_APP as appmod
 
     # Validate prerequisites **before modifying public/**. If Pillow or the watermark PNG is missing,

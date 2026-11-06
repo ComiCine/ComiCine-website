@@ -285,7 +285,7 @@ VitePress 루트가, `services/`에는 services.comicine.com 가격표 CSV가 �
 언어 코드는 URL의 **마지막** 세그먼트이고, 콘텐츠 페이지는 항상 명시적으로 붙입니다
 (`/README/zh-cn`, `/README/en-us`). 접미사 없는 `/README`는 문서 사이트의 Pages Function이
 메인 사이트와 같은 순서(언어 쿠키, `Accept-Language`, Cloudflare 국가 정보, 마지막으로 계약 기본 언어)로
-결정하며, docs 루트 `/`는 `https://comicine.com`으로 302됩니다.
+결정합니다. 문서 사이트에는 홈 페이지가 없습니다. `/`, `/docs-home/*`, 이전의 현지화된 홈 경로는 모두 직접 404를 반환합니다.
 
 `.vitepress/rewrites.json`이 각 `<lang>/<page>.md` 소스를 접미사가 붙은 라우트로 매핑하고,
 `.vitepress/config.mts`가 `additionalConfig`를 통해 각 언어 디렉터리에 고유한 `lang` / `themeConfig`를
@@ -408,7 +408,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - `visitor.comicine.com/` → 방문자 패널(로그인 필요); `account.comicine.com/apple` → Apple Account 관리자(로그인 필요)
 - `images.comicine.com/` → `comicine.com/`으로 301, 다른 경로에서는 포트폴리오 이미지, favicon, logo, QR 코드 등의 정적 자산 제공. `image.comicine.com/portfolio/<img>` → 정규화 Worker가 만든 워터마크 버전(이 호스트의 루트도 `comicine.com/`으로 301)
 - `www.comicine.com` → 메인 사이트로 301
-- 루트의 `x.html` 별칭은 `x`가 실제 공개 홈페이지 하위 도메인(`services`, `contact`, `docs`, `status`)이면 `x.comicine.com/`으로 302 전달되고, 알 수 없는 이름이면 현재 사이트의 홈페이지로 302 전달됩니다. `index.html`은 현재 호스트의 표준 홈페이지로 이동합니다.
+- `comicine.com`, `www`, `images`, `services`, `contact`, `visitor`, `account` 호스트에서는 레거시 `/<name>.html` 별칭으로 `www`, `images`, `portfolio`, `services`, `contact`, `visitor`, `apple-account`, `redirect`, `docs`, `status`를 인식해 각각 설정된 대상으로 전달합니다. `docs.html`은 메인 사이트 루트로, `/index.html`은 해당 호스트에 설정된 루트로 이동합니다. 별칭 형식에 맞지만 등록되지 않은 이름은 404를 반환합니다.
 - 내비게이션 링크는 절대 서브도메인 URL(`https://services.comicine.com` 등)을 유지합니다. 언어 전환은 순수 프런트엔드 `applyLang()`이며 새로고침도, URL 변경도 없습니다
 
 ### services.comicine.com 가격(CSV 기반)

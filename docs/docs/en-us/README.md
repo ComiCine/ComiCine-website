@@ -287,7 +287,8 @@ each hold the same file tree (`<lang>/<page>.md`), beside the shared `.vitepress
 content pages carry it explicitly (`/README/zh-cn`, `/README/en-us`). A suffix-less
 `/README` is resolved by a docs Pages Function in the main site's order (language
 cookie, `Accept-Language`, Cloudflare country, then the contract default). The bare docs
-root `/` 302s to `https://comicine.com`.
+site has no home page: `/` returns 404. `/docs-home/*` and the former localized home routes
+also return 404 directly.
 
 `.vitepress/rewrites.json` maps each `<lang>/<page>.md` source onto its suffixed route, and
 `.vitepress/config.mts` gives each language directory its own `lang` / `themeConfig`
@@ -410,7 +411,7 @@ The middleware also enforces the normalized D1 blocklist and records privacy-min
 - `visitor.comicine.com/` → visitor panel (login required); `account.comicine.com/apple` → Apple Account manager (login required)
 - `images.comicine.com/` → 301 to `comicine.com/`; other paths serve static assets such as portfolio images, favicons, logos and QR codes. `image.comicine.com/portfolio/<img>` → watermarked variant from the normalization Worker (its root also 301s to `comicine.com/`)
 - `www.comicine.com` → 301 to the main site
-- Root-level `x.html` aliases return 302 to `x.comicine.com/` when `x` is an active public homepage subdomain (`services`, `contact`, `docs` or `status`); unknown names return 302 to the current site's homepage. `index.html` returns to the current host's canonical homepage.
+- On `comicine.com`, `www`, `images`, `services`, `contact`, `visitor` and `account`, legacy `/<name>.html` aliases recognize `www`, `images`, `portfolio`, `services`, `contact`, `visitor`, `apple-account`, `redirect`, `docs` and `status`, routing each to its configured target. The `docs.html` alias goes to the main site root; `/index.html` goes to the configured root for that host. Unknown names matching the alias format return 404.
 - Nav links keep absolute subdomain URLs (`https://services.comicine.com` etc.); language switching is a pure frontend `applyLang()`, no reload, no URL change
 
 ### services.comicine.com pricing (CSV-driven)

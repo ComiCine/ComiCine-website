@@ -33,7 +33,7 @@ See ADDITIONAL_TERMS.txt.
 <meta name="twitter:description" content="{{ _('meta_description_home') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/comicine-xtext.png?v=5">
 <link rel="preload" as="script" href="/static/js/index.js?v=9">
-<link rel="stylesheet" href="/static/css/index.css?v=16">
+<link rel="stylesheet" href="/static/css/index.css?v=17">
 {% endblock %}
 
 {% block footer %}{% endblock %}
@@ -63,8 +63,7 @@ See ADDITIONAL_TERMS.txt.
             {% for item in portfolio_items %}
             {% set thumb_sizes = '(min-width: 640px) 840px, 100vw' if item.orientation == 'landscape' else '(min-width: 1024px) 341px, (min-width: 640px) 33vw, 100vw' %}
             <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.comicine.com/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
-                {# Match each card to its image's aspect ratio (3:4, 3:2, 2:3, etc.) to avoid cropping mixed orientations. #}
-                <div class="work-frame" style="aspect-ratio: {{ item.ratio }}">
+                <div class="work-frame">
                     <picture>
                         <source type="image/avif"
                             data-srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.avif 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.avif 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.avif 800w"
@@ -72,8 +71,7 @@ See ADDITIONAL_TERMS.txt.
                         <img class="work-img"
                             data-src="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp"
                             data-srcset="{{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-480.webp 480w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-640.webp 640w, {{ image_asset_base }}/static/portfolio/thumbs/{{ item.stem }}-800.webp 800w"
-                            {# Portrait images use one third of the row; landscape images span the row.
-                               Declare the displayed width so srcset does not select an oversized image. #}
+                            {# Intrinsic width/height preserve the source ratio; sizes selects the thumbnail width. #}
                             sizes="{{ thumb_sizes }}" width="{{ item.width }}" height="{{ item.height }}" loading="lazy" decoding="async" fetchpriority="{{ 'high' if loop.index <= 3 else 'low' }}" referrerpolicy="origin"
                             alt="{{ _('alt_outdoor_shot', num=item.num) }}" data-i18n-attr="alt:alt_outdoor_shot;num={{ item.num }}">
                     </picture>

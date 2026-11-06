@@ -396,6 +396,7 @@ fi
 
 if [ "$REQUIRED_CHECKS_UNVERIFIED" = 1 ]; then
     echo "[ci] NOT VERIFIED: this run did not execute every required CI check."
-else
-    echo "[ci] OK: all required CI checks passed."
+    exit 1
 fi
+
+echo "[ci] OK: all required CI checks passed."

@@ -16,9 +16,8 @@ Each item in the template context (``portfolio_items``) contains:
     stem        filename without extension; thumbnails use .webp/.avif and this stem
     ext         lowercase extension
     num         two-digit index (01, 02, ...) used in alt text
-    width       source image width in pixels, or None if Pillow or the source is missing
-    height      source image height in pixels, or None if Pillow or the source is missing
-    ratio       CSS aspect-ratio value (such as "3 / 4"), defaulting to 3 / 4 if unknown
+    width       reduced integer width preserving the image's intrinsic aspect ratio
+    height      reduced integer height preserving the image's intrinsic aspect ratio
     orientation "portrait", "landscape", or "square", used to select the card layout
 """
 
@@ -70,8 +69,8 @@ def image_ratio(path: str) -> tuple[int, int] | None:
     """Read an image's aspect ratio as a reduced integer pair, or return None if unavailable.
 
     Reduction keeps the ratio exact (1080x1440 becomes 3:4; 1350x900 becomes 3:2).
-    The template emits an integer ``aspect-ratio`` so each card matches the image's
-    actual dimensions without decimal rounding.
+    The template uses the reduced pair as the image's intrinsic width and height,
+    avoiding inline styles while preserving the exact ratio.
     """
     try:
         from PIL import Image
@@ -116,7 +115,6 @@ def portfolio_items(source_dir: str | None = None) -> list[dict[str, object]]:
                 "num": f"{index:02d}",
                 "width": width,
                 "height": height,
-                "ratio": f"{width} / {height}",
                 "orientation": orientation,
             }
         )

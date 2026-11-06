@@ -375,8 +375,8 @@ export function pageAsset(host: string, pathname: string, lang: string): string 
 
 /**
  * Public files that bypass human verification: the build copies
- * `src/static/files/` to `public/static/files/`, and this exposes them at the
- * clean URL `/files/<filename>` on both comicine.com and images.comicine.com
+ * `src/static/files/` to `public/files/`, and this exposes them at the
+ * clean URL `/files/<path>` on both comicine.com and images.comicine.com
  * for external references.
  */
 export const PUBLIC_FILES_PREFIX = "/files/";
