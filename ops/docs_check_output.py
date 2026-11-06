@@ -27,8 +27,11 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
+
+DOCS_TITLE_SUFFIXES = ("| 文档", "| Docs", "| ドキュメント", "| 문서")
 
 
 def main() -> int:
@@ -40,6 +43,41 @@ def main() -> int:
     if not docs.is_dir() or not dist.is_dir():
         print("FATAL: docs-dir or dist-dir not found", file=sys.stderr)
         return 1
+
+    failed = False
+    for routes_path in (docs / "public" / "_routes.json", dist / "_routes.json"):
+        try:
+            edge_routes = json.loads(routes_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"FATAL: could not read Pages routes file {routes_path}: {exc}", file=sys.stderr)
+            failed = True
+            continue
+        excludes = edge_routes.get("exclude") if isinstance(edge_routes, dict) else None
+        if not isinstance(excludes, list) or "/fonts.css" not in excludes:
+            print(f"FATAL: {routes_path} must exclude /fonts.css from Pages Functions", file=sys.stderr)
+            failed = True
+
+    font_css = dist / "fonts.css"
+    font_file = dist / "fonts" / "delius-swash-caps" / "delius-swash-caps-copyright.woff2"
+    if not font_css.is_file() or not font_file.is_file():
+        print("FATAL: Delius brand stylesheet or font file is missing from docs output", file=sys.stderr)
+        failed = True
+    elif "font-family: 'Delius Swash Caps'" not in font_css.read_text(encoding="utf-8"):
+        print("FATAL: docs fonts.css does not define Delius Swash Caps", file=sys.stderr)
+        failed = True
+
+    title_suffixes: list[tuple[str, str]] = []
+    for html_file in sorted(dist.rglob("*.html")):
+        text = html_file.read_text(encoding="utf-8", errors="replace")
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+        if title_match:
+            title = title_match.group(1).strip()
+            if any(title.endswith(suffix) for suffix in DOCS_TITLE_SUFFIXES):
+                title_suffixes.append((html_file.relative_to(dist).as_posix(), title))
+    for path, title in title_suffixes:
+        print(f"FATAL: {path} appends a localized docs site name to its title: {title}", file=sys.stderr)
+    if title_suffixes:
+        failed = True
 
     rewrites_path = docs / ".vitepress" / "rewrites.json"
     rewrites: dict[str, str] = {}
@@ -102,7 +140,7 @@ def main() -> int:
     if incomplete:
         for logical_page, language in incomplete:
             print(f"FATAL: {logical_page} has no {language} source copy", file=sys.stderr)
-    if missing or invalid_routes or incomplete or unscoped:
+    if failed or missing or invalid_routes or incomplete or unscoped:
         return 1
     return 0
 
