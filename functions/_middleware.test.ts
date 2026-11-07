@@ -17,6 +17,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleOnRequest, onRequest, pageCacheKey, withSecurityHeaders } from "./_middleware";
+import { IDENTITY_SITE_ROLES } from "./_lib/config";
 import { GATE_TURNSTILE_ACTION, mintGateCookie } from "./_lib/gate";
 import { SECURITY_HEADERS } from "./_lib/security";
 import { recordRay, recordVisit, shouldTrackRay, shouldTrackVisit } from "./_lib/tracking";
@@ -88,6 +89,29 @@ describe("shared identity navigation", () => {
 
     const cookies = response.headers.getSetCookie?.() ?? [response.headers.get("Set-Cookie") ?? ""];
     expect(cookies.join("; ")).toContain(`comicine_identity_state_${state}=${state};`);
+  });
+
+  it("redirects every protected host and page straight to identity", async () => {
+    // Every host in identity_sites needs one representative page here; adding a protected
+    // site without an entry fails this test instead of silently keeping a visible stop.
+    const pages: Record<string, string> = {
+      "visitor.comicine.com": "/",
+      "account.comicine.com": "/apple",
+    };
+    for (const host of Object.keys(IDENTITY_SITE_ROLES)) {
+      const path = pages[host];
+      expect(path, `add a protected page path for ${host}`).toBeDefined();
+      const request = new Request(`https://${host}${path}`, {
+        headers: {
+          Accept: "text/html",
+          "CF-Connecting-IP": "97.64.18.11",
+        },
+      });
+      const response = await handleOnRequest(context(request));
+      expect(response.status, host).toBe(302);
+      expect(response.headers.get("Location"), host).toContain("https://identity.comicine.com/login?");
+      expect(await response.text(), host).toBe("");
+    }
   });
 
   it("keeps API authentication failures as JSON 401 responses", async () => {

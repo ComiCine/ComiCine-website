@@ -238,6 +238,7 @@ fi
 SENSITIVE_PATTERNS=(
     'secrets/*' '.dev.vars' '*.db' '*.db-shm' '*.db-wal' '*.pem' '*.key'
     'ops/out/*' 'ops/backups/*' 'backup-comicine-*' '各种密钥.txt' '*.mmdb'
+    'docs/docs/*/private/*'
 )
 
 sensitive_paths() {
@@ -269,6 +270,22 @@ if [ -n "$SENSITIVE_HITS" ]; then
     printf '%s' "$SENSITIVE_HITS" | sed 's/^/       /' >&2
     echo "       remove them from the index (git restore --staged <path>) or add an ignore rule;" >&2
     echo "       secrets/ and *.db must never enter the repository." >&2
+    exit 1
+fi
+
+# Guard 2b: private docs article sources must stay out of the public repository.
+# They are Access-protected content, but on 2026-11-04 `git add -A` committed them and GitHub
+# served them like any other file. The .gitignore rule keeps them out, so fail when a copy is
+# tracked again or when the rule disappears.
+PRIVATE_DOCS_TRACKED="$(cd "$TARGET" && git ls-files | grep -E '^docs/docs/[^/]+/private/' || true)"
+if [ -n "$PRIVATE_DOCS_TRACKED" ]; then
+    echo "[ci] FAIL: private docs article sources are tracked by Git:" >&2
+    printf '%s\n' "$PRIVATE_DOCS_TRACKED" | sed 's/^/       /' >&2
+    echo "       run: git rm -r --cached -- 'docs/docs/*/private'" >&2
+    exit 1
+fi
+if ! (cd "$TARGET" && git check-ignore -q --no-index docs/docs/zh-cn/private/articles/untracked-check.md); then
+    echo "[ci] FAIL: .gitignore no longer ignores docs/docs/*/private/" >&2
     exit 1
 fi
 

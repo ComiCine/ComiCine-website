@@ -51,6 +51,9 @@ preview/*
 # Portfolio originals (large and not tracked; kept locally and in the private comicine-originals R2 bucket)
 src/static/portfolio/
 
+# Private docs article sources (Access-protected content; the repository is public)
+docs/docs/*/private/
+
 # Migration exports (may contain sensitive data such as encrypted passwords; never track)
 ops/out/
 
