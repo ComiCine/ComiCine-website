@@ -13,6 +13,8 @@ import {
   detectMainSiteLanguage,
   redirectLocalizedEntry,
 } from "../../functions/_lib/security-language.js";
+import { onRequest as amc10Entry } from "../../functions/private/articles/amc-10-formula-guide.js";
+import { onRequest as ukMajorsEntry } from "../../functions/private/articles/uk-undergraduate-majors.js";
 
 function request(headers: Record<string, string> = {}, country?: string): Request {
   const result = new Request("https://docs.comicine.com/security/policy", { headers });
@@ -83,4 +85,24 @@ describe("docs language selection follows the main site", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
+});
+
+describe("private article entry routes", () => {
+  for (const [entry, slug] of [
+    [amc10Entry, "amc-10-formula-guide"],
+    [ukMajorsEntry, "uk-undergraduate-majors"],
+  ] as const) {
+    it(`resolves /private/articles/${slug} with the shared language preference`, () => {
+      const response = entry({
+        request: new Request(`https://docs.comicine.com/private/articles/${slug}`, {
+          headers: { Cookie: "user_lang_preference=ja-jp" },
+        }),
+      });
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe(
+        `https://docs.comicine.com/private/articles/${slug}/ja-jp`,
+      );
+    });
+  }
 });

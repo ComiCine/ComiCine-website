@@ -137,6 +137,7 @@ def main() -> int:
     default_language = contract["default_lang"]
     missing: list[tuple[str, str]] = []
     invalid_routes: list[tuple[str, str]] = []
+    missing_entry_routes: set[str] = set()
     duplicate_routes: list[tuple[str, str]] = []
     routes: list[tuple[str, str]] = []
     route_sources: dict[str, str] = {}
@@ -153,6 +154,10 @@ def main() -> int:
         source_language = source_parts[0]
         logical_page = "/".join(source_parts[1:])
         language_copies.setdefault(logical_page, set()).add(source_language)
+        if logical_page.startswith("private/articles/") and logical_page.endswith(".md"):
+            slug = logical_page[len("private/articles/") : -len(".md")]
+            if not (docs / "functions" / "private" / "articles" / f"{slug}.js").is_file():
+                missing_entry_routes.add(f"/private/articles/{slug}")
 
         route = rewrites.get(rel, rel)
         if route.endswith(".md"):
@@ -255,9 +260,25 @@ def main() -> int:
     if incomplete:
         for logical_page, language in incomplete:
             print(f"FATAL: {logical_page} has no {language} source copy", file=sys.stderr)
+    if missing_entry_routes:
+        for route in sorted(missing_entry_routes):
+            print(
+                f"FATAL: {route} has no language-less entry route; add "
+                "docs/functions/private/articles/<slug>.js with redirectLocalizedEntry",
+                file=sys.stderr,
+            )
     for error in hreflang_errors:
         print(f"FATAL: hreflang check failed: {error}", file=sys.stderr)
-    if failed or missing or invalid_routes or duplicate_routes or incomplete or unscoped or hreflang_errors:
+    if (
+        failed
+        or missing
+        or invalid_routes
+        or duplicate_routes
+        or incomplete
+        or missing_entry_routes
+        or unscoped
+        or hreflang_errors
+    ):
         return 1
     return 0
 
