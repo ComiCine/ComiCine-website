@@ -78,10 +78,10 @@ test("thumbs / qr-codes / icons are served clean, unwatermarked", () => {
 
   const icon = routeFor(new URL("https://image.comicine.com/icons/comicine.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(icon.watermarked, false);
-  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=4`);
+  assert.equal(icon.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=5`);
 
   const canonicalWordmark = routeFor(new URL("https://image.comicine.com/icons/comicine-xtext.svg"), { headers: new Headers() }, ORIGIN);
-  assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=4`);
+  assert.equal(canonicalWordmark.target, `${ORIGIN}/static/icons/comicine-xtext.svg?v=5`);
 
   const canonicalFavicon = routeFor(new URL("https://image.comicine.com/icons/comicine-favicon.svg"), { headers: new Headers() }, ORIGIN);
   assert.equal(canonicalFavicon.target, `${ORIGIN}/static/icons/comicine-favicon.svg?v=13`);
@@ -163,5 +163,5 @@ test("brand aliases use current SVG versions and preserve non-version query para
   const target = new URL(route.target);
   assert.equal(target.pathname, "/static/icons/comicine-xtext.svg");
   assert.equal(target.searchParams.get("lang"), "zh-cn");
-  assert.equal(target.searchParams.get("v"), "4");
+  assert.equal(target.searchParams.get("v"), "5");
 });

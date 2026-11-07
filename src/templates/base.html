@@ -27,7 +27,7 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/shared-ui.js?v=1" as="script">
+    <link rel="preload" href="/static/js/shared-ui.js?v=2" as="script">
     <link rel="preload" href="/static/js/base.js?v=22" as="script">
 
     <!-- Icons. -->
@@ -42,14 +42,13 @@ See ADDITIONAL_TERMS.txt.
 
 <!-- Self-hosted Inter and Delius Swash Caps fonts shared with auth/redirect; see each font's OFL.txt. -->
     <!-- Preload the ComiCine wordmark font before parsing styles to reduce fallback-font flashes. -->
-    <link rel="preload" href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/fonts-round75.css?v=4">
+    <link rel="stylesheet" href="/static/fonts-round75.css?v=5">
 
 <!-- Design tokens for colors, radii, and easing; the single source of truth shared by auth/redirect pages. -->
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- Site base styles extracted and optimized from the former inline template styles. -->
-    <link rel="stylesheet" href="/static/css/base.css?v=33">
+    <link rel="stylesheet" href="/static/css/base.css?v=34">
 
     {% block head_links %}{% endblock %}
 </head>
@@ -185,7 +184,7 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/shared-ui.js?v=1" defer></script>
+    <script src="/static/js/shared-ui.js?v=2" defer></script>
     <script src="/static/js/base.js?v=22" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}

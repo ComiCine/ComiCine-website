@@ -98,17 +98,40 @@ var touchStartY = 0;
  * Scroll up: hide nav-logo, fly the same ComiCine logo back to the center.
  */
 
+/*
+   The flight is transform-only. Animating left/top forced the browser to lay out and repaint
+   the 6rem text on every frame, which stuttered badly; the hero keeps left/top at 50% and the
+   transform carries both the offset and the scale, so the compositor can run the whole flight.
+   Percent translates are avoided too: px values interpolate cleanly between the two states.
+ */
+function heroHomeTransform() {
+    var width = heroTitle.offsetWidth;
+    var height = heroTitle.offsetHeight;
+    return {
+        width: width,
+        height: height,
+        value: 'translate(' + (-width / 2) + 'px, ' + (-height / 2) + 'px) scale(1)'
+    };
+}
+
+function heroNavTransform(home) {
+    var navRect = navLogo.getBoundingClientRect();
+    var scale = navRect.width / home.width;
+    var width = window.innerWidth;
+    var height = window.innerHeight;
+    var left = navRect.left + navRect.width / 2 - width / 2 - home.width / 2;
+    var top = navRect.top + navRect.height / 2 - height / 2 - home.height / 2;
+    return 'translate(' + left + 'px, ' + top + 'px) scale(' + scale + ')';
+}
+
 function morphHeroToNav() {
     if (!heroTitle) return;
     var seq = animSeq;
+    var home = heroHomeTransform();
+    var nav = heroNavTransform(home);
     if (reducedMotion()) {
-        // Land on the navigation position in the same frame, using the geometry of the flight.
-        var navRect = navLogo.getBoundingClientRect();
-        var scale = navRect.width / heroTitle.getBoundingClientRect().width;
         heroTitle.classList.add('flying');
-        heroTitle.style.left = (navRect.left + navRect.width / 2) + 'px';
-        heroTitle.style.top = (navRect.top + navRect.height / 2) + 'px';
-        heroTitle.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+        heroTitle.style.transform = nav;
         heroTitle.classList.remove('hero-closed');
         return;
     }
@@ -117,12 +140,13 @@ function morphHeroToNav() {
     // Fly to the upper-left after 233ms.
     setTimeout(function() {
         if (seq !== animSeq) return;
-        var navRect = navLogo.getBoundingClientRect();
-        var scale = navRect.width / heroTitle.getBoundingClientRect().width;
+        // Pin the start position, flush it, then hand the change to the transform transition.
+        heroTitle.style.transition = 'none';
+        heroTitle.style.transform = home.value;
+        void heroTitle.offsetWidth;
         heroTitle.classList.add('flying');
-        heroTitle.style.left = (navRect.left + navRect.width / 2) + 'px';
-        heroTitle.style.top = (navRect.top + navRect.height / 2) + 'px';
-        heroTitle.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+        heroTitle.style.transition = '';
+        heroTitle.style.transform = nav;
         setTimeout(function() {
             if (seq !== animSeq) return;
             heroTitle.classList.remove('hero-closed');
@@ -135,27 +159,29 @@ function morphHeroBack() {
     var seq = animSeq;
     navLogo.onclick = null;
     navLogo.classList.add('is-hidden');
-    // Restore visibility while keeping the flight's destination until the return transition starts.
+    // Restore visibility first: a direct visit to /portfolio hides the hero, and its layout
+    // width is zero while display:none, which would break the return geometry.
     heroTitle.style.display = '';
     heroTitle.style.opacity = '';
-    heroTitle.style.transition = '';
+    var home = heroHomeTransform();
     if (reducedMotion()) {
-        // Return to the centered position in the same frame; no flight timer is scheduled.
-        heroTitle.classList.remove('hero-closed', 'flying');
-        heroTitle.style.left = '50%';
-        heroTitle.style.top = '50%';
-        heroTitle.style.transform = 'translate(-50%, -50%) scale(1)';
+        heroTitle.classList.remove('flying', 'hero-closed');
+        heroTitle.style.transform = home.value;
         return;
     }
     heroTitle.classList.add('flying');
-    void heroTitle.offsetWidth;
     heroTitle.classList.remove('hero-closed');
-    heroTitle.style.left = '50%';
-    heroTitle.style.top = '50%';
-    heroTitle.style.transform = 'translate(-50%, -50%) scale(1)';
+    void heroTitle.offsetWidth;
+    heroTitle.style.transform = home.value;
     setTimeout(function() {
         if (seq !== animSeq) return;
         heroTitle.classList.remove('flying');
+        // Drop the inline transform under transition:none so the CSS centering takes over
+        // again (it adapts to viewport changes); both states are visually identical.
+        heroTitle.style.transition = 'none';
+        heroTitle.style.transform = '';
+        void heroTitle.offsetWidth;
+        heroTitle.style.transition = '';
         // reverseToHome resets isTransitioning and isOnHome in the required order.
     }, 267);
 }

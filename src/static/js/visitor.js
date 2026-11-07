@@ -81,8 +81,8 @@ function updateStats(stats) {
   document.getElementById('stat-statuses').textContent = Object.keys(statusCounts).length.toLocaleString();
 }
 
-// Status line: the last successful refresh time plus the current failure reason.
-// The copy is rendered from i18n keys so a language switch can rebuild it without a request.
+// Status line: only the current failure reason. The refresh timestamp was removed on request
+// because it duplicated the browser's own timing and added noise above the list.
 const FAILURE_COPY_KEYS = {
   timeout: 'visitor_error_timeout',
   network: 'visitor_error_network',
@@ -97,12 +97,7 @@ function renderStatus() {
   const failed = lastFailure !== null;
 
   if (status) {
-    // formatTime accepts Unix seconds; lastLoadedAt is stored in milliseconds.
-    const updated = lastLoadedAt
-      ? t('visitor_updated_at', { time: formatTime(Math.floor(lastLoadedAt / 1000)) })
-      : '';
-    const reason = failed ? t(FAILURE_COPY_KEYS[lastFailure] || 'load_failed') : '';
-    status.textContent = failed ? (updated ? updated + ' · ' + reason : reason) : updated;
+    status.textContent = failed ? t(FAILURE_COPY_KEYS[lastFailure] || 'load_failed') : '';
     status.classList.toggle('error', failed);
   }
 

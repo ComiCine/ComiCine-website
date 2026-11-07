@@ -102,7 +102,6 @@
   "transport_note": "Ride-hailing reimbursed after last metro",
   "close_aria": "Close",
   "visitor_title": "Visitor IP List",
-  "visitor_updated_at": "Updated {time}",
   "visitor_error_timeout": "The request timed out. Try again.",
   "visitor_error_network": "The network connection failed. Check it and try again.",
   "visitor_error_auth": "Your session expired. Sign in again.",

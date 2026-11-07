@@ -57,6 +57,10 @@ describe("language table", () => {
       expect(UI[lang].reason_line, lang).toContain("{detail}");
       expect(UI[lang].http_other, lang).toContain("{code}");
       expect(UI[lang].err_unknown_code, lang).toContain("{code}");
+      expect(UI[lang].latency, lang).toContain("{ms}");
+      expect(UI[lang].hb_title, lang).toContain("{day}");
+      expect(UI[lang].hb_title, lang).toContain("{percent}");
+      expect(UI[lang].hb_nodata, lang).toContain("{day}");
     }
   });
 
@@ -156,8 +160,13 @@ describe("probe error codes", () => {
 });
 
 describe("language detection", () => {
-  const req = (accept?: string) =>
-    new Request("https://status.comicine.com/", accept ? { headers: { "Accept-Language": accept } } : {});
+  const req = (accept?: string, cookie?: string) =>
+    new Request("https://status.comicine.com/", {
+      headers: {
+        ...(accept ? { "Accept-Language": accept } : {}),
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+    });
 
   it("reads Accept-Language by prefix and defaults to zh-cn", () => {
     expect(pickLang(req("zh-CN,zh;q=0.9"))).toBe("zh-cn");
@@ -175,5 +184,28 @@ describe("language detection", () => {
     expect(pickLang(req("en-US"), url("?lang=fr-fr"))).toBe("en-us");
     expect(pickLang(req("en-US"), url("?lang="))).toBe("en-us");
     expect(pickLang(req("en-US"), url("?lang=%20"))).toBe("en-us");
+  });
+
+  it("uses the shared language cookie before Accept-Language", () => {
+    expect(pickLang(req("en-US", "user_lang_preference=ja-jp"))).toBe("ja-jp");
+    // The cookie is one of several cookies and may be percent-encoded.
+    expect(pickLang(req("en-US", "other=1; user_lang_preference=%6b%6f-kr; theme=dark"))).toBe("ko-kr");
+    expect(pickLang(req("en-US", "user_lang_preference=JA-JP"))).toBe("ja-jp");
+    // Unsupported or malformed cookies fall through to Accept-Language, never to a crash.
+    for (const cookie of [
+      "user_lang_preference=fr-fr",
+      "user_lang_preference=en",
+      "user_lang_preference=",
+      "user_lang_preference",
+      "user_lang_preference=%E0%A4%A",
+    ]) {
+      expect(pickLang(req("en-US", cookie)), cookie).toBe("en-us");
+    }
+  });
+
+  it("keeps ?lang= above the cookie so the menu can switch language immediately", () => {
+    const url = (q: string) => new URL(`https://status.comicine.com/${q}`);
+    expect(pickLang(req("en-US", "user_lang_preference=ja-jp"), url("?lang=ko-kr"))).toBe("ko-kr");
+    expect(pickLang(req("en-US", "user_lang_preference=ja-jp"), url("?lang=fr-fr"))).toBe("ja-jp");
   });
 });

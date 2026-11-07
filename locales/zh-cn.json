@@ -102,7 +102,6 @@
   "transport_note": "地铁末班停运需报销打车费",
   "close_aria": "关闭",
   "visitor_title": "访问者 IP 列表",
-  "visitor_updated_at": "上次更新 {time}",
   "visitor_error_timeout": "请求超时，请重试。",
   "visitor_error_network": "网络连接中断，请检查网络后重试。",
   "visitor_error_auth": "登录已失效，请重新登录。",

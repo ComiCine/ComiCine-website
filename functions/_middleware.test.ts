@@ -50,17 +50,17 @@ function context(request: Request, env: Partial<Env> = {}): RequestContext {
 }
 
 describe("shared identity navigation", () => {
-  it("preserves no-referrer on the 401 navigation document", () => {
+  it("preserves no-referrer on the identity redirect", () => {
     const request = new Request("https://visitor.comicine.com/");
     const response = withSecurityHeaders(
       request,
-      new Response("sign in", { headers: { "Referrer-Policy": "no-referrer" } }),
+      new Response(null, { status: 302, headers: { "Referrer-Policy": "no-referrer" } }),
     );
 
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
   });
 
-  it("returns a 401 document with a host-bound identity handoff for browser page requests", async () => {
+  it("redirects browser page requests straight to the host-bound identity handoff", async () => {
     const request = new Request("https://visitor.comicine.com/", {
       headers: {
         Accept: "text/html",
@@ -68,16 +68,15 @@ describe("shared identity navigation", () => {
       },
     });
     const response = await handleOnRequest(context(request));
-    const html = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get("Location")).toBeNull();
+    // A 302 has no body to paint: the previous 401 document needed a script (and a click when
+    // the script did not run), which is exactly the visible stop this test locks out.
+    expect(response.status).toBe(302);
+    expect(await response.text()).toBe("");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(html).toContain("/static/js/auth-redirect.js?v=1");
+    expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
 
-    const targetAttribute = html.match(/data-target="([^"]+)"/)?.[1];
-    expect(targetAttribute).toBeDefined();
-    const identityUrl = new URL(targetAttribute!.replaceAll("&amp;", "&"));
+    const identityUrl = new URL(response.headers.get("Location") ?? "");
     expect(identityUrl.origin).toBe("https://identity.comicine.com");
     expect(identityUrl.pathname).toBe("/login");
 

@@ -27,7 +27,7 @@
 export const LANGS = ["zh-cn", "en-us", "ja-jp", "ko-kr"] as const;
 export type Lang = (typeof LANGS)[number];
 
-/** Default language without Accept-Language or a cookie; matches the previous `pageLang()` behavior. */
+/** Default language when neither the query string, the shared cookie, nor Accept-Language names a supported one. */
 export const DEFAULT_LANG: Lang = "zh-cn";
 
 export function isLang(v: unknown): v is Lang {
@@ -88,17 +88,20 @@ export function langFlag(code: string): string {
 }
 
 /**
- * Language selection order: explicit `?lang=` > Accept-Language prefix > default language.
+ * Language selection order: explicit `?lang=` > shared `user_lang_preference` cookie >
+ * Accept-Language > default language.
  *
- * `?lang=` supports the language overlay and a second redirect when the cookie disagrees with
- * the initial page language. The HTML is edge-cached with `Vary: Accept-Language`. Rendering
- * from a language cookie would require `Vary: Cookie`, fragmenting the cache by cookie value and
- * increasing D1 reads. The query string is already part of the cache key, with only four
- * possible language variants.
+ * The cookie is written by the language menu here and is shared with the main site and
+ * docs.comicine.com. Resolving it on the server means the first response is already in the
+ * visitor's language, with no client-side redirect. The four variants are separated by the
+ * explicit Cache API key (see `statuscache.ts`), so the page deliberately does not send
+ * `Vary: Cookie`; a cookie-resolved render is stored and read under its language key.
  */
 export function pickLang(request: Request, url?: URL): Lang {
   const explicit = url?.searchParams.get("lang")?.trim().toLowerCase();
   if (isLang(explicit)) return explicit;
+  const preference = cookieValue(request, LANG_COOKIE).trim().toLowerCase();
+  if (isLang(preference)) return preference;
   const accept = request.headers.get("Accept-Language") ?? "";
   for (const tag of acceptedLanguageTags(accept)) {
     const primary = tag.split("-", 1)[0];
@@ -106,6 +109,24 @@ export function pickLang(request: Request, url?: URL): Lang {
     if (language) return language;
   }
   return DEFAULT_LANG;
+}
+
+/** Read one cookie value from the request; returns "" when the cookie is absent or malformed. */
+function cookieValue(request: Request, name: string): string {
+  const header = request.headers.get("Cookie") ?? "";
+  for (const part of header.split(";")) {
+    const pair = part.trim();
+    const separator = pair.indexOf("=");
+    if (separator <= 0) continue;
+    if (pair.slice(0, separator).trim() !== name) continue;
+    const raw = pair.slice(separator + 1).trim();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return "";
 }
 
 /**
@@ -158,14 +179,16 @@ const ZH_CN = {
   overall_partial: "部分系统异常",
   overall_down: "系统中断",
   up: "运行正常",
-  down: "服务中断",
-  pending: "检测中",
+  down: "异常",
+  pending: "待检测",
   group_public: "公开服务",
   group_internal: "内部服务",
   uptime: "7 天在线率",
+  latency: "{ms} ms",
+  hb_title: "{day} · 在线率 {percent}%",
+  hb_nodata: "{day} · 无数据",
   updated: "最后更新",
   refresh: "自动刷新",
-  note: "数据来源：ComiCine Status Worker · Cloudflare D1",
   reason_line: "原因：{detail}",
   no_probes: "暂无探针配置。",
   card_website: "ComiCine 网站",
@@ -239,14 +262,16 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     overall_partial: "Partially Operational",
     overall_down: "Systems Down",
     up: "Operational",
-    down: "Downtime",
+    down: "Down",
     pending: "Pending",
     group_public: "Public Services",
     group_internal: "Internal Services",
     uptime: "7-day uptime",
+    latency: "{ms} ms",
+    hb_title: "{day} · {percent}% uptime",
+    hb_nodata: "{day} · no data",
     updated: "Last updated",
     refresh: "Auto refresh in",
-    note: "Data source: ComiCine Status Worker · Cloudflare D1",
     reason_line: "Reason: {detail}",
     no_probes: "No probes configured yet.",
     card_website: "ComiCine Website",
@@ -312,14 +337,16 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     overall_partial: "一部システムに問題",
     overall_down: "システム停止中",
     up: "稼働中",
-    down: "停止中",
-    pending: "確認中",
+    down: "異常",
+    pending: "確認待ち",
     group_public: "公開サービス",
     group_internal: "内部サービス",
     uptime: "7 日間の稼働率",
+    latency: "{ms} ms",
+    hb_title: "{day} · 稼働率 {percent}%",
+    hb_nodata: "{day} · データなし",
     updated: "最終更新",
     refresh: "自動更新",
-    note: "データソース：ComiCine Status Worker · Cloudflare D1",
     reason_line: "理由：{detail}",
     no_probes: "プローブが未設定です。",
     card_website: "ComiCine ウェブサイト",
@@ -385,14 +412,16 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     overall_partial: "일부 시스템 문제",
     overall_down: "시스템 중단",
     up: "정상 운영",
-    down: "중단",
-    pending: "확인 중",
+    down: "비정상",
+    pending: "확인 대기",
     group_public: "공개 서비스",
     group_internal: "내부 서비스",
     uptime: "7일 가동률",
+    latency: "{ms} ms",
+    hb_title: "{day} · 가동률 {percent}%",
+    hb_nodata: "{day} · 데이터 없음",
     updated: "마지막 업데이트",
     refresh: "자동 새로고침",
-    note: "데이터 출처: ComiCine Status Worker · Cloudflare D1",
     reason_line: "원인: {detail}",
     no_probes: "구성된 프로브가 없습니다.",
     card_website: "ComiCine 웹사이트",

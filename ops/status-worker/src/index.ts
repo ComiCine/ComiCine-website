@@ -39,6 +39,7 @@ import {
   esc,
   renderErrorHtml,
   statusPageHtml,
+  type PageDay,
 } from "./page";
 /** Keep the legacy import path available for tests that import from index. */
 export { esc, statusKey } from "./page";
@@ -1180,6 +1181,14 @@ interface StatusRow {
   up: number | null;
 }
 
+/** One row of the daily uptime rollup; `day` is a Unix timestamp floored to UTC midnight. */
+interface DailyRow {
+  probe_id: number;
+  day: number;
+  up: number;
+  total: number;
+}
+
 export async function statusPayload(env: Env) {
   const now = Math.floor(Date.now() / 1000);
   // Round the seven-day window to whole days to match the daily aggregation in probe_uptime_daily.
@@ -1193,29 +1202,49 @@ export async function statusPayload(env: Env) {
   // rollup cannot be rebuilt. The 7-day percentage therefore mixes two definitions until 2026-11-14.
   const todayStart = now - (now % 86400);
   const sinceDay = todayStart - 6 * 86400;
-  const { results } = await env.DB.prepare(
-    // Latency and error code must come from the **same** latest heartbeat. Previously, there was only a latency subquery,
-    // so now the query first finds the latest id and joins that row to read both fields with one index lookup,
-    // avoiding mismatched timestamps without reading more rows per probe.
-    `SELECT p.id, p.name, p.type, p.target, p.group_key, p.active, p.label_key,
-            s.last_status AS status, s.checked_at,
-            h.latency_ms AS latency_ms, h.msg AS msg,
-            COALESCE((SELECT SUM(d.total) FROM probe_uptime_daily d
-              WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS total,
-            COALESCE((SELECT SUM(d.up) FROM probe_uptime_daily d
-              WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS up
-       FROM probes p
-       LEFT JOIN probe_state s ON s.probe_id = p.id
-       LEFT JOIN heartbeats h
-              ON h.id = (SELECT hb.id FROM heartbeats hb
-                          WHERE hb.probe_id = p.id ORDER BY hb.ts DESC LIMIT 1)
-      WHERE p.active = 1
-      ORDER BY p.id`,
-  )
-    .bind(sinceDay)
-    .all<StatusRow>();
+  // Both statements run together: the totals feed the 7-day percentage on every probe row, while the
+  // flat daily query feeds the heartbeat bar. One flat query covers every probe (at most seven rows
+  // per probe); a query per probe would multiply round trips and D1 statement overhead.
+  const [probeResult, dailyResult] = await Promise.all([
+    env.DB.prepare(
+      // Latency and error code must come from the **same** latest heartbeat. Previously, there was only a latency subquery,
+      // so now the query first finds the latest id and joins that row to read both fields with one index lookup,
+      // avoiding mismatched timestamps without reading more rows per probe.
+      `SELECT p.id, p.name, p.type, p.target, p.group_key, p.active, p.label_key,
+              s.last_status AS status, s.checked_at,
+              h.latency_ms AS latency_ms, h.msg AS msg,
+              COALESCE((SELECT SUM(d.total) FROM probe_uptime_daily d
+                WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS total,
+              COALESCE((SELECT SUM(d.up) FROM probe_uptime_daily d
+                WHERE d.probe_id = p.id AND d.day >= ?1), 0) AS up
+         FROM probes p
+         LEFT JOIN probe_state s ON s.probe_id = p.id
+         LEFT JOIN heartbeats h
+                ON h.id = (SELECT hb.id FROM heartbeats hb
+                            WHERE hb.probe_id = p.id ORDER BY hb.ts DESC LIMIT 1)
+        WHERE p.active = 1
+        ORDER BY p.id`,
+    )
+      .bind(sinceDay)
+      .all<StatusRow>(),
+    env.DB.prepare(
+      "SELECT probe_id, day, up, total FROM probe_uptime_daily WHERE day >= ?1 ORDER BY probe_id, day",
+    )
+      .bind(sinceDay)
+      .all<DailyRow>(),
+  ]);
 
-  const probes = (results ?? []).map((row) => {
+  const daysByProbe = new Map<number, PageDay[]>();
+  for (const row of dailyResult.results ?? []) {
+    const day: PageDay = { day: row.day, up: row.up ?? 0, total: row.total ?? 0 };
+    const list = daysByProbe.get(row.probe_id);
+    if (list) list.push(day);
+    else daysByProbe.set(row.probe_id, [day]);
+  }
+  // Ordered oldest to newest even if the database returns the rows in another order.
+  for (const list of daysByProbe.values()) list.sort((left, right) => left.day - right.day);
+
+  const probes = (probeResult.results ?? []).map((row) => {
     const total = row.total ?? 0;
     const up = row.up ?? 0;
     return {
@@ -1230,6 +1259,8 @@ export async function statusPayload(env: Env) {
       status: row.status ?? PENDING,
       latency_ms: row.latency_ms,
       uptime: total > 0 ? (up / total) * 100 : null,
+      // Days without a row are omitted; the page renders its gray "no data" segment for them.
+      days: daysByProbe.get(row.id) ?? [],
       checked_at: row.checked_at,
     };
   });
@@ -1251,8 +1282,12 @@ export async function statusPayload(env: Env) {
 // (in accordance with the CSP requirements in tasks/14). status.js handles the countdown, auto-refresh, language menu, and theme toggle;
 // status-theme.js applies the light-theme class before first paint to prevent a dark flash.
 
-/** Compatible language detection entry point: `?lang=` > Accept-Language > zh-cn (implemented by pickLang in i18n.ts). */
-export function pageLang(request: Request): string {
+/**
+ * Language detection entry point: `?lang=` > shared `user_lang_preference` cookie >
+ * Accept-Language > zh-cn (implemented by pickLang in i18n.ts). Resolving the cookie here means
+ * the very first response is already in the visitor's language, without a client-side redirect.
+ */
+export function pageLang(request: Request): Lang {
   return pickLang(request, new URL(request.url));
 }
 
@@ -1389,12 +1424,14 @@ export default {
       });
     }
     if (url.pathname === "/" || url.pathname === "/status") {
-      const lang: Lang = pickLang(request, url);
+      const lang: Lang = pageLang(request);
       // Explicit Cache API layer (suggestion 23). Response headers alone do not put a Worker-generated
       // response into the edge cache, so every page view still ran renderStatusPage() and read D1.
-      // The cache key is per language, and the stored response's `s-maxage=60` sets the TTL, aligning
-      // the page with the one-minute probe cron. Only GET is cached; HEAD, POST, 404s, and the 503
-      // page below stay uncached (the response also carries `no-store`).
+      // The cache key uses the resolved language (query string, shared cookie, then Accept-Language),
+      // so a cookie-resolved render is stored and read under that language key; there are only four
+      // variants. The stored response's `s-maxage=60` sets the TTL, aligning the page with the
+      // one-minute probe cron. Only GET is cached; HEAD, POST, 404s, and the 503 page below stay
+      // uncached (the response also carries `no-store`).
       const cacheKey =
         request.method === "GET" && statusCacheAvailable() ? statusPageCacheKey(lang) : null;
       if (cacheKey) {
@@ -1427,9 +1464,11 @@ export default {
           // amplifying D1 daily reads. s-maxage lets the Cloudflare edge absorb duplicate requests,
           // and max-age lets browsers reuse responses briefly; Vary below keeps the four languages separate.
           "Cache-Control": STATUS_HTML_CACHE_CONTROL,
-          // There are only two language variant sources: Accept-Language and explicit `?lang=` (the query string naturally enters
-          // the cache key). **Intentionally omit Vary: Cookie** because varying on raw cookie values would fragment the edge cache,
-          // increasing D1 reads again. The shared cookie is used only for a one-time client-side redirect.
+          // The language is resolved before the explicit cache key: query string, shared
+          // `user_lang_preference` cookie, then Accept-Language. A cookie-resolved page is stored
+          // and read under its language key, so the cookie never needs to enter this header.
+          // **Intentionally omit Vary: Cookie**: varying on raw cookie values would fragment the
+          // edge cache, while the explicit key already separates the four language variants.
           "Vary": "Accept-Language",
           // Observability for the explicit cache: hit / miss / bypass (no Cache API or a non-GET request).
           "X-Status-Cache": cacheKey ? "miss" : "bypass",

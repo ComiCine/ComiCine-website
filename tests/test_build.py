@@ -91,7 +91,7 @@ def test_services_currency_selection_is_persisted_and_failures_are_distinguished
 
 
 def test_visitor_page_reports_refresh_status_and_timeout():
-    """The dashboard shows the last successful refresh, a classified failure reason, and a retry button."""
+    """The dashboard shows a classified failure reason and a retry button, with no refresh timestamp."""
     html = build.render_page(RENDER_APP, "visitor.html", "/visitor", "en-us")
     assert 'id="visitor-status"' in html and 'role="status"' in html
     assert 'id="visitor-status"' in html and 'aria-live="polite"' in html
@@ -101,10 +101,10 @@ def test_visitor_page_reports_refresh_status_and_timeout():
     assert "REQUEST_TIMEOUT_MS" in visitor_js
     assert "AbortController" in visitor_js
     assert "classifyFailure" in visitor_js
-    assert "visitor_updated_at" in visitor_js
+    # The refresh timestamp was removed on request; the status row only carries failures.
+    assert "visitor_updated_at" not in visitor_js
 
     keys = (
-        "visitor_updated_at",
         "visitor_error_timeout",
         "visitor_error_network",
         "visitor_error_auth",
@@ -313,17 +313,22 @@ def test_templates_use_the_correct_logo_variant():
     assert '<span class="nav-brand brand-word">ComiCine</span>' in home
     assert '<span class="brand-word hero-wordmark">ComiCine</span>' in home
     assert "hero-logo" not in home
-    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4"' in home
+    assert 'content="https://images.comicine.com/static/icons/comicine-xtext.svg?v=5"' in home
     assert 'content="https://images.comicine.com/static/icons/comicine-xtext.png?v=5"' in home
     assert home.count('property="og:image:width" content="5250"') == 2
     assert 'href="/static/icons/comicine-favicon.svg?v=13"' in gate
-    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4" alt="ComiCine" width="525" height="150"' in gate
+    assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=5" alt="ComiCine" width="525" height="150"' in gate
     assert "https://image.comicine.com" not in home + services + contact + gate
     assert "data-image-watermark-base" not in home
     assert "/static/js/base.js?v=22" in home
     assert 'data-brandify="ComiCine"' in gate
-    assert 'href="/static/fonts-round75.css?v=4"' in home
-    assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
+    assert 'href="/static/fonts-round75.css?v=5"' in home
+    # Both fonts are embedded in fonts-round75.css, so the old Delius preload (and its separate
+    # network fetch that flashed the fallback face) is gone on purpose.
+    assert 'delius-swash-caps-copyright.woff2' not in home
+    font_css = (Path(build.BASE_DIR) / "src/static/fonts-round75.css").read_text(encoding="utf-8")
+    assert "font-family: 'Delius Swash Caps'" in font_css
+    assert "data:font/woff2;base64," in font_css
     assert '<span class="footer-item footer-copyright">&copy; <span data-copyright-years data-copyright-start-year="2026">2026</span> <span class="brand-word">ComiCine</span></span>' in services
     assert "-ComiCine-" not in contact
     assert '<span class="brand-word">ComiCine</span>' in contact
@@ -671,8 +676,8 @@ def test_shared_ui_loads_before_the_page_script_it_backs():
     home = build.render_page(RENDER_APP, "index.html", "/", "en-us")
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "en-us")
 
-    assert home.index("/static/js/shared-ui.js?v=1") < home.index("/static/js/base.js?v=22")
-    assert gate.index("/static/js/shared-ui.js?v=1") < gate.index("/static/js/auth.js?v=14")
+    assert home.index("/static/js/shared-ui.js?v=2") < home.index("/static/js/base.js?v=22")
+    assert gate.index("/static/js/shared-ui.js?v=2") < gate.index("/static/js/auth.js?v=14")
 
 
 def test_navigation_menu_aria_contract_is_rendered():

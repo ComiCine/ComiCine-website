@@ -102,7 +102,6 @@
   "transport_note": "막차 종료 후 택시비 정산",
   "close_aria": "닫기",
   "visitor_title": "방문자 IP 목록",
-  "visitor_updated_at": "마지막 업데이트 {time}",
   "visitor_error_timeout": "요청 시간이 초과되었습니다. 다시 시도하세요.",
   "visitor_error_network": "네트워크 연결에 실패했습니다. 확인 후 다시 시도하세요.",
   "visitor_error_auth": "로그인이 만료되었습니다. 다시 로그인하세요.",

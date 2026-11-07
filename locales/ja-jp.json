@@ -102,7 +102,6 @@
   "transport_note": "終電後はタクシー代を精算",
   "close_aria": "閉じる",
   "visitor_title": "訪問者 IP リスト",
-  "visitor_updated_at": "最終更新 {time}",
   "visitor_error_timeout": "リクエストがタイムアウトしました。再試行してください。",
   "visitor_error_network": "ネットワーク接続に失敗しました。確認して再試行してください。",
   "visitor_error_auth": "ログインの有効期限が切れました。再度ログインしてください。",

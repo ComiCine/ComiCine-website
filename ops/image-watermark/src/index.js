@@ -52,7 +52,7 @@ const MAIN_404_URL = "https://comicine.com/404";
 // Increment after changing watermark appearance or build.py parameters so the Worker fetches a
 // new origin URL and bypasses old watermark images in CDN and local caches.
 const WM_VERSION = "6";
-const BRAND_XTEXT_VERSION = "4";
+const BRAND_XTEXT_VERSION = "5";
 const BRAND_FAVICON_VERSION = "13";
 
 function isHtmlNavigation(request) {
@@ -86,11 +86,11 @@ function mainSite404Response(request, response) {
 
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
 const BRAND_ICON_ALIASES = new Map([
-  ["/icons/comicine.svg", "/static/icons/comicine-xtext.svg?v=4"],
-  ["/icons/comicine-xtext.svg", "/static/icons/comicine-xtext.svg?v=4"],
+  ["/icons/comicine.svg", "/static/icons/comicine-xtext.svg?v=5"],
+  ["/icons/comicine-xtext.svg", "/static/icons/comicine-xtext.svg?v=5"],
   ["/icons/comicine-favicon.svg", "/static/icons/comicine-favicon.svg?v=13"],
-  ["/icons/ComiCine.svg", "/static/icons/comicine-xtext.svg?v=4"],
-  ["/icons/ComiCine-xtext.svg", "/static/icons/comicine-xtext.svg?v=4"],
+  ["/icons/ComiCine.svg", "/static/icons/comicine-xtext.svg?v=5"],
+  ["/icons/ComiCine-xtext.svg", "/static/icons/comicine-xtext.svg?v=5"],
   ["/icons/favicon.svg", "/static/icons/comicine-favicon.svg?v=13"],
 ]);
 

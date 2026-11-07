@@ -89,8 +89,9 @@ browser enforce `Secure`, `Path=/` and the absence of `Domain`, so a sibling sub
 `requireAuth()` in [functions/_lib/session.ts](functions/_lib/session.ts) verifies the signature and then the
 revocation row; a missing, revoked or expired row is rejected. When `auth_sessions` cannot be read it throws
 `AuthSessionUnavailableError`, which callers map to 503 instead of trusting the signed cookie alone. Browser
-navigations get a 401 HTML document from `identityRequiredResponse()` that navigates to Identity, while API
-authentication failures remain JSON 401 responses from `requireAdminSession()`.
+navigations get a 302 straight to Identity from `identityRedirectResponse()` (no intermediate page or
+script, so nothing has to run before the browser leaves), while API authentication failures remain JSON 401
+responses from `requireAdminSession()`.
 
 ## Secrets and fail-closed behavior
 

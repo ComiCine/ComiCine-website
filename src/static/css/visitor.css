@@ -19,12 +19,12 @@
             position: fixed; top: 70px; left: 0; right: 0; bottom: 0; z-index: 10;
             display: flex;
         }
-        .left-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 4px 12px 16px 20px; }
+        .left-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 32px 12px 16px 20px; }
 
         /* Statistics cards. */
         .stats-row { display: flex; gap: 10px; padding: 0 0 14px 0; flex-shrink: 0; }
         .stat-card {
-            flex: 1; min-width: 0; padding: 12px 16px;
+            flex: 1; min-width: 0; padding: 16px;
             background: rgba(var(--visitor-panel-rgb), 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--line); border-radius: var(--radius-md);
         }
@@ -124,10 +124,10 @@
         @media (max-width: 768px) {
             html, body { overflow-y: auto; height: auto; min-height: 100%; }
             .main-layout { position: relative; top: auto; left: auto; right: auto; bottom: auto; margin-top: 70px; flex-direction: column; }
-            .left-panel { flex: none; padding: 2px 14px calc(4.75rem + env(safe-area-inset-bottom)) 14px; }
+            .left-panel { flex: none; padding: 32px 14px calc(4.75rem + env(safe-area-inset-bottom)) 14px; }
             .visitor-list { overflow-y: visible; }
             .stats-row { padding-bottom: 10px; }
-            .stat-card { padding: 10px 12px; }
+            .stat-card { padding: 12px; }
             .stat-value { font-size: 18px; }
             .stat-label { font-size: 8px; }
         }
