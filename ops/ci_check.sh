@@ -18,9 +18,17 @@
 # So: run this before pushing. Whatever CI runs, this runs.
 #
 # Step set (identical to .github/workflows/tests.yml -- keep both in sync):
-#   typescript: build / typecheck / migrate --dry-run / npm test / coverage (report only)
-#   python:     ruff / mypy / pytest / config contract / security headers / license headers
-#               / readme_facts.py --check
+#   typescript: build / typecheck (main program + tests program) / migrate --dry-run / npm test
+#               / coverage (threshold gate, see vitest.config.ts)
+#   python:     ruff / mypy / pytest (coverage threshold, see pytest.ini) / config contract
+#               / security headers / license headers / unused exports / readme_facts.py --check
+#               / check_readme_sync.py
+#   docs:       docs_deploy.sh --build-only (rewrites / four-language copies / hreflang /
+#               docs headers)
+#
+# The docs step is the only one with an external network dependency: docs_deploy.sh clones the
+# ComiCine/vitepress fork and installs its dependencies with pnpm. A failure there still fails
+# this gate; never turn it into a silent skip.
 #
 # config contract vs. artifact drift are two different gates, keep both:
 #   check_config_contract.py  -- contract <-> src/config.py <-> functions/_lib/config.ts
@@ -43,9 +51,10 @@
 #   bash ops/ci_check.sh --ref=<rev>    # check <rev> in a temporary worktree
 #                                       # (validates the commit about to be pushed,
 #                                       #  even when the working tree is dirty)
-#   bash ops/ci_check.sh --typescript   # typescript job only
-#   bash ops/ci_check.sh --python       # python job only
+#   bash ops/ci_check.sh --typescript   # skip the python job
+#   bash ops/ci_check.sh --python       # skip the typescript job
 #   bash ops/ci_check.sh --no-build     # skip build (assume artifacts are fresh)
+#   bash ops/ci_check.sh --no-docs      # skip the docs build (reports NOT VERIFIED)
 #
 # Exit code 0 = CI would pass; non-zero = CI would fail, do not push.
 
@@ -57,6 +66,7 @@ cd "$ROOT"
 REF=""
 RUN_TS=1
 RUN_PY=1
+RUN_DOCS=1
 DO_BUILD=1
 REQUIRED_CHECKS_UNVERIFIED=0
 
@@ -65,6 +75,7 @@ while [ $# -gt 0 ]; do
         --ref=*) REF="${1#--ref=}" ;;
         --typescript) RUN_PY=0 ;;
         --python) RUN_TS=0 ;;
+        --no-docs) RUN_DOCS=0 ;;
         --no-build) DO_BUILD=0 ;;
         # The help text is the comment block at the top of this file, from "# Local replica"
         # through the line before "set -euo pipefail". Do not hard-code line numbers: editing
@@ -75,7 +86,7 @@ while [ $# -gt 0 ]; do
             ;;
         *)
             echo "FATAL: unknown argument $1" >&2
-            echo "       supported: --ref=<rev> / --typescript / --python / --no-build" >&2
+            echo "       supported: --ref=<rev> / --typescript / --python / --no-docs / --no-build" >&2
             exit 2
             ;;
     esac
@@ -130,7 +141,7 @@ if [ -x "$PYTHON_BIN" ]; then
     PYTHON_IS_EXECUTABLE=1
 fi
 
-if [ "$RUN_TS" != 1 ] || [ "$RUN_PY" != 1 ] || [ "$DO_BUILD" != 1 ]; then
+if [ "$RUN_TS" != 1 ] || [ "$RUN_PY" != 1 ] || [ "$RUN_DOCS" != 1 ] || [ "$DO_BUILD" != 1 ]; then
     REQUIRED_CHECKS_UNVERIFIED=1
 fi
 
@@ -331,20 +342,20 @@ NODE
     echo "[ci] npm test"
     (cd "$TARGET" && npm test)
 
-    # Coverage is reported without a threshold (W6-3) and never determines CI success:
-    #   - Skip if @vitest/coverage-v8 is missing, and tell the user to install dependencies.
+    # Coverage is a gate (thresholds in vitest.config.ts), so this step must exit non-zero:
+    #   - Skip if @vitest/coverage-v8 is missing, and mark the run NOT VERIFIED; a local SKIP
+    #     must not look green.
     #   - If tests fail, vitest emits no coverage report; `npm test` above already catches the
     #     failure, and reporting another coverage failure would obscure the real cause.
     #   - A second instrumented vitest run can produce different numbers because module state
-    #     changes within a process; treating that difference as a gate failure would be flaky.
+    #     changes within a process; the thresholds keep enough margin for that variance.
     # Do not write `if ! npm run ...`: that would turn exit code 1 into 0 and hide failures.
     if [ ! -d "$TARGET/node_modules/@vitest/coverage-v8" ]; then
-        echo "[ci] SKIP coverage: @vitest/coverage-v8 is not installed (npm ci first)"
+        echo "[ci] SKIP coverage: NOT VERIFIED locally (@vitest/coverage-v8 is not installed; npm ci first)"
+        REQUIRED_CHECKS_UNVERIFIED=1
     else
-        echo "[ci] npm run test:coverage (report only, no threshold)"
-        set +e +o pipefail
-        (cd "$TARGET" && npm run test:coverage) || echo "[ci] coverage report unavailable (see the npm test step above for the real result)"
-        set -eo pipefail
+        echo "[ci] npm run test:coverage (threshold gate, see vitest.config.ts)"
+        (cd "$TARGET" && npm run test:coverage)
     fi
 fi
 
@@ -370,8 +381,8 @@ if [ "$RUN_PY" = 1 ]; then
     fi
 
     echo "[ci] python -m pytest (no ambient git identity: a CI runner has none)"
-    # Coverage is reported without a threshold (W6-3). pytest-cov is not in requirements.lock,
-    # so probe before adding --cov; if missing, skip it without affecting the exit code.
+    # Coverage is a gate (fail_under in pytest.ini). pytest-cov is not in requirements.lock, so
+    # probe before adding --cov; if it is missing the run is NOT VERIFIED rather than green.
     #
     # Strip Git identity here. On 2026-10-12, a test invoked `deploy.sh --commit` in a child
     # process. It passed locally because the machine had global user.name/email, but failed on
@@ -383,9 +394,10 @@ if [ "$RUN_PY" = 1 ]; then
     if (cd "$TARGET" && "$PYTHON_BIN" -c 'import pytest_cov' >/dev/null 2>&1); then
         (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
-            "$PYTHON_BIN" -m pytest -q --cov=src --cov-report=term-missing)
+            "$PYTHON_BIN" -m pytest -q --cov=src --cov-config=pytest.ini --cov-report=term-missing)
     else
-        echo "[ci] SKIP coverage: pytest-cov is not installed (pip install pytest-cov)"
+        echo "[ci] SKIP coverage: NOT VERIFIED locally (pytest-cov is not installed; pip install pytest-cov)"
+        REQUIRED_CHECKS_UNVERIFIED=1
         (cd "$TARGET" && env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
             GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
             "$PYTHON_BIN" -m pytest -q)
@@ -401,8 +413,25 @@ if [ "$RUN_PY" = 1 ]; then
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_security_headers.py)
     echo "[ci] python ops/check_license_headers.py"
     (cd "$TARGET" && "$PYTHON_BIN" ops/check_license_headers.py)
+    echo "[ci] python ops/check_unused_exports.py"
+    (cd "$TARGET" && "$PYTHON_BIN" ops/check_unused_exports.py)
     echo "[ci] python ops/readme_facts.py --check"
     (cd "$TARGET" && "$PYTHON_BIN" ops/readme_facts.py --check)
+    echo "[ci] python ops/check_readme_sync.py"
+    (cd "$TARGET" && "$PYTHON_BIN" ops/check_readme_sync.py)
+fi
+
+# Docs build: reuse the deployment entry point instead of duplicating its steps. --build-only
+# stops before credential checks and writes nothing to Cloudflare. This is the only step that
+# needs the network (fork clone + npm registry); pnpm is not part of the repo dependencies.
+if [ "$RUN_DOCS" = 1 ]; then
+    echo "[ci] docs build (bash ops/docs_deploy.sh --build-only)"
+    if ! command -v pnpm >/dev/null 2>&1; then
+        echo "[ci] SKIP docs build: NOT VERIFIED locally (pnpm not found)"
+        REQUIRED_CHECKS_UNVERIFIED=1
+    else
+        (cd "$TARGET" && bash ops/docs_deploy.sh --build-only)
+    fi
 fi
 
 if [ "$REQUIRED_CHECKS_UNVERIFIED" = 1 ]; then

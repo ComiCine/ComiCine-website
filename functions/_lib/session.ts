@@ -10,6 +10,7 @@
 /** Custom HMAC-signed session cookie and D1 auth_sessions revocation table (Pages has no built-in session). */
 
 import { execute, queryAll } from "./d1";
+import { gatePreviousKeyConfigError } from "./env";
 import type { Env } from "./env";
 import {
   PENDING_COOKIE,
@@ -23,6 +24,29 @@ const textEncoder = new TextEncoder();
 const AUTH_SESSION_TABLE = "auth_sessions";
 const MAX_SIGNED_TOKEN_LENGTH = 8192;
 const MAX_SESSION_FIELD_LENGTH = 512;
+
+/**
+ * Pre-`__Host-` cookie name, kept for a read-only transition after the 2026-11-07 rename.
+ *
+ * `__Host-` is enforced by the browser (no `Domain`, `Secure`, `Path=/`), so sessions created
+ * under the old name must keep working until they expire. Reads fall back to this name only when
+ * the prefixed cookie is absent; nothing renews or writes it. Remove this read and
+ * `clearLegacySessionCookie` after 2026-12-07 (one `SESSION_TTL_SECONDS` after the rename).
+ */
+const LEGACY_SESSION_COOKIE = "comicine_session";
+
+/**
+ * Only sessions authenticated before this instant may arrive under the legacy name.
+ *
+ * Accepting every validly signed legacy token would reopen the subdomain-write hole the `__Host-`
+ * prefix closes: a sibling host can still set `Domain=.comicine.com; comicine_session=<token>` and
+ * have it read whenever the visitor has no prefixed cookie. A token minted after the rename always
+ * carries a post-cutoff `authAt` (Access authentication immediately precedes session creation), so
+ * the cutoff rejects those freshly minted tokens while real pre-rename sessions keep working. The
+ * value is 2026-11-09T00:00:00+08:00 (2026-11-08T16:00:00Z), leaving the deploy a buffer past the
+ * rename day.
+ */
+const LEGACY_SESSION_AUTH_CUTOFF_SECONDS = Date.UTC(2026, 10, 8, 16, 0, 0) / 1000;
 
 export interface SessionUser {
   email: string;
@@ -125,12 +149,25 @@ export function clearSessionCookie(): string {
   return clearCookieHeader(SESSION_COOKIE);
 }
 
+/** Clear the pre-`__Host-` cookie name during the transition; removal is paired with the legacy read. */
+export function clearLegacySessionCookie(): string {
+  return clearCookieHeader(LEGACY_SESSION_COOKIE);
+}
+
 export async function readSession(
   env: Env,
   cookieHeaderValue: string | null,
 ): Promise<SessionData | null> {
-  const token = getCookie(SESSION_COOKIE, cookieHeaderValue);
-  const data = await verifyPayload<SignedSession>(env.SESSION_HMAC_KEY ?? "", token);
+  // Read-only fallback: the prefixed cookie wins when both exist, and the legacy token is never
+  // rewritten or extended, so the old name disappears as its thirty-day sessions expire.
+  const currentToken = getCookie(SESSION_COOKIE, cookieHeaderValue);
+  const legacyToken = currentToken === undefined
+    ? getCookie(LEGACY_SESSION_COOKIE, cookieHeaderValue)
+    : undefined;
+  const data = await verifyPayload<SignedSession>(
+    env.SESSION_HMAC_KEY ?? "",
+    currentToken ?? legacyToken,
+  );
   if (!data) return null;
   if (
     typeof data.exp !== "number" ||
@@ -150,6 +187,9 @@ export async function readSession(
   ) {
     return null;
   }
+  // A signed legacy token is not enough by itself: only pre-rename authentications are accepted
+  // under the old name (see the cutoff comment above).
+  if (legacyToken !== undefined && data.authAt >= LEGACY_SESSION_AUTH_CUTOFF_SECONDS) return null;
   return {
     sid: data.sid,
     sub: data.sub,
@@ -236,7 +276,10 @@ export function runtimeConfigError(env: Env): string | null {
   if (!env.TURNSTILE_SECRET?.trim()) missing.push("TURNSTILE_SECRET");
   if (!env.GATE_HMAC_KEY?.trim()) missing.push("GATE_HMAC_KEY");
   if (!env.SESSION_HMAC_KEY?.trim()) missing.push("SESSION_HMAC_KEY");
-  return missing.length ? `missing_${missing.join("_")}` : null;
+  if (missing.length) return `missing_${missing.join("_")}`;
+// The previous gate key is an optional rotation window, but a malformed one
+// must fail at startup instead of silently leaving no fallback.
+  return gatePreviousKeyConfigError(env);
 }
 
 export function configErrorResponse(reason: string): Response {

@@ -133,10 +133,10 @@ def cache_facts() -> dict:
     bug into a documentation error. Now each directive is read separately; missing keys are None,
     and `check()` validates only directives that are actually present.
     """
-    text = read(os.path.join(BASE_DIR, "functions", "_middleware.ts"))
+    text = read(os.path.join(BASE_DIR, "functions", "_lib", "page-cache.ts"))
     directive = re.search(r'PAGE_CACHE_CONTROL\s*=\s*"([^"]*)"', text)
     if not directive:
-        raise RuntimeError("cannot find PAGE_CACHE_CONTROL in functions/_middleware.ts")
+        raise RuntimeError("cannot find PAGE_CACHE_CONTROL in functions/_lib/page-cache.ts")
     raw = directive.group(1)
     # The privacy keyword is either public or private; the numeric directives are parsed below.
     if not re.match(r"^(?:public|private),", raw):
@@ -155,7 +155,7 @@ def cache_facts() -> dict:
 
     vary = re.search(r'PAGE_CACHE_VARY\s*=\s*"([^"]+)"', text)
     if not vary:
-        raise RuntimeError("cannot find PAGE_CACHE_VARY in functions/_middleware.ts")
+        raise RuntimeError("cannot find PAGE_CACHE_VARY in functions/_lib/page-cache.ts")
     return {
         "max_age": values["max-age"],
         "s_maxage": values["s-maxage"],
@@ -165,7 +165,7 @@ def cache_facts() -> dict:
 
 
 def timeout_facts() -> dict:
-    gate = read(os.path.join(BASE_DIR, "functions", "_lib", "gate.ts"))
+    gate = read(os.path.join(BASE_DIR, "functions", "_lib", "gate", "turnstile.ts"))
     access = read(os.path.join(BASE_DIR, "functions", "_lib", "access.ts"))
     siteverify = re.search(r"SITEVERIFY_TIMEOUT_MS\s*=\s*([\d_]+)", gate)
     jwks = re.search(r"JWKS_TTL_MS\s*=\s*([\d_]+)", access)

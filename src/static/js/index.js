@@ -6,6 +6,17 @@
  */
 
 /*
+   Read the system reduced-motion preference whenever a transition starts, so changing
+   the setting in the operating system only affects later interactions.
+   shared-ui.js provides the shared helper; fall back to matchMedia when it is unavailable.
+   */
+function reducedMotion() {
+    return window.ComiCineUI && typeof window.ComiCineUI.prefersReducedMotion === 'function'
+        ? window.ComiCineUI.prefersReducedMotion()
+        : window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/*
    Load portfolio images without affecting the initial view:
    Start loading thumbnails only when switching to the portfolio, so they do not compete for bandwidth.
    Once the portfolio is open, srcset selects the appropriate size.
@@ -90,6 +101,17 @@ var touchStartY = 0;
 function morphHeroToNav() {
     if (!heroTitle) return;
     var seq = animSeq;
+    if (reducedMotion()) {
+        // Land on the navigation position in the same frame, using the geometry of the flight.
+        var navRect = navLogo.getBoundingClientRect();
+        var scale = navRect.width / heroTitle.getBoundingClientRect().width;
+        heroTitle.classList.add('flying');
+        heroTitle.style.left = (navRect.left + navRect.width / 2) + 'px';
+        heroTitle.style.top = (navRect.top + navRect.height / 2) + 'px';
+        heroTitle.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+        heroTitle.classList.remove('hero-closed');
+        return;
+    }
     // Disable clicks while the logo is moving into the navigation.
     heroTitle.classList.add('hero-closed');
     // Fly to the upper-left after 233ms.
@@ -117,6 +139,14 @@ function morphHeroBack() {
     heroTitle.style.display = '';
     heroTitle.style.opacity = '';
     heroTitle.style.transition = '';
+    if (reducedMotion()) {
+        // Return to the centered position in the same frame; no flight timer is scheduled.
+        heroTitle.classList.remove('hero-closed', 'flying');
+        heroTitle.style.left = '50%';
+        heroTitle.style.top = '50%';
+        heroTitle.style.transform = 'translate(-50%, -50%) scale(1)';
+        return;
+    }
     heroTitle.classList.add('flying');
     void heroTitle.offsetWidth;
     heroTitle.classList.remove('hero-closed');
@@ -140,6 +170,15 @@ function showPortfolio() {
     loadWorkImages();
     // Use a dedicated path when scrolling down to the portfolio.
     setPortfolioPath(false);
+
+    if (reducedMotion()) {
+        // Reveal the title and every card in the same frame, without staggered timers.
+        portfolioTitle.classList.add('show');
+        workBoxes.forEach(function(box) { box.classList.add('show'); });
+        isOnHome = false;
+        isTransitioning = false;
+        return;
+    }
 
     setTimeout(function() {
         if (seq !== animSeq) return;
@@ -166,6 +205,11 @@ function triggerCapture() {
         item.classList.add('exit-up');
     });
     morphHeroToNav();
+    if (reducedMotion()) {
+        // Switch immediately; animSeq has already invalidated pending timers from older animations.
+        showPortfolio();
+        return;
+    }
     setTimeout(function() {
         if (seq !== animSeq) return;
         showPortfolio();
@@ -190,6 +234,14 @@ function showPortfolioDirect() {
     portfolioScreen.style.visibility = 'visible';
     portfolioScreen.style.opacity = '1';
     loadWorkImages();
+    if (reducedMotion()) {
+        // Skip the staggered entrance and show the finished portfolio in the same frame.
+        portfolioTitle.classList.add('show');
+        workBoxes.forEach(function(box) { box.classList.add('show'); });
+        isOnHome = false;
+        isTransitioning = false;
+        return;
+    }
     setTimeout(function() {
         if (seq !== animSeq) return;
         portfolioTitle.classList.add('show');
@@ -206,6 +258,14 @@ function showPortfolioDirect() {
 
 function resetHomeItems() {
     document.querySelector('.scroll-hint').style.display = '';
+    if (reducedMotion()) {
+        // Apply the revealed state directly, without a forced reflow or a queued frame.
+        homeRevealItems.forEach(function(item) {
+            item.classList.remove('from-top', 'exit-up');
+            item.classList.add('show');
+        });
+        return;
+    }
     homeRevealItems.forEach(function(item) {
         item.classList.remove('exit-up', 'show');
         item.classList.add('from-top');
@@ -224,6 +284,21 @@ function reverseToHome() {
     isTransitioning = true;
     animSeq++;
     var seq = animSeq;
+    if (reducedMotion()) {
+        // Restore the home view and the centered hero in the same frame; no exit timer is scheduled.
+        morphHeroBack();
+        portfolioScreen.style.visibility = 'hidden';
+        portfolioScreen.style.opacity = '0';
+        portfolioScreen.classList.remove('portfolio-exit');
+        document.querySelectorAll('.work-box, #port-title').forEach(function(item) { item.classList.remove('show'); });
+        homeScreen.style.display = 'flex';
+        resetHomeItems();
+        isOnHome = true;
+        isTransitioning = false;
+        // Normalize the URL to the root when returning home.
+        if (location.pathname === '/portfolio' || location.hash) history.replaceState(null, '', '/' + location.search);
+        return;
+    }
     portfolioScreen.classList.add('portfolio-exit');
     morphHeroBack();
     // Align with morphHeroBack removing flying after 400ms to avoid an inconsistent intermediate state.
@@ -274,17 +349,30 @@ window.addEventListener('popstate', function() {
 
 
 /* Fly in the title, then fade in the arrows in sequence. */
-setTimeout(function() {
+if (reducedMotion()) {
+    // Put the first screen in its final state immediately; no entrance timers are scheduled.
     heroTitle.classList.add('visible');
-}, 200);
-setTimeout(function() {
     document.querySelectorAll('.scroll-hint.reveal-item').forEach(function(el) {
         el.classList.add('show');
     });
-}, 500);
+} else {
+    setTimeout(function() {
+        heroTitle.classList.add('visible');
+    }, 200);
+    setTimeout(function() {
+        document.querySelectorAll('.scroll-hint.reveal-item').forEach(function(el) {
+            el.classList.add('show');
+        });
+    }, 500);
+}
 
 /* Show the portfolio on direct visits to its path; continue supporting legacy hash links. */
 if (location.pathname === '/portfolio' || location.hash === '#portfolio') {
     if (location.hash === '#portfolio') history.replaceState(null, '', '/portfolio' + location.search);
-    setTimeout(function() { showPortfolioDirect(); }, 100);
+    if (reducedMotion()) {
+        // The portfolio is a static state under reduced motion, so show it without the entrance delay.
+        showPortfolioDirect();
+    } else {
+        setTimeout(function() { showPortfolioDirect(); }, 100);
+    }
 }

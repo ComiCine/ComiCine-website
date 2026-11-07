@@ -102,6 +102,13 @@
   "transport_note": "終電後はタクシー代を精算",
   "close_aria": "閉じる",
   "visitor_title": "訪問者 IP リスト",
+  "visitor_updated_at": "最終更新 {time}",
+  "visitor_error_timeout": "リクエストがタイムアウトしました。再試行してください。",
+  "visitor_error_network": "ネットワーク接続に失敗しました。確認して再試行してください。",
+  "visitor_error_auth": "ログインの有効期限が切れました。再度ログインしてください。",
+  "visitor_error_forbidden": "このアカウントには閲覧権限がありません。",
+  "visitor_error_server": "サービスは一時的に利用できません。しばらくしてから再試行してください。",
+  "visitor_retry": "再試行",
   "stat_ips": "ユニーク IP",
   "stat_requests": "総リクエスト",
   "stat_countries": "国・地域",
@@ -185,7 +192,9 @@
   "currency_loading": "参考為替レートを読み込み中…",
   "currency_no_results": "一致する通貨がありません。",
   "currency_api_unavailable": "参考為替レートを利用できません。価格は CNY で表示されます。",
+  "currency_cached_rates": "リアルタイムのレートを利用できないため、{date} のキャッシュレートを表示しています。",
   "currency_rate_date": "参考レートの日付：{date}。金額は目安です。",
   "currency_rate_unavailable": "この通貨の CNY 参考レートはありません。",
+  "currency_saved_unavailable": "前回選択した通貨のレートがないため、CNY に戻しました。",
   "currency_reference_label": "約 {code} {amount}、参考レート日 {date}。"
 }

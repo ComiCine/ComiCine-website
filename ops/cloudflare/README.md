@@ -18,7 +18,7 @@ are **not** written here; they come from the sources listed below.
 | Docs Pages project | `comicine-docs` (`comicine-docs.pages.dev`) | `site/ops/docs_deploy.sh` | Recreated and deployed under the ComiCine alias; `docs.comicine.com` now serves this project |
 | Pages Functions | `functions/**` | Git | Gate, login, Apple Account, visitor stats, Ray lookup |
 | D1 database | `DB` binding | `site/wrangler.toml` (`database_id`) | Shared by Pages and the cron Workers |
-| D1 migrations | `ops/migrations/*.sql` | Git | Entry point `ops/migrate_d1.sh`; `018_worker_runs.sql` / `019_worker_runs_dry_run.sql` hold the Worker run history |
+| D1 migrations | `ops/migrations/*.sql` | Git | Entry point `ops/migrate_d1.sh`, with checksums in `migration_checksums` (024) and `--repair` for an interrupted 004; `018_worker_runs.sql` / `019_worker_runs_dry_run.sql` hold the Worker run history |
 | Worker: probes / status page | `comicine-status` | `ops/status-worker/wrangler.toml` | Probes every minute + 10 s re-check after down; `status.comicine.com`; D1 retention **and the daily checks** (run history + blocklist invariant) daily at 03:47 |
 | Worker: blocklist sync | `comicine-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
 | Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
@@ -152,6 +152,7 @@ Configured in the Pages project under `Environment variables -> Encrypt (Secret)
 
 - `TURNSTILE_SITEKEY` / `TURNSTILE_SECRET`
 - `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`
+- `GATE_HMAC_KEY_PREVIOUS` (optional; only during a gate-key rotation, see below)
 - `ACCESS_TEAM_DOMAIN`, `ACCESS_IDENTITY_AUD`
 - `APPLE_ACCOUNT_ENCRYPTION_KEY`, `VISITOR_IP_KEY`
 - `OBSERVABILITY_HMAC_KEY`
@@ -159,6 +160,99 @@ Configured in the Pages project under `Environment variables -> Encrypt (Secret)
 Local development copies `.dev.vars.example`; production values are read from the
 local `secrets/webauthn.env` and the Pages project secrets (never committed, never
 echoed). There is no server-side credential source any more.
+
+## Gate HMAC key rotation (`GATE_HMAC_KEY`)
+
+`__gate` is an HMAC-SHA256 cookie signed with `GATE_HMAC_KEY`. Rotation does not change the cookie
+name, the `issued.expires.signature` value format, the contract TTL, `Domain=.comicine.com`,
+`SameSite=Lax`, `Path=/`, or the renewal threshold. `GATE_HMAC_KEY_PREVIOUS` is an optional Pages
+Secret accepted for validation only: old cookies keep working while new cookies are signed with the
+new current key, and issuance never uses the previous key.
+
+- Validation tries the current key first, then the previous key. A blank previous key counts as
+  absent; the current key remains required.
+- A malformed previous key fails closed at runtime with `invalid_GATE_HMAC_KEY_PREVIOUS` (HTTP 503):
+  a value shorter than 32 characters or containing whitespace means the fallback you think you have
+  does not exist. The current key's requirements are unchanged.
+- Logs carry field names only; never print or copy key values into the repository.
+- `GATE_HMAC_KEY_PREVIOUS` is deliberately absent from `.dev.vars.example`.
+
+Pages Secrets are write-only after upload, so keep the old value in the git-ignored
+`secrets/webauthn.env` (or a temporary file outside the repository) before changing anything.
+
+### Planned rotation (no user-visible re-challenge)
+
+The contract sets `GATE_TTL_SECONDS` to 3600 and renewal happens after 2700 seconds. A cookie
+signed with the old key is therefore either expired or renewed with the new key within one hour of
+the switch; one full TTL plus a safety margin is enough before the old key can be removed.
+
+1. Save the current key outside the repository:
+
+```bash
+grep '^GATE_HMAC_KEY=' secrets/webauthn.env > /tmp/gate-key-previous.env
+chmod 600 /tmp/gate-key-previous.env
+```
+
+2. Put the old key into the previous slot and deploy Pages; leave `GATE_HMAC_KEY` unchanged:
+
+```bash
+set -a; . /tmp/gate-key-previous.env; set +a
+printf '%s' "$GATE_HMAC_KEY" | npx wrangler pages secret put GATE_HMAC_KEY_PREVIOUS --project-name comicine
+bash ops/deploy.sh --pages
+```
+
+Verify step 2: `curl -o /dev/null -w '%{http_code}\n' 'https://comicine.com/?challenge=1'` is 403,
+a normal visitor still receives the site (200 and no `cf-turnstile`), and no `gate_stale_cookie`
+rows with `message = 'bad_signature'` appear. A missing previous key would only show up in step 3.
+
+3. Switch the current key to a fresh value (64 lowercase hex characters, `openssl rand -hex 32`)
+and deploy:
+
+```bash
+NEW_KEY="$(openssl rand -hex 32)"
+printf '%s' "$NEW_KEY" | npx wrangler pages secret put GATE_HMAC_KEY --project-name comicine
+bash ops/deploy.sh --pages
+```
+
+Verify step 3: a browser that held a cookie signed with the old key still reaches the site without
+a challenge (that is the previous-key path). A fresh private window passes the gate, and its new
+`__gate` value is accepted on the next request. Old cookies must not produce
+`gate_stale_cookie` / `bad_signature` rows:
+
+```bash
+npx wrangler d1 execute comicine --remote --command \
+  "SELECT date(ts,'unixepoch') AS day, count(*) AS n FROM events WHERE event='gate_stale_cookie' AND message='bad_signature' GROUP BY day ORDER BY day DESC LIMIT 7"
+```
+
+4. After one TTL plus margin (for example the next day), delete the previous key and deploy:
+
+```bash
+npx wrangler pages secret delete GATE_HMAC_KEY_PREVIOUS --project-name comicine
+bash ops/deploy.sh --pages
+rm -f /tmp/gate-key-previous.env
+```
+
+Verify step 4: the site still serves normally and `/gate?challenge=1` is still 403. Any cookie
+issued before step 3 is now expired or was renewed with the new key, so nothing depends on the
+previous key. The key removed in this step must never be reused.
+
+### Rollback
+
+- If step 3 causes unexpected challenges: restore `GATE_HMAC_KEY` to the old value and set
+  `GATE_HMAC_KEY_PREVIOUS` to the value introduced in step 3, then deploy. Cookies minted under
+  either key validate during the transition; remove the previous key one TTL later.
+- If the current key leaks: switch to a fresh current key immediately (step 3 without step 2) and
+  accept that every outstanding cookie fails verification once. Do not keep the leaked value
+  configured; a hard rotation costs one gate challenge per visitor and no data.
+- Never weaken validation to let mismatched or expired cookies through. A wrong key must fail
+  closed; a failed verification is a challenge, not an outage.
+
+### Preview drill
+
+Before rotating production, run one drill in a preview deployment with throwaway keys: deploy
+`GATE_HMAC_KEY=A` plus `GATE_HMAC_KEY_PREVIOUS=B` (A != B), confirm the gate still works, switch
+to `GATE_HMAC_KEY=C` with `GATE_HMAC_KEY_PREVIOUS=A`, and confirm a cookie minted under A still
+passes while issuance uses C. Never copy production key values into a preview environment.
 
 ## Shared ComiCine Access application
 
@@ -312,7 +406,12 @@ curl -H "Authorization: Bearer $SYNC_TOKEN" \
   'https://comicine-d1-archive.comicine.workers.dev/?health=1'
 ```
 
-Both return `{ ok, job, lastRun }`; the archive Worker also returns
+Both return `{ ok, job, lastRun }`. The sync Worker also returns `last_success_at` and
+`lag_seconds`: UTC epoch seconds of the most recent real sync that finished `ok`
+(`dry_run=0`, so a dry run cannot reset the metric; `null` when none has succeeded yet)
+and the seconds elapsed since then (`null` when there is no success to measure from).
+A later failure does not erase the last good timestamp, so the lag keeps growing until
+the next success. The archive Worker also returns
 `backup: { job: "config_backup", lastRun }`, because both stages of its cron need to be
 visible from one call. `GET /` on the sync Worker still triggers a sync
 and keeps its original `{ ok, toAdd, toRemove }` shape (the `.zshrc` helper
@@ -342,11 +441,11 @@ One prefix per UTC **run** day (not per data day):
 ```
 backup/2026_10_10/ddl.sql               replayable skeleton: every CREATE TABLE / INDEX
 backup/2026_10_10/schema.jsonl.gz       every sqlite_master row verbatim (lossless)
-backup/2026_10_10/manifest.json         per-table row counts, byte sizes, gaps, restore hints
+backup/2026_10_10/manifest.json         complete flag, per-object/table SHA-256, row counts, gaps, restore hints
 backup/2026_10_10/<table>.jsonl.gz      one object per table below
 ```
 
-12 objects per day. Measured on 2026-10-10: 12 objects / 22,867 bytes in total.
+13 objects per day: `ddl.sql`, `schema.jsonl.gz`, ten table objects, and `manifest.json`, which is written last. The count follows `CONFIG_TABLES`; the `objects` array in each manifest is the measured record of what the day actually contains.
 
 Rows are JSONL -- one JSON object per line -- gzipped, values taken verbatim from D1's
 response objects. That is what keeps `active` an integer 0/1, keeps epoch timestamps
@@ -375,6 +474,10 @@ Total **321 data rows + 107 `sqlite_master` rows = 428 rows read per run**, meas
 on the `config_backup` row of `worker_runs`). Against the 5,000,000 rows/day free-tier
 budget that is 0.009%, and it stays inside the "single-digit hundreds of rows" rule.
 
+`probe_uptime_daily` joined the allowlist on 2026-10-11 and added ~75 rows, taking the
+snapshot to roughly 503 rows per run (0.01%); `d1_rows_read` in each manifest is the
+current measurement, not the 2026-10-10 figure above.
+
 Deliberately **not** read, with the reason recorded in `manifest.json` next to the data:
 
 - `visitors` (~13.9k rows) -- legacy VPS-era table with plaintext IPs; no code has read it
@@ -384,13 +487,12 @@ Deliberately **not** read, with the reason recorded in `manifest.json` next to t
   `ops/prune_d1.py --mode aggregate` from `visitors_v2` + `visitor_rollups`.
 - `visitor_rollups`, `visitors_v2`, `ray_log_v2`, `events` -- already archived daily into
   `analytics/` by this same Worker.
-- `heartbeats`, `probe_uptime_daily`, `ray_log`, `gate_failures`, `auth_sessions`, `identity_handoffs`,
+- `heartbeats`, `ray_log`, `gate_failures`, `auth_sessions`, `identity_handoffs`,
   `_cf_KV` -- bulk telemetry, superseded tables, self-healing counters, re-loginable
   sessions, and a platform-internal table.
 
-`visitors`, `visitors_daily` and `probe_uptime_daily` are the three places where this
-snapshot is knowingly not a full backup; each one is listed with its reason in
-`manifest.json`.
+`visitors` and `visitors_daily` are the two places where this snapshot is knowingly not a
+full backup; each one is listed with its reason in `manifest.json`.
 
 Two of the included tables grow without bound (`worker_runs` by one row per Worker run,
 `blocklist_audit` by one row per block/unblock), so the daily read cost creeps upward.
@@ -419,7 +521,7 @@ contains is in its `manifest.json` and in the `failed` run record.
 | | `analytics/YYYY_MM_DD/` | `backup/YYYY_MM_DD/` |
 | --- | --- | --- |
 | Day means | the UTC day the **data** belongs to (yesterday) | the UTC day the **snapshot** was taken (today) |
-| Content | 4 analytics tables, that day's rows only | DDL + 9 configuration/small tables, current state |
+| Content | 4 analytics tables, that day's rows only | DDL + 10 configuration/small tables, current state |
 | Retention | none in R2 (D1 prunes the source tables) | newest 14 prefixes, older ones deleted |
 | Purpose | investigate a day after the detail left D1 | rebuild the database |
 
@@ -440,9 +542,9 @@ DAY=2026_10_10
 DEST=/tmp/comicine-restore-$DAY
 mkdir -p "$DEST"
 
-# 1. download the day (12 objects; the table names are the ones listed in the table above)
+# 1. download the day (13 objects: ddl.sql, schema.jsonl.gz, ten table objects, manifest.json)
 for t in schema_version blocked_ips apple_accounts auth_credentials probes \
-         probe_state retention_state blocklist_audit worker_runs; do
+         probe_state retention_state blocklist_audit worker_runs probe_uptime_daily; do
   wrangler r2 object get "comicine-analytics/backup/$DAY/$t.jsonl.gz" --remote --file "$DEST/$t.jsonl.gz"
 done
 wrangler r2 object get "comicine-analytics/backup/$DAY/ddl.sql"        --remote --file "$DEST/ddl.sql"
@@ -463,10 +565,22 @@ wrangler d1 execute <database> --remote \
   --command "SELECT COUNT(*) FROM blocked_ips; SELECT COUNT(*) FROM schema_version"
 ```
 
-`restore.py` accepts gzip or already-inflated JSONL (it sniffs the gzip magic bytes),
-refuses to render a snapshot whose columns are inconsistent between lines, and reports
-any table object that is missing instead of quietly skipping it. To re-apply data on top
-of an existing database use `--data-only --replace`; to emit only INSERTs, `--data-only`.
+`restore.py` verifies the download before it renders anything. It refuses unless
+`manifest.json` exists and `complete` is true, the required fields are valid, the local
+directory holds exactly the manifest's `objects` plus `manifest.json` (the `--out` file is
+excluded when it is the output path), `ddl.sql` and `schema.jsonl.gz` are listed, every
+file's size and SHA-256 match, and each table entry matches its object and parsed row
+count. A failure prints English `FATAL:` lines, writes no output and exits 1; a missing
+object or a partial download is a refusal, never a warning.
+
+The checksum is over the bytes R2 stored. `backup/` objects carry no `contentEncoding`, so
+a client that inflates a `.jsonl.gz` on the way down changes its SHA-256 and the restore is
+refused; re-download the object instead. `--allow-incomplete` is not the fix -- it is the
+explicit manual-rescue bypass for legacy or incomplete snapshots, prints `WARNING:` lines,
+and never relaxes parse errors, a missing `ddl.sql`, invalid identifiers or symlink escapes.
+Legacy archives without `complete` are rejected by default. To re-apply data on top of an
+existing database use `--data-only --replace`; to emit only INSERTs, `--data-only`. The
+full field reference lives in [`../d1-archive/README.md`](../d1-archive/README.md).
 
 Because the snapshot only holds the tables listed above, a **full** point-in-time copy
 still needs `wrangler d1 export <database> --remote` before a risky migration (see
@@ -479,18 +593,146 @@ the rest of the Worker: `{"event":"config_backup","job":"config_backup","outcome
 on `console.error`, searchable from `wrangler tail` and the Workers log panel. Both stages
 run inside their own `try`/`catch` in `scheduled()`: a snapshot failure never fails the
 archive, and an archive failure never skips the snapshot. One table failing does not
-discard the other eight -- it is recorded in `manifest.json`, in the run row and in the
+discard the other nine -- it is recorded in `manifest.json`, in the run row and in the
 log, and rotation still runs so a bad table cannot pin the bucket.
 
 ## Migration and rollback
 
-1. Back up D1 before a change: `wrangler d1 export <database> --remote` (record it in
-   `docs/parallel-actions.md`). For a schema/configuration-only rollback the daily
-   `backup/` snapshot above is usually enough and needs no manual step.
-2. Preview: `bash ops/migrate_d1.sh --dry-run`.
-3. Apply: `bash ops/migrate_d1.sh --remote`.
-4. Roll back: restore from the backup, then re-run `migrate_d1.sh --remote`. Applied
-   code versions are not reverted automatically; pair the rollback with a Git commit.
+`ops/migrate_d1.sh` is the only migration entry point; D1's `schema_version` table is the
+source of truth, and the local `.d1-migrations/applied` file is only an offline cache. A key
+is `version * 1000 + sequence` (1-based among files sharing a number): `004_auth_sessions.sql`
+= 4001, `004_blocklist_sync.sql` = 4002, `004_schema_version.sql` = 4003. A legacy plain row
+`4` counts as applied for all three.
+
+### Back up first
+
+- **Daily snapshot** -- `comicine-d1-archive` writes `backup/YYYY_MM_DD/` to the R2 bucket
+  `comicine-analytics` at 00:00 UTC: DDL, the allowlisted tables and a `manifest.json` with
+  counts and hashes. It is the fast path for `blocked_ips` and the other listed tables but not
+  the `migration_checksums` rows, which the first post-restore run re-baselines; a full export
+  is the copy that includes them. Check `complete: true` and follow "Restoring from a snapshot"
+  above.
+- **Full point-in-time copy** -- `wrangler d1 export` covers every table, including the
+  analytics tables the snapshot excludes:
+
+  ```sh
+  wrangler d1 export comicine --remote --output=/tmp/comicine-export-$(date -u +%Y%m%dT%H%M%S).sql
+  ```
+
+  It contains account and credential rows: keep it outside the repository.
+
+### Checksums (`migration_checksums`)
+
+`024_migration_checksums.sql` creates the table (the script also creates it defensively). A row
+holds the migration key, file name, SHA-256 and recording time. The first run after the upgrade
+baselines every applied file with no row; run it from a clean, committed worktree (`git status`
+empty) because that baseline trusts the files on disk. A normal apply records what it applied after
+success, printing `[d1] checksums: recorded <N> sha256 rows`; a no-op run with all rows matching
+prints `[d1] checksums: verified <N> applied migrations` and writes nothing.
+
+A changed applied file stops the run before any migration statement and prints the file, its
+key and both hashes. Restore it from Git (`git checkout -- ops/migrations/<file>`) and rerun;
+an intentional change is a new numbered migration. Only after a reviewed edit of an applied
+file, update the row by hand:
+
+```sh
+wrangler d1 execute comicine --remote --command \
+  "UPDATE migration_checksums SET sha256='<new-sha256>', recorded_at=datetime('now') WHERE version=<key>"
+```
+
+### Preview, apply and check the schema
+
+```sh
+bash ops/migrate_d1.sh --dry-run                 # offline plan, no D1 contact
+bash ops/migrate_d1.sh --remote                  # apply pending files
+bash ops/migrate_d1.sh --check-schema --remote   # read-only table check
+```
+
+`--dry-run` prints the per-file plan (`key=`, `cache=`) and writes nothing; confirm the next
+pending file and its key before applying. `--remote` is required to apply (otherwise exit 2):
+statements run one at a time and the `schema_version` row is written only after every
+statement succeeds. The schema check expects `migration_checksums` in its table list.
+
+### Interrupted 004: symptoms and repair
+
+`004_blocklist_sync.sql` rebuilds `blocked_ips` through `blocked_ips_new` (create, copy, drop,
+rename) and never drops a table before the copy succeeds. A run interrupted after the rename
+leaves the post-004 schema with no `schema_version` row for 4002; a normal `--remote` apply
+refuses that state -- `blocked_ips` present, `blocked_ips_new` absent or empty, no 4002/legacy
+`4`, post-004 columns in `PRAGMA table_info(blocked_ips)` -- and exits 1 without executing a
+migration statement:
+
+```text
+FATAL: interrupted blocklist migration detected: blocked_ips already has the post-004 schema
+run: bash ops/migrate_d1.sh --repair --remote
+```
+
+Preview offline, then apply:
+
+```sh
+bash ops/migrate_d1.sh --repair --dry-run
+bash ops/migrate_d1.sh --repair --remote
+```
+
+The dry run prints the required state and contacts no D1. The real repair runs the dedicated,
+non-versioned recovery tail `ops/migrations/repair/004_blocklist_sync_post004.sql` (post-004
+columns only, never the main file) after validating the state. It refuses when combined with
+`--check-schema` (exit 2), no `--remote` without `--dry-run` (exit 2), missing
+`schema_version`, 4002 or legacy `4` already recorded, missing post-004 columns, or
+`blocked_ips` missing. An empty `blocked_ips_new` left by an interrupted repair is dropped
+automatically; one that holds rows next to `blocked_ips` is refused as ambiguous. If that copy
+is the interrupted repair duplicate and `blocked_ips` is complete, drop the copy and rerun
+(`DROP TABLE blocked_ips_new;` then `--repair --remote`); otherwise compare both tables and
+keep the one that holds the data to preserve.
+
+Never apply a migration or the recovery tail with `wrangler d1 execute --file` or any
+continue-on-error client. Those keep going after a failed copy and then execute the `DROP`;
+`ops/migrate_d1.sh` stops at the first failed statement, which is what makes the order safe.
+
+A legacy `blocked_ips` row whose `cidr` is `NULL` cannot satisfy the new `network NOT NULL`
+column. `ops/migrate_d1.sh` refuses before 004 when one exists; the old file silently skipped
+it. Check `SELECT COUNT(*) FROM blocked_ips WHERE cidr IS NULL` and fix those rows first.
+
+If a completed rebuild survives only as `blocked_ips_new` (with `blocked_ips` missing), verify
+and rename it first:
+
+```sh
+wrangler d1 execute comicine --remote --command "SELECT COUNT(*) FROM blocked_ips_new"
+wrangler d1 execute comicine --remote --command "PRAGMA table_info(blocked_ips_new)"
+wrangler d1 execute comicine --remote --command "ALTER TABLE blocked_ips_new RENAME TO blocked_ips"
+```
+
+Then rerun `--repair --remote`: it requires an unchanged row count, then records key 4002 and
+the `004_blocklist_sync.sql` checksum; a changed count prints
+`FATAL: --repair row count changed` and records nothing.
+
+### Verify
+
+```sh
+wrangler d1 execute comicine --remote --command "SELECT version FROM schema_version ORDER BY version" --json
+wrangler d1 execute comicine --remote --command "SELECT version, filename, sha256 FROM migration_checksums ORDER BY version" --json
+wrangler d1 execute comicine --remote --command "SELECT COUNT(*) AS blocked_ips_rows FROM blocked_ips" --json
+wrangler d1 execute comicine --remote --command "PRAGMA table_info(blocked_ips)" --json
+```
+
+`migration_checksums` should have one row per applied file -- the three legacy 004 files are
+4001-4003 even where `schema_version` still holds the plain `4` -- and every `sha256` must
+match the file on disk. `blocked_ips` should match the pre-change export or manifest, and
+`PRAGMA` must list `cidr, network, prefix, reason, source, created_at, updated_at,
+updated_by, active`; no `updated_by` means the table is still legacy.
+
+### Rollback
+
+Applied migrations are not reverted automatically; restore data and revert the code together.
+An export is DDL plus `INSERT`, not idempotent: replay it into a fresh database (or one whose
+affected tables were dropped), then point the bindings at it.
+
+- **Daily snapshot** -- download the prefix bytes unchanged, check `complete: true` and the
+  hashes in `manifest.json`, render with the `restore.py` command above, then apply. `--replace`
+  keeps it idempotent on a populated database; `--data-only` skips the DDL. Only allowlisted
+  tables are restored.
+- **Reconcile** -- run `bash ops/migrate_d1.sh --remote`, then `--check-schema --remote`, so
+  `schema_version` matches the restored state and `migration_checksums` is re-baselined.
 
 ## Deploy order
 

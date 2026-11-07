@@ -13,7 +13,9 @@ import pytest
 from PIL import features
 
 import build
+import config
 import portfolio
+import render_app
 from render_app import RENDER_APP
 
 
@@ -46,15 +48,49 @@ def test_portfolio_items_falls_back_when_source_missing(tmp_path):
     assert [i["name"] for i in items] == list(portfolio.FALLBACK_PORTFOLIO_IMAGES)
 
 
+def test_thumb_widths_follow_source_width():
+    """Only the shared tiers a source can fill are published; narrower sources keep their own width."""
+    # The tier list is the single source of width truth; it must stay non-empty and ascending.
+    assert portfolio.PORTFOLIO_THUMB_WIDTHS
+    assert list(portfolio.PORTFOLIO_THUMB_WIDTHS) == sorted(
+        portfolio.PORTFOLIO_THUMB_WIDTHS
+    )
+    assert portfolio.thumb_widths_for(1080) == [480, 640, 800]
+    assert portfolio.thumb_widths_for(800) == [480, 640, 800]
+    assert portfolio.thumb_widths_for(700) == [480, 640]
+    assert portfolio.thumb_widths_for(600) == [480]
+    assert portfolio.thumb_widths_for(480) == [480]
+    assert portfolio.thumb_widths_for(479) == [479]
+    assert portfolio.thumb_widths_for(None) == [480, 640, 800]
+    assert portfolio.thumb_widths_for(0) == [480, 640, 800]
+
+    for source_width in (1080, 800, 700, 600, 480, 479, None, 0):
+        widths = portfolio.thumb_widths_for(source_width)
+        assert widths == sorted(widths), (
+            f"widths for source width {source_width} are not ascending: {widths}"
+        )
+
+
+def test_default_thumb_width_keeps_640_when_available():
+    assert portfolio.default_thumb_width([480, 640, 800]) == 640
+    assert portfolio.default_thumb_width([480, 640]) == 640
+    assert portfolio.default_thumb_width([480]) == 480
+    assert portfolio.default_thumb_width([479]) == 479
+
+
 def test_home_renders_one_card_per_portfolio_image():
     html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
     items = portfolio.portfolio_items()
 
     assert html.count('class="work-box"') == len(items)
     for item in items:
-        # Each image must have three AVIF and WebP srcset sizes.
-        assert f"/static/portfolio/thumbs/{item['stem']}-800.avif" in html
-        assert f"/static/portfolio/thumbs/{item['stem']}-640.webp" in html
+        # The largest published AVIF tier and the default WebP tier must both be rendered.
+        largest = item["thumb_widths"][-1]
+        assert f"/static/portfolio/thumbs/{item['stem']}-{largest}.avif" in html
+        assert (
+            f"/static/portfolio/thumbs/{item['stem']}-{item['default_thumb_width']}.webp"
+            in html
+        )
 
 
 def test_body_exposes_portfolio_thumbs_for_prefetch():
@@ -63,7 +99,7 @@ def test_body_exposes_portfolio_thumbs_for_prefetch():
 
     assert match is not None
     assert match.group(1).split() == [
-        f"/static/portfolio/thumbs/{item['stem']}-640.avif"
+        f"/static/portfolio/thumbs/{item['stem']}-{item['default_thumb_width']}.avif"
         for item in portfolio.portfolio_items()
     ]
 
@@ -87,6 +123,25 @@ def test_portfolio_items_expose_ratio_and_orientation(tmp_path):
     assert items["portrait"]["orientation"] == "portrait"
     assert items["landscape"]["orientation"] == "landscape"
     assert items["square"]["orientation"] == "square"
+
+
+def test_portfolio_items_expose_pixel_width_and_thumb_widths(tmp_path):
+    Image = pytest.importorskip("PIL.Image")
+
+    Image.new("RGB", (1080, 1440), "red").save(tmp_path / "wide.webp", "WEBP")
+    Image.new("RGB", (600, 800), "red").save(tmp_path / "narrow.webp", "WEBP")
+
+    items = {item["stem"]: item for item in portfolio.portfolio_items(str(tmp_path))}
+
+    assert items["wide"]["source_width"] == 1080
+    assert items["wide"]["thumb_widths"] == [480, 640, 800]
+    assert items["wide"]["default_thumb_width"] == 640
+    assert items["narrow"]["source_width"] == 600
+    assert items["narrow"]["thumb_widths"] == [480]
+    assert items["narrow"]["default_thumb_width"] == 480
+    # The thumbnail tiers must not change the reduced ratio the template renders.
+    for stem in ("wide", "narrow"):
+        assert (items[stem]["width"], items[stem]["height"]) == (3, 4)
 
 
 def test_home_cards_use_intrinsic_image_aspect_ratio():
@@ -174,8 +229,97 @@ def test_home_avif_and_webp_srcsets_cover_every_image():
     for item in portfolio.portfolio_items():
         stem = item["stem"]
         for fmt in ("avif", "webp"):
-            for width in build.PORTFOLIO_THUMB_WIDTHS:
+            for width in item["thumb_widths"]:
                 assert f"/thumbs/{stem}-{width}.{fmt} {width}w" in html
         # Prefer AVIF with WebP as a fallback; the AVIF source must precede img in picture.
-        assert html.index(f"{stem}-800.avif") < html.index(f"{stem}-800.webp")
+        largest = item["thumb_widths"][-1]
+        assert html.index(f"{stem}-{largest}.avif") < html.index(f"{stem}-{largest}.webp")
+
+
+def _render_home_with_portfolio(tmp_path, monkeypatch, images):
+    """Publish ``images`` into a temporary static root and render the home page from it.
+
+    Returns the rendered HTML and the temporary portfolio source directory, so one
+    fixture can drive both the page assertions and thumbnail generation.
+    """
+    Image = pytest.importorskip("PIL.Image")
+
+    static_dir = tmp_path / "static"
+    portfolio_dir = static_dir / "portfolio"
+    portfolio_dir.mkdir(parents=True)
+    for name, size in images.items():
+        Image.new("RGB", size, "red").save(portfolio_dir / name, "WEBP")
+
+    monkeypatch.setattr(portfolio, "STATIC_DIR", str(static_dir))
+    render_app._cached_portfolio_items.cache_clear()
+    html = build.render_page(RENDER_APP, "index.html", "/", "zh-cn")
+    return html, portfolio_dir
+
+
+def test_home_narrow_source_emits_only_supported_tier(tmp_path, monkeypatch):
+    """A 600px source publishes only the 480px tier, so the page never points at a missing file."""
+    html, portfolio_dir = _render_home_with_portfolio(
+        tmp_path, monkeypatch, {"narrow.webp": (600, 800)}
+    )
+
+    assert "/thumbs/narrow-480.avif 480w" in html
+    assert "/thumbs/narrow-480.webp 480w" in html
+    data_src = re.search(r'data-src="([^"]*/thumbs/narrow-480\.webp)"', html)
+    assert data_src is not None, "the img must fall back to the published 480px tier"
+    prefetch = re.search(r'data-portfolio-thumbs="([^"]*)"', html)
+    assert prefetch is not None
+    assert prefetch.group(1).split() == ["/static/portfolio/thumbs/narrow-480.avif"]
+    assert "narrow-640" not in html
+    assert "narrow-800" not in html
+
+    output = tmp_path / "out"
+    assert build.generate_portfolio_thumbs(str(portfolio_dir), str(output)) == 1
+    assert sorted(path.name for path in output.iterdir()) == [
+        "narrow-480.avif",
+        "narrow-480.webp",
+    ]
+
+
+def test_home_source_narrower_than_smallest_tier_publishes_its_own_width(tmp_path, monkeypatch):
+    """A 400px source publishes one 400px tier instead of upscaling to the shared widths."""
+    html, portfolio_dir = _render_home_with_portfolio(
+        tmp_path, monkeypatch, {"tiny.webp": (400, 500)}
+    )
+
+    assert "tiny-400.avif 400w" in html
+    assert "tiny-400.webp 400w" in html
+    data_src = re.search(r'data-src="([^"]*/thumbs/tiny-400\.webp)"', html)
+    assert data_src is not None, "the img must fall back to the only published tier"
+    prefetch = re.search(r'data-portfolio-thumbs="([^"]*)"', html)
+    assert prefetch is not None
+    assert prefetch.group(1).split() == ["/static/portfolio/thumbs/tiny-400.avif"]
+    for width in (480, 640, 800):
+        assert f"tiny-{width}" not in html
+
+    output = tmp_path / "out"
+    assert build.generate_portfolio_thumbs(str(portfolio_dir), str(output)) == 1
+    assert sorted(path.name for path in output.iterdir()) == [
+        "tiny-400.avif",
+        "tiny-400.webp",
+    ]
+
+
+def test_home_wide_source_keeps_three_tiers_and_640_default(tmp_path, monkeypatch):
+    """A 1080px source keeps the historical 480/640/800 srcsets and the 640px default."""
+    html, _ = _render_home_with_portfolio(
+        tmp_path, monkeypatch, {"wide.webp": (1080, 1440)}
+    )
+
+    base = config.IMAGE_ASSET_BASE_URL
+    for extension in ("avif", "webp"):
+        expected_srcset = ", ".join(
+            f"{base}/static/portfolio/thumbs/wide-{width}.{extension} {width}w"
+            for width in (480, 640, 800)
+        )
+        assert f'data-srcset="{expected_srcset}"' in html
+    data_src = re.search(r'data-src="([^"]*/thumbs/wide-640\.webp)"', html)
+    assert data_src is not None, "the img must default to the 640px tier"
+    prefetch = re.search(r'data-portfolio-thumbs="([^"]*)"', html)
+    assert prefetch is not None
+    assert prefetch.group(1).split() == ["/static/portfolio/thumbs/wide-640.avif"]
 

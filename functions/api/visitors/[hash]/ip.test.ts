@@ -21,8 +21,10 @@ vi.mock("../../../_lib/d1", () => ({ queryAll: vi.fn() }));
 vi.mock("../../../_lib/logging", () => ({ logEvent: vi.fn() }));
 vi.mock("../../../_lib/session", async () => {
   // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
+  // The actual module supplies the 403 message and the 503 response, so the mock cannot drift.
+  const actual = await vi.importActual<typeof import("../../../_lib/session")>("../../../_lib/session");
   const { createSessionModuleMock } = await import("../../../../tests/helpers/admin-session");
-  return createSessionModuleMock();
+  return createSessionModuleMock(actual);
 });
 
 const TEST_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";

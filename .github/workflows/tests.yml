@@ -6,7 +6,8 @@
 name: tests
 
 # Step set must stay identical to ops/ci_check.sh (the local replica of this file).
-# Coverage steps only report; they never fail the build (no thresholds yet).
+# Coverage is a gate: a below-threshold run fails python / typescript, which in turn blocks
+# deploy-pages. Thresholds are maintained only in vitest.config.ts and pytest.ini.
 # ruff / mypy come from ops/requirements.txt and are real gates here; the local
 # script installs missing gate tools and reports NOT VERIFIED if installation fails.
 
@@ -28,12 +29,16 @@ jobs:
       - run: pip install -r ops/requirements.txt pytest pytest-cov
       - run: python -m ruff check src ops tests
       - run: python -m mypy src
-      - run: python -m pytest -q --cov=src --cov-report=term-missing
+      # --cov-config=pytest.ini keeps the coverage settings (omit, fail_under) in one file
+      # shared with ops/ci_check.sh instead of repeating raw flags here.
+      - run: python -m pytest -q --cov=src --cov-config=pytest.ini --cov-report=term-missing
       - run: python ops/check_config_contract.py
       - run: python ops/check_requirements_lock.py --check
       - run: python ops/check_security_headers.py
       - run: python ops/check_license_headers.py
+      - run: python ops/check_unused_exports.py
       - run: python ops/readme_facts.py --check
+      - run: python ops/check_readme_sync.py
 
   typescript:
     runs-on: ubuntu-latest
@@ -47,8 +52,61 @@ jobs:
       - run: npm run typecheck
       - run: bash ops/migrate_d1.sh --dry-run
       - run: npm test
+      # Coverage thresholds live in vitest.config.ts; no continue-on-error: a drop fails the
+      # job and therefore deploy-pages.
       - run: npm run test:coverage
-        continue-on-error: true
+
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    env:
+      # Mirrors ops/docs_deploy.sh (COMICINE_VITEPRESS_REF default: main).
+      COMICINE_VITEPRESS_REF: main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: pnpm/action-setup@v4
+        with:
+          # Local baseline measured 2026-11-07: pnpm 11.11.0. Pin the major so a new release
+          # cannot silently change how the VitePress fork and docs site are installed.
+          version: "11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+      # Resolve the fork commit before the cache step so a moved `main` produces a new cache
+      # key instead of restoring an old tarball forever.
+      - name: Resolve VitePress fork commit
+        id: vitepress-fork
+        run: |
+          sha="$(git ls-remote https://github.com/ComiCine/vitepress.git "$COMICINE_VITEPRESS_REF" | cut -f1 | head -n 1)"
+          if [ -z "$sha" ]; then
+            echo "FATAL: cannot resolve ComiCine/vitepress ref $COMICINE_VITEPRESS_REF" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: docs-pnpm-${{ runner.os }}-${{ hashFiles('ops/docs_deploy.sh') }}
+      # docs_deploy.sh reuses the packed fork tarball only when vitepress.sha matches the fetched
+      # commit; cache the tarball and marker alongside the checkout, otherwise a cache hit still
+      # reruns tsdown every time.
+      - name: Cache VitePress fork build
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/comicine-vitepress
+            /tmp/comicine-docs-build/vitepress.tgz
+            /tmp/comicine-docs-build/vitepress.sha
+          key: docs-vitepress-${{ runner.os }}-${{ env.COMICINE_VITEPRESS_REF }}-${{ steps.vitepress-fork.outputs.sha }}
+      # One entry point on purpose: CI must run the same build + validation path as deployment
+      # (rewrites, four-language copies, hreflang, headers), never a second copy of the steps.
+      # --build-only stops before credential checks and performs no Cloudflare writes. This is the
+      # only job that needs the network (fork clone + npm registry) besides checkout/install.
+      - run: bash ops/docs_deploy.sh --build-only
 
   deploy-pages:
     name: Deploy Cloudflare Pages

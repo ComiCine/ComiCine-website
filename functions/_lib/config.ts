@@ -32,7 +32,7 @@ export const CONTRACT = {
   "theme_cookie": "comicine_theme",
   "theme_cookie_max_age": 31536000,
   "gate_cookie": "__gate",
-  "session_cookie": "comicine_session",
+  "session_cookie": "__Host-comicine_session",
   "pending_cookie": "comicine_pending",
   "csrf_cookie": "comicine_csrf",
   "gate_ttl_seconds": 3600,
@@ -126,7 +126,8 @@ export const CONTRACT = {
   },
   "observability_hmac_env": "OBSERVABILITY_HMAC_KEY",
   "whitelist_file": "docs/lists/whitelist.txt",
-  "legacy_root_domains": []
+  "legacy_root_domains": [],
+  "visitors_include_legacy": true
 } as const;
 
 export const ROOT_DOMAIN = CONTRACT.root_domain;

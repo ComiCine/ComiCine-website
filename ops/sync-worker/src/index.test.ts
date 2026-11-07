@@ -10,7 +10,17 @@
 /** Basic sync-worker diff calculation and dry-run tests (tasks/10). */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker, { authorized, diffSync, normalizeListItem, runSync, sync } from "./index";
+import worker, {
+  authorized,
+  diffSync,
+  fetchWithTimeout,
+  health,
+  normalizeListItem,
+  runSync,
+  sync,
+  waitOperation,
+} from "./index";
+import type { RunRow } from "./runlog";
 
 // scheduled is a method on the default export; extracting it makes the test read more like a cron invocation.
 const scheduled = worker.scheduled;
@@ -151,7 +161,7 @@ interface StubCall {
   url: string;
 }
 
-/** Record each request; the handler determines the response. */
+/** Record each request; the handler determines the response. Return a Response to control the status. */
 function stubFetch(
   handler: (call: StubCall) => unknown,
 ): StubCall[] {
@@ -161,15 +171,38 @@ function stubFetch(
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const call = { method: (init?.method ?? "GET").toUpperCase(), url: String(input) };
       calls.push(call);
-      return json(handler(call));
+      const result = handler(call);
+      return result instanceof Response ? result : json(result);
     }),
   );
   return calls;
 }
 
+/**
+ * fetch that never settles until its AbortSignal fires, for timeout tests.
+ * Return the accessor for the number of attempts so a test can prove GET retried only once.
+ */
+function stubHungFetch(): () => number {
+  let attempts = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      attempts += 1;
+      const signal = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener("abort", () =>
+          reject(new DOMException("The operation was aborted.", "AbortError")),
+        );
+      });
+    }),
+  );
+  return () => attempts;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("waitOperation failures (W7-6)", () => {
@@ -363,6 +396,161 @@ const fetchEnv = (parts: ReturnType<typeof mockRunDb>, syncToken = "s3cret-token
     CLOUDFLARE_ACCOUNT_ID: "account",
     SYNC_TOKEN: syncToken,
   }) as never;
+
+/**
+ * Timeout, retry and sync-deadline behavior.
+ *
+ * A hung Cloudflare API request must fail the run instead of leaving worker_runs at 'running'.
+ * Retries are allowed only for GETs; POST/DELETE must run exactly once (they are not idempotent).
+ */
+describe("fetch timeout and retry budget", () => {
+  it("aborts a hung fetch at exactly 10s and clears its timer", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | null | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        signal = init?.signal;
+        return new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener("abort", () =>
+            reject(new DOMException("The operation was aborted.", "AbortError")),
+          );
+        });
+      }),
+    );
+
+    let error: unknown;
+    const pending = fetchWithTimeout(
+      "https://api.cloudflare.com/client/v4/test",
+      { method: "GET" },
+    ).catch((reason) => {
+      error = reason;
+    });
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(error).toBeUndefined();
+    expect(signal?.aborted).toBe(false);
+    expect(vi.getTimerCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+
+    expect(signal?.aborted).toBe(true);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(
+      /^CF API timeout after 10000ms: GET https:\/\/api\.cloudflare\.com\/client\/v4\/test$/,
+    );
+    // clearTimeout in finally: a leftover timer would keep the Worker isolate alive.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("records outcome=failed with a timeout error when a GET hangs until abort", async () => {
+    vi.useFakeTimers();
+    const parts = mockRunDb();
+    const { errors } = captureConsole();
+    const attempts = stubHungFetch();
+
+    const pending = expect(runSync(fetchEnv(parts))).rejects.toThrow(/timeout/);
+    // First attempt times out at 10s, the retry starts at 10.5s and times out at 20.5s.
+    await vi.advanceTimersByTimeAsync(21_000);
+    await pending;
+
+    expect(attempts()).toBe(2);
+    const update = parts.calls.find((c) => /UPDATE worker_runs/.test(c.sql));
+    expect(update).toBeDefined();
+    expect(update!.values[1]).toBe("failed");
+    expect(String(update!.values[4])).toMatch(/timeout/);
+    const failedLine = errors.find((l) => l.includes('"outcome":"failed"'));
+    expect(failedLine).toBeDefined();
+    expect(JSON.parse(failedLine!)).toMatchObject({ outcome: "failed" });
+  });
+
+  it("retries a GET once after 503 and then succeeds", async () => {
+    vi.useFakeTimers();
+    let listAttempts = 0;
+    const calls = stubFetch(({ url }) => {
+      if (url.includes("/rules/lists?per_page=")) {
+        listAttempts += 1;
+        if (listAttempts === 1) return new Response("unavailable", { status: 503 });
+        return { result: [] };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    // Dry run stops after the list lookup, so this GET is the only request in the test:
+    // exactly one transient 503 plus one successful retry.
+    const pending = expect(sync(syncEnv(["1.2.3.0/24"]), { dryRun: true })).resolves.toEqual({
+      toAdd: ["1.2.3.0/24"],
+      toRemove: [],
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await pending;
+
+    expect(listAttempts).toBe(2);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("does not retry a GET that returns 404", async () => {
+    const calls = stubFetch(({ url }) => {
+      if (url.includes("/rules/lists?per_page=")) return new Response("not found", { status: 404 });
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await expect(sync(syncEnv(["1.2.3.0/24"]), {})).rejects.toThrow(/CF API 404/);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not retry the POST that creates the list", async () => {
+    const calls = stubFetch(({ method, url }) => {
+      if (url.includes("/rules/lists?per_page=")) return { result: [] };
+      if (method === "POST" && url.endsWith("/rules/lists")) {
+        return new Response("upstream error", { status: 500 });
+      }
+      throw new Error(`unexpected request: ${method} ${url}`);
+    });
+
+    await expect(sync(syncEnv(["1.2.3.0/24"]), {})).rejects.toThrow(/CF API 500/);
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
+  });
+
+  it("does not retry a DELETE that returns 500", async () => {
+    const calls = stubFetch(({ method, url }) => {
+      if (url.includes("/rules/lists?per_page=")) {
+        return { result: [{ name: "comicine_blocklist", id: LIST_ID }] };
+      }
+      if (method === "GET" && url.includes("/items")) {
+        return { result: [{ ip: "4.5.6.0/24", id: "i1" }], result_info: {} };
+      }
+      if (method === "POST" && url.endsWith("/items")) return { result: { operation_id: "op-add" } };
+      if (url.includes("/bulk_operations/op-add")) return { result: { status: "completed" } };
+      if (method === "DELETE" && url.endsWith("/items")) {
+        return new Response("upstream error", { status: 500 });
+      }
+      throw new Error(`unexpected request: ${method} ${url}`);
+    });
+
+    await expect(sync(syncEnv(["1.2.3.0/24"]), {})).rejects.toThrow(/CF API 500/);
+    expect(calls.filter((c) => c.method === "DELETE")).toHaveLength(1);
+    expect(calls.filter((c) => c.method === "POST" && c.url.endsWith("/items"))).toHaveLength(1);
+  });
+
+  it("waitOperation throws on a near-future deadline after exactly one poll", async () => {
+    vi.useFakeTimers();
+    const calls = stubFetch(({ url }) => {
+      if (url.includes("/bulk_operations/op-slow")) return { result: { status: "pending" } };
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    const pending = expect(
+      waitOperation("token", "account", "op-slow", Date.now() + 1),
+    ).rejects.toThrow(/deadline/);
+    await vi.advanceTimersByTimeAsync(100);
+    await pending;
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain("/bulk_operations/op-slow");
+  });
+});
 
 describe("run history records every run", () => {
   it("writes outcome=failed with the error text when the sync throws", async () => {
@@ -565,5 +753,162 @@ describe("health endpoint", () => {
     expect(body.ok).toBe(false);
     expect(body.error).toMatch(/simulated upstream failure/);
     expect(body.lastRun).toMatchObject({ outcome: "failed" });
+  });
+});
+
+/**
+ * Health's last-success metrics (task 16): a later failure must not erase the last good timestamp,
+ * and a ?dry-run=1 run (outcome='ok' but no Cloudflare writes) must not reset the lag metric.
+ *
+ * The stub answers differently for the two health queries: the latest run and the latest ok,
+ * non-dry-run run, so the tests prove the query filters rather than just the response mapping.
+ */
+function stubHealthDb(runs: RunRow[], options: { fail?: boolean } = {}) {
+  const queries: string[] = [];
+  const db = {
+    prepare(sql: string) {
+      queries.push(sql);
+      return {
+        bind: () => ({
+          all: async () => {
+            if (options.fail) throw new Error("no such table: worker_runs");
+            if (/outcome = 'ok'/.test(sql) && /dry_run = 0/.test(sql)) {
+              const row = [...runs]
+                .filter((run) => run.outcome === "ok" && run.dry_run === 0)
+                .sort((a, b) => b.started_at - a.started_at)[0];
+              return {
+                results: row ? [{ started_at: row.started_at, finished_at: row.finished_at }] : [],
+                success: true,
+              };
+            }
+            if (/FROM worker_runs/.test(sql)) {
+              const latest = [...runs].sort(
+                (a, b) => b.started_at - a.started_at || b.id - a.id,
+              )[0];
+              return { results: latest ? [latest] : [], success: true };
+            }
+            return { results: [], success: true };
+          },
+          run: async () => ({ success: true }),
+        }),
+      };
+    },
+  };
+  return { db, queries };
+}
+
+const healthRow = (overrides: Partial<RunRow>): RunRow => ({
+  id: 1,
+  job: "blocklist_sync",
+  started_at: 1_699_999_000,
+  finished_at: 1_699_999_700,
+  outcome: "ok",
+  added: 0,
+  removed: 0,
+  error: null,
+  dry_run: 0,
+  ...overrides,
+});
+
+describe("health last-success metrics", () => {
+  it("computes last_success_at and lag_seconds from the latest ok run", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const { db } = stubHealthDb([healthRow({})]);
+
+    const body = await health({ DB: db } as never);
+
+    expect(body.ok).toBe(true);
+    expect(body.job).toBe("blocklist_sync");
+    expect(body.lastRun).toMatchObject({ id: 1, outcome: "ok" });
+    expect(body.last_success_at).toBe(1_699_999_700);
+    expect(body.lag_seconds).toBe(300);
+  });
+
+  it("keeps the last ok timestamp when the latest run failed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const { db } = stubHealthDb([
+      healthRow({ id: 1, started_at: 1_699_999_000, finished_at: 1_699_999_700 }),
+      healthRow({
+        id: 2,
+        outcome: "failed",
+        error: "boom",
+        started_at: 1_699_999_800,
+        finished_at: 1_699_999_900,
+      }),
+    ]);
+
+    const body = await health({ DB: db } as never);
+
+    expect(body.lastRun).toMatchObject({ id: 2, outcome: "failed", error: "boom" });
+    expect(body.last_success_at).toBe(1_699_999_700);
+    expect(body.lag_seconds).toBe(300);
+  });
+
+  it("falls back to started_at when the successful run has no finished_at", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const { db } = stubHealthDb([
+      healthRow({ id: 1, started_at: 1_699_999_800, finished_at: null }),
+    ]);
+
+    const body = await health({ DB: db } as never);
+
+    expect(body.last_success_at).toBe(1_699_999_800);
+    expect(body.lag_seconds).toBe(200);
+  });
+
+  it("returns null metrics when no run succeeded and when no record exists", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const failedOnly = stubHealthDb([
+      healthRow({ id: 1, outcome: "failed", started_at: 1_699_999_000, finished_at: 1_699_999_700 }),
+    ]);
+    const failedBody = await health({ DB: failedOnly.db } as never);
+    expect(failedBody.lastRun).toMatchObject({ outcome: "failed" });
+    expect(failedBody.last_success_at).toBeNull();
+    expect(failedBody.lag_seconds).toBeNull();
+
+    const empty = stubHealthDb([]);
+    const emptyBody = await health({ DB: empty.db } as never);
+    expect(emptyBody).toMatchObject({
+      ok: true,
+      job: "blocklist_sync",
+      lastRun: null,
+      last_success_at: null,
+      lag_seconds: null,
+    });
+  });
+
+  it("ignores an ok dry_run=1 run when computing the lag", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const stub = stubHealthDb([
+      healthRow({ id: 3, dry_run: 1, started_at: 1_699_999_900, finished_at: 1_699_999_950 }),
+    ]);
+
+    const body = await health({ DB: stub.db } as never);
+
+    expect(body.lastRun).toMatchObject({ outcome: "ok", dry_run: 1 });
+    expect(body.last_success_at).toBeNull();
+    expect(body.lag_seconds).toBeNull();
+    // A dry run must not reset the metric, so the read has to filter it out explicitly.
+    expect(stub.queries.some((sql) => /outcome = 'ok'/.test(sql) && /dry_run = 0/.test(sql))).toBe(true);
+  });
+
+  it("fails open with null metrics when the run table cannot be read", async () => {
+    const stub = stubHealthDb([], { fail: true });
+
+    const body = await health({ DB: stub.db } as never);
+
+    expect(body).toMatchObject({
+      ok: true,
+      job: "blocklist_sync",
+      lastRun: null,
+      last_success_at: null,
+      lag_seconds: null,
+    });
+    expect(body.error).toMatch(/no such table/);
   });
 });

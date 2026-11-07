@@ -106,6 +106,8 @@ def make_repo(tmp_path: Path, branch: str = "main") -> Path:
     for name, body in (
         ("ci_check.sh", '#!/bin/bash\necho "STUB ci_check ran (args: $*)"\n'),
         ("pages_deploy.sh", '#!/bin/bash\necho "STUB pages_deploy ran"\n'),
+        # Post-release smoke check; deploy.sh runs it after Pages, docs, or Workers.
+        ("smoke.sh", '#!/bin/bash\necho "STUB smoke ran"\n'),
         ("docs_deploy.sh", '#!/bin/bash\necho "STUB docs_deploy ran"\n'),
         ("workers_deploy.sh", '#!/bin/bash\necho "STUB workers_deploy ran (args: $*)"\n'),
         # Allowlist generation: deploy.sh builds it from own-ips.txt before running the gates.
@@ -610,7 +612,7 @@ def test_migrate_dry_run_preserves_the_legacy_004_key_mapping(tmp_path):
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "legacy migration group 004 uses stable keys 4001, 4002, and 4003" in result.stdout
-    assert "legacy version 4 marks all three as applied; next free number is 024" in result.stdout
+    assert "legacy version 4 marks all three as applied; next free number is 025" in result.stdout
     assert "warning: migration number 004" not in result.stdout
     for name, key in (
         ("004_auth_sessions.sql", 4001),
@@ -861,3 +863,199 @@ def test_deploy_tooling_bootstrap_can_be_skipped(tmp_path):
     assert not venv_marker.is_file(), "the venv must not be created when bootstrap is skipped"
     # With bootstrap disabled, let the pages_deploy stub handle the missing venv; the stub does not inspect it.
     assert "Release: done" in result.stdout, result.stdout
+
+
+# Local test entry point (added 2026-11-07): a skipped language must never look like success.
+#
+# `ops/run-tests.sh` runs pytest and then the TypeScript suite. When npm or package.json was
+# missing it warned on stderr and still exited 0, so `run-tests` could report a pass while vitest
+# never ran. The script now exits 1 with `NOT VERIFIED`; these cases lock both directions.
+
+
+# External commands besides the Python interpreter that `run-tests.sh` needs: `dirname` for its
+# `cd`, `env` for the hostile-Git invocation, and `mktemp`/`rm` for the EXIT trap that removes the
+# temporary HOME. PATH is narrowed on purpose (so `command -v npm` fails), but it cannot be empty:
+# without mktemp/rm the trap breaks and the run fails for the wrong reason.
+_RUN_TESTS_TOOLS = ("bash", "dirname", "env", "mktemp", "rm")
+
+
+def make_run_tests_repo(tmp_path: Path) -> tuple[Path, Path]:
+    """Copy `ops/run-tests.sh` into a stub repository and build a PATH with only its tools."""
+    repo = tmp_path / "repo"
+    (repo / "ops").mkdir(parents=True)
+    shutil.copy2(ROOT / "ops" / "run-tests.sh", repo / "ops" / "run-tests.sh")
+    (repo / "package.json").write_text('{"name":"x","version":"0.0.0","scripts":{}}')
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in _RUN_TESTS_TOOLS:
+        found = shutil.which(name)
+        assert found, f"{name} is required to exercise ops/run-tests.sh"
+        (bin_dir / name).symlink_to(found)
+    python_stub = bin_dir / "python-stub"
+    python_stub.write_text("#!/bin/bash\nexit 0\n")
+    python_stub.chmod(0o755)
+    return repo, bin_dir
+
+
+def test_run_tests_fails_loudly_when_npm_is_missing(tmp_path):
+    """A missing npm must fail the run, not silently skip the TypeScript suite.
+
+    The stub Python exits 0, so pytest is never invoked; only the npm/package.json branch is
+    exercised. `NOT VERIFIED` stays on stderr for the log, and the exit code must be non-zero.
+    """
+    repo, bin_dir = make_run_tests_repo(tmp_path)
+    env = {"PATH": str(bin_dir), "PYTHON_BIN": str(bin_dir / "python-stub")}
+
+    result = run([BASH, "ops/run-tests.sh"], cwd=repo, env=env)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "NOT VERIFIED" in result.stderr, result.stderr
+    assert "Traceback" not in result.stdout + result.stderr, "the Python stub should have run pytest"
+
+    # npm present but package.json absent: the other half of the condition must fail loudly too.
+    (repo / "package.json").unlink()
+    npm_stub = bin_dir / "npm"
+    npm_stub.write_text("#!/bin/bash\nexit 0\n")
+    npm_stub.chmod(0o755)
+
+    second = run([BASH, "ops/run-tests.sh"], cwd=repo, env=env)
+
+    assert second.returncode == 1, second.stdout + second.stderr
+    assert "NOT VERIFIED" in second.stderr, second.stderr
+
+
+def test_run_tests_runs_typecheck_and_test_when_npm_exists(tmp_path):
+    """With npm and package.json present, both `npm run typecheck` and `npm test` must run.
+
+    The typecheck step catches type errors that vitest does not; dropping it while keeping the
+    test run would make the entry point look green for code that fails `tsc`.
+    """
+    repo, bin_dir = make_run_tests_repo(tmp_path)
+    npm_log = tmp_path / "npm.log"
+    npm_stub = bin_dir / "npm"
+    npm_stub.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$npm_log"\nexit 0\n')
+    npm_stub.chmod(0o755)
+
+    result = run(
+        [BASH, "ops/run-tests.sh"],
+        cwd=repo,
+        env={
+            "PATH": str(bin_dir),
+            "PYTHON_BIN": str(bin_dir / "python-stub"),
+            "npm_log": str(npm_log),
+        },
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = [line.strip() for line in npm_log.read_text().splitlines() if line.strip()]
+    assert "run typecheck" in calls, f"npm run typecheck was not invoked: {calls}"
+    test_calls = [call for call in calls if "test" in call]
+    assert test_calls == ["test"], f"expected one bare `npm test` invocation: {calls}"
+    assert calls.index("run typecheck") < calls.index("test"), "typecheck must run before tests"
+
+
+def test_ci_check_help_prints_usage():
+    """`--help` prints the header comment block and exits 0.
+
+    The help text is the comment block at the top of the file, extracted with awk, so editing the
+    header can empty the help output without any other failure. `Usage:` and `--typescript` keep
+    the documented flags visible, and a clean help call must not write to stderr.
+    """
+    result = run([BASH, "ops/ci_check.sh", "--help"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Usage:" in result.stdout, result.stdout
+    assert "--typescript" in result.stdout, result.stdout
+    assert result.stderr == "", result.stderr
+
+
+def test_ci_check_rejects_unknown_argument():
+    """An unknown flag must stop the gate before any check runs (exit 2).
+
+    The `typescript job` line marks the start of real work; it must not appear for a bad argument,
+    otherwise a typo would silently run a different selection than intended.
+    """
+    result = run([BASH, "ops/ci_check.sh", "--bogus"])
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "unknown argument --bogus" in result.stderr, result.stderr
+    assert "typescript job" not in result.stdout, "the gate started running before parsing arguments"
+
+
+def _shell_block(text: str, marker: str) -> list[str]:
+    """Return the non-comment lines after `marker` up to its closing bare `fi`, stripped."""
+    parts = text.split(marker, 1)
+    assert len(parts) == 2, f"marker not found in ops/ci_check.sh: {marker}"
+    lines = parts[1].splitlines()
+    end = next(index for index, line in enumerate(lines) if line.strip() == "fi")
+    return [
+        stripped
+        for line in lines[:end]
+        if (stripped := line.strip()) and not stripped.startswith("#")
+    ]
+
+
+def test_ci_check_only_passes_the_venv_python_when_it_is_executable():
+    """Only a real executable path may be exported as COMICINE_VENV_PYTHON for the build step.
+
+    The build helper treats `COMICINE_VENV_PYTHON` as a path and tests `[ -x ]` on it, so a bare
+    command name taken from PATH (for example `python3`) would fail that test and break
+    `npm run build`. `ops/ci_check.sh` therefore tracks `PYTHON_IS_EXECUTABLE` and exports the
+    variable only in the true branch. This is a static check on purpose: running the build branch
+    would execute the real gate.
+    """
+    text = (ROOT / "ops" / "ci_check.sh").read_text(encoding="utf-8")
+
+    # The flag starts at 0 and is raised inside the `[ -x "$PYTHON_BIN" ]` test, nowhere else.
+    zero = text.index("PYTHON_IS_EXECUTABLE=0")
+    executable_test = text.index('if [ -x "$PYTHON_BIN" ]; then')
+    assert zero < executable_test, "PYTHON_IS_EXECUTABLE must default to 0 before the test"
+    assert text.count("PYTHON_IS_EXECUTABLE=1") == 1, (
+        "PYTHON_IS_EXECUTABLE=1 must appear exactly once, inside the executable test"
+    )
+    assert text.index("PYTHON_IS_EXECUTABLE=1") > executable_test
+    assert _shell_block(text, 'if [ -x "$PYTHON_BIN" ]; then') == ["PYTHON_IS_EXECUTABLE=1"]
+
+    # The build branch: the variable is passed in the `then` branch only, never in the `else`.
+    build_block = _shell_block(text, 'if [ "$PYTHON_IS_EXECUTABLE" = 1 ]; then')
+    assert "else" in build_block, build_block
+    else_index = build_block.index("else")
+    then_branch = build_block[:else_index]
+    else_branch = build_block[else_index + 1:]
+    assert any(
+        'COMICINE_VENV_PYTHON="$PYTHON_BIN"' in line and "npm run build" in line
+        for line in then_branch
+    ), then_branch
+    assert any("npm run build" in line for line in else_branch), else_branch
+    assert not any("COMICINE_VENV_PYTHON" in line for line in else_branch), (
+        "the fallback branch must not export a bare Python command name"
+    )
+
+
+def test_deploy_dry_run_plans_the_smoke_step(tmp_path):
+    """Every release plan must end with the smoke check; a commit-only plan must not claim one.
+
+    After publishing, `ops/deploy.sh` runs `run_step "Smoke" bash ops/smoke.sh` so a deployment
+    cannot finish green while the live site is broken. `--commit` publishes nothing, so the smoke
+    step must stay out of that plan and out of the plan lines.
+    """
+    repo = make_repo(tmp_path)
+
+    full = run([BASH, "ops/deploy.sh", "--dry-run"], cwd=repo)
+    assert full.returncode == 0, full.stdout + full.stderr
+    assert "would-run: bash ops/smoke.sh" in full.stdout, full.stdout
+
+    for release_args in (
+        ["--pages", "--dry-run"],
+        ["--docs", "--dry-run"],
+        ["--workers", "--dry-run"],
+        ["--worker=comicine-status", "--dry-run"],
+    ):
+        planned = run([BASH, "ops/deploy.sh", *release_args], cwd=repo)
+        assert planned.returncode == 0, planned.stdout + planned.stderr
+        assert "would-run: bash ops/smoke.sh" in planned.stdout, planned.stdout
+
+    commit_only = run([BASH, "ops/deploy.sh", "--commit", "--dry-run"], cwd=repo)
+    assert commit_only.returncode == 0, commit_only.stdout + commit_only.stderr
+    assert "ops/smoke.sh" not in commit_only.stdout, commit_only.stdout

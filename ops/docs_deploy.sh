@@ -27,6 +27,8 @@
 # Usage:
 #   bash ops/docs_deploy.sh --dry-run      # print the plan only
 #   bash ops/docs_deploy.sh --build-only   # build + validate, no Cloudflare writes
+#                                          # (CI and ops/ci_check.sh reuse this path; it needs
+#                                          #  git, pnpm, python3, and network access, but no secrets)
 #   bash ops/docs_deploy.sh                # build + validate + deploy + smoke test
 #   bash ops/docs_deploy.sh --dev          # run the VitePress dev server
 #

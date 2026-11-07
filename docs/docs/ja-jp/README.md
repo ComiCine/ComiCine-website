@@ -47,6 +47,8 @@ See ADDITIONAL_TERMS.txt.
 | 静的アセット／原本バックアップ | Pages アセットサーバー + プライベート R2 バケット `comicine-originals` | Cloudflare |
 | デプロイ | `ops/deploy.sh`（git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`） | ローカル |
 
+これらのレイヤーがどのようにつながるか — リクエストパイプライン、identity ハンドオフ、ドキュメントサイトのビルド、独立した Workers、生成される成果物 — は、[ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/ARCHITECTURE.md) で説明しています。
+
 ## プロジェクト構成
 
 ```
@@ -61,8 +63,10 @@ See ADDITIONAL_TERMS.txt.
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
+├── ARCHITECTURE.md                                   # request flow, identity, Workers and build artifacts (English)
+├── SECURITY.md                                       # threat model, trust tiers and key handling (English)
 ├── LICENSE.txt                                        # GNU AGPL v3 公式英文本文
-├── ADDITIONAL_TERMS.txt                               # Section 7 の追加条項
+├── ADDITIONAL_TERMS.txt                               # Section 7 の追加条項（英語）
 ├── ADDITIONAL_TERMS_zh_CN.txt                         # 簡体字中国語訳
 ├── ADDITIONAL_TERMS_ja_JP.txt                         # 日本語訳
 ├── ADDITIONAL_TERMS_ko_KR.txt                         # 韓国語訳
@@ -92,7 +96,9 @@ See ADDITIONAL_TERMS.txt.
 │       └── tests.yml                                 # CI: build, then typecheck / migrations / vitest / pytest
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
-├── data/                                             # runtime databases and caches (generated; git-ignored)
+├── data/                                             # runtime data (generated; git-ignored)
+│   ├── GeoLite2-ASN.mmdb                             # GeoIP databases (large; git-ignored)
+│   └── *.db                                          # local caches (git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -101,6 +107,7 @@ See ADDITIONAL_TERMS.txt.
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
 │   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
+│   ├── smoke.sh                                      # standalone read-only smoke checks (main site, docs, status)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -114,9 +121,8 @@ See ADDITIONAL_TERMS.txt.
 │   ├── upload_originals.sh                           # private R2 backup of portfolio originals
 │   ├── security-headers.json                         # single source of the response-header baseline
 │   ├── tailwind.config.js                            # Tailwind config for the prebuilt CSS
-│   ├── check_config_contract.py / check_gate_trust.py / check_security_headers.py / check_ip_rays.py / check_ray_id.py / check_visitor_id.py
+│   ├── check_config_contract.py / check_gate_trust.py / check_security_headers.py / check_license_headers.py / check_ip_rays.py / check_ray_id.py / check_visitor_id.py / check_blocklist_sync.py / zone_settings.py
 │   ├── migrations/                                   # D1 schema migrations
-│   ├── waf/                                          # WAF rule snapshots
 │   ├── cloudflare/                                   # Cloudflare resource inventory (declarative)
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
@@ -136,7 +142,21 @@ See ADDITIONAL_TERMS.txt.
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
+└── docs/                                             # container: one directory per subdomain
+    ├── docs/                                         # docs.comicine.com — VitePress root
+    │   ├── .vitepress/                               # config.mts, rewrites.json, theme
+    │   ├── zh-cn/                                    # one directory per language, same file tree in each
+    │   ├── en-us/
+    │   ├── ja-jp/
+    │   ├── ko-kr/
+    │   ├── functions/                                # docs Pages Functions: language-less entry routes
+    │   └── public/                                   # static assets, _redirects, _routes.json, robots.txt
+    ├── services/                                     # services.comicine.com — price-list CSVs
+    └── lists/                                        # gate/crawler/bans lists and generated whitelist (not published)
+        ├── README.md                                 # what each list is and how to apply a change
+        ├── own-ips.txt                               # hand-written: your own IPs / extra trusted entries
+        ├── whitelist.txt                             # generated from own-ips.txt; used by the edge gate and optional WAF tool
+        └── blocklist.txt                             # hand-written: ban seed for src/auto_block.py (D1 is the authority)
 ```
 
 ## ブランド素材とフォント
@@ -149,10 +169,10 @@ See ADDITIONAL_TERMS.txt.
 ## クイックスタート
 
 ```bash
-# package-lock.json で固定された Node 依存関係をインストールします
+# Install the Node dependencies pinned by package-lock.json
 npm ci
 
-# 静的サイトをビルドします（Python 仮想環境 + コントラクト検証 + public/ + preview/）
+# Build the static site (Python venv + contract checks + public/ + preview/)
 npm run build
 ```
 
@@ -212,7 +232,7 @@ Pages + docs を実行し、`--worker=<name>` で単一の Worker も配布で�
 自動テストの入口を用意しています：
 
 ```bash
-# Python テスト
+# Python tests
 python3 -m pytest
 
 # Pages Functions, Workers and image-watermark tests
@@ -234,12 +254,12 @@ npm test
 ## Cron ジョブ
 
 スケジューリングはすべて Cloudflare 上にあり、各 Worker の `wrangler.toml` で
-宣言された Worker Cron Triggers として動作します：
+宣言された Worker Cron Triggers として動作します。`python3 ops/readme_facts.py` は、この表・保持期間・ツリー内のすべてのパスを読み直します：
 
 | スケジュール | Worker | ジョブ |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | 毎分の HTTP/D1 プローブ。プローブがダウンしている間は Durable Object のアラームが 10 秒ごとに再確認し、状態変化時にアラートします |
-| `47 3 * * *` | `ops/status-worker` | D1 のデータ保持（`src/retention.ts`）：`ray_log_v2`（7 日）、`visitors_v2`（30 日）、`visitor_rollups`（30 日）、`heartbeats`（30 日）、`events`（90 日）、`probe_uptime_daily`（90 日）、`auth_sessions`（60 日）、`identity_handoffs`（1 日）を削除します |
+| `47 3 * * *` | `ops/status-worker` | D1 のデータ保持（`src/retention.ts`）：`ray_log_v2`（7 日）、`visitors_v2`（30 日）、`visitor_rollups`（30 日）、`heartbeats`（30 日）、`events`（90 日）、`probe_uptime_daily`（90 日）、`auth_sessions`（60 日）、`identity_handoffs`（1 日）を削除します。同じ実行でバケットごとの結果を `retention_state` に記録し、削除の失敗時にはアラートを発し、アカウント単位の D1 読み取り／書き込みの予算チェックも実行します |
 | `30 3 * * *` | `ops/sync-worker` | 有効な D1 `blocked_ips` の行を Cloudflare IP List `comicine_blocklist` に反映します |
 | `0 0 * * *` | `ops/d1-archive` | D1 のスナップショット／アーカイブ |
 
@@ -254,7 +274,7 @@ TLS 証明書は Cloudflare が Pages のカスタムドメイン向けに発行
 
 ## デプロイ
 
-デプロイ対象は本番 Pages プロジェクト `comicine`、Docs プロジェクト `comicine-docs`、および独立した Workers です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs のエイリアスは `comicine-docs.pages.dev`、Workers のアカウントサブドメインは `comicine.workers.dev` です。
+デプロイ対象は本番 Pages プロジェクト `comicine`、Docs プロジェクト `comicine-docs`、および独立した Workers です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs のエイリアスは `comicine-docs.pages.dev`、Workers のアカウントサブドメインは `comicine.workers.dev` です。Cloudflare へのデプロイは設定済みの API トークンを使用します。
 リポジトリのルートから：
 
 ```bash
@@ -268,7 +288,7 @@ bash ops/deploy.sh --all --full             # same, but stream every step's outp
 ```
 
 `ops/deploy.sh` を**引数なしで実行すると、それは正確に `--all`** です：commit + push +
- Pages + docs、すなわち「完全デプロイ（full deploy）」の契約です。すでにローカルでコミット済みのものだけを配信するには、
+ Pages + docs + Workers、すなわち「完全デプロイ（full deploy）」の契約です。すでにローカルでコミット済みのものだけを配信するには、
 `--pages` / `--docs` を明示的に指定します。
 
 出力は既定で静かです（1 ステップにつきステータス 1 行）。`--full` を付けると全工程を確認できます。
@@ -310,47 +330,53 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## セキュリティ設計
 
-- セッション cookie は `Secure` + `HttpOnly` + `SameSite=Lax` を使用し、現在のホストのみに限定されます。これによりセッション cookie を他のサイトで再利用できません。
+- セッション cookie の名前は `__Host-comicine_session`（契約上の `session_cookie`）で、ホスト限定（host-only）であり、`Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` を設定し、`Domain` はありません。`__Host-` プレフィックスにより、ブラウザーは `Domain` なし + `Secure` + `Path=/` の部分を強制するため、サブドメインがプレフィックス付きの cookie を上書きすることはできません。改名以前の名前 `comicine_session` で提示されたセッションは、移行期間中に限り、かつ 2026-11-08T16:00Z より前に認証された場合にのみ受理されるため、新しく発行されたトークンを `Domain=.comicine.com` で注入することはできません。旧 cookie の読み取りとそのクリアは、2026-12-07（セッション TTL 1 回分）以降に削除されます。`/logout` は両方の名前を削除します。
   すべてのセッションは D1 `auth_sessions` に記録されたランダムな `sid` を持ち、`requireAuth` は
   失効・期限切れのセッションを拒否します。実行時に HMAC 鍵がない場合や `auth_sessions` テーブルが利用できない場合は、
   503 でフェイルクローズ（fail closed）します。
 - ゲートも同様にフェイルクローズします。`TURNSTILE_SECRET`、`GATE_HMAC_KEY`、
   `SESSION_HMAC_KEY` のいずれかが空の場合、エッジはページをレンダリングしたり署名のない
    cookie を発行したりせず、503 を返します。
-- `__gate` cookie は `<unix-expiry>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
-  `Domain=.comicine.com`）。発行と検証はすべてエッジで行います。
-- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定した HTTP 401 HTML を返します。同一オリジンの外部スクリプトが `identity.comicine.com/login` へ遷移し、Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの一回限りの D1 コードを作成します。送信元サイトの callback がサーバー間でコードを消費し、ローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
+- `__gate` cookie は `<issued-at>.<expires-at>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
+  そのリクエストの現在または旧ルートドメインで共有）。発行と検証はすべてエッジで行います。
+- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定した HTTP 401 HTML を返します。同一オリジンの外部スクリプトが `identity.comicine.com/login` へ遷移し、Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの 1 回限りの D1 ハンドオフを保存します。送信元サイトの callback がそれをサーバー間で交換し、`identity_sites` からローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `comicine_blocklist` に追随させます（WAF ルールが使う想定ですが、
   そのカスタムルールは現在デプロイされていません）
 - 管理操作（作成／更新／削除）には admin ロールが必要で、viewer は読み取り専用です
+- すべての書き込み系エンドポイントは `functions/_lib/request.ts`（`readJsonBody`）経由で JSON ボディを読み取ります。ボディの上限は 8 KB（identity exchange は 2 KB、Apple Account の並べ替えは最大 1000 個の id を受け付けるため 32 KB）で、上限を超えたリクエストは途中でキャンセルされ、全体をバッファーせずに 413 を返します。宣言された `Content-Length` はあくまで高速パスのヒントで、実際に適用されるのはストリーミングされたバイト数です。
 - 訪問者の IP を一覧系 API が返すことはありません。完全な IP は `visitor_rollups.ip_enc` に
    Fernet で暗号化して保存し、admin 向けに 1 行ずつ復号します
+- 脅威モデルの全体像 — 信頼ティア、identity／セッションの境界、フェイルクローズなシークレットの扱い、訪問者 IP のパイプライン — は [SECURITY.md](https://github.com/ComiCine/ComiCine-website/blob/main/SECURITY.md) にあります。脆弱性の開示は、この文書がリンクするドキュメントサイトのポリシーに従って扱われます。
 
 ## ホワイトリスト
 
-信頼するソースは [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt) で手動管理し、デプロイ時に生成ファイル [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt) へ反映します。
+信頼するソースは [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt) で管理し、デプロイ時に生成ファイル [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt) へ 1 行につき 1 エントリで反映します。
 
 | エントリ | 効果 |
 | --- | --- |
-| `ASN/<number>` | 任意の Cloudflare ゾーン単位 ASN Access Rule エントリです。ゾーンルールを変更するには `bash ops/waf_whitelist.sh --apply` を手動実行します。ASN エントリは Pages Functions のゲートを迂回しません。 |
+| `ASN/<number>` | `ops/waf_whitelist.sh --apply` で手動管理するゾーン単位の Cloudflare Access Rule 向けの任意エントリです。ASN エントリは Pages Functions のゲートを迂回しません。 |
 | `IP-CIDR/<ip>/<mask>` | Pages エッジで完全に許可されるソースです（例：`IP-CIDR/97.64.18.11/32`）。IPv4 は `/24`–`/32`、IPv6 は `/64`–`/128` のプレフィックスのみ許可され、ブロックリストとチャレンジゲートの両方をスキップします。 |
 
-現在の生成リストには **ASN が 0 件**、**IP-CIDR が 2 件**あります。通常のデプロイはローカルのホワイトリストを生成しますが、ゾーン単位の ASN Access Rules は変更しません。`own-ips.txt` の編集後、デプロイ時に `ops/sync_whitelist.py` を実行し、その後ビルドで `ops/check_gate_trust.py --emit` がエッジ用ファイルを生成します。
+現在の生成リストには **ASN エントリが 0 件**、**完全に許可された IP が 2 件**含まれます。通常のデプロイはローカルのホワイトリストを生成しますが、ゾーン単位の ASN Access Rules は変更しません。これらのルールを変更する意図がある場合は `ops/waf_whitelist.sh --apply` を手動で実行してください。
+
+クローラーは**別系統のより弱いティア**（チャレンジのみで、完全な信頼はなし）であり、そのリストはサイト自身の [`docs/lists/robots.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/robots.txt) です — この 1 つのファイルには 2 つの役割があります：`src/build.py` がクローラールールを `/robots.txt` として公開し、`config-contract.json` から `Sitemap` の URL を追記します。`ops/check_gate_trust.py` は明示的に列挙されたすべての `User-agent:`（`*` 以外）を `functions/_data/gateTrust.ts` の `GATE_TRUST_CRAWLER_UAS` に変換し、`functions/_lib/bots.ts` が `User-Agent` ヘッダーの先頭 512 文字と大文字小文字を区別せずに照合します。クローラーの追加は `User-agent:` 1 行だけで、キルスイッチは `config-contract.json` の `gate_trust.ua_allowlist_enabled` です。コンパイル済みリストは現在 **101 トークン**（99 個の User-Agent に加え、実際のリクエストには決して一致しない robots 専用の `Google-Extended` / `Applebot-Extended`）を保持しています。すべてのエントリが部分文字列一致であるため、実際のブラウザーの User-Agent に現れるトークンを含めることはできません。WeChat/QQ のアプリ内ブラウザー、Sogou のモバイルブラウザー、CUBOT の端末、Spider 8 タブレット、プレビュービルド、AKAI/Funai の TV ブラウザーはすべてゲートの内側に残り、汎用マーカーは `crawler`、`fetcher`、`LLM` に限られています。User-Agent は自己申告であるため、このティアは D1 ブロックリストを決してスキップせず、`__gate` cookie も受け取らず、訪問者としてもカウントされません — [ゲートの挙動](#ゲートの挙動)を参照してください。
+
+ランタイムごとの信頼：エッジコードが信頼するのは `IP-CIDR` エントリのみです（`isGateTrustedIp` → `functions/_data/gateTrust.ts`）。`docs/lists/own-ips.txt` または `docs/lists/robots.txt` を編集した後は、ビルドでエッジ用のコピーを再生成してください（`bash ops/build.sh` が `ops/check_gate_trust.py --emit` を実行します）。
 
 ## 唯一の情報源
 
 - ユーザー向けの文字列：`locales/*.json`。`functions/_data/*` と API の i18n ルートはそこから生成されます。
 - 共有ランタイム定数：`config-contract.json` がランタイム横断で合意された契約です。`src/config.py` と生成物 `functions/_lib/config.ts` の双方がこれを消費し、`ops/check_config_contract.py` が一致を強制します。
-- ゲート／リダイレクトの文言：`locales/*.json` を `functions/_data/runtime.ts` 経由で。`src/build.py` がそれを組み立てます。
+- ゲートの文言とリダイレクトのプリロードアセット：`locales/*.json` を `functions/_data/runtime.ts` 経由で。`src/build.py` がそれを組み立てます。リダイレクトページの文言は、同じロケールファイルから `public/<lang>/redirect.html` に事前レンダリングされます。
 - D1 のスキーマとマイグレーション：`ops/migrations/*.sql`。ブロックの権威は `blocked_ips` のみです。
 - セキュリティレスポンスヘッダーの基準（有効時）：`ops/security-headers.json`。
 - デプロイとランタイムの境界：`ops/deploy.sh`。ランタイムは Cloudflare Pages と Workers のみです。
 
 ## Cloudflare Pages ランタイム
 
-公開サイト（ホーム／サービス／お問い合わせ、ゲート、訪問者パネル、Apple Account 管理、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は本番 Pages プロジェクト `comicine` で動作し、ステータスページとすべての定期ジョブも同様です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使用します。
+公開サイト（ホーム／サービス／お問い合わせ、ゲート、訪問者パネル、Apple Account 管理、`images.comicine.com` 静的アセットホスト、リダイレクト中継）は本番 Pages プロジェクト `comicine` で動作し、ステータスページとすべての定期ジョブも同様です。本番プロジェクトは `comicine.pages.dev` とすべての本番カスタムドメインを提供し、暗号化済みランタイム設定を保持します。Docs Pages プロジェクトは `comicine-docs.pages.dev` を使用します。Worker の URL は `comicine.workers.dev` を使用します。
 
 ランタイムの分担：
 
@@ -366,7 +392,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 - `python3 src/build.py`：4 言語のページを `public/` に事前レンダリングし、
   `locales/*.json` を `functions/api/i18n/[lang].ts` としてインライン化し、共有の
-   `functions/_data/runtime.ts`（ゲート／リダイレクトの i18n + プリロードアセット）を生成します
+   `functions/_data/runtime.ts`（ゲートの i18n + リダイレクトのプリロードアセット）を生成します
 - `ops/migrations/001_init.sql`：D1 の初期スキーマ（`apple_accounts` / `blocked_ips` / `visitors`）
 - `ops/export_d1.py`：D1 取り込み用 SQL を生成（出力は `ops/out/`、git 管理外）
 - `ops/migrations/007_visitor_status_indexes.sql`：訪問者ステータスの絞り込み用に `(status, ts)` と `(status, ip_hash, ts)` インデックスを追加します
@@ -392,13 +418,67 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ### ゲートの挙動
 
-すべてのリクエストで署名済み `__gate` cookie を確認します。Cloudflare の `botManagement.verifiedBot` は検証済み検索エンジンの信頼シグナルとして受理されますが、任意の `Googlebot`/`GPTBot` の User-Agent 文字列やクライアントが送ってきた `cf_clearance` cookie がゲートを迂回することはありません。エッジコードが完全なバイパスを認めるのは、生成されたホワイトリスト（`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`）にある IP-CIDR だけです。
+すべてのリクエストで署名済み `__gate` cookie を確認します。ゲートを通過する方法は 3 つあり、本人性に基づくのは最初の 2 つだけです：
 
-未検証のリクエストには Turnstile ゲートページを**その場で**返します。ホストもパスも変わりません。ミドルウェアは要求された URL に `public/<lang>/auth.html` をステータス `403` でレンダリングし、`POST /__gate/verify` が同じオリジンで `Set-Cookie: __gate=…`（1 時間、`Domain=.comicine.com`）を返し、その後ページが元のターゲットを再読み込みします。`auth.comicine.com` はゲートのホストです — 自身のルートで同じページを配信し、`/__gate/config|diag|verify` エンドポイントを持ちます。
+| ソース | バイパス |
+| --- | --- |
+| IP 許可リスト（`docs/lists/whitelist.txt` の `IP-CIDR` エントリ → `functions/_data/gateTrust.ts`） | 完全バイパス：チャレンジ**と** D1 ブロックリストの両方をスキップ |
+| Cloudflare `botManagement.verifiedBot` | 完全バイパス（検証済み検索エンジンの署名） |
+| 自己申告のクローラー User-Agent（`docs/lists/robots.txt` の明示的な `User-agent:` 行 → `GATE_TRUST_CRAWLER_UAS`） | チャレンジのみ：ブロックリストの対象のまま、`__gate` cookie は発行されず、訪問者としてもカウントされない |
+
+これにより、クローラーや AI エージェント（GPTBot、ClaudeBot、PerplexityBot、Bytespider、CCBot、
+DeepSeekBot など）は実際のページを読み取れますが、許可リストにない送信元のブラウザーには
+引き続き Turnstile ゲートが表示されます。`cf_clearance` は決して受理されず、User-Agent リストは
+**自己申告**です — 正直なクローラーとブラウザーを区別するものであり、認証ではありません
+（`functions/_lib/bots.ts` にもそのように明記されています）。
+
+ゲートは 2 層あるうちの 1 層です。その手前のエッジには独自の AI ボットポリシーがあります：
+Cloudflare の既定（`ai_bots_protection: only_on_ad_pages`）では、マネージドルールセットが
+GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider に対して、Worker のコードが動く**前**に
+`403 Your request was blocked.` を返し、`functions/` のロジックでは打ち消せません。
+`ops/ai_bots.py --apply` はそのポリシーをすべての AI 挙動（Search / Agent / Training）について
+「ブロックしない」に設定し、AI Labyrinth（`crawler_protection`）を無効化し、Cloudflare が管理する
+`robots.txt` を先頭に付加しないようにします。`--show` / `--snapshot` / `--dry-run` はその状態を
+読み取り・記録します。2026-10-12 に適用済み — ポリシーは正常に適用され、アーカイブした
+スナップショットは 2026-10-31 に削除されました。トークンには **Bot Management: Edit** が付与され、
+更新の HTTP メソッドは `PUT` です（PATCH は `405 / code 10405` を返します）。再試行すべきでない
+2 つの方法も記しておきます：`phases: ["http_request_firewall_managed"]` に対して `action: skip` を
+指定した WAF カスタムルールは、この Free ゾーンでは受理されますが AI ボットのブロックを解除できません。
+また、ゾーンの `/settings/*` キーのどれもこのポリシーを公開していません。
+
+ディスカバリーファイルは `src/build.py` が生成し、`_routes.json` で Functions から除外されるため、
+クローラーはゲートに遭遇せずに取得できます：`/robots.txt` — `docs/lists/robots.txt` のクローラールールで、
+エンドポイント／管理パス以外はすべて許可し、歓迎するクローラーを明示的に列挙します（robots 専用の
+`Google-Extended` / `Applebot-Extended` トークンを含む。この同じファイルが上記のゲート許可リストです）—
+`/llms.txt`（メインサイトと `docs.comicine.com` の厳選インデックス）— `/sitemap.xml`（正規のホーム、
+サービス、お問い合わせの URL。`docs.comicine.com` は独自の sitemap を持ちます）。
+
+`POST https://comicine.com/mcp` は `functions/mcp.ts` に実装された読み取り専用の MCP サーバーです（JSON-RPC 2.0、ツールは `get_public_page` と `search_public_pages`）。`ASSETS` バインディングを通じて、事前レンダリング済みの公開ページを読むだけです。**公開 API ではなく**、許可リストに載ったクライアントと内部クライアント専用です：`/llms.txt` は意図的にこれを掲載せず、`/robots.txt` でも disallow にしているため公には案内されておらず、`functions/_lib/routing.ts` の `isExemptPath("/mcp")` は false を返すため、未検証のクライアントは通常どおり 403 の Turnstile ページを受け取ります。ここでいうアクセスとはゲートを通過することを意味し、許可リストの IP、Cloudflare の検証済みボット、有効な `__gate` cookie のいずれかが必要です。自己申告のクローラー User-Agent リストは人間検証をスキップするだけで、認証ではありません。
+
+読み取りには上限があります：リクエストボディは 64 KiB（`MAX_BODY_BYTES`）、1 回の読み取りあたりのページテキストは 12,000 文字（`MAX_PAGE_TEXT`）、検索ヒットは最大 5 件、言語は 4 つ、読み取り可能なパスは 4 つです。エッジ／ゲート以外にクライアント単位のレート制限はなく、各読み取りは事前レンダリング済みページに対する 1 回の `ASSETS` フェッチです。
+
+現行の `2026-07-28` プロトコルバージョンでは `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` ヘッダーと `params._meta` が必要です。旧 `2025-11-25` / `2025-06-18` / `2025-03-26` の各バージョンではこれらのヘッダーは不要で、未対応のバージョンには `supportedVersions` とともに `-32022` を返します。このポリシーは `functions/mcp.test.ts`（ゲート／ポリシーの表明）と `tests/test_build.py`（ディスカバリーファイル）で固定されています。
+
+未検証のリクエストには Turnstile ゲートページを**その場で**返します。ホストもパスも変わりません。ミドルウェアは要求された URL に `public/<lang>/auth.html` をステータス `403` でレンダリングし、`POST /__gate/verify` が同じオリジンで `Set-Cookie: __gate=…`（1 時間、そのリクエストの現在または旧ルートドメインに限定）を返し、その後ページが元のターゲットを再読み込みします。`auth.comicine.com` はゲートのホストです — 自身のルートで同じページを配信し、`/__gate/config|diag|verify` エンドポイントを持ちます。
 
 ゲートをレンダリングするすべてのホストは同じエッジコードで配信されるため、同期させる 2 つ目のゲート実装はありません。
 
-ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。ユーザーから `Turnstile Sites Write` 権限が付与され、widget API は HTTP 200 を返し、許可ホスト一覧には `comicine.com` が含まれています。2026-10-29 のスクリーンショットは `comicine.pages.dev/?challenge=1` で撮影されました。Turnstile は成功を表示しましたが、D1 には `/gate/verify` が 403 `hostname_rejected` を返した記録があります。サーバーは Pages ホストを公開ホストとして意図的に拒否します。正式な `comicine.com` での実ブラウザーチャレンジ成功はまだ確認されていません。`auth.js` は手動再試行ボタンを表示し、ブラウザーコンソールに Turnstile の数値エラーコードを記録します。ゲートを無効にしたり、Pages ホストを公開ホストの allowlist に追加したりしないでください。
+ミドルウェアは正規化された D1 ブロックリストも適用し、プライバシーを最小化した訪問者分析を記録します。ゲートページは `no-store`/`noindex` で、ダーク／ライトテーマの切り替えに対応します。Turnstile ウィジェットは、ゲートをレンダリングするすべてのホスト（`comicine.com` のゲート用サブドメインで、`auth`、`status`、`visitor`、`apple`、`images` を含む）を登録しておく必要があります。
+
+**認証のレート制限（`/login` と `/logout`）。** どちらのパスも D1 ブロックリストの対象外で、ブロックされた IP の管理者でもサインイン／サインアウトできます。そのため、最も低コストなフラッドの標的にもなります。`/logout` はさらに D1 のセッション失効更新を 1 回書き込むことがあります。Pages Functions はどちらのパスも送信元アドレス（`CF-Connecting-IP`）ごとにスロットリングします：
+
+| パス | 上限 | ウィンドウ | 超過時 |
+| --- | --- | --- | --- |
+| `/login` | 10 リクエスト | 60 秒 | `429` |
+| `/logout` | 20 リクエスト | 60 秒 | `429` |
+
+- 固定ウィンドウは UTC の分に揃えて区切ります。固定ウィンドウでは、任意のローリング 1 分間に最大で上限の 2 倍まで通ります。これは乱用対策のスロットルであり課金用のカウンターではなく、アイソレート間の read-modify-write 競合によって過少にカウントされる可能性があります。
+- 429 には `Retry-After` と `Cache-Control: no-store` が付き、`Location` は決して付きません（3xx は返しません）。既定では HTML で、クライアントが `application/json` のみを要求したときは JSON（`{"error":"rate_limited","retry_after":N}`）になります。`text/html` も併記したヘッダーの場合は HTML のままです。
+- 制限されるのは完全一致するパスのみです。`/login/entra`、`/login/callback`、`/identity/callback`、`/api/identity/exchange` は Access のログインコールバックであり、スロットルされることはありません。`IP-CIDR` で許可リストに入っている送信元は対象外です（管理者自身のアドレスだからです）。自己申告のクローラー User-Agent は対象外では**ありません**。そのヘッダーは自己申告だからです。
+- カウンターは D1 に一切触れません：コロ内で共有される Cache API に置かれ、ローカル開発時（およびテスト内のカウンター）にはアイソレートメモリのフォールバックを使います。読み取りも書き込みもできないカウンターはフェイルオープンするため、キャッシュ障害で管理者が締め出されることはありません。
+- 実装：`functions/_lib/rate-limit.ts`。`functions/_middleware.ts` から、ゲートの前およびデータベース処理の前に呼び出されます。ユニットテスト：`functions/_lib/rate-limit.test.ts`。
+- しきい値の根拠：2026-11-07 より前の 7 日間に、サイトが計測したのは `/login` 6 件、`/logout` 2 件で、いずれも 1 つの送信元アドレスからでした。したがってこの上限は、通常のサインインに影響を与えずにフラッドを止めます。
+- ゾーン単位のレート制限ルールは使用していません。Free プランではルールは 1 つまで、カウント期間は 10 秒、式は Path／Verified-Bot のみ、カウントは IP 単位に限られるため、パスごとに異なる 2 つのしきい値や IP 許可リストの除外を表現できず、内容交渉に対応した 429 ではなく Cloudflare 自身のページで応答します。後から追加する場合は、より広い多層防御のレイヤーとして残し、これらの Worker 側のしきい値はそのままにしてください。
 
 ### ページ配信（クリーン URL、言語パスプレフィックスなし）
 
@@ -480,8 +560,10 @@ docs.comicine.com に公開されることはありません。
    `stale-while-revalidate` 付きの長いブラウザキャッシュを与えます。`public/_routes.json` と `_headers` は
   どちらも `src/build.py` が生成します。
 - 事前レンダリングされた公開 HTML は**プロセス内ページキャッシュ**で再利用されます
-  （キーは host + 言語）。レスポンスは `public, max-age=300, stale-while-revalidate=3600` と
-  `Vary: Accept-Language` を通知します。ここで**エッジキャッシュは主張しません**：
+  （キーは host + 言語）。レスポンスは `private, max-age=300, stale-while-revalidate=3600` と
+  `Vary: Accept-Language` を通知します。`private` はゲートで保護された HTML を共有キャッシュから
+  遠ざけます。というのも、そのバリアントは `Vary` ではカバーされない言語 cookie に依存するからです。
+  ここで**エッジキャッシュは主張しません**：
   Cloudflare は Pages Functions のレスポンスをキャッシュしないため
   （同じ URL への連続リクエストでも `cf-cache-status` は `DYNAMIC` のまま）、
   共有キャッシュ向けの寿命ディレクティブは死んだ設定になります。言語 cookie も `Vary` に入れません
@@ -500,26 +582,24 @@ docs.comicine.com に公開されることはありません。
 
 ### 現在のデプロイと移行状況
 
-現在のデプロイと移行状況です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
+現在のデプロイと外部リソースの状態です。`python3 ops/readme_facts.py --live` でいつでも読み直せます：
 
-1. **Pages**：本番プロジェクト `comicine` がメインサイトの Pages ホストを提供し、`comicine.pages.dev` とすべての本番カスタムドメインを所有します。Docs プロジェクトは `comicine-docs`、既定エイリアスは `comicine-docs.pages.dev` で、`docs.comicine.com` が配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2、`status.comicine.com` と `sink.comicine.com` は Worker が提供します。
-2. **D1**：新しいメイン DB `comicine`（APAC）は作成され、稼働中の運用テーブルを取り込み済みです。Pages の本番・プレビュー設定は新 DB を参照し、独立 Worker のバインディングは今回のリリースで切り替えます。最終インポートでは Apple Account の値を保持し、古い訪問者ハッシュと詳細テレメトリーは取り込んでいません。Sink の `comicine-sink` DB は 29 行を取り込み、`comicine_sink` Analytics Engine dataset と Worker の切り替えも完了しました。
-3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD`。旧 `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は設定に残っていますが、ランタイムでは読みません。`APPLEID_ENCRYPTION_KEY` と 2 つの `AUTHENTIK_*` も同様に未使用です
-4. **Access**：`ComiCine` は `identity.comicine.com/login` を保護し、visitor/account は共有 identity handoff を使います。未使用の `ComiCine-Admin` アプリは 2026-10-29 に削除しました。`admin.limooo.cn` に DNS レコードや Pages ドメインはありません。
-5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。Workers アカウントのサブドメインは `comicine.workers.dev` です。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker カスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの稼働確認後に旧名前空間を削除しました。Sink の有効なショートリンクは Location ヘッダー付きの 302 を返しました。
-6. **Cloudflare のルール**：現在、有効な WAF と Cache Rules はありません。IP List は `comicine_blocklist` で、参照する WAF フィルターはありません。`.com` の動的リダイレクトフェーズは空です。旧 `.cn` は GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します。
-7. **スモークチェック**：各リリース後に `https://comicine.com/_health` が 200、`https://docs.comicine.com/` が 404 であること、および `https://status.comicine.com/` と `https://sink.comicine.com/` にアクセスできることを確認します。`https://comicine.com/?challenge=1` での実ブラウザーチャレンジ成功はまだ確認されていません。
+1. **Pages**：本番プロジェクト `comicine` が `comicine.com`、`www`、`services`、`contact`、`auth`、`visitor`、`account`、`identity`、`images`、`redirect` を配信し、暗号化済みランタイム設定とともに `comicine.pages.dev` を所有します。廃止済みの `comicine-production` プロジェクトには本番カスタムドメインがなく、ユーザーによる削除のために保持されています。Docs プロジェクトは `comicine-docs` で `comicine-docs.pages.dev`、`docs.comicine.com` がそれを配信します。`image.comicine.com` は透かし Worker、`fonts.comicine.com` は R2 を使用し、`status.comicine.com` / `sink.comicine.com` は Worker のカスタムドメインです
+2. **D1**：新しい `comicine` データベース（APAC）はプロビジョニング済みで、稼働中の運用テーブルが取り込まれています。Pages の本番・プレビューのバインディング設定はこのデータベースを参照し、独立 Worker のバインディングも今回のリリースに含まれます。最終インポートでは Apple Account のレコードを変更せずに保持し、古い訪問者ハッシュと詳細テレメトリーは取り込んでいません。`blocked_ips` がブロックの権威であり続け、ソフト削除された行は監査用に残ります
+3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：9 つのランタイムシークレットには Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD` が含まれます。廃止された `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は、ランタイムコードが読み取らないためコピーしていません。引退した AppleID と Authentik のシークレットは設定されていません
+4. **Access**：`ComiCine` が `identity.comicine.com/login` を保護し、`visitor.comicine.com` と `account.comicine.com` は共有 identity ハンドオフと自ホスト専用の Pages セッションを使用します。廃止された `identity.limooo.cn/login` の宛先は、アプリケーションの AUD とポリシーを維持したまま 2026-10-29 に削除しました。`admin.limooo.cn` 用の未使用の `ComiCine-Admin` アプリも削除済みで、このホスト名には DNS レコードも Pages カスタムドメインもありません。セルフホストの IdP や独自のログインフォームはありません
+5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。アカウントのサブドメインは `comicine.workers.dev` になりました。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker のカスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの確認後に旧名前空間を削除しました。`comicine-sink` データベースはインポート済みで、`comicine_sink` データセットが設定され、Sink Worker もデプロイ済みです。有効なショートリンクは Location ヘッダー付きの 302 を返しました
+6. **Cloudflare のルール**：有効な WAF ルールと Cache Rules はありません。稼働中の IP List は `comicine_blocklist` です。`.com` ゾーンの動的リダイレクトフェーズは空で、旧 `.cn` ゾーンは GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します
+7. **スモークチェック**：`https://comicine.com/_health` → 200、`https://comicine.com/?challenge=1` → 403、`https://docs.comicine.com/` → 404、`https://status.comicine.com/` → 200
 
-> Cloudflare アカウントの表示名はまだ更新されていません。権限不足のため名前の変更は拒否されました。Turnstile API の権限は有効になりましたが、正式な `.com` ホストでの実ブラウザーチャレンジ成功はまだ確認されていません。
-注意：`?challenge=1` の 403 はゲートページが表示されたことだけを確認し、Turnstile の検証成功を示しません。スクリーンショットの `comicine.pages.dev` は正式ホストの検査で拒否されています。確認する場合は `comicine.com` を使用してください。
+Cloudflare アカウントの表示名は、設定済みの API トークンに `Account Settings Write` がないため、まだ更新されていません。Sink の対象 D1 データベースは `comicine-sink` で、`comicine_sink` Analytics Engine データセットを使用します。Status の Durable Object の対象は上記のとおりです。
 
-ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。
+ゲートはどのホストでもその場でレンダリングされ、ゲートページとログに実際の訪問者 IP が表示され、Access が唯一のアイデンティティ源であり続けます。2026-10-27 に提供された Cloudflare ダッシュボードのスクリーンショットでは、Turnstile ウィジェットの Hostname Management に `comicine.com` が表示されています。`Turnstile Sites Write` 権限は現在有効で、ウィジェット API は HTTP 200 を返し、そのホスト名一覧には `comicine.com` が含まれています。2026-10-29 のスクリーンショットは `comicine.pages.dev/?challenge=1` で撮影されました：Turnstile は成功を表示しましたが、D1 には `/gate/verify` が 403 `hostname_rejected` を返した記録があります。サーバーは Pages ホストを公開ホストとして意図的に拒否するためです。`comicine.com` での実ブラウザーチャレンジ成功はまだ確認されていません。検証を迂回・弱体化したり、Pages ホストを公開ホストの allowlist に追加したりしないでください。
+
 ## ライセンス
 
-ComiCine が著作権を有し、ライセンスする権限を有するオリジナル資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS_ja_JP.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt) を、GNU AGPL v3 の本文は [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt) を参照してください。追加条項は GNU AGPL v3 を選択する場合に適用され、後続バージョンでの適用はそのバージョンの条件によります。
+ComiCine が所有し、ComiCine がライセンスするオリジナルのソフトウェア資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 のライセンス本文は [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ja_JP.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ko_KR.txt)があります。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)があります。これらの追加条項は、本作品を GNU AGPL v3 に基づいて利用する場合に適用され、後続のライセンスバージョンでの適用はそのバージョンの条件によります。追加条項の英語版が正式であり、翻訳は参考のために提供されています。
 
-ComiCine は、本プロジェクトで使用する開発ブランドおよび公開上の表示です。著作権は、法的に該当する権利を有する実際の権利者に帰属します。再配布時には、適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
+ComiCine は、本プロジェクトの開発ブランドおよび公開上の表示です。著作権は、実際の権利者に帰属します。適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。著作権の範囲については [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) を、特定された第三者素材とプラットフォーム標章については [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) を参照してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
 追加の許諾または商標許可に関するお問い合わせ：[contact@comicine.com](mailto:contact@comicine.com)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。
-
-第三者フォント、依存関係、および QR コード画像内のプラットフォーム標章については[第三者表示](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES_ja_JP.md)を、著作権の範囲については[著作権表示](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT_ja_JP.md)を参照してください。

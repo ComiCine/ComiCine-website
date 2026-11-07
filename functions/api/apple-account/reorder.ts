@@ -10,11 +10,19 @@
 /** PUT /api/apple-account/reorder (requires admin access and CSRF; uses a D1 batch transaction with no partial updates). */
 
 import { executeBatch, queryAll } from "../../_lib/d1";
+import { jsonBodyRejection, readJsonBody } from "../../_lib/request";
 import { requireAdminSession } from "../../_lib/session";
 import { verifyCsrf } from "../../_lib/csrf";
 import { logEvent } from "../../_lib/logging";
 import { validateOrder } from "../../_lib/apple-account";
 import type { Env } from "../../_lib/env";
+
+/**
+ * `validateOrder` accepts up to 1000 ids (`MAX_ORDER_LENGTH`), and a body of that size is roughly
+ * 17 KB even with 16-digit ids, so this endpoint cannot use the 8 KB default. A real admin reorder
+ * is a few dozen bytes; the cap only has to stay above what the validator accepts.
+ */
+const MAX_BODY_BYTES = 32 * 1024;
 
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const auth = await requireAdminSession(context.env, context.request);
@@ -23,13 +31,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
 
-  let data: unknown;
-  try {
-    data = await context.request.json();
-  } catch {
-    return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
-  }
-  const order = validateOrder(data);
+  const body = await readJsonBody(context.request, { maxBytes: MAX_BODY_BYTES });
+  if (!body.ok) return jsonBodyRejection(body);
+  const order = validateOrder(body.value);
   if (!order) return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
 
   const existing = await queryAll<{ id: number }>(context.env.DB, "SELECT id FROM apple_accounts");

@@ -10,6 +10,8 @@ pages_build_output_dir = "public"
 
 # Configure these three keys as encrypted secrets in Pages project settings:
 #   TURNSTILE_SITEKEY / TURNSTILE_SECRET / GATE_HMAC_KEY
+# During a gate-key rotation, GATE_HMAC_KEY_PREVIOUS is an optional fourth secret accepted for
+# validation only (see ops/cloudflare/README.md); it is deliberately not in .dev.vars.example.
 # For local development, copy .dev.vars.example to .dev.vars and fill in the real values.
 # .dev.vars is listed in .gitignore.
 

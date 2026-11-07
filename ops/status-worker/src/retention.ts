@@ -17,8 +17,10 @@
  * `ops/readme_facts.py` and `ops/prune_d1.py` both read their windows from here; at import,
  * `prune_d1.py` compares each value with this file and fails on any mismatch, preventing drift.
  *
- * Note: `prune_d1.py` also aggregates visitor details into `visitors_daily` as a manual task.
- * This file handles **daily pruning** only, the critical path for preventing unbounded growth.
+ * Note: visitor details are aggregated into `visitors_daily` by `visitor-daily.ts`, which runs
+ * from the same daily cron; `prune_d1.py` remains the manual/backfill entry point for that
+ * aggregation. This file handles **daily pruning** only, the critical path for preventing
+ * unbounded growth.
  */
 
 export const DAY_SECONDS = 86_400;

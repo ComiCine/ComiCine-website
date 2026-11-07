@@ -10,6 +10,7 @@
 /** PUT /api/apple-account/accounts/:id (update) / DELETE (delete; requires admin access and CSRF). */
 
 import { queryAll, execute } from "../../../_lib/d1";
+import { jsonBodyRejection, readJsonBody } from "../../../_lib/request";
 import { fernetEncrypt } from "../../../_lib/fernet";
 import { requireAdminSession } from "../../../_lib/session";
 import { verifyCsrf } from "../../../_lib/csrf";
@@ -29,13 +30,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE });
   }
 
-  let data: unknown;
-  try {
-    data = await context.request.json();
-  } catch {
-    return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
-  }
-  const parsed = validateUpdatePayload(data);
+  const body = await readJsonBody(context.request);
+  if (!body.ok) return jsonBodyRejection(body);
+  const parsed = validateUpdatePayload(body.value);
   if (!parsed) return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
 
   let password = "";

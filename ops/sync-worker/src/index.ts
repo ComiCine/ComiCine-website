@@ -17,7 +17,13 @@
  * showed "ran" even when nothing was written, with no record of the failure. Now:
  *   1. Write one row per run to D1 worker_runs (successes and failures; failures include error).
  *   2. scheduled() explicitly awaits with try/catch and logs failures as structured single-line JSON.
- *   3. GET /?health=1 reports health without triggering a sync and returns { ok, job, lastRun }.
+ *   3. GET /?health=1 reports health without triggering a sync and returns
+ *      { ok, job, lastRun, last_success_at, lag_seconds }. The last two fields come from one extra
+ *      indexed read of the latest ok, non-dry-run run; ignoring dry runs keeps ?dry-run=1 from
+ *      resetting the lag metric, and a later failure does not erase the last good timestamp.
+ *   4. Every Cloudflare API request has a 10s timeout. GETs (idempotent) retry once after 500ms on a
+ *      network error, 429, or 5xx; POST/DELETE run exactly once. A 120s deadline bounds the whole
+ *      sync, so a hung request ends as outcome='failed' instead of leaving the run at 'running'.
  * None of these add reads to the hot path: run records are write-only there; only the health endpoint reads them.
  */
 
@@ -80,6 +86,14 @@ const MAX_ITEM_PAGES = 20;
 // Poll bulk_operations 40 times at 2 seconds each (~80 seconds); treat timeout as failure.
 const OPERATION_POLLS = 40;
 const OPERATION_POLL_MS = 2000;
+// A hung Cloudflare API request would otherwise keep the run at outcome='running' forever. Bound
+// each request, retry only idempotent GETs once (writes must never repeat), and bound the whole
+// sync so the run always reaches a final outcome.
+const FETCH_TIMEOUT_MS = 10_000;
+const RETRY_DELAY_MS = 500;
+const SYNC_DEADLINE_MS = 120_000;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Job name for run records; must match the job values in ops/migrations/018_worker_runs.sql. */
 export const JOB = "blocklist_sync";
@@ -117,17 +131,88 @@ export function diffSync(
   return { toAdd, toRemove };
 }
 
-async function cf(token: string, method: string, url: string, body?: unknown): Promise<any> {
-  const resp = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!resp.ok) throw new Error(`CF API ${resp.status} ${url}`);
-  return resp.json();
+/**
+ * Run one fetch bounded by a timeout.
+ *
+ * fetch() itself has no timeout: a hung connection keeps the cron invocation alive until the
+ * platform kills it and leaves the run row at outcome='running'. Abort it here and surface the
+ * abort as a distinguishable "timeout" error, so it cannot be confused with an HTTP error.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`CF API timeout after ${timeoutMs}ms: ${init.method ?? "GET"} ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Call the Cloudflare API with a bounded retry budget.
+ *
+ * Only a GET may be retried, and only once: creating a list or adding/removing items is not
+ * idempotent, so replaying a POST/DELETE could duplicate the write. Retry GETs on a network
+ * error/timeout, HTTP 429, or HTTP 5xx; other 4xx responses are final and never retried.
+ */
+async function cf(
+  token: string,
+  method: string,
+  url: string,
+  body?: unknown,
+  deadline?: number,
+): Promise<any> {
+  const upperMethod = method.toUpperCase();
+  const maxAttempts = upperMethod === "GET" ? 2 : 1;
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new Error(`sync deadline exceeded after ${SYNC_DEADLINE_MS / 1000}s: ${url}`);
+    }
+    const timeoutMs =
+      deadline === undefined
+        ? FETCH_TIMEOUT_MS
+        : Math.max(1, Math.min(FETCH_TIMEOUT_MS, deadline - Date.now()));
+    let resp: Response;
+    try {
+      resp = await fetchWithTimeout(
+        url,
+        {
+          method: upperMethod,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        },
+        timeoutMs,
+      );
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxAttempts) {
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      break;
+    }
+    if (resp.ok) return resp.json();
+    lastError = new Error(`CF API ${resp.status} ${url}`);
+    if (attempt < maxAttempts && (resp.status === 429 || resp.status >= 500)) {
+      await sleep(RETRY_DELAY_MS);
+      continue;
+    }
+    break;
+  }
+  throw lastError ?? new Error(`CF API request failed: ${url}`);
 }
 
 /**
@@ -136,14 +221,19 @@ async function cf(token: string, method: string, url: string, body?: unknown): P
  * Key requirement (tasks/22 W7-6): both `failed` and polling timeouts must throw. Previously,
  * both returned normally, so callers printed `synced: +N -M` and made a failed write look successful.
  */
-async function waitOperation(token: string, accountId: string, operationId?: string): Promise<void> {
+export async function waitOperation(
+  token: string,
+  accountId: string,
+  operationId?: string,
+  deadline?: number,
+): Promise<void> {
   if (!operationId) return;
+  const url = `${API}/accounts/${accountId}/rules/lists/bulk_operations/${operationId}`;
   for (let i = 0; i < OPERATION_POLLS; i++) {
-    const resp = await cf(
-      token,
-      "GET",
-      `${API}/accounts/${accountId}/rules/lists/bulk_operations/${operationId}`,
-    );
+    if (deadline !== undefined && Date.now() >= deadline) {
+      throw new Error(`sync deadline exceeded after ${SYNC_DEADLINE_MS / 1000}s: ${url}`);
+    }
+    const resp = await cf(token, "GET", url, undefined, deadline);
     const status = resp?.result?.status;
     if (status === "completed") return;
     if (status === "failed") {
@@ -152,7 +242,12 @@ async function waitOperation(token: string, accountId: string, operationId?: str
         `CF list bulk operation ${operationId} failed: ${JSON.stringify(detail).slice(0, 200)}`,
       );
     }
-    await new Promise((r) => setTimeout(r, OPERATION_POLL_MS));
+    // Do not oversleep past the sync deadline; the next iteration reports the deadline error.
+    const delay =
+      deadline === undefined
+        ? OPERATION_POLL_MS
+        : Math.min(OPERATION_POLL_MS, Math.max(0, deadline - Date.now()));
+    await sleep(delay);
   }
   throw new Error(
     `CF list bulk operation ${operationId} did not finish within ` +
@@ -167,7 +262,12 @@ async function waitOperation(token: string, accountId: string, operationId?: str
  * the same page and could make the old implementation loop forever). Throw if the cursor does not
  * advance or MAX_ITEM_PAGES is exceeded; never silently sync only the first page.
  */
-async function listItems(token: string, accountId: string, listId: string): Promise<Map<string, string>> {
+async function listItems(
+  token: string,
+  accountId: string,
+  listId: string,
+  deadline?: number,
+): Promise<Map<string, string>> {
   const items = new Map<string, string>();
   let cursor = "";
   for (let page = 0; page < MAX_ITEM_PAGES; page++) {
@@ -178,6 +278,8 @@ async function listItems(token: string, accountId: string, listId: string): Prom
       token,
       "GET",
       `${API}/accounts/${accountId}/rules/lists/${listId}/items${query}`,
+      undefined,
+      deadline,
     );
     const result: Array<{ ip: string; id: string }> = resp?.result ?? [];
     for (const item of result) items.set(item.ip, item.id);
@@ -205,6 +307,9 @@ export async function sync(
     console.log("[cf] missing credentials, skipping");
     return { toAdd: [], toRemove: [] };
   }
+  // Bound the whole sync, not just individual requests, so retries and polls cannot add up to an
+  // unbounded cron invocation. Every Cloudflare call and poll below receives this deadline.
+  const deadline = Date.now() + SYNC_DEADLINE_MS;
 
   // Sync only active rows; soft-deleted admin/unblock tombstones must not return to the CF List.
   const rows = await env.DB.prepare(
@@ -212,7 +317,13 @@ export async function sync(
   ).all<{ cidr: string }>();
   const desired = new Set((rows.results ?? []).map((r) => r.cidr));
 
-  const lists = await cf(token, "GET", `${API}/accounts/${accountId}/rules/lists?per_page=100`);
+  const lists = await cf(
+    token,
+    "GET",
+    `${API}/accounts/${accountId}/rules/lists?per_page=100`,
+    undefined,
+    deadline,
+  );
   let list = (lists?.result ?? []).find((l: { name: string }) => l.name === LIST_NAME);
   if (!list) {
     if (options.dryRun) {
@@ -220,16 +331,22 @@ export async function sync(
       console.log(`[cf] dry-run: create list; +${toAdd.length} -${toRemove.length}`);
       return { toAdd, toRemove };
     }
-    const created = await cf(token, "POST", `${API}/accounts/${accountId}/rules/lists`, {
-      name: LIST_NAME,
-      kind: "ip",
-      description: "auto-blocked networks from nginx logs",
-    });
+    const created = await cf(
+      token,
+      "POST",
+      `${API}/accounts/${accountId}/rules/lists`,
+      {
+        name: LIST_NAME,
+        kind: "ip",
+        description: "auto-blocked networks from nginx logs",
+      },
+      deadline,
+    );
     list = created?.result;
   }
   if (!list?.id) throw new Error("list not found/created");
 
-  const existing = await listItems(token, accountId, list.id);
+  const existing = await listItems(token, accountId, list.id, deadline);
   const { toAdd, toRemove } = diffSync(desired, existing);
   if (options.dryRun) {
     console.log(`[cf] dry-run: +${toAdd.length} -${toRemove.length}`);
@@ -238,8 +355,14 @@ export async function sync(
 
   for (let i = 0; i < toAdd.length; i += BATCH) {
     const chunk = toAdd.slice(i, i + BATCH).map((ip) => ({ ip }));
-    const resp = await cf(token, "POST", `${API}/accounts/${accountId}/rules/lists/${list.id}/items`, chunk);
-    await waitOperation(token, accountId, resp?.result?.operation_id);
+    const resp = await cf(
+      token,
+      "POST",
+      `${API}/accounts/${accountId}/rules/lists/${list.id}/items`,
+      chunk,
+      deadline,
+    );
+    await waitOperation(token, accountId, resp?.result?.operation_id, deadline);
   }
   // toRemove contains normalized values, so do not pass them directly to existing.get(). A /32
   // may differ from its bare-IP form and fail to find the list-item ID, silently skipping deletion.
@@ -251,10 +374,16 @@ export async function sync(
       .map((ip) => ({ id: idByNormalized.get(ip) }))
       .filter((x): x is { id: string } => Boolean(x.id));
     if (!chunk.length) continue;
-    const resp = await cf(token, "DELETE", `${API}/accounts/${accountId}/rules/lists/${list.id}/items`, {
-      items: chunk,
-    });
-    await waitOperation(token, accountId, resp?.result?.operation_id);
+    const resp = await cf(
+      token,
+      "DELETE",
+      `${API}/accounts/${accountId}/rules/lists/${list.id}/items`,
+      {
+        items: chunk,
+      },
+      deadline,
+    );
+    await waitOperation(token, accountId, resp?.result?.operation_id, deadline);
   }
   console.log(`[cf] synced: +${toAdd.length} -${toRemove.length}`);
   return { toAdd, toRemove };
@@ -344,13 +473,63 @@ async function lastRunSafe(env: Env): Promise<RunRow | null> {
   }
 }
 
+export interface HealthResponse {
+  ok: boolean;
+  job: string;
+  lastRun: RunRow | null;
+  /** UTC epoch seconds of the last real sync that finished ok, or null when none has succeeded. */
+  last_success_at: number | null;
+  /** Seconds since last_success_at, or null when there is no success to measure from. */
+  lag_seconds: number | null;
+  error?: string;
+}
+
+/**
+ * Timestamp of the latest successful real sync, using one indexed read.
+ *
+ * dry_run = 0 is essential: a `?dry-run=1` invocation also records outcome='ok' but never writes
+ * the Cloudflare IP List, so counting it would reset the lag metric without any sync happening.
+ * A later failure is intentionally not considered here; the last success stays visible and the
+ * failure reason stays in lastRun.
+ */
+async function lastSuccessAt(db: D1Database): Promise<number | null> {
+  const result = await db
+    .prepare(
+      `SELECT started_at, finished_at
+         FROM worker_runs
+        WHERE job = ? AND outcome = 'ok' AND dry_run = 0
+        ORDER BY started_at DESC
+        LIMIT 1`,
+    )
+    .bind(JOB)
+    .all<{ started_at: number; finished_at: number | null }>();
+  const row = result.results?.[0];
+  if (!row) return null;
+  return typeof row.finished_at === "number" ? row.finished_at : row.started_at;
+}
+
 /** Report health only, without syncing: include the latest run and any reason the table is unavailable. */
-export async function health(env: Env): Promise<{ ok: boolean; job: string; lastRun: RunRow | null; error?: string }> {
+export async function health(env: Env): Promise<HealthResponse> {
   try {
-    return { ok: true, job: JOB, lastRun: await lastRun(env.DB, JOB) };
+    const latest = await lastRun(env.DB, JOB);
+    const lastSuccess = await lastSuccessAt(env.DB);
+    return {
+      ok: true,
+      job: JOB,
+      lastRun: latest,
+      last_success_at: lastSuccess,
+      lag_seconds: lastSuccess === null ? null : Math.max(0, runStartedAt() - lastSuccess),
+    };
   } catch (error) {
     // An unreadable run record does not mean the sync failed. Keep ok=true and include the read error.
-    return { ok: true, job: JOB, lastRun: null, error: String(error) };
+    return {
+      ok: true,
+      job: JOB,
+      lastRun: null,
+      last_success_at: null,
+      lag_seconds: null,
+      error: String(error),
+    };
   }
 }
 

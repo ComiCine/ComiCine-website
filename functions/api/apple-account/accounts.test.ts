@@ -12,7 +12,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet, onRequestPost } from "./accounts";
 import { execute, queryAll } from "../../_lib/d1";
-import { authUnavailableResponse, requireAuth } from "../../_lib/session";
+import { requireAuth } from "../../_lib/session";
 import { verifyCsrf } from "../../_lib/csrf";
 import { logEvent } from "../../_lib/logging";
 import { fernetEncrypt } from "../../_lib/fernet";
@@ -21,8 +21,10 @@ import type { Env } from "../../_lib/env";
 vi.mock("../../_lib/d1", () => ({ queryAll: vi.fn(), execute: vi.fn() }));
 vi.mock("../../_lib/session", async () => {
   // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
+  // The actual module supplies the 403 message and the 503 response, so the mock cannot drift.
+  const actual = await vi.importActual<typeof import("../../_lib/session")>("../../_lib/session");
   const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
-  return createSessionModuleMock();
+  return createSessionModuleMock(actual);
 });
 vi.mock("../../_lib/csrf", () => ({ verifyCsrf: vi.fn() }));
 vi.mock("../../_lib/fernet", () => ({ fernetEncrypt: vi.fn() }));
@@ -63,9 +65,6 @@ beforeEach(() => {
     role: "admin",
     authAt: 1,
   } as never);
-  vi.mocked(authUnavailableResponse).mockReturnValue(
-    Response.json({ error: "auth_sessions_unavailable" }, { status: 503 }),
-  );
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(fernetEncrypt).mockResolvedValue("encrypted");
   vi.mocked(execute).mockResolvedValue(true);
@@ -119,8 +118,9 @@ describe("apple account accounts API", () => {
       context(appleAccountRequest("POST", { email: "a", password: "p", notes: "" })) as never,
     );
     expect(resp.status).toBe(503);
-    // This also proves that authUnavailableResponse configured in beforeEach (the production JSON body)
-    // is active rather than dead configuration; the previous stub had no catch, so this path was unreachable.
+    // This proves the 503 branch is reachable and returns production's body: the helper delegates to
+    // `authUnavailableResponse()`, and the old plain-text default no longer exists.
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
     expect(((await resp.json()) as { error: string }).error).toBe("auth_sessions_unavailable");
     expect(vi.mocked(execute)).not.toHaveBeenCalled();
   });
@@ -144,20 +144,47 @@ describe("apple account accounts API", () => {
     expect(invalid.status).toBe(400);
   });
 
+  it("rejects a POST body larger than 8 KB before encrypting or writing", async () => {
+    const resp = await onRequestPost(
+      context(
+        appleAccountRequest("POST", { email: "alice", password: "secret", notes: "x".repeat(9000) }),
+      ) as never,
+    );
+    expect(resp.status).toBe(413);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "Request body too large" });
+    expect(vi.mocked(fernetEncrypt)).not.toHaveBeenCalled();
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a POST with no body before writing", async () => {
+    const resp = await onRequestPost(context(appleAccountRequest("POST")) as never);
+    expect(resp.status).toBe(400);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "Invalid request" });
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+  });
+
   it("creates an account for a valid admin request", async () => {
-    vi.mocked(queryAll).mockResolvedValueOnce([{ n: 2 }]);
     const resp = await onRequestPost(
       context(appleAccountRequest("POST", { email: "alice", password: "secret", notes: "note" })) as never,
     );
     expect(resp.status).toBe(200);
+    expect(vi.mocked(execute)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(execute)).toHaveBeenCalledWith(
       env.DB,
       expect.stringContaining("INSERT INTO apple_accounts"),
       "alice@apple.account.comicine.com",
       "encrypted",
       "note",
-      2,
     );
+    // The next position is computed inside the INSERT itself. A separate MAX() read let two
+    // concurrent creates compute the same value, so pin both the SQL and the bound arity.
+    const call = vi.mocked(execute).mock.calls[0];
+    expect(call[1]).toContain("COALESCE(MAX(sort_order), -1) + 1");
+    expect(call.slice(2)).toEqual(["alice@apple.account.comicine.com", "encrypted", "note"]);
+    // Regression guard for the concurrency race: creating an account must not read the table first.
+    expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
   });
 
   it("does not write without an encryption key", async () => {
@@ -177,7 +204,6 @@ describe("apple account accounts API", () => {
     const payload = { email: "alice", password: "secret", notes: "note" };
 
     it("writes an audit row when the account is created", async () => {
-      vi.mocked(queryAll).mockResolvedValueOnce([{ n: 0 }]);
       const resp = await onRequestPost(context(appleAccountRequest("POST", payload)) as never);
       expect(resp.status).toBe(200);
 
@@ -194,7 +220,6 @@ describe("apple account accounts API", () => {
     });
 
     it("still returns 409 for a real UNIQUE conflict", async () => {
-      vi.mocked(queryAll).mockResolvedValueOnce([{ n: 0 }]);
       vi.mocked(execute).mockRejectedValueOnce(
         new Error("D1_ERROR: UNIQUE constraint failed: apple_accounts.email"),
       );
@@ -215,7 +240,6 @@ describe("apple account accounts API", () => {
     });
 
     it("returns 500 and audits a non-UNIQUE D1 failure instead of claiming the email exists", async () => {
-      vi.mocked(queryAll).mockResolvedValueOnce([{ n: 0 }]);
       vi.mocked(execute).mockRejectedValueOnce(new Error("D1_ERROR: Exceeded maximum DB size"));
       const resp = await onRequestPost(context(appleAccountRequest("POST", payload)) as never);
       expect(resp.status).toBe(500);

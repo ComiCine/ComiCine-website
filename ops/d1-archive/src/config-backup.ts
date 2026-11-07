@@ -32,8 +32,14 @@
  *
  * Type fidelity: rows are serialized as JSONL (one object per line) and then gzipped. Field names and values
  * come directly from D1's response objects, without string conversion or defaults, preserving distinctions among 0/1, epoch integers, NULL, and empty strings.
+ *
+ * Integrity metadata (added 2026-11-07): manifest.json lists every other object with its exact stored byte
+ * length and SHA-256, and marks the snapshot `complete` only when no table failed. restore.py verifies a
+ * download against this index before replaying it, so a truncated or substituted object cannot silently
+ * become a restore. manifest.json itself is not listed: it cannot hash itself, and it is written last.
  */
 
+import { describeObject, sortByName, utf8Bytes, type SnapshotObject } from "./integrity";
 import { gzipJsonl } from "./jsonl";
 import { logRun } from "./log";
 import { insertRun, runStartedAt, updateRun } from "../../sync-worker/src/runlog";
@@ -344,6 +350,8 @@ export interface TableReport {
   name: string;
   rows: number;
   bytes: number;
+  /** Null exactly when the table failed, in which case there is no object entry for it either. */
+  sha256: string | null;
   error: string | null;
 }
 
@@ -353,6 +361,7 @@ export interface SnapshotResult {
   generatedAt: number;
   /** Measured D1 rows read (sum of each statement's meta.rows_read); cost evidence for this path. */
   rowsRead: number;
+  /** Keys written in this run, including manifest.json; the manifest's own `objects` excludes it. */
   objects: string[];
   tables: TableReport[];
   skippedObjects: string[];
@@ -369,6 +378,8 @@ export async function snapshotConfig(env: ArchiveEnv, now = new Date()): Promise
   const generatedAt = runStartedAt(now.getTime());
   let rowsRead = 0;
   const objects: string[] = [];
+  /** What manifest.objects records; manifest.json is never added here because it cannot hash itself. */
+  const manifestObjects: SnapshotObject[] = [];
   const tables: TableReport[] = [];
   const errors: string[] = [];
 
@@ -378,11 +389,17 @@ export async function snapshotConfig(env: ArchiveEnv, now = new Date()): Promise
 
   // Lossless copy of sqlite_master; ddl.sql is its replayable subset, and both together provide the full picture.
   const schemaPayload = await gzipJsonl(orderSchema(schemaRows));
+  // Hash before put: an object never reaches R2 without the metadata that makes it verifiable.
+  const schemaObject = await describeObject("schema.jsonl.gz", schemaPayload);
   await env.ARCHIVE.put(`${prefix}schema.jsonl.gz`, schemaPayload, GZIP_METADATA);
+  manifestObjects.push(schemaObject);
   objects.push("schema.jsonl.gz");
 
   const ddl = buildDdl(schemaRows, generatedAt);
+  // R2 stores a string payload as UTF-8, so hash exactly those bytes, not a re-serialized copy.
+  const ddlObject = await describeObject("ddl.sql", utf8Bytes(ddl.sql));
   await env.ARCHIVE.put(`${prefix}ddl.sql`, ddl.sql, SQL_METADATA);
+  manifestObjects.push(ddlObject);
   objects.push("ddl.sql");
   const ddlWritten = true;
 
@@ -392,13 +409,22 @@ export async function snapshotConfig(env: ArchiveEnv, now = new Date()): Promise
       rowsRead += result.meta?.rows_read ?? 0;
       const rows = result.results ?? [];
       const payload = await gzipJsonl(rows);
-      await env.ARCHIVE.put(`${prefix}${spec.name}.jsonl.gz`, payload, GZIP_METADATA);
-      objects.push(`${spec.name}.jsonl.gz`);
-      tables.push({ name: spec.name, rows: rows.length, bytes: payload.byteLength, error: null });
+      const tableObject = await describeObject(`${spec.name}.jsonl.gz`, payload);
+      // Put the same buffer that was hashed; a failed put leaves no manifest object entry.
+      await env.ARCHIVE.put(`${prefix}${tableObject.name}`, payload, GZIP_METADATA);
+      manifestObjects.push(tableObject);
+      objects.push(tableObject.name);
+      tables.push({
+        name: spec.name,
+        rows: rows.length,
+        bytes: tableObject.bytes,
+        sha256: tableObject.sha256,
+        error: null,
+      });
     } catch (error) {
-      // A failure to read one table must not discard the other eight; record the gap and continue writing the rest.
+      // A failure to read one table must not discard the other tables; record the gap and continue writing the rest.
       errors.push(`${spec.name}: ${String(error)}`);
-      tables.push({ name: spec.name, rows: 0, bytes: 0, error: String(error) });
+      tables.push({ name: spec.name, rows: 0, bytes: 0, sha256: null, error: String(error) });
       logRun(CONFIG_JOB, {
         outcome: "failed",
         stage: "table",
@@ -408,6 +434,12 @@ export async function snapshotConfig(env: ArchiveEnv, now = new Date()): Promise
     }
   }
 
+  // Gate that restore.py can trust: a schema-only snapshot with a failed table must not look usable.
+  const complete =
+    errors.length === 0 &&
+    tables.length === CONFIG_TABLES.length &&
+    tables.every((table) => table.error === null);
+
   const manifest = {
     job: CONFIG_JOB,
     day,
@@ -415,9 +447,10 @@ export async function snapshotConfig(env: ArchiveEnv, now = new Date()): Promise
     generated_at: generatedAt,
     generated_at_iso: new Date(generatedAt * 1000).toISOString(),
     keep_snapshots: KEEP_SNAPSHOTS,
+    complete,
     d1_rows_read: rowsRead,
     ddl_written: ddlWritten,
-    objects: [...objects, "manifest.json"],
+    objects: sortByName(manifestObjects),
     schema_objects: orderSchema(schemaRows).length,
     skipped_internal_objects: ddl.skipped,
     tables,

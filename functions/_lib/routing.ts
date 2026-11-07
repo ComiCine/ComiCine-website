@@ -11,6 +11,7 @@
 
 import type { Env } from "./env";
 import { contains, normalizeIp } from "./cidr";
+import { getCookie } from "./cookies";
 import { GATE_TRUST_IPS, GATE_TRUST_NETWORKS } from "../_data/gateTrust";
 import {
   BASE_URL,
@@ -29,6 +30,15 @@ export interface RequestContext {
   env: Env;
   next(): Promise<Response>;
   waitUntil?(promise: Promise<unknown>): void;
+}
+
+/** Non-business logs must be written after the response so they do not block pages or redirects. */
+export function defer(context: RequestContext, promise: Promise<unknown>): void {
+  if (typeof context.waitUntil === "function") {
+    context.waitUntil(promise);
+  } else {
+    void promise;
+  }
 }
 
 /**
@@ -141,23 +151,8 @@ export function isGateTrustedIp(ip: string): boolean {
   );
 }
 
-export function getCookie(name: string, header: string | null): string | undefined {
-  if (!header) return undefined;
-  for (const part of header.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    if (part.slice(0, eq).trim() === name) {
-      const value = part.slice(eq + 1).trim();
-      try {
-        return decodeURIComponent(value);
-      } catch {
-// Cookies are client-supplied; malformed percent-encoding must not turn the whole request into a 500.
-        return value;
-      }
-    }
-  }
-  return undefined;
-}
+/** Keep the existing import path working; the implementation lives in `_lib/cookies.ts`. */
+export { getCookie };
 
 /**
  * Characters forbidden in a request-controlled redirect value.
@@ -412,7 +407,9 @@ export function isApiPath(pathname: string): boolean {
 
 /**
  * Application blocklist exemptions for login, logout, and admin pages, so
- * administrators can still sign in from a blocked IP.
+ * administrators can still sign in from a blocked IP. These paths skip the D1
+ * blocklist, and `/login` and `/logout` are additionally rate limited in
+ * `_lib/rate-limit.ts`.
  *
  * Match only an exact path or its descendants (such as `/account` and
  * `/account/apple`). Do not use `startsWith("/account")`, which would also

@@ -28,7 +28,9 @@ copies are no longer allowed to coexist:
     auth_sessions 60 days
     identity_handoffs 1 day
     events / probe_uptime_daily 90 days
-    visitors_daily permanent (daily aggregation over complete UTC days only)
+    visitors_daily permanent (daily aggregation over complete UTC days only; the Worker cron in
+        ops/status-worker/src/visitor-daily.ts runs it daily, and this script remains the
+        manual/backfill entry point)
 """
 
 from __future__ import annotations
@@ -141,6 +143,9 @@ def _aggregate_sql(days: int = AGGREGATE_COMPLETE_DAYS) -> str:
        ops/migrations/013_backfill_probe_uptime.sql. SQLite's `INSERT OR REPLACE` deletes a
        conflicting row before inserting, permanently overwriting earlier hourly totals. MAX makes
        reruns monotonic and never reduces a previously recorded count.
+
+    The Worker runs a TypeScript copy of this statement from
+    `ops/status-worker/src/visitor-daily.ts`; the two must stay semantically identical.
     """
     start, end = _aggregate_window(days)
     return (
@@ -208,8 +213,10 @@ def _write_retention_state(
 def aggregate_daily(cfg: dict[str, str], days: int = AGGREGATE_COMPLETE_DAYS) -> dict[str, Any]:
     """Reaggregate recent complete UTC days into visitors_daily (idempotent and monotonic).
 
-    The Worker `retention.ts` owns the daily cron policy. This is the manual operations entry point;
-    both use the same window definition (see the module docstring).
+    The Worker runs the same aggregation daily from `ops/status-worker/src/visitor-daily.ts`, in
+    the `47 3 * * *` cron branch after retention. This script remains the manual/backfill entry
+    point; both use the same window definition and the same upsert semantics (see the module
+    docstring), so the two implementations must change together.
     """
     d1_query(cfg, _aggregate_sql(days))
     _write_retention_state(cfg, "visitors_daily", success=True)

@@ -56,12 +56,97 @@ def test_not_found_page_is_localized_without_a_quote_in_every_language(tmp_path)
     assert '<html lang="en-us">' in fallback
 
 
-def test_services_page_loads_currency_metadata_before_currency_ui():
+def test_services_page_defers_currency_metadata_until_needed():
+    """Currency metadata is fetched on demand instead of blocking the services page first paint."""
     html = build.render_page(RENDER_APP, "services.html", "/services", "en-us")
+    assert "currency-data.js" not in html
 
-    metadata_script = html.index("/static/js/currency-data.js")
-    currency_ui_script = html.index("/static/js/services.js")
-    assert metadata_script < currency_ui_script
+    services_js = (Path(build.BASE_DIR) / "src/static/js/services.js").read_text(encoding="utf-8")
+    assert "CURRENCY_DATA_URL = '/static/js/currency-data.js?v=2'" in services_js
+    assert "createElement('script')" in services_js
+    # The loader is reached from the picker button and from the shared opener used by the card
+    # click, the deep link, and back/forward navigation.
+    assert services_js.count("loadCurrencySearchData()") >= 3
+    assert services_js.count("openServiceModal(") >= 3
+
+
+def test_services_currency_selection_is_persisted_and_failures_are_distinguished():
+    """The chosen currency survives reloads and cached rates get their own status copy."""
+    services_js = (Path(build.BASE_DIR) / "src/static/js/services.js").read_text(encoding="utf-8")
+    assert "comicine-services-currency" in services_js
+    assert "function readStoredCurrency" in services_js
+    assert "function writeStoredCurrency" in services_js
+    assert "addEventListener('storage'" in services_js
+    assert "currency_cached_rates" in services_js
+    assert "currency_saved_unavailable" in services_js
+    # Cross-tab sync must not write the value back, or the two tabs echo it forever.
+    assert "reconcileSelection(currencyData, false)" in services_js
+    # A nested picker closes before the dialog underneath it on back/forward.
+    assert "closeNestedLayer" in services_js
+
+    for lang in build.LANGS:
+        locale = json.loads((Path(build.LOCALES_DIR) / f"{lang}.json").read_text(encoding="utf-8"))
+        for key in ("currency_cached_rates", "currency_saved_unavailable"):
+            assert key in locale, (lang, key)
+
+
+def test_visitor_page_reports_refresh_status_and_timeout():
+    """The dashboard shows the last successful refresh, a classified failure reason, and a retry button."""
+    html = build.render_page(RENDER_APP, "visitor.html", "/visitor", "en-us")
+    assert 'id="visitor-status"' in html and 'role="status"' in html
+    assert 'id="visitor-status"' in html and 'aria-live="polite"' in html
+    assert 'id="visitor-retry"' in html and 'data-action="refresh"' in html
+
+    visitor_js = (Path(build.BASE_DIR) / "src/static/js/visitor.js").read_text(encoding="utf-8")
+    assert "REQUEST_TIMEOUT_MS" in visitor_js
+    assert "AbortController" in visitor_js
+    assert "classifyFailure" in visitor_js
+    assert "visitor_updated_at" in visitor_js
+
+    keys = (
+        "visitor_updated_at",
+        "visitor_error_timeout",
+        "visitor_error_network",
+        "visitor_error_auth",
+        "visitor_error_forbidden",
+        "visitor_error_server",
+        "visitor_retry",
+    )
+    for lang in build.LANGS:
+        locale = json.loads((Path(build.LOCALES_DIR) / f"{lang}.json").read_text(encoding="utf-8"))
+        for key in keys:
+            assert key in locale, (lang, key)
+
+
+def test_service_and_account_pages_share_one_dialog_helper():
+    """Both pages load the same classic-script helper; the Apple modals carry dialog semantics."""
+    services_html = build.render_page(RENDER_APP, "services.html", "/services", "en-us")
+    account_html = build.render_page(RENDER_APP, "apple-account.html", "/apple-account", "en-us")
+    for html in (services_html, account_html):
+        assert "/static/js/dialog.js?v=1" in html
+    dialog_tag = '<script src="/static/js/dialog.js?v=1" defer></script>'
+    assert services_html.index(dialog_tag) < services_html.index('<script src="/static/js/services.js')
+    assert account_html.index(dialog_tag) < account_html.index('<script src="/static/js/apple-account.js')
+
+    assert account_html.count('role="dialog"') >= 2
+    assert account_html.count('aria-modal="true"') >= 2
+    assert 'aria-labelledby="modal-title"' in account_html
+    assert 'aria-labelledby="delete-modal-title"' in account_html
+    assert 'id="toast"' in account_html and 'role="status"' in account_html
+
+    dialog_js = (Path(build.BASE_DIR) / "src/static/js/dialog.js").read_text(encoding="utf-8")
+    for token in ("window.ComiCineDialog", "Escape", "inert", "closeAll", "attr-hidden", "class-hidden"):
+        assert token in dialog_js, token
+    # The helper must not create announcement nodes; templates own the live regions.
+    assert "createElement" not in dialog_js
+
+    account_js = (Path(build.BASE_DIR) / "src/static/js/apple-account.js").read_text(encoding="utf-8")
+    # Escape closes through the helper, so every close path must run the same cleanup.
+    assert "onClose: resetAccountModal" in account_js
+    assert "onClose: resetDeleteTarget" in account_js
+    assert "document.body.style.overflow" not in account_js
+    # Escape is delegated to the helper instead of closing both modals at once.
+    assert "e.key === 'Escape'" not in account_js
 
 
 def test_body_translation_dict_does_not_collide_with_i18n_markers():
@@ -235,7 +320,7 @@ def test_templates_use_the_correct_logo_variant():
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4" alt="ComiCine" width="525" height="150"' in gate
     assert "https://image.comicine.com" not in home + services + contact + gate
     assert "data-image-watermark-base" not in home
-    assert "/static/js/base.js?v=21" in home
+    assert "/static/js/base.js?v=22" in home
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home
@@ -303,6 +388,24 @@ def test_discovery_files_are_ungated_and_allow_crawlers(tmp_path):
         assert f"https://{host}/" in sitemap
 
 
+def test_mcp_is_not_advertised_and_stays_disallowed(tmp_path):
+    """MCP stays private: llms.txt, robots.txt and the gate must keep saying so.
+
+    The policy decision is minimum exposure, so this test pins the two discovery
+    surfaces: /llms.txt must not advertise the endpoint, and /robots.txt must keep
+    disallowing it in every rules group. The gate side is covered by
+    functions/mcp.test.ts, which asserts /mcp stays non-exempt.
+    """
+    build.write_discovery_files(str(tmp_path))
+
+    llms = (tmp_path / "llms.txt").read_text(encoding="utf-8")
+    assert "mcp" not in llms.lower()
+
+    source = Path(build.ROBOTS_SOURCE).read_text(encoding="utf-8")
+    assert "Allow: /mcp" not in source
+    assert source.count("Disallow: /mcp") == source.count("Allow: /")
+
+
 def test_robots_source_guard_rejects_a_broken_file(tmp_path, monkeypatch):
     """The build must fail if the source is empty or malformed because it also controls crawler exemptions."""
     broken = tmp_path / "robots.txt"
@@ -357,7 +460,7 @@ def test_html_lang_is_rendered_by_the_template_for_every_language():
     assert '<html lang=\\"zh-cn\\">' not in build_py
 
 
-def test_require_locale_keys_fails_loudly_on_missing_key(monkeypatch):
+def test_validate_redirect_copy_fails_loudly_on_missing_key(monkeypatch):
     """W1-2: Missing redirect copy must raise RuntimeError instead of silently falling back to Chinese."""
     complete = build.load_translations()
     broken = {lang: dict(data) for lang, data in complete.items()}
@@ -365,7 +468,7 @@ def test_require_locale_keys_fails_loudly_on_missing_key(monkeypatch):
     monkeypatch.setattr(build, "load_translations", lambda: broken)
 
     try:
-        build._require_locale_keys("en-us", build.REDIRECT_I18N_KEYS)
+        build.validate_redirect_copy()
     except RuntimeError as exc:
         assert "redirect_title" in str(exc)
         assert "en-us.json" in str(exc)
@@ -373,7 +476,24 @@ def test_require_locale_keys_fails_loudly_on_missing_key(monkeypatch):
         raise AssertionError("missing redirect_title must raise RuntimeError")
 
 
-def test_require_locale_keys_accepts_complete_locales():
+def test_validate_redirect_copy_fails_on_empty_value(monkeypatch):
+    """An empty string is as unusable as a missing key; the redirect shell would render blank copy."""
+    complete = build.load_translations()
+    broken = {lang: dict(data) for lang, data in complete.items()}
+    broken["ko-kr"]["redirect_text"] = ""
+    monkeypatch.setattr(build, "load_translations", lambda: broken)
+
+    try:
+        build.validate_redirect_copy()
+    except RuntimeError as exc:
+        assert "redirect_text" in str(exc)
+        assert "ko-kr.json" in str(exc)
+    else:  # pragma: no cover - Reached only when the contract is invalid.
+        raise AssertionError("empty redirect_text must raise RuntimeError")
+
+
+def test_validate_redirect_copy_accepts_complete_locales():
+    build.validate_redirect_copy()
     for lang in build.LANGS:
         redirect = build._require_locale_keys(lang, build.REDIRECT_I18N_KEYS)
         assert redirect["title"] and redirect["text"]
@@ -383,21 +503,16 @@ def test_require_locale_keys_accepts_complete_locales():
         assert gate["title"] and gate["footer_rights"]
 
 
-def test_write_runtime_functions_refuses_to_fall_back_to_chinese(tmp_path, monkeypatch):
-    """W1-2: write_runtime_functions fails on a missing key instead of generating runtime.ts with a Chinese fallback."""
-    complete = build.load_translations()
-    broken = {lang: dict(data) for lang, data in complete.items()}
-    del broken["ja-jp"]["footer_source_link"]
-    monkeypatch.setattr(build, "load_translations", lambda: broken)
+def test_write_runtime_functions_emits_no_redirect_table(tmp_path, monkeypatch):
+    """The redirect shell is prerendered, so runtime.ts carries gate copy and preload assets only."""
     monkeypatch.setattr(build, "FUNCTIONS_DIR", str(tmp_path))
 
-    try:
-        build.write_runtime_functions()
-    except RuntimeError as exc:
-        assert "footer_source_link" in str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("missing footer_source_link must raise RuntimeError")
-    assert not (tmp_path / "_data" / "runtime.ts").exists()
+    build.write_runtime_functions()
+
+    source = (tmp_path / "_data" / "runtime.ts").read_text(encoding="utf-8")
+    assert "export const GATE_I18N" in source
+    assert "export const REDIRECT_PRELOAD_IMAGES" in source
+    assert "REDIRECT_I18N" not in source
 
 
 def test_validate_locale_completeness_catches_html_footer_drift():
@@ -545,3 +660,57 @@ def test_lang_options_follow_the_contract_at_call_time(monkeypatch):
     monkeypatch.undo()
     options = render_app._cached_lang_options(tuple(config.SUPPORTED_LANGS))
     assert [o["code"] for o in options] == list(build.LANGS)
+
+
+def test_shared_ui_loads_before_the_page_script_it_backs():
+    """base.js and auth.js call window.ComiCineUI at load, so shared-ui.js must come first.
+
+    The dependency is a plain classic script on purpose: it keeps CSP at script-src 'self'
+    without a module graph, which makes execution order depend on the template order.
+    """
+    home = build.render_page(RENDER_APP, "index.html", "/", "en-us")
+    gate = build.render_page(RENDER_APP, "auth.html", "/gate", "en-us")
+
+    assert home.index("/static/js/shared-ui.js?v=1") < home.index("/static/js/base.js?v=22")
+    assert gate.index("/static/js/shared-ui.js?v=1") < gate.index("/static/js/auth.js?v=14")
+
+
+def test_navigation_menu_aria_contract_is_rendered():
+    """Suggestion 44: triggers declare their menu, menus start hidden, current page is marked."""
+    home = build.render_page(RENDER_APP, "index.html", "/", "en-us")
+
+    assert 'aria-controls="langMenu"' in home
+    lang_menu = home[home.index('id="langMenu"'):]
+    lang_menu_open_tag = lang_menu[:lang_menu.index(">") + 1]
+    assert 'aria-hidden="true"' in lang_menu_open_tag
+    assert 'class="nav-link active" aria-current="page"' in home
+    assert 'class="nav-screen-link active" aria-current="page"' in home
+
+
+def test_current_page_marking_follows_the_served_template():
+    """Task 44: each host serves its own prerendered page, so the baked nav marks that page.
+
+    pageAsset() maps host + path to a template; the path baked into that template decides the
+    current item. Marking Home active on services.comicine.com would make aria-current lie.
+    """
+    home = build.render_page(RENDER_APP, "index.html", "/", "en-us")
+    services = build.render_page(RENDER_APP, "services.html", "/services", "en-us")
+
+    def nav_link_tag(html, href):
+        for match in re.finditer(r'<a href="([^"]+)" class="nav-link[^"]*"[^>]*>', html):
+            if match.group(1) == href:
+                return match.group(0)
+        raise AssertionError("missing nav link " + href)
+
+    assert 'aria-current="page"' in nav_link_tag(home, "https://comicine.com")
+    assert 'aria-current="page"' not in nav_link_tag(services, "https://comicine.com")
+    assert 'aria-current="page"' in nav_link_tag(services, "https://services.comicine.com")
+    assert 'aria-current="page"' not in nav_link_tag(services, "https://contact.comicine.com")
+
+
+def test_selected_language_carries_aria_current_in_rendered_markup():
+    html = build.render_page(RENDER_APP, "index.html", "/", "en-us")
+    selected = re.findall(r'<a [^>]*class="theme-option selected"[^>]*>', html)
+    assert len(selected) == 1
+    assert 'aria-current="page"' in selected[0]
+    assert 'class="theme-option" data-lang="zh-cn"' in html

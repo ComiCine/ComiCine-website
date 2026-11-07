@@ -42,6 +42,15 @@ describe("docs language selection follows the main site", () => {
     ).toBe("ko-kr");
   });
 
+  it("does not throw on a malformed percent-encoded cookie and falls through to Accept-Language", () => {
+    const detect = () =>
+      detectMainSiteLanguage(
+        request({ Cookie: "user_lang_preference=%zz", "Accept-Language": "ko-KR" }, "US"),
+      );
+    expect(detect).not.toThrow();
+    expect(detect()).toBe("ko-kr");
+  });
+
   it("honors Accept-Language quality weights and excludes q=0 entries", () => {
     expect(
       detectMainSiteLanguage(request({ "Accept-Language": "en-US;q=0.2, ja-JP;q=0.9" })),

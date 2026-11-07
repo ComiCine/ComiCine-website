@@ -102,6 +102,13 @@
   "transport_note": "Ride-hailing reimbursed after last metro",
   "close_aria": "Close",
   "visitor_title": "Visitor IP List",
+  "visitor_updated_at": "Updated {time}",
+  "visitor_error_timeout": "The request timed out. Try again.",
+  "visitor_error_network": "The network connection failed. Check it and try again.",
+  "visitor_error_auth": "Your session expired. Sign in again.",
+  "visitor_error_forbidden": "This account is not allowed to view visitors.",
+  "visitor_error_server": "The service is temporarily unavailable. Try again later.",
+  "visitor_retry": "Retry",
   "stat_ips": "Unique IPs",
   "stat_requests": "Total Requests",
   "stat_countries": "Countries",
@@ -185,7 +192,9 @@
   "currency_loading": "Loading reference rates…",
   "currency_no_results": "No currencies match your search.",
   "currency_api_unavailable": "Reference rates are unavailable. Prices remain in CNY.",
+  "currency_cached_rates": "Live rates are unavailable; showing cached rates dated {date}.",
   "currency_rate_date": "Reference rates dated {date}. Rates are indicative only.",
   "currency_rate_unavailable": "No CNY reference rate is available for this currency.",
+  "currency_saved_unavailable": "The previously selected currency has no rate; switched back to CNY.",
   "currency_reference_label": "Approximately {code} {amount}, reference rate date {date}."
 }

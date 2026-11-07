@@ -21,10 +21,9 @@ import { onRequestGet } from "./logout";
 import type { Env } from "./_lib/env";
 import { revokeAuthSession, readSession } from "./_lib/session";
 
-  // Logout writes an audit row; this test checks only Location, so D1 is not asserted here.
+  // Logout emits diagnostic rows; this test checks only Location, so D1 is not asserted here.
 vi.mock("./_lib/logging", () => ({
   logEvent: async () => undefined,
-  shouldLogThrottled: () => true,
 }));
 vi.mock("./_lib/session", async (importOriginal) => {
   const original = await importOriginal<typeof import("./_lib/session")>();
@@ -78,7 +77,19 @@ describe("logout next validation", () => {
 
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe("https://comicine.com/");
-    expect(resp.headers.getSetCookie()).toHaveLength(2);
+    // Session cookie (current and pre-`__Host-` names) plus the pending cookie. Each clear must be
+    // host-only: a Domain attribute would be rejected by the browser for the `__Host-` name.
+    const cookies = resp.headers.getSetCookie();
+    expect(cookies).toHaveLength(3);
+    expect(cookies[0].startsWith("__Host-comicine_session=;")).toBe(true);
+    expect(cookies[1].startsWith("comicine_session=;")).toBe(true);
+    expect(cookies[2].startsWith("comicine_pending=;")).toBe(true);
+    for (const cookie of cookies) {
+      expect(cookie).toContain("Max-Age=0");
+      expect(cookie).toContain("Path=/");
+      expect(cookie).toContain("Secure");
+      expect(cookie).not.toContain("Domain=");
+    }
   });
 
   it("falls back to the site root for an off-site next when Access is unconfigured", async () => {

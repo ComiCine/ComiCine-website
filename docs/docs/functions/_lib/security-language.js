@@ -9,6 +9,12 @@ export const SUPPORTED_LANGS = ["zh-cn", "en-us", "ja-jp", "ko-kr"];
 export const DEFAULT_LANG = "en-us";
 const LANG_COOKIE = "user_lang_preference";
 
+/**
+ * Read the shared language cookie. Decode with `decodeURIComponent`, fall back
+ * to the raw value when the client sent a malformed percent sequence, then
+ * lowercase for language matching. The main site applies the same rule in
+ * `functions/_lib/cookies.ts` (`getCookie`); keep the two aligned.
+ */
 function readLanguageCookie(header) {
   if (!header) return null;
   for (const part of header.split(";")) {

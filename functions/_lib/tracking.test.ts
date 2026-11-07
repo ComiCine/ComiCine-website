@@ -170,7 +170,7 @@ describe("tracking", () => {
       batch: () => undefined,
       prepare: () => ({ bind: () => ({ run: async () => ({ success: false }) }) }),
     } as unknown as Env;
-    const localEnv = { ...env, DB: failing } as Env;
+    const localEnv = { ...env, DB: failing } as unknown as Env;
 
     for (let i = 0; i < 4; i++) {
       await mod.recordVisit(localEnv, request("https://comicine.com/"), 200);

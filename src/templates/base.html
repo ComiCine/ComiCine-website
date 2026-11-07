@@ -27,7 +27,8 @@ See ADDITIONAL_TERMS.txt.
 
     <!-- Preload site-wide interaction scripts so they are fetched before page content appears. -->
     <link rel="preload" href="/static/js/actions.js?v=1" as="script">
-    <link rel="preload" href="/static/js/base.js?v=21" as="script">
+    <link rel="preload" href="/static/js/shared-ui.js?v=1" as="script">
+    <link rel="preload" href="/static/js/base.js?v=22" as="script">
 
     <!-- Icons. -->
     <!-- Keep ?v= in the URL: /static/*.svg is immutable for a year in _headers, so a changed icon without a new version stays cached. -->
@@ -48,11 +49,11 @@ See ADDITIONAL_TERMS.txt.
     <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
 <!-- Site base styles extracted and optimized from the former inline template styles. -->
-    <link rel="stylesheet" href="/static/css/base.css?v=32">
+    <link rel="stylesheet" href="/static/css/base.css?v=33">
 
     {% block head_links %}{% endblock %}
 </head>
-<body class="antialiased {% block body_class %}{% endblock %}" data-lang="{{ g.lang }}" {% include "_lang_attrs.html" %} data-gate-url="{{ gate_url }}" data-image-asset-base="{{ image_asset_base }}" data-portfolio-thumbs="{% for item in portfolio_items %}/static/portfolio/thumbs/{{ item.stem }}-640.avif{% if not loop.last %} {% endif %}{% endfor %}" data-i18n-dict='{{ translations | tojson }}'>
+<body class="antialiased {% block body_class %}{% endblock %}" data-lang="{{ g.lang }}" {% include "_lang_attrs.html" %} data-gate-url="{{ gate_url }}" data-image-asset-base="{{ image_asset_base }}" data-portfolio-thumbs="{% for item in portfolio_items %}/static/portfolio/thumbs/{{ item.stem }}-{{ item.default_thumb_width }}.avif{% if not loop.last %} {% endif %}{% endfor %}" data-i18n-dict='{{ translations | tojson }}'>
 
     <!-- Flash component, enabled by individual pages as needed and hidden by default. -->
     {% block flash %}{% endblock %}
@@ -63,7 +64,9 @@ See ADDITIONAL_TERMS.txt.
     {% set services_url = 'https://services.comicine.com' if is_prod else '/services' %}
     {% set contact_url = 'https://contact.comicine.com' if is_prod else '/contact' %}
     {% set status_url = 'https://status.comicine.com' if is_prod else '/status' %}
-    {% set page = 'home' if request.path == '/' else ('services' if request.path == '/services' else ('contact' if request.path == '/contact' else '')) %}
+    {# Each host serves its own prerendered page, so the build-time path identifies the
+       current nav item; the portfolio view belongs to home. #}
+    {% set page = 'home' if request.path in ('/', '/index.html', '/portfolio') else ('services' if request.path in ('/services', '/services.html') else ('contact' if request.path in ('/contact', '/contact.html') else '')) %}
     {% block nav %}
     <nav class="site-nav">
         <div class="nav-inner">
@@ -76,15 +79,15 @@ See ADDITIONAL_TERMS.txt.
             <div class="nav-right">
                 {% block nav_links %}
                 <div class="global-nav">
-                    <a href="{{ home_url }}" class="nav-link{% if page == 'home' %} active{% endif %}">
+                    <a href="{{ home_url }}" class="nav-link{% if page == 'home' %} active{% endif %}"{% if page == 'home' %} aria-current="page"{% endif %}>
                         <span data-i18n="nav_home">{{ _('nav_home') }}</span>
                         {% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
                     </a>
-                    <a href="{{ services_url }}" class="nav-link{% if page == 'services' %} active{% endif %}">
+                    <a href="{{ services_url }}" class="nav-link{% if page == 'services' %} active{% endif %}"{% if page == 'services' %} aria-current="page"{% endif %}>
                         <span data-i18n="nav_services">{{ _('nav_services') }}</span>
                         {% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
                     </a>
-                    <a href="{{ contact_url }}" class="nav-link{% if page == 'contact' %} active{% endif %}">
+                    <a href="{{ contact_url }}" class="nav-link{% if page == 'contact' %} active{% endif %}"{% if page == 'contact' %} aria-current="page"{% endif %}>
                         <span data-i18n="nav_contact">{{ _('nav_contact') }}</span>
                         {% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}
                     </a>
@@ -93,13 +96,13 @@ See ADDITIONAL_TERMS.txt.
                 {% endblock %}
 
                 <div class="lang-toggle lang-flyout nav-desktop-language">
-                    <button class="lang-btn" id="lang-btn" type="button" data-action="toggleLangMenu" data-needs-event aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-haspopup="true" aria-expanded="false">
+                    <button class="lang-btn" id="lang-btn" type="button" data-action="toggleLangMenu" data-needs-event aria-label="{{ _('lang_aria') }}" data-i18n-attr="aria-label:lang_aria" aria-haspopup="true" aria-controls="langMenu" aria-expanded="false">
                         <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
                         <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
-                    <div id="langMenu" class="lang-menu">
+                    <div id="langMenu" class="lang-menu" aria-hidden="true">
                         {% for option in lang_options %}
-                        <a href="{{ request.path }}" class="theme-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a>
+                        <a href="{{ request.path }}" class="theme-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent{% if g.lang == option.code %} aria-current="page"{% endif %}><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a>
                         {% endfor %}
                     </div>
                 </div>
@@ -141,9 +144,9 @@ See ADDITIONAL_TERMS.txt.
         <div class="nav-screen-container">
             <nav class="nav-screen-links" aria-label="{{ _('nav_menu_aria') }}">
                 {% block nav_screen_links %}
-                <a class="nav-screen-link{% if page == 'home' %} active{% endif %}" href="{{ home_url }}"><span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
-                <a class="nav-screen-link{% if page == 'services' %} active{% endif %}" href="{{ services_url }}"><span data-i18n="nav_services">{{ _('nav_services') }}</span>{% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
-                <a class="nav-screen-link{% if page == 'contact' %} active{% endif %}" href="{{ contact_url }}"><span data-i18n="nav_contact">{{ _('nav_contact') }}</span>{% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                <a class="nav-screen-link{% if page == 'home' %} active{% endif %}"{% if page == 'home' %} aria-current="page"{% endif %} href="{{ home_url }}"><span data-i18n="nav_home">{{ _('nav_home') }}</span>{% if home_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                <a class="nav-screen-link{% if page == 'services' %} active{% endif %}"{% if page == 'services' %} aria-current="page"{% endif %} href="{{ services_url }}"><span data-i18n="nav_services">{{ _('nav_services') }}</span>{% if services_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
+                <a class="nav-screen-link{% if page == 'contact' %} active{% endif %}"{% if page == 'contact' %} aria-current="page"{% endif %} href="{{ contact_url }}"><span data-i18n="nav_contact">{{ _('nav_contact') }}</span>{% if contact_url.startswith('http') %}<svg class="nav-external" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>{% endif %}</a>
                 {% endblock %}
             </nav>
             <div class="nav-screen-translations">
@@ -153,7 +156,7 @@ See ADDITIONAL_TERMS.txt.
                 </button>
                 <ul id="nav-screen-language-list" class="nav-screen-language-list" aria-hidden="true" inert>
                     {% for option in lang_options %}
-                    <li><a href="{{ request.path }}" class="nav-screen-language-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a></li>
+                    <li><a href="{{ request.path }}" class="nav-screen-language-option{% if g.lang == option.code %} selected{% endif %}" data-lang="{{ option.code }}" data-action="setLang" data-arg="{{ option.code }}" data-prevent{% if g.lang == option.code %} aria-current="page"{% endif %}><span class="lang-flag">{{ option.flag }}</span><span data-i18n="{{ option.label_key }}">{{ _(option.label_key) }}</span></a></li>
                     {% endfor %}
                 </ul>
             </div>
@@ -182,7 +185,8 @@ See ADDITIONAL_TERMS.txt.
     {% endblock %}
 
     <script src="/static/js/actions.js?v=1" defer></script>
-    <script src="/static/js/base.js?v=21" defer></script>
+    <script src="/static/js/shared-ui.js?v=1" defer></script>
+    <script src="/static/js/base.js?v=22" defer></script>
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
 </body>

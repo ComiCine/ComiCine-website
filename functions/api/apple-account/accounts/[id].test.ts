@@ -12,7 +12,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestDelete, onRequestPut } from "./[id]";
 import { execute, queryAll } from "../../../_lib/d1";
-import { authUnavailableResponse, requireAuth } from "../../../_lib/session";
+import { requireAuth } from "../../../_lib/session";
 import { verifyCsrf } from "../../../_lib/csrf";
 import { fernetEncrypt } from "../../../_lib/fernet";
 import { logEvent } from "../../../_lib/logging";
@@ -21,8 +21,10 @@ import type { Env } from "../../../_lib/env";
 vi.mock("../../../_lib/d1", () => ({ queryAll: vi.fn(), execute: vi.fn() }));
 vi.mock("../../../_lib/session", async () => {
   // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
+  // The actual module supplies the 403 message and the 503 response, so the mock cannot drift.
+  const actual = await vi.importActual<typeof import("../../../_lib/session")>("../../../_lib/session");
   const { createSessionModuleMock } = await import("../../../../tests/helpers/admin-session");
-  return createSessionModuleMock();
+  return createSessionModuleMock(actual);
 });
 vi.mock("../../../_lib/csrf", () => ({ verifyCsrf: vi.fn() }));
 vi.mock("../../../_lib/fernet", () => ({ fernetEncrypt: vi.fn() }));
@@ -49,9 +51,6 @@ beforeEach(() => {
     role: "admin",
     authAt: 1,
   } as never);
-  vi.mocked(authUnavailableResponse).mockReturnValue(
-    Response.json({ error: "auth_sessions_unavailable" }, { status: 503 }),
-  );
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(fernetEncrypt).mockResolvedValue("encrypted");
   // Use mockReset rather than clear: clearAllMocks does not clear the "Once" queue,
@@ -133,6 +132,43 @@ describe("apple-account account id API", () => {
     expect(badId.status).toBe(400);
   });
 
+  it("rejects an update body larger than 8 KB before writing", async () => {
+    const resp = await onRequestPut(
+      context(
+        request("PUT", {
+          email: "alice@apple.account.comicine.com",
+          password: "",
+          notes: "x".repeat(9000),
+          password_changed: false,
+        }),
+      ) as never,
+    );
+    expect(resp.status).toBe(413);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "Request body too large" });
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed JSON update body before writing", async () => {
+    const resp = await onRequestPut(
+      context(
+        new Request("https://account.comicine.com/api/apple-account/accounts/1", {
+          method: "PUT",
+          headers: {
+            Origin: "https://account.comicine.com",
+            "X-CSRF-Token": "valid",
+            "Content-Type": "application/json",
+          },
+          body: "{not json",
+        }),
+      ) as never,
+    );
+    expect(resp.status).toBe(400);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "Invalid request" });
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+  });
+
   // W5-15: fail closed with 503 when the revocation table is unavailable; do not read or write account data.
   it("fails closed with 503 when the session store is unavailable", async () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
@@ -145,6 +181,7 @@ describe("apple-account account id API", () => {
       })) as never,
     );
     expect(resp.status).toBe(503);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
     expect(((await resp.json()) as { error: string }).error).toBe("auth_sessions_unavailable");
     expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
     expect(vi.mocked(execute)).not.toHaveBeenCalled();

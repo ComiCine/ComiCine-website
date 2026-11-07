@@ -30,7 +30,7 @@ describe("shared config", () => {
     expect(DEFAULT_LANG).toBe("en-us");
     expect(SUPPORTED_LANGS).toContain("zh-cn");
     expect(GATE_COOKIE).toBe("__gate");
-    expect(SESSION_COOKIE).toBe("comicine_session");
+    expect(SESSION_COOKIE).toBe("__Host-comicine_session");
     expect(PENDING_COOKIE).toBe("comicine_pending");
     expect(LANG_COOKIE).toBe("user_lang_preference");
   });

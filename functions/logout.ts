@@ -18,6 +18,7 @@
 
 import { accessLogoutUrl, accessTeamDomain } from "./_lib/access";
 import {
+  clearLegacySessionCookie,
   clearPendingCookie,
   clearSessionCookie,
   configErrorResponse,
@@ -26,7 +27,8 @@ import {
   runtimeConfigError,
 } from "./_lib/session";
 import type { Env } from "./_lib/env";
-import { logEvent, shouldLogThrottled } from "./_lib/logging";
+import { logEvent } from "./_lib/logging";
+import { shouldLogDiagnostic } from "./_lib/sampling";
 import { clientIpForLogs, safeNextUrl } from "./_lib/routing";
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -55,7 +57,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // /logout is reachable without a gate cookie from a spoofed crawler UA, so keep the
   // first logout log per source per minute instead of one events row per request.
-  if (shouldLogThrottled("logout", clientIpForLogs(request))) {
+  if (shouldLogDiagnostic("logout", clientIpForLogs(request))) {
     await logEvent(env, "logout", request, {
       outcome: "ok",
       status: 302,
@@ -67,6 +69,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const target = accessTeamDomain(env) ? accessLogoutUrl(env, next) : next;
   const resp = new Response(null, { status: 302, headers: { Location: target } });
   resp.headers.append("Set-Cookie", clearSessionCookie());
+  // The pre-`__Host-` name is cleared too so a browser holding both cannot keep using the old one
+  // after logout; both clears stay host-only, which is what the prefixed name requires.
+  resp.headers.append("Set-Cookie", clearLegacySessionCookie());
   resp.headers.append("Set-Cookie", clearPendingCookie());
   return resp;
 };

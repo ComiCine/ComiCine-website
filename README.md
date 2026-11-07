@@ -41,6 +41,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 | Static assets / originals backup | Pages asset server + private R2 bucket `comicine-originals` | Cloudflare |
 | Deployment | `ops/deploy.sh` (git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`) | local |
 
+How those layers connect — the request pipeline, the identity handoff, the docs site build, the standalone Workers and the generated artifacts — is described in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Project structure
 
 ```
@@ -55,6 +57,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
+├── ARCHITECTURE.md                                   # request flow, identity, Workers and build artifacts (English)
+├── SECURITY.md                                       # threat model, trust tiers and key handling (English)
 ├── LICENSE.txt                                        # Official GNU AGPL v3 text
 ├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms (English)
 ├── ADDITIONAL_TERMS_zh_CN.txt                         # Simplified Chinese translation
@@ -97,6 +101,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
 │   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
+│   ├── smoke.sh                                      # standalone read-only smoke checks (main site, docs, status)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -249,7 +254,7 @@ windows and every path in the tree below:
 | Schedule | Worker | Job |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | HTTP/D1 probes every minute; a Durable Object alarm re-checks every 10s while a probe is down, and alerts on state change |
-| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d) |
+| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d); the same run records per-bucket results in `retention_state`, alerts on prune failures, and runs the account-level D1 read/write budget check; it also folds the previous seven complete UTC days of visitor details into `visitors_daily` (`src/visitor-daily.ts`), the aggregate `/api/visitors` reads for its 30-day statistics |
 | `30 3 * * *` | `ops/sync-worker` | Mirrors active D1 `blocked_ips` rows to the Cloudflare IP List `comicine_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 snapshot/archive run |
 
@@ -321,14 +326,20 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Security design
 
-- Session cookies use `Secure` + `HttpOnly` + `SameSite=Lax` and are host-only, so a session cookie cannot be reused by another site;
-  every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
+- The session cookie is named `__Host-comicine_session` (contract `session_cookie`), is host-only,
+  and sets `Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` with no `Domain`; the `__Host-` prefix
+  makes the browser enforce the no-`Domain` + `Secure` + `Path=/` part, so a subdomain cannot
+  overwrite the prefixed cookie. A session presented under the pre-rename name `comicine_session`
+  is accepted only during the transition and only when it was authenticated before
+  2026-11-08T16:00Z, so a freshly minted token cannot be injected with `Domain=.comicine.com`; the
+  legacy read and its clear are removed after 2026-12-07 (one session TTL). `/logout` clears both
+  names. Every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
   rejects revoked/expired sessions. Missing runtime HMAC keys or an unavailable
   `auth_sessions` table fail closed with 503.
 - The gate fails closed too: with `TURNSTILE_SECRET`, `GATE_HMAC_KEY` or
   `SESSION_HMAC_KEY` empty, the edge answers 503 instead of rendering pages or
   issuing unsigned cookies.
-- The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
+- The `__gate` cookie is `<issued-at>.<expires-at>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   shared across the request's current or legacy root domain), minted and validated entirely at the edge.
 - An unauthenticated browser navigation to a protected page receives HTTP 401 HTML, with a same-origin external script that navigates to `identity.comicine.com/login`. Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`; the source response has already set the short-lived state cookie. API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
@@ -336,8 +347,16 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
   `ops/sync-worker` keeps the Cloudflare IP List `comicine_blocklist` in step with the
   active rows for a WAF rule to consume (that custom rule is not deployed right now)
 - Admin writes (create/update/delete) require the admin role; viewer is read-only
+- Every write endpoint reads its JSON body through `functions/_lib/request.ts`
+  (`readJsonBody`): the body is capped at 8 KB (the identity exchange at 2 KB, the Apple
+  account reorder at 32 KB because it accepts up to 1000 ids) and an oversized request is
+  cancelled mid-stream and answered with 413 instead of being buffered whole. The declared
+  `Content-Length` is only a fast-path hint; the streamed byte count is what is enforced.
 - Visitor IPs are never returned by list APIs; the full IP is Fernet-encrypted in
   `visitor_rollups.ip_enc` and decrypted one row at a time for admins
+- The full threat model — trust tiers, the identity/session boundary, fail-closed secret handling
+  and the visitor-IP pipeline — is in [SECURITY.md](SECURITY.md); vulnerability disclosure is
+  handled by the docs site policy it links to.
 
 ## Whitelist
 
@@ -361,10 +380,13 @@ turns every explicitly named `User-agent:` (everything except `*`) into
 `functions/_lib/bots.ts` matches case-insensitively against the first 512
 characters of the `User-Agent` header. Adding a crawler is one `User-agent:` line;
 the kill switch is `gate_trust.ua_allowlist_enabled` in `config-contract.json`.
-The compiled list currently holds **109 tokens** (107 User-Agents plus the
+The compiled list currently holds **101 tokens** (99 User-Agents plus the
 robots-only `Google-Extended` / `Applebot-Extended`, which never match a live
-request). Generic markers cover new bots and link-preview fetchers; Tencent
-markers include QQ and WeChat clients. Because a User-Agent is self-declared,
+request). Because every entry is a substring match, no token may also appear in
+a real browser User-Agent: the WeChat/QQ in-app browsers, the Sogou mobile
+browser, CUBOT phones, a Spider 8 tablet, preview builds and AKAI/Funai TV
+browsers all stay behind the gate, and the generic markers are limited to
+`crawler`, `fetcher` and `LLM`. Because a User-Agent is self-declared,
 this tier never skips the D1 blocklist, never receives a `__gate` cookie and
 never counts as a visitor — see
 [Gate behavior](#gate-behavior).
@@ -379,7 +401,7 @@ with a build (`bash ops/build.sh`, which runs
 
 - User-facing strings: `locales/*.json`; `functions/_data/*` and API i18n routes are generated from it.
 - Shared runtime constants: `config-contract.json` is the agreed cross-runtime contract; `src/config.py` and the generated `functions/_lib/config.ts` both consume it, with `ops/check_config_contract.py` enforcing agreement.
-- Gate/redirect copy: `locales/*.json` via `functions/_data/runtime.ts`; `src/build.py` assembles it.
+- Gate copy and redirect preload assets: `locales/*.json` via `functions/_data/runtime.ts`; `src/build.py` assembles it. Redirect page copy is prerendered into `public/<lang>/redirect.html` from the same locale files.
 - D1 schema and migrations: `ops/migrations/*.sql`; `blocked_ips` is the sole authority for blocking.
 - Security response headers baseline (when enabled): `ops/security-headers.json`.
 - Deployment and runtime boundaries: `ops/deploy.sh`; Cloudflare Pages and Workers are the only runtimes.
@@ -402,7 +424,7 @@ Runtime split:
 
 - `python3 src/build.py`: pre-renders the pages in 4 languages into `public/`, inlines
   `locales/*.json` as `functions/api/i18n/[lang].ts`, and generates shared
-  `functions/_data/runtime.ts` (gate/redirect i18n + preload assets)
+  `functions/_data/runtime.ts` (gate i18n + redirect preload assets)
 - `ops/migrations/001_init.sql`: D1 initial schema (`apple_accounts` / `blocked_ips` / `visitors`)
 - `ops/export_d1.py`: generate D1 import SQL (output in `ops/out/`, git-ignored)
 - `ops/migrations/007_visitor_status_indexes.sql`: adds `(status, ts)` and `(status, ip_hash, ts)` indexes for visitor status filtering
@@ -467,11 +489,51 @@ tokens (that same file is the gate allow-list above) — `/llms.txt` (curated in
 of the main site and `docs.comicine.com`) — and `/sitemap.xml` (the canonical home,
 services and contact URLs; `docs.comicine.com` has its own sitemap).
 
+`POST https://comicine.com/mcp` is a read-only MCP server implemented in `functions/mcp.ts` (JSON-RPC 2.0, tools `get_public_page` and `search_public_pages`); it only reads the pre-rendered public pages through the `ASSETS` binding. It is **not a public API** and is meant for allow-listed and internal clients only: `/llms.txt` deliberately omits it and `/robots.txt` disallows it, so it is not advertised. `isExemptPath("/mcp")` in `functions/_lib/routing.ts` returns false, so an unverified client receives the normal 403 Turnstile page. Access means passing the gate: an allow-listed IP, a Cloudflare verified bot, or a valid `__gate` cookie; the declared-crawler User-Agent list only skips human verification and is not authentication.
+
+Reads are bounded: a 64 KiB request body (`MAX_BODY_BYTES`), 12,000 characters of page text per read (`MAX_PAGE_TEXT`), at most 5 search hits, 4 languages and 4 readable paths; there is no per-client rate limit beyond the edge/gate, and every read is one `ASSETS` fetch of an already pre-rendered page.
+
+The modern `2026-07-28` protocol version requires the `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` headers plus `params._meta`; the legacy `2025-11-25` / `2025-06-18` / `2025-03-26` versions need no such headers, and unsupported versions answer `-32022` with `supportedVersions`. The policy is locked by `functions/mcp.test.ts` (gate/policy assertions) and `tests/test_build.py` (discovery files).
+
 Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, scoped to that request's current or legacy root domain), after which the page reloads the original target. `auth.comicine.com` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 
 Every host that renders the gate is served by the same edge code, so there is no second gate implementation to keep in sync.
 
 The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget must list every host that renders it (the `comicine.com` gate subdomains, including `auth`, `status`, `visitor`, `apple` and `images`).
+
+**Authentication rate limits (`/login` and `/logout`).** Both paths are exempt from the D1 blocklist so an
+administrator on a blocked IP can still sign in or out, which also makes them the cheapest flood
+targets; `/logout` can additionally write one D1 session-revocation update. Pages Functions throttles
+both paths per source address (`CF-Connecting-IP`):
+
+| Path | Limit | Window | Over-limit |
+| --- | --- | --- | --- |
+| `/login` | 10 requests | 60 s | `429` |
+| `/logout` | 20 requests | 60 s | `429` |
+
+- Fixed windows aligned to the UTC minute. A fixed window permits at most twice the limit
+  across a rolling minute; these are abuse throttles, not billing counters, and
+  read-modify-write races between isolates may undercount.
+- The 429 carries `Retry-After` and `Cache-Control: no-store`, never a `Location` (no 3xx). It
+  is HTML by default and JSON (`{"error":"rate_limited","retry_after":N}`) when the client asks
+  only for `application/json`; a header that also lists `text/html` keeps HTML.
+- Only the exact paths are limited. `/login/entra`, `/login/callback`, `/identity/callback`, and
+  `/api/identity/exchange` are Access login callbacks and are never throttled. `IP-CIDR`
+  allow-listed sources are exempt (they are the administrator's own addresses); declared crawler
+  User-Agents are **not** exempt, because that header is self-reported.
+- Counters never touch D1: they live in the Cache API shared inside a colo, with an isolate-memory
+  fallback for local development (and for counters in tests). A counter that cannot be read or
+  written fails open, so a cache outage cannot lock administrators out.
+- Implementation: `functions/_lib/rate-limit.ts`, called from `functions/_middleware.ts` before the
+  gate and before any database work. Unit tests: `functions/_lib/rate-limit.test.ts`.
+- Threshold basis: in the seven days before 2026-11-07 the site measured 6 `/login` and 2 `/logout`
+  requests, all from one source address, so the limits stop a flood without affecting normal
+  sign-in.
+- A zone-level rate limiting rule is not used. The Free plan allows one rule, a 10-second counting
+  period, Path/Verified-Bot-only expressions, and IP counting, so it cannot express two different
+  per-path thresholds or the IP allow-list exemption, and it answers with Cloudflare's own page
+  instead of a negotiated 429. If one is added later, keep it as a broader defense-in-depth layer
+  and leave these Worker thresholds in place.
 
 ### Page serving (clean URLs, no language path prefix)
 

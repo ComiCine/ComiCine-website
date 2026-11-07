@@ -337,17 +337,29 @@ async function copyEmail(id) {
 let deleteTargetId = null;
 
 function deleteAccount(id) {
+    var modal = document.getElementById('delete-modal');
+    if (!modal) return;
     const a = accounts.find(x => x.id === id);
     if (a) document.getElementById('delete-desc').textContent = t('delete_confirm', { email: a.email });
     deleteTargetId = id;
-    document.getElementById('delete-modal').classList.remove('hidden');
+    ComiCineDialog.open({
+        root: modal,
+        mode: 'class-hidden',
+        trigger: dialogTrigger(this),
+        initialFocus: '[data-action="closeDeleteModal"]',
+        onClose: resetDeleteTarget
+    });
+}
+
+// Every close path (button, backdrop, Escape, dialog helper) runs the same reset.
+function resetDeleteTarget() {
+    deleteTargetId = null;
 }
 
 function closeDeleteModal() {
     var modal = document.getElementById('delete-modal');
     if (!modal) return;
-    modal.classList.add('hidden');
-    deleteTargetId = null;
+    ComiCineDialog.close(modal);
 }
 
 async function confirmDelete() {
@@ -372,7 +384,15 @@ async function confirmDelete() {
 
 let editingId = null;
 
+// Safari does not focus a button on click, so pass the opener explicitly; the helper then
+// restores focus to it when the dialog closes.
+function dialogTrigger(element) {
+    return element && element.nodeType === 1 ? element : undefined;
+}
+
 function openAddModal() {
+    var modal = document.getElementById('modal');
+    if (!modal) return;
     editingId = null;
     document.getElementById('modal-title').textContent = t('modal_add_title');
     document.getElementById('field-email').value = '';
@@ -382,12 +402,20 @@ function openAddModal() {
     pwInput.dataset.real = '';
     fieldPwHidden = true;
     renderFieldPw();
-    document.getElementById('modal').classList.remove('hidden');
+    ComiCineDialog.open({
+        root: modal,
+        mode: 'class-hidden',
+        trigger: dialogTrigger(this),
+        initialFocus: '#field-email',
+        onClose: resetAccountModal
+    });
 }
 
 function openEditModal(id) {
     const a = accounts.find(x => x.id === id);
     if (!a) return;
+    var modal = document.getElementById('modal');
+    if (!modal) return;
     editingId = id;
     document.getElementById('modal-title').textContent = t('modal_edit_title');
     document.getElementById('modal-desc').textContent = t('modal_edit_desc');
@@ -400,9 +428,16 @@ function openEditModal(id) {
     pwInput.dataset.original = '';
     fieldPwHidden = true;
     renderFieldPw();
-    document.getElementById('modal').classList.remove('hidden');
+    ComiCineDialog.open({
+        root: modal,
+        mode: 'class-hidden',
+        trigger: dialogTrigger(this),
+        initialFocus: '#field-email',
+        onClose: resetAccountModal
+    });
     revealPw(id).then(function(realPw) {
-        if (realPw) {
+        // The dialog can be closed (and its password cleared) while the reveal request is in flight.
+        if (realPw && ComiCineDialog.isOpen(modal)) {
             pwInput.dataset.real = realPw;
             pwInput.dataset.original = realPw;
             renderFieldPw();
@@ -410,15 +445,19 @@ function openEditModal(id) {
     });
 }
 
-function closeModal() {
-    var modal = document.getElementById('modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    // Reset the password field so a later dialog does not retain plaintext or dots.
+// Reset the password field so a later dialog does not retain plaintext or dots. Registering it as
+// the dialog helper's onClose means Escape performs the same cleanup as the button and backdrop.
+function resetAccountModal() {
     fieldPwHidden = true;
     document.getElementById('field-password').dataset.real = '';
     document.getElementById('field-password').dataset.original = '';
     renderFieldPw();
+}
+
+function closeModal() {
+    var modal = document.getElementById('modal');
+    if (!modal) return;
+    ComiCineDialog.close(modal);
 }
 
 async function saveAccount() {
@@ -460,8 +499,8 @@ var deleteModal = document.getElementById('delete-modal');
 if (accountModal) accountModal.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 if (deleteModal) deleteModal.addEventListener('click', function(e) { if (e.target === this) closeDeleteModal(); });
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeModal(); closeDeleteModal(); }
-    if (e.key === 'Enter' && accountModal && !accountModal.classList.contains('hidden') && document.activeElement.tagName !== 'TEXTAREA') saveAccount();
+    // Closing per layer belongs to ComiCineDialog; only the save shortcut remains here.
+    if (e.key === 'Enter' && accountModal && ComiCineDialog.isOpen(accountModal) && document.activeElement.tagName !== 'TEXTAREA') saveAccount();
 });
 
 function toast(msg) { var el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); setTimeout(function(){ el.classList.remove('show'); }, 2000); }

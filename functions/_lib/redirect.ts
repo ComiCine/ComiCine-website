@@ -12,6 +12,7 @@
 import { detectLang, escapeHtml, requestUrl, templateText, withLangCookie } from "./routing";
 import type { RequestContext } from "./routing";
 import { BASE_URL, REDIRECT_HOSTNAME } from "./config";
+import { inject } from "./template";
 import { REDIRECT_PRELOAD_IMAGES } from "../_data/runtime";
 
 /** Read the generated <lang>/redirect.html and inject to, preload, and preload_links. */
@@ -27,18 +28,19 @@ export async function renderRedirectPage(context: RequestContext): Promise<Respo
     .map((rel) => `<link rel="preload" as="image" href="${escapeHtml(rel)}">`)
     .join("\n    ");
 
-// Reuse template text per language in the process; fetch from ASSETS once and read from memory thereafter.
+  // Reuse template text per language in the process; fetch from ASSETS once and read from memory thereafter.
   const source = await templateText(env, lang, "redirect.html");
   if (source === null) return new Response("Redirect page unavailable", { status: 503 });
-// The build renders the language in <html lang="{{ g.lang }}">. No template or
-// artifact contains a `{{lang}}` placeholder; inject only runtime to/preload values.
-  // One pass, so a target containing a placeholder token cannot consume a later replacement.
+  // The build renders the language in <html lang="{{ g.lang }}">. No template or
+  // artifact contains a `{{lang}}` placeholder; inject only runtime to/preload values.
+  // `to` is HTML-escaped and `preload` is JSON text; one pass keeps a target that
+  // contains a placeholder token from consuming a later replacement.
   const values: Record<string, string> = {
     to: escapeHtml(to),
     preload: JSON.stringify(rels),
     preload_links: preloadLinks,
   };
-  const html = source.replace(/\{\{(to|preload|preload_links)\}\}/g, (_match, key: string) => values[key] ?? "");
+  const html = inject(source, ["to", "preload", "preload_links"], values);
 
   return withLangCookie(
     request,

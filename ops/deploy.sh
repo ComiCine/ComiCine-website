@@ -32,11 +32,14 @@
 #   Git: committed 997f680
 #      M ops/deploy.sh       <- changed files, one per line
 #   Git: pushed to GitHub
-#   Release: done            <- Pages + Docs + Workers
+#   Release: done            <- Pages + Docs + Workers + Smoke
 #   Deploy: done
 # Only success lines are collapsed; skips still print themselves and a failing step
 # dumps its full log. Pass --full (or COMICINE_DEPLOY_VERBOSE=1) to get one line per
 # step plus every command.
+# A release run ends with `bash ops/smoke.sh`, read-only GET checks over the main
+# site, the docs site, and the status page. It needs no credentials and is safe to
+# re-run at any time.
 # Ctrl-C stops the active step, cleans temporary files, and exits 130. Staged changes remain staged;
 # completed commits, pushes, or deployments are not rolled back.
 #
@@ -310,6 +313,7 @@ if [ "$DRY_RUN" = 1 ]; then
     { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; } && echo "  requires: clean working tree (override with COMICINE_ALLOW_DIRTY=1)"
     [ -n "$WORKER" ] && echo "  would-run: bash ops/workers_deploy.sh --worker=$WORKER"
     [ "${DO_WORKERS:-0}" = 1 ] && echo "  would-run: bash ops/workers_deploy.sh   (every Worker in its list)"
+    { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ "${DO_WORKERS:-0}" = 1 ] || [ "$WORKER" = "comicine-status" ]; } && echo "  would-run: bash ops/smoke.sh"
     echo "Deploy: dry-run done"
     exit 0
 fi
@@ -683,6 +687,11 @@ if [ "${DO_WORKERS:-0}" = 1 ] && [ -z "$WORKER" ]; then
     # The label `Workers` was chosen on 2026-10-11 to match `Pages` and `Docs`; all three are
     # combined into one `Pages+Docs+Workers: done` line.
     run_step "Workers" env COMICINE_DEPLOY_GATE_PASSED=1 bash ops/workers_deploy.sh
+fi
+
+# Stage 5: standalone smoke checks over the public sites (read-only GET; no credentials).
+if [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ "${DO_WORKERS:-0}" = 1 ] || [ "$WORKER" = "comicine-status" ]; then
+    run_step "Smoke" bash ops/smoke.sh
 fi
 
 # End of release phase: print `Release: done` (also used when only Pages is deployed).

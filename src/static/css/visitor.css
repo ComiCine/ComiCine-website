@@ -46,7 +46,6 @@
         .btn-outline:hover { background:var(--hover-highlight-soft);color:var(--hover-highlight); }
         .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
         .btn-danger:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
-        .btn-sm { padding:4px 12px;font-size:11px; }
         .chip {
             border: 1px solid var(--line); background: none; color: var(--text); opacity: 0.5;
             padding: 5px 12px; border-radius: var(--radius-full); cursor: pointer; font-size: 12px; font-weight: 600;
@@ -61,7 +60,6 @@
         /* List header. */
         .list-header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 12px 0; flex-shrink: 0; }
         .list-header .title { font-size: 13px; font-weight: 700; letter-spacing: calc(0.05em*var(--ls-scale)); }
-        .list-header .sub { font-size: 11px; opacity: 0.4; margin-left: 8px; font-weight: 500; }
         .list-actions { display: flex; gap: 8px; }
         .panel-btn {
             background: none; border: 1px solid var(--line); color: var(--text); opacity: 0.5;
@@ -74,6 +72,11 @@
             .panel-btn:hover { opacity: 1; color:var(--hover-highlight); }
             .panel-btn.danger:hover { color: var(--hover-highlight); background:var(--hover-highlight-soft); }
         }
+
+        /* Status row: last successful refresh time and the failure reason; it reserves height so the filter bar does not jump. */
+        .list-status { display: flex; align-items: center; gap: 8px; padding: 0 0 8px 0; flex-shrink: 0; min-height: 20px; }
+        .visitor-status { margin: 0; font-size: 11px; font-weight: 500; opacity: 0.45; letter-spacing: calc(0.02em*var(--ls-scale)); }
+        .visitor-status.error { color: var(--danger-strong); opacity: 1; }
 
         /* IP list. */
         .visitor-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding-right: 4px; }
