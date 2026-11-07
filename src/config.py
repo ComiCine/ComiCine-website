@@ -195,6 +195,8 @@ IDENTITY_SITE_ROLES = _contract_identity_site_roles()
 IMAGE_ASSET_HOSTNAME = IMAGE_ASSET_HOST
 IMAGE_WATERMARK_HOSTNAME = IMAGE_WATERMARK_HOST
 GATE_TRUST = CONTRACT.get("gate_trust", {})
+# Keep UNION-ing legacy visitors_v2 rows: older details can still fall inside the 30-day window.
+VISITORS_INCLUDE_LEGACY = CONTRACT.get("visitors_include_legacy", True)
 OBSERVABILITY_HMAC_ENV = _contract_str("observability_hmac_env")
 
 # Open-source repository

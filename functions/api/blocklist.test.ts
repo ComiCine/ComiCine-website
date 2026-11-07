@@ -23,8 +23,10 @@ vi.mock("../_lib/d1", () => ({
 vi.mock("../_lib/logging", () => ({ logEvent: vi.fn() }));
 vi.mock("../_lib/session", async () => {
   // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
+  // The actual module supplies the 403 message and the 503 response, so the mock cannot drift.
+  const actual = await vi.importActual<typeof import("../_lib/session")>("../_lib/session");
   const { createSessionModuleMock } = await import("../../tests/helpers/admin-session");
-  return createSessionModuleMock();
+  return createSessionModuleMock(actual);
 });
 vi.mock("../_lib/csrf", () => ({ verifyCsrf: vi.fn() }));
 import { verifyCsrf } from "../_lib/csrf";
@@ -222,6 +224,41 @@ describe("blocklist API", () => {
     );
     const bound = (mutation ?? []).slice(2) as unknown[];
     expect(bound[3]).toBe("manual block");
+  });
+
+  it("rejects a body over the 8 KB JSON cap before touching D1", async () => {
+    // readJsonBody stops reading at the cap, so an oversized request never reaches the INSERT/audit
+    // batch; this endpoint keeps its own lowercase JSON copy instead of jsonBodyRejection.
+    const resp = await onRequestPost(
+      context(
+        new Request("https://comicine.com/api/blocklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cidr: "5.6.7.8", reason: "x".repeat(9000) }),
+        }),
+      ) as never,
+    );
+    expect(resp.status).toBe(413);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "request body too large" });
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+    expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed JSON body without writing to D1", async () => {
+    const resp = await onRequestPost(
+      context(
+        new Request("https://comicine.com/api/blocklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{not json",
+        }),
+      ) as never,
+    );
+    expect(resp.status).toBe(400);
+    expect(await resp.json()).toEqual({ error: "invalid json" });
+    expect(vi.mocked(execute)).not.toHaveBeenCalled();
+    expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
   });
 
   it("rejects mutating requests without CSRF", async () => {

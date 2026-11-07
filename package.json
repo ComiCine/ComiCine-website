@@ -7,8 +7,8 @@
   "scripts": {
     "test": "vitest run && node --test ops/image-watermark/src/index.test.js",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage --coverage.include='functions/**/*.ts' --coverage.include='ops/sync-worker/src/**/*.ts' --coverage.include='ops/status-worker/src/**/*.ts' --coverage.include='ops/d1-archive/src/**/*.ts' --coverage.exclude='**/*.test.ts' --coverage.exclude='functions/_data/**' --coverage.exclude='**/__mocks__/**' --coverage.reporter=text --coverage.reporter=json-summary --coverage.reportsDirectory=/tmp/comicine-coverage",
-    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json --noEmit",
     "build": "bash ops/build.sh"
   },
   "devDependencies": {

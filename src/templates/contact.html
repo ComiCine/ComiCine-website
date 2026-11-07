@@ -46,7 +46,7 @@ See ADDITIONAL_TERMS.txt.
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
     <link rel="preload" as="image" type="image/png" href="{{ _('survey_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-<link rel="preload" as="script" href="/static/js/contact.js?v=3">
+<link rel="preload" as="script" href="/static/js/contact.js?v=4">
 <link rel="stylesheet" href="/static/css/contact.css?v=8">
 {% endblock %}
 
@@ -120,12 +120,13 @@ See ADDITIONAL_TERMS.txt.
     </div>
 </main>
 
-<!-- QR overlay, shown on desktop hover. -->
+<!-- QR overlay, shown on desktop hover. contact.js assigns src from the trigger's data-qr. -->
 <div class="qr-display" id="qrDisplay">
-    <img src="" alt="QR Code" id="qrImage">
+    {# Intrinsic 1500x1500 keeps the 1:1 ratio before the hover image loads; contact.css sizes the display. #}
+    <img alt="QR Code" id="qrImage" width="1500" height="1500" decoding="async">
 </div>
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/contact.js?v=3" defer></script>
+    <script src="/static/js/contact.js?v=4" defer></script>
 {% endblock %}

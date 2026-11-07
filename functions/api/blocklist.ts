@@ -17,6 +17,7 @@
 
 import { execute, executeBatch, queryAll } from "../_lib/d1";
 import { logEvent } from "../_lib/logging";
+import { readJsonBody } from "../_lib/request";
 import { parseCidr } from "../_lib/cidr";
 import { requireAdminSession } from "../_lib/session";
 import { verifyCsrf } from "../_lib/csrf";
@@ -114,25 +115,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
   const { session } = auth;
   const request = context.request;
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "invalid json" }, 400);
+  const body = await readJsonBody(request);
+  if (!body.ok) {
+    return json(
+      { error: body.status === 413 ? "request body too large" : "invalid json" },
+      body.status,
+    );
   }
-  const raw = (body as { cidr?: unknown })?.cidr;
-  if (typeof raw !== "string") {
+  const payload = body.value as { cidr?: unknown; reason?: unknown };
+  if (typeof payload.cidr !== "string") {
     return json({ error: "cidr required" }, 400);
   }
-  const parsed = parseCidr(raw);
+  const parsed = parseCidr(payload.cidr);
   if (!parsed) {
     return json({ error: "invalid cidr" }, 400);
   }
   // Limit the reason length. Other string fields are capped, but this one was not, so one request
   // could write hundreds of KB. That could overwhelm paginated responses, consume the 500 MB database,
   // and cause the audit row to be lost with the change if the batch statement grew too large.
-  const rawReason =
-    typeof (body as { reason?: unknown }).reason === "string" ? (body as { reason: string }).reason : "";
+  const rawReason = typeof payload.reason === "string" ? payload.reason : "";
   const reason = rawReason.slice(0, BLOCKLIST_REASON_MAX_LENGTH);
   const actor = await actorOf(session);
   const now = "datetime('now')";

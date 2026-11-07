@@ -36,7 +36,7 @@ const TEMPLATE = [
 
 function assets(html = TEMPLATE, ok = true) {
   const fetch = vi.fn(async () => new Response(html, { status: ok ? 200 : 404 }));
-  return { fetch } as unknown as Env["ASSETS"];
+  return { fetch } as unknown as NonNullable<Env["ASSETS"]>;
 }
 
 function context(url: string, env: Env) {

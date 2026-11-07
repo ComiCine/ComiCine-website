@@ -10,17 +10,21 @@
 /**
  * Unit tests for disaster-recovery snapshots (backup/) and rolling cleanup.
  *
- * Four hard requirements, each covered by a test group:
+ * Five hard requirements, each covered by a test group:
  *   1. DDL and small tables are written to backup/YYYY_MM_DD/ with correct key paths and type fidelity.
  *   2. Large tables are never read (the stub throws on any FROM outside the allowlist, serving as a spy assertion).
  *   3. Retention deletes only backup/ prefixes and leaves analytics/ untouched, including when a broken binding
  *      returns analytics keys.
  *   4. An archive completes if the snapshot throws, and config_backup records a failed run.
+ *   5. manifest.json indexes every other object with its exact stored byte length and SHA-256, and marks the
+ *      snapshot complete only when every table succeeded.
  */
 
+import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, { JOB } from "./index";
+import { sha256Hex } from "./integrity";
 import {
   BACKUP_PREFIX,
   CONFIG_JOB,
@@ -254,6 +258,15 @@ const asText = (value: PutCall["value"]): string => {
   throw new Error("unexpected stream payload in test");
 };
 
+const asBytes = (value: PutCall["value"]): Uint8Array => {
+  if (typeof value === "string") return new TextEncoder().encode(value);
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  throw new Error("unexpected stream payload in test");
+};
+
+/** Independent expected digest: Node's crypto over exactly the bytes handed to r2.put. */
+const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+
 const asGunzipped = (value: PutCall["value"]): string => {
   if (typeof value === "string") return value;
   if (value instanceof ArrayBuffer) return gunzipSync(Buffer.from(new Uint8Array(value))).toString("utf8");
@@ -265,6 +278,39 @@ const putFor = (puts: PutCall[], key: string): PutCall => {
   expect(found, `missing R2 object ${key}`).toBeDefined();
   return found!;
 };
+
+interface ManifestObjectEntry {
+  name: string;
+  bytes: number;
+  sha256: string;
+}
+
+interface ManifestTableEntry {
+  name: string;
+  rows: number;
+  bytes: number;
+  sha256: string | null;
+  error: string | null;
+}
+
+interface SnapshotManifest {
+  complete: boolean;
+  objects: ManifestObjectEntry[];
+  tables: ManifestTableEntry[];
+}
+
+const manifestFor = (puts: PutCall[], prefix: string): SnapshotManifest =>
+  JSON.parse(asText(putFor(puts, `${prefix}manifest.json`).value));
+
+/** Every manifest entry must describe exactly the object bytes of its own r2.put call, checked independently. */
+function expectObjectEntriesMatchPuts(puts: PutCall[], prefix: string, manifest: SnapshotManifest): void {
+  for (const entry of manifest.objects) {
+    const stored = asBytes(putFor(puts, `${prefix}${entry.name}`).value);
+    expect(entry.bytes, `byte length of ${entry.name}`).toBe(stored.byteLength);
+    expect(entry.sha256, `sha256 of ${entry.name}`).toBe(sha256Of(stored));
+    expect(entry.sha256).toMatch(/^[0-9a-f]{64}$/);
+  }
+}
 
 /** Create N days of historical snapshot prefixes, with two objects per day and an analytics object that must survive. */
 function seedBucket(days: string[], analytics: boolean) {
@@ -315,6 +361,56 @@ describe("config backup keys and dates", () => {
   });
 });
 
+describe("snapshot integrity helpers", () => {
+  it("hashes the exact bytes and prefers the Workers DigestStream when present", async () => {
+    const bytes = new TextEncoder().encode("ComiCine snapshot payload");
+    const expected = sha256Of(bytes);
+    // Node has no DigestStream; this first call exercises the test/legacy SubtleCrypto fallback.
+    expect(await sha256Hex(bytes)).toBe(expected);
+
+    let algorithm = "";
+    class FakeDigestStream extends WritableStream<Uint8Array> {
+      readonly digest: Promise<ArrayBuffer>;
+      constructor(value: AlgorithmIdentifier) {
+        algorithm = String(value);
+        const chunks: Uint8Array[] = [];
+        let resolve!: (digest: ArrayBuffer) => void;
+        const digest = new Promise<ArrayBuffer>((done) => {
+          resolve = done;
+        });
+        super({
+          write(chunk) {
+            chunks.push(new Uint8Array(chunk));
+          },
+          close() {
+            const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+            const merged = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) {
+              merged.set(chunk, offset);
+              offset += chunk.byteLength;
+            }
+            resolve(Uint8Array.from(createHash("sha256").update(merged).digest()).buffer);
+          },
+        });
+        this.digest = digest;
+      }
+    }
+
+    // Workers exposes this non-standard constructor; declare it on the runtime so vitest exercises the same piping.
+    Object.defineProperty(globalThis.crypto, "DigestStream", {
+      value: FakeDigestStream,
+      configurable: true,
+    });
+    try {
+      expect(await sha256Hex(bytes)).toBe(expected);
+    } finally {
+      Reflect.deleteProperty(globalThis.crypto, "DigestStream");
+    }
+    expect(algorithm).toBe("SHA-256");
+  });
+});
+
 describe("config backup snapshot", () => {
   it("writes ddl.sql plus every whitelisted table under backup/YYYY_MM_DD/", async () => {
     const d1 = d1Stub();
@@ -331,6 +427,8 @@ describe("config backup snapshot", () => {
     expect(r2.puts.map((call) => call.key).sort()).toEqual([...expected].sort());
     // A day contains 13 objects: ddl + schema + 10 tables + manifest.
     expect(r2.puts).toHaveLength(13);
+    // manifest.json is written last, after every object it describes.
+    expect(r2.puts.at(-1)?.key).toBe(`${prefix}manifest.json`);
     expect(result.objects).toBe(13);
     expect(result.day).toBe("2026_10_11");
 
@@ -346,6 +444,45 @@ describe("config backup snapshot", () => {
     expect(putFor(r2.puts, `${prefix}blocked_ips.jsonl.gz`).options).toEqual({
       httpMetadata: { contentType: "application/gzip" },
     });
+  });
+
+  it("records a complete manifest whose object hashes match the exact bytes written to R2", async () => {
+    const d1 = d1Stub();
+    const r2 = r2Stub();
+    await runConfigBackup({ DB: d1.db, ARCHIVE: r2.bucket } as never, DAY);
+
+    const prefix = "backup/2026_10_11/";
+    const manifest = manifestFor(r2.puts, prefix);
+
+    expect(manifest.complete).toBe(true);
+    const names = manifest.objects.map((entry) => entry.name);
+    // Sorted by name, and manifest.json cannot list itself.
+    expect(names).toEqual([...names].sort());
+    expect(names).toEqual(
+      ["ddl.sql", "schema.jsonl.gz", ...CONFIG_TABLES.map((table) => `${table.name}.jsonl.gz`)].sort(),
+    );
+    expect(names).not.toContain("manifest.json");
+
+    expectObjectEntriesMatchPuts(r2.puts, prefix, manifest);
+    const ddlPut = putFor(r2.puts, `${prefix}ddl.sql`);
+    expect(typeof ddlPut.value).toBe("string");
+    // ddl.sql is hashed over the UTF-8 bytes of the exact string passed to R2, not over a re-serialized copy.
+    expect(manifest.objects.find((entry) => entry.name === "ddl.sql")?.sha256).toBe(
+      sha256Of(new TextEncoder().encode(ddlPut.value as string)),
+    );
+
+    expect(manifest.tables).toHaveLength(CONFIG_TABLES.length);
+    for (const report of manifest.tables) {
+      expect(report.error).toBeNull();
+      const object = manifest.objects.find((entry) => entry.name === `${report.name}.jsonl.gz`);
+      expect(object, `object for ${report.name}`).toBeDefined();
+      expect(report.bytes).toBe(object!.bytes);
+      expect(report.sha256).toBe(object!.sha256);
+      // The stub treats worker_runs as a run-log lookup (latestRun is unset here), so its snapshot has no rows.
+      expect(report.rows).toBe(
+        report.name === "worker_runs" ? 0 : (TABLE_ROWS[report.name]?.length ?? 0),
+      );
+    }
   });
 
   it("keeps the whole DDL skeleton and explains the internal objects it skips", () => {
@@ -466,19 +603,44 @@ describe("config backup snapshot", () => {
   it("still writes the other tables when one of them fails, and reports it", async () => {
     const d1 = d1Stub({ failSql: /FROM blocklist_audit/ });
     const r2 = r2Stub();
+    const prefix = "backup/2026_10_11/";
     const { errors: logErrors } = captureConsole();
 
     const result = await runConfigBackup({ DB: d1.db, ARCHIVE: r2.bucket } as never, DAY);
 
     expect(result.outcome).toBe("failed");
     expect(result.errors.join(" ")).toMatch(/blocklist_audit/);
-    expect(r2.puts.map((call) => call.key)).not.toContain(
-      "backup/2026_10_11/blocklist_audit.jsonl.gz",
-    );
+    expect(r2.puts.map((call) => call.key)).not.toContain(`${prefix}blocklist_audit.jsonl.gz`);
     expect(r2.puts).toHaveLength(12);
-    const manifest = JSON.parse(asText(putFor(r2.puts, "backup/2026_10_11/manifest.json").value));
-    const report = manifest.tables.find((table: { name: string }) => table.name === "blocklist_audit");
-    expect(report.error).toMatch(/simulated/);
+    expect(r2.puts.at(-1)?.key).toBe(`${prefix}manifest.json`);
+    const manifest = manifestFor(r2.puts, prefix);
+
+    // A missing table makes the snapshot visibly incomplete, and the failed report carries no integrity claim.
+    expect(manifest.complete).toBe(false);
+    const report = manifest.tables.find((table) => table.name === "blocklist_audit");
+    expect(report).toMatchObject({ rows: 0, bytes: 0, sha256: null });
+    expect(report?.error).toMatch(/simulated/);
+
+    // The failed table has no object entry; every other object is still written, hashed, and sorted by name.
+    const names = manifest.objects.map((entry) => entry.name);
+    expect(names).not.toContain("blocklist_audit.jsonl.gz");
+    expect(names).toEqual([...names].sort());
+    expect(names).toEqual(
+      [
+        "ddl.sql",
+        "schema.jsonl.gz",
+        ...CONFIG_TABLES.filter((table) => table.name !== "blocklist_audit").map(
+          (table) => `${table.name}.jsonl.gz`,
+        ),
+      ].sort(),
+    );
+    expectObjectEntriesMatchPuts(r2.puts, prefix, manifest);
+    const blocked = manifest.objects.find((entry) => entry.name === "blocked_ips.jsonl.gz");
+    expect(blocked, "another table object must still be written").toBeDefined();
+    expect(manifest.tables.find((table) => table.name === "blocked_ips")).toMatchObject({
+      sha256: blocked!.sha256,
+      error: null,
+    });
     expect(logErrors.some((line) => line.includes('"job":"config_backup"'))).toBe(true);
   });
 });

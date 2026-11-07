@@ -6,108 +6,127 @@
  */
 
 /*
+   Currency metadata lives in a separate classic script that only the currency picker needs.
+   Keep window.ComiCineCurrencySearchData as the contract with that file, but load it on first
+   use (opening a detail dialog) instead of making every visitor download it on first paint.
+   */
+
+var CURRENCY_DATA_URL = '/static/js/currency-data.js?v=2';
+var currencyDataLoading = null;
+var currencySearchDataAdopter = null;
+
+function loadCurrencySearchData() {
+    if (window.ComiCineCurrencySearchData) return Promise.resolve(window.ComiCineCurrencySearchData);
+    if (currencyDataLoading) return currencyDataLoading;
+    currencyDataLoading = new Promise(function(resolve) {
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = CURRENCY_DATA_URL;
+        script.onload = function() {
+            var data = window.ComiCineCurrencySearchData || null;
+            if (data && currencySearchDataAdopter) currencySearchDataAdopter(data);
+            resolve(data);
+        };
+        script.onerror = function() {
+            if (script.parentNode) script.parentNode.removeChild(script);
+            // Drop the memo so the next trigger retries instead of staying broken for the session.
+            currencyDataLoading = null;
+            resolve(null);
+        };
+        try {
+            document.head.appendChild(script);
+        } catch (_) {
+            currencyDataLoading = null;
+            resolve(null);
+        }
+    });
+    return currencyDataLoading;
+}
+
+/*
    Service detail dialog: open and close.
    */
 
-var lastServiceTrigger = null;
+/* Only services.<root_domain> routes /convention and /outdoor; the main site serves the same
+   markup at /services, where pushing those paths would 404 on reload. */
+function isServicesHost() {
+    var rootDomain = document.body.getAttribute('data-root-domain') || 'comicine.com';
+    return location.hostname === 'services.' + rootDomain;
+}
+
+/* The card that owns a service id; also the focus/aria-expanded anchor for non-click opens. */
+function serviceCard(id) {
+    return document.querySelector('[data-action="openServiceDetail"][data-arg="' + id + '"]');
+}
+
+function openServiceModal(modal, trigger) {
+    if (!modal) return;
+    ComiCineDialog.open({
+        root: modal,
+        mode: 'class-open',
+        trigger: trigger || undefined,
+        onClose: function() {
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
+    });
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    loadCurrencySearchData();
+}
 
 function openServiceDetail(id) {
     var modal = document.getElementById('modal-' + id);
     if (!modal) return;
-    if (this && this.nodeType === 1 && this.matches('[data-action="openServiceDetail"]')) {
-        lastServiceTrigger = this;
-    }
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    var closeButton = modal.querySelector('.modal-close');
-    if (closeButton) closeButton.focus();
-    // Only services.<root_domain> routes /convention and /outdoor; on the main site's
-    // /services page, pushing those paths would 404 on reload.
-    var rootDomain = document.body.getAttribute('data-root-domain') || 'comicine.com';
-    if (location.hostname === 'services.' + rootDomain) {
+    var trigger = this && this.nodeType === 1 && this.matches('[data-action="openServiceDetail"]') ? this : null;
+    openServiceModal(modal, trigger);
+    if (isServicesHost()) {
         var target = '/' + id;
         if (location.pathname !== target || location.hash) history.pushState(null, '', target);
     }
 }
 
-/* Remove the full hash, including #, to return to a clean URL. */
+/* Close the dialog URL: /convention and /outdoor exist only on the services host. The main site
+   keeps its /services path and only drops the hash, so a reload cannot land on a 404. */
 function clearHash() {
-    if (location.hash || location.pathname === '/convention' || location.pathname === '/outdoor') {
-        history.replaceState(null, '', '/' + location.search);
+    if (isServicesHost()) {
+        if (location.pathname === '/convention' || location.pathname === '/outdoor') {
+            history.replaceState(null, '', '/' + location.search);
+        }
+        return;
     }
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
 }
 
 function closeServiceDetail() {
     document.querySelectorAll('.service-modal.open').forEach(function(modal) {
-        modal.classList.remove('open');
+        ComiCineDialog.close(modal);
     });
-    document.body.style.overflow = '';
     clearHash();
-    if (lastServiceTrigger && document.contains(lastServiceTrigger)) {
-        lastServiceTrigger.focus();
-    }
-    lastServiceTrigger = null;
 }
 
-function serviceModalFocusables(modal) {
-    return Array.prototype.slice.call(modal.querySelectorAll(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )).filter(function(el) { return !el.hidden && el.offsetParent !== null; });
-}
-
-/* Keyboard support: Enter/Space opens a card; Escape and focus trapping work in the dialog. */
+/* Keyboard support: Enter/Space opens a card. Escape and Tab trapping live in dialog.js. */
 document.addEventListener('keydown', function(e) {
     var trigger = e.target.closest && e.target.closest('[data-action="openServiceDetail"]');
     if (trigger && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
         openServiceDetail.call(trigger, trigger.getAttribute('data-arg'));
-        return;
-    }
-    var currencyPicker = document.getElementById('currency-picker');
-    if (currencyPicker && !currencyPicker.hidden) return;
-    var modal = document.querySelector('.service-modal.open');
-    if (!modal) return;
-    if (e.key === 'Escape') {
-        e.preventDefault();
-        closeServiceDetail();
-        return;
-    }
-    if (e.key !== 'Tab') return;
-    var focusables = serviceModalFocusables(modal);
-    if (!focusables.length) {
-        e.preventDefault();
-        return;
-    }
-    var first = focusables[0];
-    var last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
     }
 });
 
+/* A nested layer (the currency picker) must close before the dialog it sits on. */
+var closeNestedLayer = null;
+
 /* Keep the dialog in sync with the URL when navigating backward or forward. */
 window.addEventListener('popstate', function() {
+    if (closeNestedLayer) closeNestedLayer();
     var route = location.pathname.replace(/^\/+|\/+$/g, '');
     var target = route === 'convention' || route === 'outdoor' ? route : '';
     if (!target && location.hash) target = location.hash.slice(1);
+    var wanted = target === 'convention' || target === 'outdoor' ? document.getElementById('modal-' + target) : null;
     document.querySelectorAll('.service-modal.open').forEach(function(modal) {
-        if (modal.id !== 'modal-' + target) {
-            modal.classList.remove('open');
-            document.body.style.overflow = '';
-        }
+        if (modal !== wanted) ComiCineDialog.close(modal);
     });
-    if (target === 'convention' || target === 'outdoor') {
-        var modal = document.getElementById('modal-' + target);
-        if (modal && !modal.classList.contains('open')) {
-            modal.classList.add('open');
-            document.body.style.overflow = 'hidden';
-        }
-    } else {
-        lastServiceTrigger = null;
+    if (wanted && !ComiCineDialog.isOpen(wanted)) {
+        openServiceModal(wanted, serviceCard(target));
     }
 });
 
@@ -115,14 +134,11 @@ window.addEventListener('popstate', function() {
 (function() {
     var route = location.pathname.replace(/^\/+|\/+$/g, '');
     var id = route === 'convention' || route === 'outdoor' ? route : location.hash.slice(1);
-    if (id === 'convention' || id === 'outdoor') {
-        if (location.hash) history.replaceState(null, '', '/' + id + location.search);
-        var modal = document.getElementById('modal-' + id);
-        if (modal) {
-            modal.classList.add('open');
-            document.body.style.overflow = 'hidden';
-        }
-    }
+    if (id !== 'convention' && id !== 'outdoor') return;
+    var modal = document.getElementById('modal-' + id);
+    if (!modal) return;
+    if (isServicesHost() && location.hash) history.replaceState(null, '', '/' + id + location.search);
+    openServiceModal(modal, serviceCard(id));
 })();
 
 
@@ -137,14 +153,17 @@ setTimeout(function() {
 (function() {
     var API_PATH = '/api/currency-rates';
     var CACHE_KEY = 'comicine-services-fx-v2';
+    // The chosen currency is stored on its own so clearing the rate cache keeps the selection.
+    var SELECTION_KEY = 'comicine-services-currency';
     var FRESH_MS = 6 * 60 * 60 * 1000;
     var MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
     var PRIORITY = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'KRW', 'HKD', 'TWD', 'SGD', 'AUD', 'CAD', 'CHF', 'INR', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'NZD', 'ZAR', 'BRL', 'MXN', 'AED', 'SAR'];
 
-    var CURRENCY_SEARCH_DATA = window.ComiCineCurrencySearchData || {};
-    var CURRENCY_META = CURRENCY_SEARCH_DATA.currencies || {};
-    var TERRITORY_CURRENCIES = CURRENCY_SEARCH_DATA.territories || {};
-    var TERRITORY_ALIASES = CURRENCY_SEARCH_DATA.territoryAliases || {};
+    // Filled by adoptCurrencySearchData() when the deferred metadata script arrives. Until then the
+    // picker still works from the rates payload and Intl.DisplayNames, just without flags and aliases.
+    var CURRENCY_META = Object.create(null);
+    var TERRITORY_CURRENCIES = Object.create(null);
+    var TERRITORY_ALIASES = Object.create(null);
     var COUNTRY_ALIASES_BY_CURRENCY = Object.create(null);
     var REGIONS_BY_CURRENCY = Object.create(null);
     var regionNames = null;
@@ -161,12 +180,12 @@ setTimeout(function() {
     var search = document.getElementById('currency-search');
     var options = document.getElementById('currency-options');
     var status = document.getElementById('currency-picker-status');
-    var selected = null;
-    var activeTrigger = null;
+    var selected = readStoredCurrency();
     var optionsRenderScheduled = false;
     var currencyData = readCache();
     var requestPromise = null;
     var ratesFailed = false;
+    var savedSelectionUnavailable = false;
     var currencyMetadataCache = Object.create(null);
     var cachedFormatterCode = '';
     var cachedFormatterLocale = '';
@@ -184,8 +203,29 @@ setTimeout(function() {
         return typeof translate === 'function' ? translate(key, params) : key;
     }
 
+    function readStoredCurrency() {
+        try {
+            var raw = localStorage.getItem(SELECTION_KEY);
+            var code = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+            return /^[A-Z]{3}$/.test(code) ? code : null;
+        } catch (_) {
+            // Safari private mode can throw on access; an unreadable store is the same as "no choice".
+            return null;
+        }
+    }
+
+    function writeStoredCurrency(code) {
+        try {
+            if (/^[A-Z]{3}$/.test(code || '')) localStorage.setItem(SELECTION_KEY, code);
+            else localStorage.removeItem(SELECTION_KEY);
+        } catch (_) {
+            // A full quota or private mode must not break the current session's selection.
+        }
+    }
+
     function setSelectedCurrency(code) {
         selected = code;
+        writeStoredCurrency(code);
     }
 
     function validCache(data) {
@@ -210,6 +250,30 @@ setTimeout(function() {
             localStorage.setItem(CACHE_KEY, JSON.stringify(data));
         } catch (_) { /* Rates still work in memory. */ }
     }
+
+    /*
+       Take over the deferred currency metadata: replace the empty tables, rebuild the country search
+       index from scratch, and re-render the options with flags and aliases.
+       */
+    function adoptCurrencySearchData(data) {
+        if (!data || typeof data !== 'object') return;
+        CURRENCY_META = data.currencies || Object.create(null);
+        TERRITORY_CURRENCIES = data.territories || Object.create(null);
+        TERRITORY_ALIASES = data.territoryAliases || Object.create(null);
+        REGIONS_BY_CURRENCY = Object.create(null);
+        COUNTRY_ALIASES_BY_CURRENCY = Object.create(null);
+        territoryCodes = Object.keys(TERRITORY_CURRENCIES);
+        territoryIndexCursor = 0;
+        countrySearchIndexReady = false;
+        countrySearchIndexScheduled = false;
+        currencyMetadataCache = Object.create(null);
+        renderedData = null;
+        scheduleCountrySearchIndex();
+        scheduleRenderOptions(true);
+    }
+
+    currencySearchDataAdopter = adoptCurrencySearchData;
+    if (window.ComiCineCurrencySearchData) adoptCurrencySearchData(window.ComiCineCurrencySearchData);
 
     function fetchJson(url, signal) {
         return fetch(url, { headers: { Accept: 'application/json' }, signal: signal }).then(function(response) {
@@ -255,9 +319,17 @@ setTimeout(function() {
         return metadata;
     }
 
-    function reconcileSelection(data) {
-        if (!selected || selected === 'CNY' || (data && Number.isFinite(data.rates[selected]) && data.rates[selected] > 0)) return;
+    /*
+       Drop a stored currency only once rates prove it has no valid rate. Without rates (offline,
+       API failure) keep the stored choice, so a transient failure does not silently reset it.
+       */
+    function reconcileSelection(data, persist) {
+        if (!selected || selected === 'CNY' || !data || !data.rates) return;
+        if (Number.isFinite(data.rates[selected]) && data.rates[selected] > 0) return;
         selected = null;
+        // A cross-tab sync already saw the other tab's value; writing back would echo it around.
+        if (persist !== false) writeStoredCurrency('CNY');
+        savedSelectionUnavailable = true;
     }
 
     function refreshData() {
@@ -302,7 +374,14 @@ setTimeout(function() {
                 scheduleRenderOptions(true);
                 applyReferences();
                 if (!picker.hidden) updateStatus(data);
-            }).catch(function() {});
+            }).catch(function() {
+                // A stale cache still renders reference prices; say so instead of silently pretending
+                // the rates are current. Only the copy changes, the cached amounts stay usable.
+                ratesFailed = true;
+                reconcileSelection(currencyData);
+                scheduleRenderOptions(true);
+                if (!picker.hidden) updateStatus(currencyData, true);
+            });
             return Promise.resolve(currencyData);
         }
         return refreshData();
@@ -315,8 +394,18 @@ setTimeout(function() {
         // The rate date is data, not a static dictionary entry; drop the key so base.js
         // does not reset it to "Loading..." on the next language change.
         status.removeAttribute('data-i18n');
+        if (savedSelectionUnavailable && !picker.hidden) {
+            // One-time notice: the currency saved last visit has no rate any more. It wins over the
+            // rate status because the user needs to know why their choice changed.
+            savedSelectionUnavailable = false;
+            status.textContent = translate('currency_saved_unavailable');
+            return;
+        }
         if (failed) {
-            status.textContent = translate('currency_api_unavailable');
+            // Distinguish "stale but usable cached rates" from "no rates at all".
+            status.textContent = data
+                ? translate('currency_cached_rates', { date: data.date })
+                : translate('currency_api_unavailable');
             return;
         }
         if (data) status.textContent = translate('currency_rate_date', { date: data.date });
@@ -335,7 +424,7 @@ setTimeout(function() {
         map[key].push(value);
     }
 
-    var territoryCodes = Object.keys(TERRITORY_CURRENCIES);
+    var territoryCodes = [];
     var territoryIndexCursor = 0;
 
     function indexTerritory(region) {
@@ -565,10 +654,8 @@ setTimeout(function() {
 
     function closePicker() {
         if (picker.hidden) return;
-        picker.hidden = true;
-        document.body.style.overflow = document.querySelector('.service-modal.open') ? 'hidden' : '';
-        if (activeTrigger && document.contains(activeTrigger)) activeTrigger.focus();
-        activeTrigger = null;
+        // dialog.js owns visibility, the scroll lock, focus restore and the nested-layer stack.
+        ComiCineDialog.close(picker);
     }
 
     function syncRenderedSelection() {
@@ -595,12 +682,15 @@ setTimeout(function() {
     }
 
     function openPicker(trigger) {
-        activeTrigger = trigger;
-        picker.hidden = false;
-        document.body.style.overflow = 'hidden';
         search.value = '';
-        updateStatus(currencyData);
-        search.focus();
+        ComiCineDialog.open({
+            root: picker,
+            dialog: picker.querySelector('.currency-picker-panel'),
+            mode: 'attr-hidden',
+            trigger: trigger,
+            initialFocus: search
+        });
+        updateStatus(currencyData, ratesFailed);
         scheduleRenderOptions();
     }
 
@@ -609,6 +699,7 @@ setTimeout(function() {
         if (trigger) {
             event.preventDefault();
             openPicker(trigger);
+            loadCurrencySearchData();
             return;
         }
     });
@@ -621,7 +712,7 @@ setTimeout(function() {
         }
         var option = event.target.closest && event.target.closest('.currency-option');
         if (!option || option.disabled) {
-            if (option && option.disabled) status.textContent = translate('currency_rate_unavailable');
+            if (option && option.disabled) ComiCineDialog.announce(picker, translate('currency_rate_unavailable'));
             return;
         }
         var code = option.dataset.currencyCode;
@@ -633,23 +724,23 @@ setTimeout(function() {
     });
 
     search.addEventListener('input', function() { scheduleRenderOptions(); });
-    document.addEventListener('keydown', function(event) {
-        if (picker.hidden) return;
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            closePicker();
-            return;
-        }
-        if (event.key !== 'Tab') return;
-        var focusable = Array.prototype.slice.call(picker.querySelectorAll('input:not([disabled]), button:not([disabled])'));
-        if (!focusable.length) return;
-        var first = focusable[0];
-        var last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault(); last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault(); first.focus();
-        }
+
+    // Registered on the top-level popstate handler so the picker closes before the dialog under it.
+    closeNestedLayer = function() {
+        if (!picker.hidden) closePicker();
+    };
+
+    // Another tab changed the currency: mirror it without requesting rates or writing back.
+    window.addEventListener('storage', function(event) {
+        if (event.key !== null && event.key !== SELECTION_KEY) return;
+        var code = readStoredCurrency();
+        if (code === selected) return;
+        selected = code;
+        reconcileSelection(currencyData, false);
+        renderedData = null;
+        scheduleRenderOptions(true);
+        applyReferences();
+        if (!picker.hidden) syncRenderedSelection();
     });
 
     // Re-render labels when the page language changes: names come from Intl.DisplayNames and

@@ -22,20 +22,19 @@ var LANG_COOKIE = gateBodyAttr('data-lang-cookie', 'user_lang_preference');
 var LANG_COOKIE_MAX_AGE = gateBodyAttr('data-lang-cookie-max-age', '31536000');
 var THEME_COOKIE = gateBodyAttr('data-theme-cookie', 'comicine_theme');
 var THEME_COOKIE_MAX_AGE = gateBodyAttr('data-theme-cookie-max-age', '31536000');
-function rootDomainForHost(host) {
-  host = String(host || '').toLowerCase();
-  return host === ROOT_DOMAIN || host.endsWith('.' + ROOT_DOMAIN) ? ROOT_DOMAIN : null;
-}
-function sharedCookieDomain() {
-  var root = rootDomainForHost(location.hostname);
-  return root ? '; domain=.' + root : '';
-}
 var CURRENT_LANG = gateBodyAttr('data-lang', DEFAULT_LANG);
 var gateVerificationInFlight = false;
+var gateLanguageChosen = false;
 document.documentElement.lang = CURRENT_LANG;
 
-/* Build time embeds gate copy for all four languages in the HTML; /gate/config only supplies the sitekey.
-   Language switching and initial copy therefore still work if the runtime config endpoint is unavailable. */
+/* Theme, translation, brand, and menu behaviour live in shared-ui.js, which auth.html loads first.
+   Keep this guard visible: a missing shared file breaks every interaction on the gate. */
+var UI = window.ComiCineUI;
+if (!UI) console.error('[auth.js] shared-ui.js must load before auth.js');
+
+/* Build time embeds gate copy for all four languages in the HTML; /gate/config supplies the
+   runtime sitekey and the language the request was served with. Language switching and the
+   initial copy therefore still work if the config endpoint is unavailable. */
 (function () {
   var el = document.getElementById('gate-i18n');
   if (!el) return;
@@ -55,65 +54,19 @@ function turnstileLang(code) {
   return { 'zh-cn': 'zh-cn', 'en-us': 'en-us', 'ja-jp': 'ja', 'ko-kr': 'ko' }[code] || 'auto';
 }
 
-function getSystemTheme() {
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
-function effectiveTheme() {
-  return themeCookieValue() || storedTheme() || getSystemTheme();
-}
-
-function storedTheme() {
-  try {
-    var theme = localStorage.getItem('theme');
-    return theme === 'light' || theme === 'dark' ? theme : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function themeCookieValue() {
-  var cookies = document.cookie.split(';');
-  for (var i = 0; i < cookies.length; i++) {
-    var separator = cookies[i].indexOf('=');
-    if (separator < 0 || cookies[i].slice(0, separator).trim() !== THEME_COOKIE) continue;
-    var value = cookies[i].slice(separator + 1).trim();
-    return value === 'light' || value === 'dark' ? value : null;
-  }
-  return null;
-}
-
+/* Theme reading and applying are shared with the main pages; only the cookie root differs. */
+function getSystemTheme() { return UI.systemTheme(window); }
+function effectiveTheme() { return UI.effectiveTheme(document, THEME_COOKIE); }
+function storedTheme() { return UI.readStorageTheme(); }
+function themeCookieValue() { return UI.cookieValue(document.cookie, THEME_COOKIE); }
+function applyTheme(theme, animate) { UI.applyTheme(document, theme, animate); }
 function saveTheme(theme) {
-  try { localStorage.setItem('theme', theme); } catch (e) {}
-  var secure = location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = THEME_COOKIE + '=' + theme + '; path=/; max-age=' + THEME_COOKIE_MAX_AGE
-    + '; SameSite=Lax' + secure + sharedCookieDomain();
-}
-
-var themeTransitionTimer = null;
-
-function applyTheme(theme, animate) {
-  var root = document.documentElement;
-  if (themeTransitionTimer !== null) {
-    window.clearTimeout(themeTransitionTimer);
-    themeTransitionTimer = null;
-  }
-  if (animate) {
-    root.classList.add('theme-transitioning');
-    themeTransitionTimer = window.setTimeout(function () {
-      root.classList.remove('theme-transitioning');
-      themeTransitionTimer = null;
-    }, 300);
-  } else {
-    root.classList.remove('theme-transitioning');
-  }
-  root.classList.toggle('light-mode', theme === 'light');
-  var schemeMeta = document.querySelector('meta[name="color-scheme"]');
-  if (schemeMeta) schemeMeta.content = theme;
-  var themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (themeMeta) themeMeta.content = getComputedStyle(document.documentElement).getPropertyValue('--browser-theme-color').trim();
-  document.querySelectorAll('.appearance-switch').forEach(function (sw) {
-    sw.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
+  /* /gate/config supplies the root domain at runtime; the injected attribute is the fallback. */
+  UI.saveTheme(document, theme, {
+    cookieName: THEME_COOKIE,
+    maxAge: THEME_COOKIE_MAX_AGE,
+    rootDomain: (CONFIG && CONFIG.root_domain) || ROOT_DOMAIN,
+    hostname: location.hostname
   });
 }
 
@@ -154,17 +107,20 @@ function showError(key) {
   if (country) country.hidden = blocked;
 }
 
-/* Wrap exact ComiCine brand names so the brand font never affects surrounding text. */
+/* Keep the public name for compatibility with the gate markup. */
 function brandifyText(el) {
-  var word = el.getAttribute('data-brandify');
-  if (!word || !el.textContent || el.textContent.indexOf(word) === -1) return;
-  if (el.querySelector('.brand-word')) return;
-  el.innerHTML = el.textContent.split(word).join('<span class="brand-word">' + word + '</span>');
+  UI.brandifyText(el);
+}
+
+/* The blocked page has no challenge to reset; resetting it would clear the only explanation
+   the visitor gets, so theme and language changes leave that message in place. */
+function gateBlocked() {
+  return (document.body.getAttribute('data-gate-error') || '') === 'blocked';
 }
 
 function resetTurnstile() {
   var wrap = document.getElementById('turnstile-wrap');
-  if (!wrap) return;
+  if (!wrap || gateBlocked()) return;
   if (!window.turnstile) {
     loadTurnstileScript();
     return;
@@ -274,42 +230,35 @@ document.addEventListener('submit', function (event) {
   }
 });
 
+/* Dictionary lookup for the shared renderer: null means "missing", so the server copy stays. */
+function gateTranslate(dict) {
+  return function (key, params) {
+    var value = dict ? dict[key] : undefined;
+    if (value === undefined || value === null) {
+      var fallback = GATE_I18N[DEFAULT_LANG] || {};
+      value = fallback[key];
+    }
+    if (value === undefined || value === null) return null;
+    return UI.formatText(value, params);
+  };
+}
+
 function renderI18n() {
-  document.querySelectorAll('[data-i18n]').forEach(function (el) {
-    var text = t(el.getAttribute('data-i18n'));
-    var key = el.getAttribute('data-i18n');
-    if (text === key) return; /* Keep the server-rendered copy until the dictionary loads. */
-    var prefix = el.getAttribute('data-i18n-prefix');
-    if (prefix != null) text = text ? prefix + text : '';
-    el.textContent = text;
-    brandifyText(el);
-  });
-  document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
-    var text = t(el.getAttribute('data-i18n-html'));
-    if (text !== el.getAttribute('data-i18n-html')) el.innerHTML = text;
-  });
-  document.querySelectorAll('[data-i18n-attr]').forEach(function (el) {
-    el.getAttribute('data-i18n-attr').split('|').forEach(function (seg) {
-      var colon = seg.indexOf(':');
-      if (colon === -1) return;
-      var key = seg.slice(colon + 1).split(';')[0];
-      seg.slice(0, colon).split(',').forEach(function (attr) {
-        var value = t(key);
-        if (value !== key) el.setAttribute(attr.trim(), value);
-      });
-    });
+  UI.renderI18n(document, {
+    translate: gateTranslate(GATE_I18N[CURRENT_LANG] || GATE_I18N[DEFAULT_LANG] || {}),
+    missing: 'keep',
+    html: true,
+    brandify: true
   });
 }
 
 function saveLangCookie(code) {
   /* The root domain comes from /gate/config and <body data-root-domain>; prefer runtime config. */
-  var rootDomain = (CONFIG && CONFIG.root_domain) || ROOT_DOMAIN;
-  var domain = rootDomain && (location.hostname === rootDomain || location.hostname.endsWith('.' + rootDomain))
-    ? '; domain=.' + rootDomain
-    : '';
-  var secure = location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = LANG_COOKIE + '=' + code + '; path=/; max-age=' + LANG_COOKIE_MAX_AGE
-    + '; SameSite=Lax' + secure + domain;
+  UI.writeCookie(document, LANG_COOKIE, code, {
+    maxAge: LANG_COOKIE_MAX_AGE,
+    rootDomain: (CONFIG && CONFIG.root_domain) || ROOT_DOMAIN,
+    hostname: location.hostname
+  });
 }
 
 function fetchI18n(lang, cb) {
@@ -330,7 +279,8 @@ function fetchI18n(lang, cb) {
           footer_rights: 'footer_rights', footer_source: 'footer_source', footer_source_link: 'footer_source_link',
           error_sitekey: 'gate_error_sitekey', error_invalid: 'gate_error_invalid',
           error_unavailable: 'gate_error_unavailable', error_failed: 'gate_error_failed',
-          error_blocked: 'gate_error_blocked', error_blocked_detail: 'gate_error_blocked_detail'
+          error_blocked: 'gate_error_blocked', error_blocked_detail: 'gate_error_blocked_detail',
+          retry: 'gate_retry'
         };
         var normalized = {};
         Object.keys(map).forEach(function (outKey) {
@@ -344,125 +294,50 @@ function fetchI18n(lang, cb) {
     .catch(function () { cb(null); });
 }
 
+/*
+   Language switching: swap the gate dictionary, re-render the copy and the title, keep the
+   scroll position, then reset Turnstile so the widget follows the new language and theme.
+   The renderer only edits text and attributes, so the form, its values, and the panel state stay.
+   */
+var language = UI.createLanguage({
+  doc: document,
+  lang: CURRENT_LANG,
+  render: { missing: 'keep', html: true, brandify: true },
+  meta: null,
+  dispatch: false,
+  getDict: function (code) { return GATE_I18N[code] || null; },
+  fetchDict: fetchI18n,
+  useDict: function (code) { CURRENT_LANG = code; },
+  translate: gateTranslate,
+  saveCookie: saveLangCookie,
+  reload: function () { location.reload(); },
+  onApplied: function () {
+    /* Keep the blocked explanation visible, and re-render it in the language just chosen. */
+    if (gateBlocked()) {
+      showError('blocked');
+      return;
+    }
+    resetTurnstile();
+  }
+});
+
+/* Keep the public name: the data-action layer calls window.applyLang and window.setLang. */
 function applyLang(lang) {
-  if (!GATE_I18N[lang]) {
-    fetchI18n(lang, function (d) {
-      if (!d) {
-        saveLangCookie(lang);
-        location.reload(); /* If the dictionary endpoint also fails, let the server render the selected language from the cookie. */
-        return;
-      }
-      applyLang(lang);
-    });
-    return;
-  }
-  if (lang !== CURRENT_LANG) {
-    CURRENT_LANG = lang;
-    document.documentElement.lang = lang;
-    renderI18n();
-    document.querySelectorAll('#langMenu .theme-option, .nav-screen-language-option').forEach(function (opt) {
-      opt.classList.toggle('selected', opt.dataset.lang === lang);
-    });
-  }
-  saveLangCookie(lang);
-  resetTurnstile();
+  language.apply(lang);
 }
 
-function toggleLangMenu(e) {
-  if (e) e.stopPropagation();
-  var m = document.getElementById('langMenu');
-  var button = document.getElementById('lang-btn');
-  if (!m) return;
-  var open = !m.classList.contains('open');
-  m.classList.toggle('open', open);
-  if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
+/* Menus: the desktop language flyout plus the mobile panel shared with the main pages. */
+var navMenus = UI.createNavigation({ doc: document });
 
-function closeLangMenu() {
-  var m = document.getElementById('langMenu');
-  if (m) m.classList.remove('open');
-  var button = document.getElementById('lang-btn');
-  if (button) button.setAttribute('aria-expanded', 'false');
-}
-
-function toggleNavLanguages(e) {
-  if (e) e.stopPropagation();
-  var list = document.getElementById('nav-screen-language-list');
-  var toggle = document.getElementById('nav-screen-languages-toggle');
-  var group = document.querySelector('.nav-screen-translations');
-  if (!list || !toggle) return;
-  var open = list.inert;
-  list.classList.toggle('open', open);
-  list.setAttribute('aria-hidden', open ? 'false' : 'true');
-  list.inert = !open;
-  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  if (group) group.classList.toggle('open', open);
-}
-
-function closeNavLanguages() {
-  var list = document.getElementById('nav-screen-language-list');
-  var toggle = document.getElementById('nav-screen-languages-toggle');
-  var group = document.querySelector('.nav-screen-translations');
-  if (list) {
-    list.classList.remove('open');
-    list.setAttribute('aria-hidden', 'true');
-    list.inert = true;
-  }
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
-  if (group) group.classList.remove('open');
-}
-
-var navScreenBackground = [];
-
-function setNavScreenBackgroundInert(inert) {
-  if (inert) {
-    navScreenBackground = [];
-    Array.prototype.forEach.call(document.body.children, function (child) {
-      if (child.classList.contains('site-nav') || child.id === 'nav-screen' || child.inert) return;
-      child.inert = true;
-      navScreenBackground.push(child);
-    });
-    return;
-  }
-  navScreenBackground.forEach(function (child) { child.inert = false; });
-  navScreenBackground = [];
-}
-
-function toggleMobileMenu(e) {
-  if (e) e.stopPropagation();
-  var screen = document.getElementById('nav-screen');
-  if (!screen) return;
-  var open = !screen.classList.contains('open');
-  screen.classList.toggle('open', open);
-  screen.setAttribute('aria-hidden', open ? 'false' : 'true');
-  screen.inert = !open;
-  setNavScreenBackgroundInert(open);
-  document.documentElement.classList.toggle('nav-screen-open', open);
-  document.body.classList.toggle('nav-screen-open', open);
-  var button = document.querySelector('.nav-menu-button');
-  if (button) button.classList.toggle('active', open);
-  if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  closeLangMenu();
-  closeNavLanguages();
-}
-
-function closeNavMenu() {
-  var screen = document.getElementById('nav-screen');
-  if (screen) {
-    screen.classList.remove('open');
-    screen.setAttribute('aria-hidden', 'true');
-    screen.inert = true;
-  }
-  setNavScreenBackgroundInert(false);
-  document.documentElement.classList.remove('nav-screen-open');
-  document.body.classList.remove('nav-screen-open');
-  var button = document.querySelector('.nav-menu-button');
-  if (button) button.classList.remove('active');
-  if (button) button.setAttribute('aria-expanded', 'false');
-  closeNavLanguages();
-}
+function toggleLangMenu(e) { navMenus.toggleLangMenu(e); }
+function closeLangMenu() { navMenus.closeLangMenu(); }
+function toggleNavLanguages(e) { navMenus.toggleNavLanguages(e); }
+function closeNavLanguages() { navMenus.closeNavLanguages(); }
+function toggleMobileMenu(e) { navMenus.toggleMobileMenu(e); }
+function closeNavMenu() { navMenus.closeNavMenu(); }
 
 function setLang(code) {
+  gateLanguageChosen = true;
   closeLangMenu();
   closeNavMenu();
   applyLang(code);
@@ -483,10 +358,16 @@ function initGateConfig(cfg) {
   CONFIG = cfg;
   GATE_I18N = cfg.i18n || GATE_I18N;
   TURNSTILE_SITEKEY = cfg.sitekey || '';
-  CURRENT_LANG = cfg.lang || CURRENT_LANG;
-  document.documentElement.lang = CURRENT_LANG;
+  /* The reply carries the language the request was served with; a visitor who already picked
+     another one keeps it, otherwise the UI and the language cookie would disagree. */
+  if (!gateLanguageChosen) {
+    CURRENT_LANG = cfg.lang || CURRENT_LANG;
+    language.setCurrent(CURRENT_LANG);
+    document.documentElement.lang = CURRENT_LANG;
+  }
   applyTheme(effectiveTheme());
   renderI18n();
+  UI.syncLanguageState(document, CURRENT_LANG);
   var errorKey = document.body.getAttribute('data-gate-error') || '';
   if (errorKey) showError(errorKey);
   if (errorKey === 'blocked') {
@@ -501,44 +382,8 @@ function initGateConfig(cfg) {
   resetTurnstile();
 }
 
-(function bindLangHover() {
-  var fly = document.querySelector('.lang-flyout');
-  if (!fly) return;
-  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    fly.addEventListener('mouseenter', function () {
-      var m = document.getElementById('langMenu');
-      var button = document.getElementById('lang-btn');
-      if (m) m.classList.add('open');
-      if (button) button.setAttribute('aria-expanded', 'true');
-    });
-    fly.addEventListener('mouseleave', closeLangMenu);
-  }
-})();
-
-document.addEventListener('click', function (e) {
-  if (!e.target.closest('.lang-flyout')) closeLangMenu();
-  var screen = document.getElementById('nav-screen');
-  if (screen && e.target === screen) closeNavMenu();
-  if (e.target.closest('.nav-screen-link')) closeNavMenu();
-});
-
-document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Escape') return;
-  var screen = document.getElementById('nav-screen');
-  if (screen && screen.classList.contains('open')) {
-    closeNavMenu();
-    var button = document.querySelector('.nav-menu-button');
-    if (button) button.focus();
-  } else {
-    closeLangMenu();
-  }
-});
-
-window.addEventListener('resize', function () {
-  if (window.matchMedia('(min-width: 768px)').matches) closeNavMenu();
-});
-
 /* Render static copy in the build language first; runtime config adds Turnstile and language switching. */
+navMenus.bind();
 applyTheme(effectiveTheme());
 renderI18n();
 /* Keep the ComiCine brand rendering in the static fallback when i18n is unavailable. */

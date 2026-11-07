@@ -62,7 +62,6 @@
         .btn-outline:hover { background:var(--hover-highlight-soft);color:var(--hover-highlight); }
         .btn-danger { background:var(--danger-button);color:var(--text-inverse); }
         .btn-danger:hover { background-image:linear-gradient(var(--hover-highlight-overlay),var(--hover-highlight-overlay)); }
-        .btn-sm { padding:4px 12px;font-size:11px; }
         .row-btn {
             background:none;border:none;color:var(--text);opacity:0.35;
             cursor:pointer;padding:5px;border-radius:var(--radius-sm);display:flex;

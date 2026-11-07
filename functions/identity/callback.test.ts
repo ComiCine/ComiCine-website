@@ -27,6 +27,7 @@ vi.mock("../_lib/session", async (importOriginal) => {
 
 vi.mock("../_lib/logging", () => ({ logEvent: vi.fn().mockResolvedValue(undefined) }));
 
+import { logEvent } from "../_lib/logging";
 import { onRequestGet } from "./callback";
 
 const STATE = "S".repeat(43);
@@ -55,7 +56,7 @@ describe("GET /identity/callback", () => {
     vi.clearAllMocks();
     sessionMocks.runtimeConfigError.mockReturnValue(null);
     sessionMocks.createAuthSession.mockResolvedValue(true);
-    sessionMocks.createSessionCookie.mockResolvedValue("comicine_session=session-token");
+    sessionMocks.createSessionCookie.mockResolvedValue("__Host-comicine_session=session-token");
     sessionMocks.randomToken.mockReturnValue("local-session-id");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       sourceHost: "account.comicine.com",
@@ -118,5 +119,127 @@ describe("GET /identity/callback", () => {
     expect(response.status).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
     expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
+  });
+
+  it("reports an exchange outage as 503 service unavailable, not an invalid handoff", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(
+      JSON.stringify({ error: "identity_store_unavailable" }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    ));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(503);
+    expect(text).toContain("Identity service unavailable");
+    expect(text).not.toContain("Identity handoff rejected");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "login_attempt",
+      expect.any(Request),
+      expect.objectContaining({ outcome: "failed", status: 503 }),
+    );
+  });
+
+  it("reports a rejected handoff as 401 without the outage copy", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(
+      "Invalid or expired identity handoff\n",
+      { status: 401, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    ));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(text).toContain("Identity handoff rejected");
+    expect(text).not.toContain("Identity service unavailable");
+    expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
+    expect(logEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports an unreachable exchange as 503 service unavailable", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("network down"));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).toContain("Identity service unavailable");
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "login_attempt",
+      expect.any(Request),
+      expect.objectContaining({ status: 503, message: "identity_exchange_unreachable" }),
+    );
+  });
+
+  it("treats a malformed exchange body as a service failure, not a rejected handoff", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(
+      "not json",
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).toContain("Identity service unavailable");
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "login_attempt",
+      expect.any(Request),
+      expect.objectContaining({ status: 503, message: "identity_exchange_invalid_response" }),
+    );
+  });
+
+  it("treats a structurally invalid handoff as a service failure too", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      sourceHost: "account.comicine.com",
+      targetPath: "/apple",
+      sub: "",
+      email: "admin@example.com",
+      authAt: 1_800_000_000,
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).toContain("Identity service unavailable");
+    expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "login_attempt",
+      expect.any(Request),
+      expect.objectContaining({ status: 503, message: "identity_exchange_invalid_response" }),
+    );
+  });
+
+  it("keeps a handoff bound to another host as a 401 credential failure", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      sourceHost: "visitor.comicine.com",
+      targetPath: "/apple",
+      sub: "access:user-1",
+      email: "admin@example.com",
+      authAt: 1_800_000_000,
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const response = await onRequestGet(
+      context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never,
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.text()).toContain("Invalid identity response");
+    expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
+    expect(logEvent).not.toHaveBeenCalled();
   });
 });

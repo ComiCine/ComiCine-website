@@ -13,8 +13,8 @@ See ADDITIONAL_TERMS.txt.
 {% block body_class %}wide-nav-page{% endblock %}
 
 {% block head_links %}
-<link rel="modulepreload" href="/static/js/visitor.js?v=8">
-<link rel="stylesheet" href="/static/css/visitor.css?v=8">
+<link rel="modulepreload" href="/static/js/visitor.js?v=9">
+<link rel="stylesheet" href="/static/css/visitor.css?v=9">
 {% endblock %}
 
 {% block nav_links %}
@@ -93,6 +93,11 @@ See ADDITIONAL_TERMS.txt.
                     </div>
                 </div>
 
+                <div class="list-status" id="list-status">
+                    <p class="visitor-status" id="visitor-status" role="status" aria-live="polite"></p>
+                    <button class="panel-btn" id="visitor-retry" type="button" data-action="refresh" data-i18n="visitor_retry" hidden>{{ _('visitor_retry') }}</button>
+                </div>
+
                 <div class="filter-bar" id="filter-bar">
                     <button class="chip active" data-status="all" data-i18n="filter_all">{{ _('filter_all') }}</button>
                 </div>
@@ -108,5 +113,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="/static/js/visitor.js?v=8"></script>
+<script type="module" src="/static/js/visitor.js?v=9"></script>
 {% endblock %}

@@ -24,6 +24,7 @@ import {
   accessTeamDomain,
   verifyAccessJwt,
 } from "./access";
+import { BASE_URL } from "./config";
 import type { Env } from "./env";
 
 const TEAM = "https://comicine.cloudflareaccess.com";
@@ -305,5 +306,372 @@ describe("verifyAccessJwt", () => {
     expect(await fresh.verifyAccessJwt(baseEnv, token)).not.toBeNull();
     expect(await fresh.verifyAccessJwt(baseEnv, token)).not.toBeNull();
     expect(jwksCalls).toBe(1);
+  });
+});
+
+/**
+ * The isolate memory (L1) is covered above; these cases drive the data-center
+ * Cache API (L2) with a fake `caches.default` store. Node has no Cache API, so
+ * installing and removing the stub also exercises the production degradation
+ * path where `caches` is unavailable.
+ */
+describe("JWKS cache layers", () => {
+  interface FakeJwksCache {
+    store: Map<string, Response>;
+    match: ReturnType<typeof vi.fn<(request: Request) => Promise<Response | undefined>>>;
+    put: ReturnType<typeof vi.fn<(request: Request, response: Response) => Promise<void>>>;
+    delete: ReturnType<typeof vi.fn<(request: Request) => Promise<boolean>>>;
+  }
+
+  function defaultJwks(): Array<Record<string, unknown>> {
+    return [{ ...publicJwk, kid: KID, use: "sig" }];
+  }
+
+  function jwksResponse(keys: Array<Record<string, unknown>>): Response {
+    return new Response(JSON.stringify({ keys }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  function installFakeJwksCache(): FakeJwksCache {
+    const store = new Map<string, Response>();
+    const cache = {
+      store,
+      match: vi.fn(async (request: Request) => {
+        const hit = store.get(request.url);
+        return hit ? hit.clone() : undefined;
+      }),
+      put: vi.fn(async (request: Request, response: Response) => {
+        store.set(request.url, response.clone());
+      }),
+      delete: vi.fn(async (request: Request) => store.delete(request.url)),
+    };
+    vi.stubGlobal("caches", { default: cache });
+    return cache;
+  }
+
+  /** Count cache writes of the real entry, ignoring the isolate's one-shot probe entry. */
+  function realJwksPuts(fake: FakeJwksCache): number {
+    return fake.put.mock.calls.filter(
+      ([request]: [Request, Response]) =>
+        request.url.includes("/__jwks/") && !request.url.includes("__probe-"),
+    ).length;
+  }
+
+  async function verifyWith(fresh: typeof import("./access")): Promise<unknown> {
+    return fresh.verifyAccessJwt(baseEnv, await signToken(baseClaims()));
+  }
+
+  /** Run one real fetch so the module writes its cache entry, then return the fake cache. */
+  async function seedJwksCache(): Promise<{ fake: FakeJwksCache; key: string }> {
+    const fake = installFakeJwksCache();
+    vi.resetModules();
+    const warm = await import("./access");
+    vi.stubGlobal("fetch", async () => jwksResponse(defaultJwks()));
+    expect(await verifyWith(warm)).not.toBeNull();
+    expect(realJwksPuts(fake)).toBe(1);
+    const key = [...fake.store.keys()][0];
+    const keyUrl = new URL(key);
+    expect(keyUrl.origin).toBe(new URL(BASE_URL).origin);
+    expect(keyUrl.pathname).toMatch(/^\/__jwks\/[0-9a-f]{32}$/);
+    return { fake, key };
+  }
+
+  /** Rewrite the stored entry with an old timestamp so the next read sees it as expired. */
+  async function ageCacheEntry(fake: FakeJwksCache, fetchedAt: number): Promise<void> {
+    const key = [...fake.store.keys()][0];
+    const body = (await fake.store.get(key)!.clone().json()) as { keys: unknown };
+    fake.store.set(
+      key,
+      new Response(JSON.stringify({ fetchedAt, keys: body.keys }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=21600" },
+      }),
+    );
+  }
+
+  it("a cold isolate reads the data-center cache instead of refetching", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const { fake, key } = await seedJwksCache();
+      const stored = (await fake.store.get(key)!.clone().json()) as {
+        fetchedAt: number;
+        keys: unknown[];
+      };
+      expect(typeof stored.fetchedAt).toBe("number");
+      expect(stored.keys).toHaveLength(1);
+      expect(fake.store.get(key)!.headers.get("Cache-Control")).toContain("max-age=21600");
+
+      // A new module instance is a cold isolate: empty memory, same data center.
+      let fetches = 0;
+      vi.resetModules();
+      const cold = await import("./access");
+      vi.stubGlobal("fetch", async () => {
+        fetches += 1;
+        return jwksResponse(defaultJwks());
+      });
+      expect(await verifyWith(cold)).not.toBeNull();
+      expect(fetches).toBe(0);
+
+      // Only the seeding fetch reached the network, and it reported duration and outcome.
+      const logs = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_fetch"'));
+      expect(logs).toHaveLength(1);
+      expect(JSON.parse(logs[0])).toMatchObject({
+        event: "jwks_fetch",
+        outcome: "ok",
+        cache: "miss",
+        wrote_cache: true,
+        keys: 1,
+      });
+      expect(Number.isFinite(JSON.parse(logs[0]).duration_ms)).toBe(true);
+
+      // One probe per isolate (the seeding module and the cold module).
+      const probes = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_cache_probe"'));
+      expect(probes).toHaveLength(2);
+      for (const probe of probes) {
+        expect(JSON.parse(probe)).toMatchObject({
+          event: "jwks_cache_probe",
+          available: true,
+          roundtrip: true,
+          error: "",
+        });
+      }
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("uses a fresh entry that is 30 minutes old without refetching", async () => {
+    const { fake } = await seedJwksCache();
+    await ageCacheEntry(fake, Date.now() - 30 * 60 * 1000);
+
+    let fetches = 0;
+    vi.resetModules();
+    const cold = await import("./access");
+    vi.stubGlobal("fetch", async () => {
+      fetches += 1;
+      return jwksResponse(defaultJwks());
+    });
+    expect(await verifyWith(cold)).not.toBeNull();
+    expect(fetches).toBe(0);
+  });
+
+  it("refetches after the one-hour freshness window and replaces the entry", async () => {
+    const { fake, key } = await seedJwksCache();
+    const old = Date.now() - 61 * 60 * 1000;
+    await ageCacheEntry(fake, old);
+
+    let fetches = 0;
+    vi.resetModules();
+    const cold = await import("./access");
+    vi.stubGlobal("fetch", async () => {
+      fetches += 1;
+      return jwksResponse([{ ...publicJwk, kid: "rotated-kid", use: "sig" }]);
+    });
+    const token = await signToken(baseClaims(), "RS256", "rotated-kid");
+    expect(await cold.verifyAccessJwt(baseEnv, token)).not.toBeNull();
+    expect(fetches).toBe(1);
+    expect(realJwksPuts(fake)).toBe(2);
+
+    const stored = (await fake.store.get(key)!.clone().json()) as {
+      fetchedAt: number;
+      keys: Array<{ kid?: string }>;
+    };
+    expect(stored.fetchedAt).toBeGreaterThan(old);
+    expect(stored.keys[0]?.kid).toBe("rotated-kid");
+  });
+
+  it("keeps verifying with the stale entry when the refetch fails and never overwrites it", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const { fake, key } = await seedJwksCache();
+      const old = Date.now() - 2 * 60 * 60 * 1000;
+      await ageCacheEntry(fake, old);
+      const putsBefore = realJwksPuts(fake);
+
+      vi.resetModules();
+      const cold = await import("./access");
+      vi.stubGlobal("fetch", async () => new Response("boom", { status: 500 }));
+      expect(await verifyWith(cold)).not.toBeNull();
+      expect(realJwksPuts(fake)).toBe(putsBefore);
+
+      const stored = (await fake.store.get(key)!.clone().json()) as { fetchedAt: number };
+      expect(stored.fetchedAt).toBe(old);
+
+      const logs = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_fetch"'));
+      expect(logs).toHaveLength(2);
+      expect(JSON.parse(logs[1])).toMatchObject({
+        event: "jwks_fetch",
+        outcome: "http_error",
+        status: 500,
+        fallback: "l2",
+        cache: "stale",
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("never overwrites the cached copy with an empty or malformed key set", async () => {
+    const bodies = ['{"keys":[]}', '{"keys":[{"kty":"EC"}]}', "not-json"];
+    for (const body of bodies) {
+      vi.unstubAllGlobals();
+      const { fake, key } = await seedJwksCache();
+      const old = Date.now() - 2 * 60 * 60 * 1000;
+      await ageCacheEntry(fake, old);
+
+      vi.resetModules();
+      const cold = await import("./access");
+      vi.stubGlobal("fetch", async () => new Response(body, { status: 200 }));
+      expect(await verifyWith(cold)).not.toBeNull();
+
+      const stored = (await fake.store.get(key)!.clone().json()) as { fetchedAt: number };
+      expect(stored.fetchedAt).toBe(old);
+      expect(realJwksPuts(fake)).toBe(1);
+    }
+  });
+
+  it("fails closed when the key set is empty and nothing is cached", async () => {
+    vi.stubGlobal("caches", {
+      default: { match: async () => undefined, put: async () => undefined },
+    });
+    vi.resetModules();
+    const cold = await import("./access");
+    vi.stubGlobal("fetch", async () => new Response('{"keys":[]}', { status: 200 }));
+    expect(await verifyWith(cold)).toBeNull();
+  });
+
+  it("ignores a corrupt cached entry and refetches", async () => {
+    const { fake, key } = await seedJwksCache();
+    fake.store.set(
+      key,
+      new Response('{"fetchedAt":"yesterday","keys":[]}', {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    let fetches = 0;
+    vi.resetModules();
+    const cold = await import("./access");
+    vi.stubGlobal("fetch", async () => {
+      fetches += 1;
+      return jwksResponse(defaultJwks());
+    });
+    expect(await verifyWith(cold)).not.toBeNull();
+    expect(fetches).toBe(1);
+    expect(realJwksPuts(fake)).toBe(2);
+  });
+
+  it("a kid miss bypasses the fresh cache and replaces it", async () => {
+    const { fake } = await seedJwksCache();
+
+    let fetches = 0;
+    vi.resetModules();
+    const cold = await import("./access");
+    vi.stubGlobal("fetch", async () => {
+      fetches += 1;
+      return jwksResponse([{ ...publicJwk, kid: "rotated-kid", use: "sig" }]);
+    });
+    const token = await signToken(baseClaims(), "RS256", "rotated-kid");
+    expect(await cold.verifyAccessJwt(baseEnv, token)).not.toBeNull();
+    expect(fetches).toBe(1);
+    expect(realJwksPuts(fake)).toBe(2);
+
+    const stored = (await [...fake.store.values()][0].clone().json()) as {
+      keys: Array<{ kid?: string }>;
+    };
+    expect(stored.keys[0]?.kid).toBe("rotated-kid");
+  });
+
+  it("falls back to isolate memory when the Cache API is absent", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      vi.resetModules();
+      const cold = await import("./access");
+      let fetches = 0;
+      vi.stubGlobal("fetch", async () => {
+        fetches += 1;
+        return jwksResponse(defaultJwks());
+      });
+      expect(await verifyWith(cold)).not.toBeNull();
+      expect(await verifyWith(cold)).not.toBeNull();
+      expect(fetches).toBe(1);
+
+      const probes = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_cache_probe"'));
+      expect(probes).toHaveLength(1);
+      expect(JSON.parse(probes[0]).available).toBe(false);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("cache read and write failures do not fail the login", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const cache = {
+        match: vi.fn(async () => {
+          throw new Error("cache unavailable");
+        }),
+        put: vi.fn(async () => {
+          throw new Error("cache write failed");
+        }),
+      };
+      vi.stubGlobal("caches", { default: cache });
+      vi.resetModules();
+      const cold = await import("./access");
+      let fetches = 0;
+      vi.stubGlobal("fetch", async () => {
+        fetches += 1;
+        return jwksResponse(defaultJwks());
+      });
+      expect(await verifyWith(cold)).not.toBeNull();
+      expect(fetches).toBe(1);
+      // The probe write and the real write both throw; the fetch still succeeds.
+      expect(cache.put).toHaveBeenCalledTimes(2);
+
+      const logs = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_fetch"'));
+      expect(logs).toHaveLength(1);
+      expect(JSON.parse(logs[0]).wrote_cache).toBe(false);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("reports the Cache API unavailable when the global itself throws", async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "caches");
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      get() {
+        throw new Error("Cache API unavailable");
+      },
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      vi.resetModules();
+      const cold = await import("./access");
+      vi.stubGlobal("fetch", async () => jwksResponse(defaultJwks()));
+      expect(await verifyWith(cold)).not.toBeNull();
+
+      const probes = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('"jwks_cache_probe"'));
+      expect(probes).toHaveLength(1);
+      expect(JSON.parse(probes[0])).toMatchObject({ available: false, roundtrip: false });
+    } finally {
+      logSpy.mockRestore();
+      if (descriptor) Object.defineProperty(globalThis, "caches", descriptor);
+      else delete (globalThis as { caches?: unknown }).caches;
+    }
   });
 });

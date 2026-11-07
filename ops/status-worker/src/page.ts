@@ -478,19 +478,6 @@ function probeDetailSafe(code: string, lang: Lang): string {
   }
 }
 
-/** 404 for mistyped, scanned, or outdated URLs. Keep the branded header and footer, replacing only the content with an explanation and exit link. */
-export function notFoundHtml(lang: Lang): string {
-  const body =
-    '<main class="status-main">' +
-    `<h1>${esc(t(lang, "notfound_title"))}</h1>` +
-    `<div class="err-box"><p>${esc(t(lang, "notfound_text"))}</p>` +
-    '<div class="err-actions">' +
-    `<a class="btn primary" href="/">${esc(t(lang, "back_status"))}</a>` +
-    `<a class="btn" href="${HOME_URL}">${esc(t(lang, "back_home"))}</a>` +
-    "</div></div></main>";
-  return shell(lang, t(lang, "notfound_title"), body);
-}
-
 /**
  * Render failure (D1 read failure or unexpected exception): 503 + no-store.
  *

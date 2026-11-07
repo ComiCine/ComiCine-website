@@ -13,6 +13,10 @@
 #
 # The disallowed paths are endpoints and admin entry points, not content:
 # crawling them only burns the site's free-tier request budget.
+#
+# /mcp is the internal MCP endpoint. It stays disallowed and is deliberately not
+# listed in /llms.txt: the gate answers unverified clients with the challenge
+# page instead of JSON, so the endpoint is not advertised as a public tool.
 
 User-agent: *
 Allow: /
@@ -41,7 +45,9 @@ User-agent: Applebot
 User-agent: DuckDuckBot
 User-agent: DuckAssistBot
 User-agent: Baiduspider
-User-agent: Sogou
+# Sogou's mobile browser advertises SogouMSE / SogouMobileBrowser, so this line
+# names the crawler rather than the brand.
+User-agent: Sogou web spider
 User-agent: 360Spider
 User-agent: YisouSpider
 User-agent: PetalBot
@@ -113,20 +119,15 @@ Disallow: /account
 Disallow: /apple
 Disallow: /mcp
 
-# Generic crawler markers and Tencent app previews. These are self-declared
-# UA signals, not identity checks; they only skip the human-verification gate.
-User-agent: bot
+# Generic crawler markers. These are self-declared UA signals, not identity
+# checks; they only skip the human-verification gate. Keep only words a real
+# browser never sends: `bot`, `spider`, `preview` and `AI-` matched CUBOT
+# phones, a Spider 8 tablet, preview builds and AKAI/Funai TV browsers, so they
+# are gone.
 User-agent: crawler
-User-agent: spider
-User-agent: preview
 User-agent: fetcher
 User-agent: LLM
-User-agent: AI-
-User-agent: QQ/
 User-agent: QQBot
-User-agent: MQQBrowser
-User-agent: MicroMessenger
-User-agent: WeChat
 Allow: /
 Disallow: /api/
 Disallow: /login

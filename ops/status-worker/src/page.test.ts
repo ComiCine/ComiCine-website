@@ -14,7 +14,6 @@ import {
   STATUS_JS,
   THEME_JS,
   navHtml,
-  notFoundHtml,
   renderErrorHtml,
   statusPageHtml,
   type PagePayload,
@@ -211,19 +210,6 @@ describe("status content", () => {
 });
 
 describe("failure pages", () => {
-  it("404 keeps the chrome, is localized and offers two ways out", () => {
-    for (const lang of LANGS) {
-      const html = notFoundHtml(lang);
-      expect(html, lang).toContain('class="site-nav"');
-      expect(html, lang).toContain('class="global-footer"');
-      expect(html, lang).toContain('class="btn primary" href="/"');
-      expect(html, lang).toContain("https://comicine.com");
-      expect(html, lang).not.toContain("<script>");
-    }
-    expect(notFoundHtml("zh-cn")).toContain("页面不存在");
-    expect(notFoundHtml("ko-kr")).toContain("페이지를 찾을 수 없습니다");
-  });
-
   it("the render-failure page is localized and explains itself", () => {
     expect(renderErrorHtml("zh-cn")).toContain("状态数据暂时不可用");
     expect(renderErrorHtml("en-us")).toContain("Status data is temporarily unavailable");

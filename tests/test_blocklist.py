@@ -7,7 +7,9 @@
 
 """Tests for blocklist parsing and D1 sync (Nginx scanning was removed with the VPS)."""
 
+import json
 import sqlite3
+import sys
 
 import pytest
 
@@ -117,6 +119,110 @@ def test_sync_d1_dry_run_does_not_write(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_block, "_call", _fake_d1_call(calls))
     assert auto_block.sync_d1(dry_run=True) == 0
     assert not any("INSERT" in body["sql"] or "DELETE" in body["sql"] for _, _, body in calls)
+
+
+D1_ALL_CIDRS = ["1.2.3.0/24", "203.0.113.0/24", "4.5.6.0/24"]
+D1_ACTIVE_ROWS = [
+    {"cidr": "1.2.3.0/24", "source": "auto_block"},
+    {"cidr": "4.5.6.0/24", "source": "auto_block"},
+    {"cidr": "203.0.113.0/24", "source": "cli/add"},
+]
+
+
+def _fake_d1_rows(calls, all_cidrs, active_rows):
+    """Serve the two dry-run SELECTs and fail loudly if anything tries to write."""
+
+    def fake_call(token, method, url, body=None):
+        calls.append((method, url, body))
+        sql = (body or {}).get("sql", "")
+        if sql.startswith("SELECT cidr, source"):
+            rows = [{"cidr": row["cidr"], "source": row["source"]} for row in active_rows]
+        elif sql.startswith("SELECT cidr"):
+            rows = [{"cidr": cidr} for cidr in all_cidrs]
+        else:
+            raise AssertionError(f"unexpected write during dry-run: {sql}")
+        return {"result": [{"results": rows, "meta": {"changes": 0}}]}
+
+    return fake_call
+
+
+def _patch_dry_run_env(monkeypatch, tmp_path, blocklist_text):
+    """Point the module at a temporary blocklist and archive directory; return the latter."""
+    blocklist = tmp_path / "blocklist.txt"
+    blocklist.write_text(blocklist_text, encoding="utf-8")
+    archive_dir = tmp_path / "out"
+    monkeypatch.setattr(auto_block, "BLOCKLIST_TXT", str(blocklist))
+    monkeypatch.setattr(auto_block, "ARCHIVE_DIR", str(archive_dir))
+    monkeypatch.setattr(auto_block, "load_env", lambda path: {
+        "CLOUDFLARE_API_TOKEN": "token",
+        "CLOUDFLARE_ACCOUNT_ID": "account",
+        "D1_DATABASE_ID": "db",
+    })
+    return archive_dir
+
+
+def test_d1_dry_run_json_reports_preserved_admin_rows(monkeypatch, tmp_path, capsys):
+    archive_dir = _patch_dry_run_env(monkeypatch, tmp_path, "1.2.3.0/24\n")
+    calls = []
+    monkeypatch.setattr(auto_block, "_call", _fake_d1_rows(calls, D1_ALL_CIDRS, D1_ACTIVE_ROWS))
+
+    assert auto_block.sync_d1(dry_run=True, json_output=True) == 0
+
+    stdout = capsys.readouterr().out
+    assert stdout.count("\n") == 1, "JSON mode must print exactly one line on stdout"
+    report = json.loads(stdout)
+    assert report["ok"] is True
+    assert report["mode"] == "d1"
+    assert report["dry_run"] is True
+    assert report["to_add"] == []
+    assert report["to_remove"] == ["4.5.6.0/24"]
+    assert report["pulled"] == []
+    assert report["preserved"] == [{"cidr": "203.0.113.0/24", "source": "cli/add"}]
+    assert report["generated_at"].endswith("Z")
+
+    archives = sorted(archive_dir.glob("reconcile-blocklist-*.json"))
+    assert len(archives) == 1, "a JSON dry-run must write exactly one archive"
+    assert json.loads(archives[0].read_text(encoding="utf-8")) == report
+
+
+def test_reconcile_dry_run_json_pulls_preserved_admin_rows(monkeypatch, tmp_path, capsys):
+    _patch_dry_run_env(monkeypatch, tmp_path, "1.2.3.0/24\n")
+    calls = []
+    monkeypatch.setattr(auto_block, "_call", _fake_d1_rows(calls, D1_ALL_CIDRS, D1_ACTIVE_ROWS))
+
+    assert auto_block.sync_d1(dry_run=True, pull=True, json_output=True) == 0
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["mode"] == "reconcile"
+    assert report["to_remove"] == []
+    assert report["pulled"] == ["203.0.113.0/24", "4.5.6.0/24"]
+    assert report["preserved"] == [{"cidr": "203.0.113.0/24", "source": "cli/add"}]
+    assert all(item["cidr"] in report["pulled"] for item in report["preserved"])
+
+    assert not any(
+        (body or {}).get("sql", "").lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+        for _method, _url, body in calls
+    ), "a reconcile dry-run must not issue writes"
+
+
+def test_json_without_dry_run_exits_2(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["auto_block.py", "reconcile", "--json"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        auto_block.main()
+
+    assert excinfo.value.code == 2
+    assert "--json requires --dry-run" in capsys.readouterr().err
+
+
+def test_text_dry_run_keeps_default_output_and_writes_no_archive(monkeypatch, tmp_path, capsys):
+    archive_dir = _patch_dry_run_env(monkeypatch, tmp_path, "1.2.3.0/24\n")
+    monkeypatch.setattr(auto_block, "_call", _fake_d1_rows([], D1_ALL_CIDRS, D1_ACTIVE_ROWS))
+
+    assert auto_block.sync_d1(dry_run=True) == 0
+
+    assert capsys.readouterr().out == "[d1] dry-run: +0 -1 pull=0\n  - 4.5.6.0/24\n"
+    assert not archive_dir.exists() or not list(archive_dir.iterdir())
 
 
 # Write back the result of bidirectional reconciliation (2026-10-11: reconcile).

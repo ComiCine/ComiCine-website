@@ -1,0 +1,30 @@
+{
+
+  // Type-checks the vitest suites on top of the main program. package.json runs this right after
+  // `tsc --noEmit`, so a mock drifting away from the production type fails locally and in CI.
+  //
+  // `extends` does not merge include/exclude, so the baseline entries are repeated here; dropping
+  // them would silently exclude functions/, ops/workers.d.ts, and the three Worker source trees.
+  "extends": "./tsconfig.json",
+
+  "include": [
+    "functions/**/*.ts",
+    "functions/**/*.d.ts",
+    "ops/workers.d.ts",
+    "ops/sync-worker/src/**/*.ts",
+    "ops/status-worker/src/**/*.ts",
+    "ops/d1-archive/src/**/*.ts",
+    "functions/**/*.test.ts",
+    "ops/**/*.test.ts"
+  ],
+
+  // Excluded deliberately (vitest still runs them, this is only the type-check program):
+  // docs/docs/.vitepress/theme/*.test.ts imports the docs site's local Functions JavaScript
+  // module, which has no declaration file, and its VitePress dependencies are installed only by
+  // ops/docs_deploy.sh (site/docs/docs has no committed package.json).
+  "exclude": [
+    "**/* 2.ts",
+    "docs/docs/.vitepress/theme/**/*.test.ts"
+  ]
+
+}

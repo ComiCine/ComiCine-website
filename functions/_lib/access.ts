@@ -25,6 +25,8 @@
  *   values should not appear in build output.
  */
 
+import { BASE_URL } from "./config";
+import { hmacSha256Hex } from "./crypto";
 import type { Env } from "./env";
 
 export interface AccessIdentity {
@@ -60,8 +62,31 @@ interface AccessClaims {
 const textEncoder = new TextEncoder();
 const JWKS_TIMEOUT_MS = 8000;
 const JWKS_TTL_MS = 3600_000;
+/**
+ * How long a data-center cache entry stays readable.
+ *
+ * Freshness is still one hour: readers compare the embedded `fetchedAt` with
+ * `JWKS_TTL_MS`. The longer edge lifetime only keeps a stale copy around, so a
+ * failed refetch after the TTL can still verify tokens. That is the same
+ * fallback the isolate memory always provided, now visible to every isolate in
+ * the data center instead of only the one that fetched the keys.
+ */
+const JWKS_CACHE_MAX_AGE_SECONDS = 6 * 60 * 60;
+/** Synthetic path on our own zone; the entry holds public signing keys only. */
+const JWKS_CACHE_PATH = "/__jwks/";
 const CLOCK_SKEW_SECONDS = 60;
 const MAX_JWT_LENGTH = 16 * 1024;
+
+interface JwksCacheEntry {
+  keys: JwkLike[];
+  fetchedAt: number;
+}
+
+interface JwksCacheLike {
+  match(request: Request): Promise<Response | null | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+  delete?(request: Request): Promise<boolean>;
+}
 
 let jwksCache: { url: string; keys: JwkLike[]; fetchedAt: number } | null = null;
 
@@ -127,27 +152,251 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+let jwksCacheProbed = false;
+
+/** The `caches.default` instance, or undefined where the Cache API is unavailable. */
+function jwksCacheDefault(): JwksCacheLike | undefined {
+  try {
+    if (typeof caches === "undefined") return undefined;
+    return (caches as unknown as { default?: JwksCacheLike }).default;
+  } catch {
+    // Some runtimes make the global throw; the cache is only an optimization.
+    return undefined;
+  }
+}
+
+/**
+ * Return the data-center cache and report once per isolate whether it works.
+ *
+ * The Workers docs still say the Cache API is unavailable for Workers behind
+ * Access, and the failure mode is undocumented: the global may be missing,
+ * `caches.default` may be missing, or the operations may throw. A presence
+ * check cannot tell an empty cache from a broken one, so the first call does a
+ * tiny put/match/delete roundtrip and logs the result. Later calls only return
+ * the cache; the probe never runs again in this isolate.
+ *
+ * This closes the requirement's blind spot: after a deploy, one `jwks_cache_probe`
+ * line per isolate shows `available` plus `roundtrip`, and the `jwks_fetch`
+ * lines show whether fetches actually drop.
+ */
+async function jwksL2Cache(): Promise<JwksCacheLike | undefined> {
+  const cache = jwksCacheDefault();
+  if (jwksCacheProbed) return cache;
+  jwksCacheProbed = true;
+
+  let roundtrip = false;
+  let error = "";
+  if (cache) {
+    try {
+      const key = new Request(`${BASE_URL}${JWKS_CACHE_PATH}__probe-${crypto.randomUUID()}`);
+      await cache.put(
+        key,
+        new Response("1", { headers: { "Cache-Control": "public, max-age=60" } }),
+      );
+      roundtrip = Boolean(await cache.match(key));
+      await cache.delete?.(key);
+    } catch (caught) {
+      error = String(caught);
+    }
+  }
+
+  console.log(
+    JSON.stringify({
+      event: "jwks_cache_probe",
+      ts: Math.floor(Date.now() / 1000),
+      available: cache !== undefined,
+      roundtrip,
+      error: error.slice(0, 200),
+    }),
+  );
+  return cache;
+}
+
+/**
+ * Synthetic cache key on our own zone.
+ *
+ * Salted with a Pages secret so the key cannot be derived from the public team
+ * domain: the entry lives in the cache shared with `fetch`, and guessing the URL
+ * must not be a way to probe or pre-seed it. Only public keys are stored.
+ */
+async function jwksCacheRequest(env: Env, url: string): Promise<Request> {
+  const hash = await hmacSha256Hex((env.SESSION_HMAC_KEY ?? "").trim(), url);
+  return new Request(`${BASE_URL}${JWKS_CACHE_PATH}${hash.slice(0, 32)}`);
+}
+
+/** Keep only keys that can verify an RS256 signature; drop rotated or malformed entries. */
+function validJwks(value: unknown): JwkLike[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is JwkLike => {
+    if (!item || typeof item !== "object") return false;
+    const key = item as JwkLike;
+    return (
+      key.kty === "RSA" &&
+      typeof key.n === "string" &&
+      key.n !== "" &&
+      typeof key.e === "string" &&
+      key.e !== ""
+    );
+  });
+}
+
+async function readJwksCache(
+  cache: JwksCacheLike,
+  key: Request,
+): Promise<JwksCacheEntry | null> {
+  try {
+    const cached = await cache.match(key);
+    if (!cached) return null;
+    const body = (await cached.json()) as { fetchedAt?: unknown; keys?: unknown } | null;
+    if (!body || typeof body !== "object") return null;
+    if (typeof body.fetchedAt !== "number" || !Number.isFinite(body.fetchedAt)) return null;
+    // A corrupt or clock-skewed future timestamp must not look fresh forever.
+    if (body.fetchedAt > Date.now() + CLOCK_SKEW_SECONDS * 1000) return null;
+    const keys = validJwks(body.keys);
+    if (!keys.length) return null;
+    return { keys, fetchedAt: body.fetchedAt };
+  } catch {
+    // A missing, expired, or corrupt entry is a miss, not an error.
+    return null;
+  }
+}
+
+async function writeJwksCache(
+  cache: JwksCacheLike,
+  key: Request,
+  keys: JwkLike[],
+  fetchedAt: number,
+): Promise<boolean> {
+  try {
+    await cache.put(
+      key,
+      new Response(JSON.stringify({ fetchedAt, keys }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${JWKS_CACHE_MAX_AGE_SECONDS}`,
+        },
+      }),
+    );
+    // `cache.put` resolves even when the entry was not stored, so `true` means
+    // the call was accepted, not that the entry is guaranteed to be present.
+    return true;
+  } catch {
+    // Cache writes are best effort; verification must not depend on them.
+    return false;
+  }
+}
+
+interface JwksFetchLog {
+  outcome: "ok" | "http_error" | "empty" | "exception";
+  status?: number;
+  durationMs: number;
+  cache: "miss" | "stale" | "bypass" | "unavailable";
+  fallback?: "l1" | "l2";
+  keys?: number;
+  wroteCache?: boolean;
+}
+
+/**
+ * Emit one line per real network fetch of the key set.
+ *
+ * Cache hits stay silent, so counting `event:"jwks_fetch"` lines is the fetch
+ * count and `duration_ms` shows what the fetch cost. Never log the keys.
+ */
+function logJwksFetch(fields: JwksFetchLog): void {
+  console.log(
+    JSON.stringify({
+      event: "jwks_fetch",
+      ts: Math.floor(Date.now() / 1000),
+      outcome: fields.outcome,
+      status: fields.status ?? 0,
+      duration_ms: fields.durationMs,
+      keys: fields.keys ?? 0,
+      cache: fields.cache,
+      fallback: fields.fallback ?? "",
+      wrote_cache: fields.wroteCache ?? false,
+    }),
+  );
+}
+
 /**
  * Fetch and cache signing keys.
  *
- * `force` **bypasses the TTL for one refetch when a kid is missing**. Cloudflare
- * rotates signing keys every six weeks, so a new kid may be absent from our
- * one-hour cache. Without a refetch, tokens signed with the new key are
- * rejected until expiry (`/login` returns 401 and protected subdomains loop
- * through 302s). If refetching fails, use the previous cache so a transient
- * network failure does not prevent everyone from signing in.
+ * Two layers:
+ * - L1 is isolate memory, fresh for one hour; it is the fast path.
+ * - L2 is `caches.default`, shared by every isolate in the same data center,
+ *   so cold starts and new isolates do not download the key set again. Entries
+ *   are stored under a synthetic URL on our own zone and hold public keys only.
+ *
+ * `force` **bypasses both freshness checks for one refetch when a kid is
+ * missing**. Cloudflare rotates signing keys every six weeks, so a new kid may
+ * be absent from an hour-old cache. Without a refetch, tokens signed with the
+ * new key are rejected until expiry (`/login` returns 401 and protected
+ * subdomains loop through 302s). If refetching fails, the newest known key set
+ * (L1 or L2) is used so a transient network failure does not prevent everyone
+ * from signing in.
  */
 async function fetchJwks(env: Env, force = false): Promise<JwkLike[] | { error: string }> {
   const url = accessJwksUrl(env);
   if (!url) return { error: "missing_ACCESS_TEAM_DOMAIN" };
+  const now = Date.now();
   if (
     !force &&
     jwksCache &&
     jwksCache.url === url &&
-    Date.now() - jwksCache.fetchedAt < JWKS_TTL_MS
+    now - jwksCache.fetchedAt < JWKS_TTL_MS
   ) {
     return jwksCache.keys;
   }
+
+  // Keep the newest copy seen so far; it is reused if the refetch fails.
+  let stale: JwksCacheEntry | null =
+    jwksCache && jwksCache.url === url
+      ? { keys: jwksCache.keys, fetchedAt: jwksCache.fetchedAt }
+      : null;
+  let staleFrom: "l1" | "l2" = "l1";
+
+  const cache = await jwksL2Cache();
+  let cacheKey: Request | null = null;
+  if (cache) {
+    try {
+      cacheKey = await jwksCacheRequest(env, url);
+    } catch {
+      cacheKey = null;
+    }
+  }
+  let cacheState: JwksFetchLog["cache"] = cacheKey ? "miss" : "unavailable";
+
+  if (cache && cacheKey) {
+    const entry = await readJwksCache(cache, cacheKey);
+    if (entry) {
+      if (!stale || entry.fetchedAt > stale.fetchedAt) {
+        stale = entry;
+        staleFrom = "l2";
+      }
+      if (!force && now - entry.fetchedAt < JWKS_TTL_MS) {
+        jwksCache = { url, keys: entry.keys, fetchedAt: entry.fetchedAt };
+        return entry.keys;
+      }
+      cacheState = force ? "bypass" : "stale";
+    }
+  }
+
+  const startedAt = Date.now();
+  const fallback = (
+    error: string,
+    outcome: JwksFetchLog["outcome"],
+    status = 0,
+  ): JwkLike[] | { error: string } => {
+    logJwksFetch({
+      outcome,
+      status,
+      durationMs: Date.now() - startedAt,
+      cache: cacheState,
+      fallback: stale ? staleFrom : undefined,
+    });
+    return stale ? stale.keys : { error };
+  };
+
   try {
     const resp = await fetchWithTimeout(
       url,
@@ -156,24 +405,29 @@ async function fetchJwks(env: Env, force = false): Promise<JwkLike[] | { error: 
     );
     // After the TTL a transient 5xx/429 must still fall back to the previous keys;
     // otherwise every login returns 401 while the cached keys would verify fine.
-    if (!resp.ok) {
-      if (jwksCache && jwksCache.url === url) return jwksCache.keys;
-      return { error: `jwks_http_${resp.status}` };
-    }
-    const body = (await resp.json()) as { keys?: JwkLike[] };
-    const keys = Array.isArray(body.keys) ? body.keys : [];
-    if (!keys.length) {
-      if (jwksCache && jwksCache.url === url) return jwksCache.keys;
-      return { error: "jwks_empty" };
-    }
-    jwksCache = { url, keys, fetchedAt: Date.now() };
+    if (!resp.ok) return fallback(`jwks_http_${resp.status}`, "http_error", resp.status);
+    const body = (await resp.json()) as { keys?: unknown };
+    const keys = validJwks(body?.keys);
+    if (!keys.length) return fallback("jwks_empty", "empty");
+    const fetchedAt = Date.now();
+    // Report fetch + parse time, not the time spent waiting for the cache write.
+    const durationMs = fetchedAt - startedAt;
+    jwksCache = { url, keys, fetchedAt };
+    let wroteCache = false;
+    if (cache && cacheKey) wroteCache = await writeJwksCache(cache, cacheKey, keys, fetchedAt);
+    logJwksFetch({
+      outcome: "ok",
+      status: resp.status,
+      durationMs,
+      cache: cacheState,
+      keys: keys.length,
+      wroteCache,
+    });
     return keys;
   } catch {
-// Fall back to the previous cache when fetching fails. Cloudflare rotates
-// signing keys every six weeks, and one transient network failure during
-// rotation must not block everyone from signing in.
-    if (jwksCache && jwksCache.url === url) return jwksCache.keys;
-    return { error: "jwks_fetch_exception" };
+    // Cloudflare rotates signing keys every six weeks, and one transient network
+    // failure during rotation must not block everyone from signing in.
+    return fallback("jwks_fetch_exception", "exception");
   }
 }
 

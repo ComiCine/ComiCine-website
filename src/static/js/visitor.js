@@ -14,9 +14,13 @@
  *
  * Clicking a row requests /api/visitors/<hash>/ip to decrypt its full IP; the list endpoint only returns hashes.
  * On success, open https://ipinfo.io/<ip> in a new tab.
+ *
+ * Each load aborts after REQUEST_TIMEOUT_MS. A failed refresh keeps the last good table and reports
+ * the failure class in the status row, where the retry button reuses refresh().
  */
 
 import { filterMarkers } from './visitor-filter.js';
+import { classifyFailure, REQUEST_TIMEOUT_MS } from './visitor-request.js';
 
 // Data and request state.
 let allMarkers = [];
@@ -25,6 +29,8 @@ let currentStatus = 'all';
 let inFlight = false;
 let dataLoaded = false;
 let lastLoadedAt = 0;
+// Failure class of the latest request (null when it succeeded), shown in the status line.
+let lastFailure = null;
 
 // base.js exposes the translator through a classic script, whose execution order relative to modules can vary by browser.
 // This adapter falls back to the key until the translator is ready, without causing a ReferenceError.
@@ -75,21 +81,69 @@ function updateStats(stats) {
   document.getElementById('stat-statuses').textContent = Object.keys(statusCounts).length.toLocaleString();
 }
 
+// Status line: the last successful refresh time plus the current failure reason.
+// The copy is rendered from i18n keys so a language switch can rebuild it without a request.
+const FAILURE_COPY_KEYS = {
+  timeout: 'visitor_error_timeout',
+  network: 'visitor_error_network',
+  auth: 'visitor_error_auth',
+  forbidden: 'visitor_error_forbidden',
+  server: 'visitor_error_server',
+};
+
+function renderStatus() {
+  const status = document.getElementById('visitor-status');
+  const retry = document.getElementById('visitor-retry');
+  const failed = lastFailure !== null;
+
+  if (status) {
+    // formatTime accepts Unix seconds; lastLoadedAt is stored in milliseconds.
+    const updated = lastLoadedAt
+      ? t('visitor_updated_at', { time: formatTime(Math.floor(lastLoadedAt / 1000)) })
+      : '';
+    const reason = failed ? t(FAILURE_COPY_KEYS[lastFailure] || 'load_failed') : '';
+    status.textContent = failed ? (updated ? updated + ' · ' + reason : reason) : updated;
+    status.classList.toggle('error', failed);
+  }
+
+  if (retry) retry.hidden = !failed;
+}
+
 async function refresh() {
   if (inFlight) return;
   inFlight = true;
   let refreshed = false;
+  let responseStatus;
+  let timedOut = false;
+
+  // A hanging connection must not leave inFlight true forever. The local flag, not the exception
+  // name, identifies the timeout once the aborted fetch rejects (browsers disagree on that name).
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
   try {
     if (!dataLoaded) showLoading();
 
-    const resp = await fetch('/api/visitors');
+    const resp = await fetch('/api/visitors', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    responseStatus = resp.status;
     if (resp.status === 401) {
+      // Redirect to login without flashing an error message over the dashboard.
       window.location.href = '/login?next=' + encodeURIComponent(location.href);
       return;
     }
     if (resp.status === 403) {
-      document.getElementById('visitor-list').innerHTML =
-        '<div class="loading-indicator dim">' + esc(t('no_permission')) + '</div>';
+      const container = document.getElementById('visitor-list');
+      if (container) {
+        container.innerHTML =
+          '<div class="loading-indicator dim">' + esc(t('no_permission')) + '</div>';
+      }
+      lastFailure = 'forbidden';
       return;
     }
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -99,16 +153,20 @@ async function refresh() {
     statusCounts = data.status_counts || {};
     dataLoaded = true;
     lastLoadedAt = Date.now();
+    lastFailure = null;
     updateStats(data.stats);
     refreshed = true;
   } catch (error) {
     console.error('Failed to load:', error);
     // Keep the last good table visible: a transient refresh failure must not blank the
     // dashboard for up to ten minutes until the next poll succeeds.
+    lastFailure = classifyFailure({ status: responseStatus, error, timedOut });
     if (!dataLoaded) showError();
   } finally {
+    clearTimeout(timeoutId);
     inFlight = false;
     if (refreshed) applyFilter();
+    renderStatus();
   }
 }
 
@@ -265,6 +323,9 @@ function toast(message) {
     el = document.createElement('div');
     el.id = 'visitor-toast';
     el.className = 'toast';
+    // Transient feedback is announced politely, without moving focus away from the list.
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
     document.body.appendChild(el);
   }
   el.textContent = message;
@@ -274,11 +335,16 @@ function toast(message) {
   toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
 }
 
-async function openIpInfo(hash) {
+async function openIpInfo(hash, row) {
   if (!hash) {
     toast(t('ip_unavailable'));
     return;
   }
+
+  // Mark the clicked row as busy for assistive technology while its IP is decrypted.
+  // The finally below clears it on every path, including the early returns.
+  const rowEl = row && typeof row.setAttribute === 'function' ? row : null;
+  if (rowEl) rowEl.setAttribute('aria-busy', 'true');
 
   // Reserve the new tab synchronously during the click. Calling window.open after await is
   // treated by Safari/Chrome as a popup without a user gesture and is blocked.
@@ -291,48 +357,52 @@ async function openIpInfo(hash) {
     toast(t('ip_unavailable'));
   };
 
-  let resp;
   try {
-    resp = await fetch('/api/visitors/' + encodeURIComponent(hash) + '/ip', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-  } catch (e) {
-    fail();
-    return;
-  }
-  if (!resp.ok) {
-    // Map missing historical ciphertext (404), missing keys (503), and other failures to one notice without exposing details.
-    fail();
-    return;
-  }
-  let data;
-  try {
-    data = await resp.json();
-  } catch (e) {
-    fail();
-    return;
-  }
-  const ip = typeof data.ip === 'string' ? data.ip.trim() : '';
-  if (!IP_LITERAL_RE.test(ip)) {
-    fail();
-    return;
-  }
+    let resp;
+    try {
+      resp = await fetch('/api/visitors/' + encodeURIComponent(hash) + '/ip', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+    } catch (e) {
+      fail();
+      return;
+    }
+    if (!resp.ok) {
+      // Map missing historical ciphertext (404), missing keys (503), and other failures to one notice without exposing details.
+      fail();
+      return;
+    }
+    let data;
+    try {
+      data = await resp.json();
+    } catch (e) {
+      fail();
+      return;
+    }
+    const ip = typeof data.ip === 'string' ? data.ip.trim() : '';
+    if (!IP_LITERAL_RE.test(ip)) {
+      fail();
+      return;
+    }
 
-  const url = 'https://ipinfo.io/' + ip;
-  if (tab) {
-    tab.location.replace(url);
-  } else {
-    // If the placeholder is blocked, such as when popups are disabled, fall back to the current tab.
-    location.href = url;
+    const url = 'https://ipinfo.io/' + ip;
+    if (tab) {
+      tab.location.replace(url);
+    } else {
+      // If the placeholder is blocked, such as when popups are disabled, fall back to the current tab.
+      location.href = url;
+    }
+  } finally {
+    if (rowEl) rowEl.removeAttribute('aria-busy');
   }
 }
 
 document.getElementById('visitor-list').addEventListener('click', (event) => {
   const row = event.target.closest('.visitor-row');
   if (!row) return;
-  openIpInfo(row.dataset.hash);
+  openIpInfo(row.dataset.hash, row);
 });
 
 function esc(value) {
@@ -373,9 +443,11 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// A language change only affects labels; markers carry no localized text. Re-render from the
-// cached data instead of re-running the 30-day aggregate query (the site's heaviest D1 read).
+// A language change only affects labels; markers carry no localized text. Re-render the status
+// line and the cached list instead of re-running the 30-day aggregate query (the site's heaviest
+// D1 read). The status line is rebuilt even before the first load so a failure reason is translated.
 document.addEventListener('languagechange', () => {
+  renderStatus();
   if (dataLoaded) applyFilter();
 });
 

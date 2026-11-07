@@ -29,11 +29,6 @@
     -webkit-font-smoothing: antialiased;
     transition: background 300ms var(--ease-out);
   }
-  /* Top-right controls: language and theme switches, styled like the main navigation. */
-  .gate-controls {
-    position: fixed; top: 18px; right: 18px; z-index: 10;
-    display: flex; align-items: center; gap: 8px;
-  }
   /* Language switch: the same text-and-A icon with a down arrow as the main site. */
   .theme-toggle { position: relative; display: flex; align-items: center; }
   .lang-btn {

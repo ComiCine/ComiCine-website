@@ -13,7 +13,8 @@ import { clientIpForLogs } from "./routing";
 import { IDENTITY_HOSTNAME } from "./config";
 import type { Env } from "./env";
 import { isIdentitySite, safeIdentityTarget } from "./identity";
-import { logEvent, shouldLogThrottled } from "./logging";
+import { logEvent } from "./logging";
+import { shouldLogDiagnostic } from "./sampling";
 import { randomToken } from "./session";
 
 const IDENTITY_STATE_COOKIE_PREFIX = "comicine_identity_state_";
@@ -48,10 +49,11 @@ export async function buildIdentityLoginStart(
   const identityLogin = new URL("/login", `https://${IDENTITY_HOSTNAME}`);
   identityLogin.searchParams.set("next", callback.toString());
 
-  // A login start is diagnostic; keep the first per source per minute so a self-declared
-  // crawler cannot write one events row per request. Real success/failure events still log.
-  if (shouldLogThrottled("login_start", clientIpForLogs(request))) {
-    await logEvent(env, "login_attempt", request, {
+  // This is a diagnostic login-start record, not the audit `login_attempt`: keep the
+  // first handoff per source per minute so a self-declared crawler cannot write one
+  // events row per request. Login success/failure audit rows are always written.
+  if (shouldLogDiagnostic("login_start", clientIpForLogs(request))) {
+    await logEvent(env, "login_start", request, {
       outcome: "pending",
       status: responseStatus,
       message: "identity_start",

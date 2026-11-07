@@ -11,13 +11,16 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestGet } from "./status";
-import { authUnavailableResponse, requireAuth } from "../../_lib/session";
+import { requireAuth } from "../../_lib/session";
 import type { Env } from "../../_lib/env";
 
-vi.mock("../../_lib/session", () => ({
-  requireAuth: vi.fn(),
-  authUnavailableResponse: vi.fn(),
-}));
+vi.mock("../../_lib/session", async () => {
+  // Same shared stubs as the admin route tests; `status.ts` reads only `requireAuth` and the 503 response.
+  // The actual module supplies both, so the outage response cannot drift from production.
+  const actual = await vi.importActual<typeof import("../../_lib/session")>("../../_lib/session");
+  const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
+  return createSessionModuleMock(actual);
+});
 
 const env = { SESSION_HMAC_KEY: "test-session" } as Env;
 
@@ -36,12 +39,19 @@ function context(cookie?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireAuth).mockResolvedValue(null);
-  vi.mocked(authUnavailableResponse).mockReturnValue(
-    Response.json({ error: "auth_sessions_unavailable" }, { status: 503 }),
-  );
 });
 
 describe("auth status", () => {
+  // The route used to fall through to a 503 with a hand-written body wired only in `beforeEach`;
+  // no case made `requireAuth` reject, so that configuration was dead. Cover the real path now.
+  it("fails closed with 503 when the session store is unavailable", async () => {
+    vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
+    const resp = await onRequestGet(context() as never);
+    expect(resp.status).toBe(503);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "auth_sessions_unavailable" });
+  });
+
   it("does not issue CSRF when unauthenticated", async () => {
     const resp = await onRequestGet(context() as never);
     expect(resp.status).toBe(200);

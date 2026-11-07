@@ -130,36 +130,6 @@ export const GATE_I18N: Record<string, Record<string, string>> = {
     "retry": "다시 시도"
   }
 };
-export const REDIRECT_I18N: Record<string, { title: string; text: string; footer_rights: string; footer_source: string; footer_source_link: string }> = {
-  "zh-cn": {
-    "title": "正在跳转…",
-    "text": "正在跳转... (・ω・)",
-    "footer_rights": "保留所有权利",
-    "footer_source": "AGPL-3.0",
-    "footer_source_link": "源码"
-  },
-  "en-us": {
-    "title": "Redirecting…",
-    "text": "Redirecting... (・ω・)",
-    "footer_rights": "All rights reserved",
-    "footer_source": "AGPL-3.0",
-    "footer_source_link": "Source"
-  },
-  "ja-jp": {
-    "title": "リダイレクト中…",
-    "text": "リダイレクト中... (・ω・)",
-    "footer_rights": "すべての権利を保有",
-    "footer_source": "AGPL-3.0",
-    "footer_source_link": "ソースコード"
-  },
-  "ko-kr": {
-    "title": "리디렉션 중…",
-    "text": "리다이렉트 중... (・ω・)",
-    "footer_rights": "모든 권리 보유",
-    "footer_source": "AGPL-3.0",
-    "footer_source_link": "소스 코드"
-  }
-};
 export const REDIRECT_PRELOAD_IMAGES = [
   "https://images.comicine.com/static/portfolio/thumbs/IMG_0203-800.webp",
   "https://images.comicine.com/static/portfolio/thumbs/IMG_0146-800.webp",

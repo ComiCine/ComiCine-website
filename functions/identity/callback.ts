@@ -101,12 +101,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       signal: controller.signal,
     });
   } catch {
+    await logEvent(env, "login_attempt", request, {
+      outcome: "failed",
+      status: 503,
+      message: "identity_exchange_unreachable",
+    });
     return callbackResponse(503, "Identity service unavailable");
   } finally {
     clearTimeout(timer);
   }
   if (!exchange.ok) {
-    return callbackResponse(exchange.status >= 500 ? 503 : 401, "Identity handoff rejected");
+    // A 5xx from the exchange means the handoff store is down, not that the
+    // credential is invalid; say so instead of showing the rejection copy.
+    if (exchange.status >= 500) {
+      await logEvent(env, "login_attempt", request, {
+        outcome: "failed",
+        status: 503,
+        message: `identity_exchange_unavailable:${exchange.status}`,
+      });
+      return callbackResponse(503, "Identity service unavailable");
+    }
+    return callbackResponse(401, "Identity handoff rejected");
   }
 
   let handoff: {
@@ -119,15 +134,30 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     handoff = await exchange.json() as typeof handoff;
   } catch {
-    return callbackResponse(503, "Invalid identity response");
+    await logEvent(env, "login_attempt", request, {
+      outcome: "failed",
+      status: 503,
+      message: "identity_exchange_invalid_response",
+    });
+    return callbackResponse(503, "Identity service unavailable");
   }
   if (
-    handoff.sourceHost !== sourceHost ||
-    handoff.targetPath !== targetPath ||
     typeof handoff.sub !== "string" || !handoff.sub || handoff.sub.length > 512 ||
     typeof handoff.email !== "string" || !handoff.email || handoff.email.length > 254 ||
     typeof handoff.authAt !== "number" || !Number.isSafeInteger(handoff.authAt) || handoff.authAt < 0
-  ) return callbackResponse(401, "Invalid identity response");
+  ) {
+    // A 200 with an unusable shape breaks our own contract; that is a service
+    // failure, not evidence that the user's credential was invalid.
+    await logEvent(env, "login_attempt", request, {
+      outcome: "failed",
+      status: 503,
+      message: "identity_exchange_invalid_response",
+    });
+    return callbackResponse(503, "Identity service unavailable");
+  }
+  if (handoff.sourceHost !== sourceHost || handoff.targetPath !== targetPath) {
+    return callbackResponse(401, "Invalid identity response");
+  }
 
   const session = {
     sid: randomToken(24),

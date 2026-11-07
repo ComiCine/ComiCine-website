@@ -17,8 +17,10 @@
 # not as a removal instruction). See `docs/lists/README.md`.
 #
 # Usage:
-#   bash ops/reconcile_blocklist.sh              # do it
-#   bash ops/reconcile_blocklist.sh --dry-run    # show the diff, write nothing
+#   bash ops/reconcile_blocklist.sh                    # do it
+#   bash ops/reconcile_blocklist.sh --dry-run          # show the diff; no D1 or file writes
+#   bash ops/reconcile_blocklist.sh --dry-run --json   # one JSON object on stdout, plus an
+#                                                      # archive under the git-ignored ops/out/
 #
 # Why a wrapper instead of calling `src/auto_block.py` directly from deploy.sh:
 #   1. `auto_block.py` needs Python >= 3.10 (it uses `X | None`). macOS ships

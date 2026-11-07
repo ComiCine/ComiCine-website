@@ -43,7 +43,6 @@ export function isLang(v: unknown): v is Lang {
 export const ROOT_DOMAIN = "comicine.com";
 export const LANG_COOKIE = "user_lang_preference";
 export const THEME_COOKIE = "comicine_theme";
-export const COOKIE_MAX_AGE = 31536000;
 
 /** Each language's own name in the overlay; must match `lang_<primary>` in `site/locales/*.json`. */
 export const LANG_LABELS: Record<Lang, string> = {
@@ -173,13 +172,10 @@ const ZH_CN = {
   card_d1: "ComiCine D1 健康检查",
   card_status: "边缘静态资源",
 
-  // Page-level errors (render failure or missing route)
+  // Page-level errors (render failure)
   err_title: "状态数据暂时不可用",
   err_text: "无法从数据库读取探针数据，请稍后重试。",
   err_retry: "重试",
-  notfound_title: "页面不存在",
-  notfound_text: "这个地址在状态页上没有对应内容。",
-  back_status: "状态页",
   back_home: "回到 comicine.com",
 
   // Header and footer (matching keys and values in site/locales/*.json)
@@ -260,9 +256,6 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_title: "Status data is temporarily unavailable",
     err_text: "Could not read probe data from the database. Please try again later.",
     err_retry: "Retry",
-    notfound_title: "Page not found",
-    notfound_text: "There is nothing at this address on the status page.",
-    back_status: "Status page",
     back_home: "Go to comicine.com",
 
     nav_home: "Home",
@@ -336,9 +329,6 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_title: "ステータスデータを一時的に取得できません",
     err_text: "データベースからプローブデータを読み取れませんでした。しばらくしてから再度お試しください。",
     err_retry: "再試行",
-    notfound_title: "ページが見つかりません",
-    notfound_text: "このアドレスに該当するページはありません。",
-    back_status: "ステータスページ",
     back_home: "comicine.com へ",
 
     nav_home: "ホーム",
@@ -412,9 +402,6 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_title: "상태 데이터를 일시적으로 사용할 수 없습니다",
     err_text: "데이터베이스에서 프로브 데이터를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.",
     err_retry: "다시 시도",
-    notfound_title: "페이지를 찾을 수 없습니다",
-    notfound_text: "이 주소에 해당하는 상태 페이지 내용이 없습니다.",
-    back_status: "상태 페이지",
     back_home: "comicine.com으로",
 
     nav_home: "홈",

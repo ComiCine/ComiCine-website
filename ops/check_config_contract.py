@@ -57,6 +57,7 @@ PYTHON_FIELD_MAP = {
     "gate_trust": "GATE_TRUST",
     "observability_hmac_env": "OBSERVABILITY_HMAC_ENV",
     "whitelist_file": "WHITELIST_FILE",
+    "visitors_include_legacy": "VISITORS_INCLUDE_LEGACY",
 }
 
 

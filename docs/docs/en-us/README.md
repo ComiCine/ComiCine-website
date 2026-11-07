@@ -23,7 +23,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.comicine.com/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
 - **Auth & roles**: one `ComiCine` Access application protects `identity.comicine.com/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
-- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 HTML, then a same-origin external script navigates to `identity.comicine.com/login`; Cloudflare Access sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
+- **Shared login navigation**: an unauthenticated browser page request receives HTTP 401 with a same-origin script that navigates to `identity.comicine.com/login`; Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
 - **Monitoring**: the `comicine-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.comicine.com`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
@@ -47,6 +47,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 | Static assets / originals backup | Pages asset server + private R2 bucket `comicine-originals` | Cloudflare |
 | Deployment | `ops/deploy.sh` (git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`) | local |
 
+How those layers connect — the request pipeline, the identity handoff, the docs site build, the standalone Workers and the generated artifacts — is described in [ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/ARCHITECTURE.md).
+
 ## Project structure
 
 ```
@@ -61,8 +63,10 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
 ├── README.md                                         # this file
+├── ARCHITECTURE.md                                   # request flow, identity, Workers and build artifacts (English)
+├── SECURITY.md                                       # threat model, trust tiers and key handling (English)
 ├── LICENSE.txt                                        # Official GNU AGPL v3 text
-├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms
+├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms (English)
 ├── ADDITIONAL_TERMS_zh_CN.txt                         # Simplified Chinese translation
 ├── ADDITIONAL_TERMS_ja_JP.txt                         # Japanese translation
 ├── ADDITIONAL_TERMS_ko_KR.txt                         # Korean translation
@@ -92,7 +96,9 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │       └── tests.yml                                 # CI: build, then typecheck / migrations / vitest / pytest
 ├── .githooks/                                        # git hooks (installed by ops/install_git_hooks.sh)
 │   └── pre-push                                      # runs ops/ci_check.sh on the commit being pushed
-├── data/                                             # runtime databases and caches (generated; git-ignored)
+├── data/                                             # runtime data (generated; git-ignored)
+│   ├── GeoLite2-ASN.mmdb                             # GeoIP databases (large; git-ignored)
+│   └── *.db                                          # local caches (git-ignored)
 ├── secrets/                                          # secrets & certificates, git-ignored
 │   ├── webauthn.env                                  # env file read by the deploy scripts
 │   └── apple_account_encryption.key                  # Apple Account password encryption key
@@ -101,6 +107,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── build.sh                                      # Pages build: venv, contract checks, public/manifest.json
 │   ├── pages_deploy.sh                               # Cloudflare Pages build + Wrangler deploy
 │   ├── docs_deploy.sh                                # docs.comicine.com build + deploy (VitePress → Pages project comicine-docs)
+│   ├── smoke.sh                                      # standalone read-only smoke checks (main site, docs, status)
 │   ├── docs_headers.py                               # generates the docs site `_headers` (CSP hashes + cache)
 │   ├── ci_check.sh                                   # local replica of .github/workflows/tests.yml
 │   ├── run-tests.sh                                  # test runner used locally
@@ -114,9 +121,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 │   ├── upload_originals.sh                           # private R2 backup of portfolio originals
 │   ├── security-headers.json                         # single source of the response-header baseline
 │   ├── tailwind.config.js                            # Tailwind config for the prebuilt CSS
-│   ├── check_config_contract.py / check_gate_trust.py / check_security_headers.py / check_ip_rays.py / check_ray_id.py / check_visitor_id.py
+│   ├── check_config_contract.py / check_gate_trust.py / check_security_headers.py / check_license_headers.py / check_ip_rays.py / check_ray_id.py / check_visitor_id.py / check_blocklist_sync.py / zone_settings.py
 │   ├── migrations/                                   # D1 schema migrations
-│   ├── waf/                                          # WAF rule snapshots
 │   ├── cloudflare/                                   # Cloudflare resource inventory (declarative)
 │   ├── email-templates/                              # transactional email framework + i18n copy
 │   ├── fonts/                                        # gate-diagnostic font subset
@@ -136,13 +142,27 @@ A fully serverless personal website and admin system running at [comicine.com](h
 ├── locales/                                          # i18n / translation catalogs
 ├── public/                                           # Pages build output (git keeps only .gitkeep)
 ├── preview/                                          # local preview (build-generated; git keeps only .gitkeep)
-└── docs/                                             # docs.comicine.com VitePress root + services.comicine.com price-list CSVs
+└── docs/                                             # container: one directory per subdomain
+    ├── docs/                                         # docs.comicine.com — VitePress root
+    │   ├── .vitepress/                               # config.mts, rewrites.json, theme
+    │   ├── zh-cn/                                    # one directory per language, same file tree in each
+    │   ├── en-us/
+    │   ├── ja-jp/
+    │   ├── ko-kr/
+    │   ├── functions/                                # docs Pages Functions: language-less entry routes
+    │   └── public/                                   # static assets, _redirects, _routes.json, robots.txt
+    ├── services/                                     # services.comicine.com — price-list CSVs
+    └── lists/                                        # gate/crawler/bans lists and generated whitelist (not published)
+        ├── README.md                                 # what each list is and how to apply a change
+        ├── own-ips.txt                               # hand-written: your own IPs / extra trusted entries
+        ├── whitelist.txt                             # generated from own-ips.txt; used by the edge gate and optional WAF tool
+        └── blocklist.txt                             # hand-written: ban seed for src/auto_block.py (D1 is the authority)
 ```
 
 ## Brand assets and typography
 
-- The homepage hero and upper-left navigation render the exact word `ComiCine` in Delius Swash Caps. The same wordmark element animates from the center into the navigation as the portfolio opens. Its color follows the theme text color for a monochrome black-and-white appearance.
-- `src/static/icons/comicine-favicon.svg` is used for the browser favicon and small web marks. The horizontal wordmark and primary social-preview image use `src/static/icons/comicine-xtext.svg`. PNG counterparts are reserved for Apple touch icons and raster-only email or social surfaces. `src/static/icons/comicine-watermark.png` remains the input to the image-watermark pipeline.
+- The homepage hero and upper-left navigation render the exact word `ComiCine` in Delius Swash Caps. The same wordmark element animates from the center into the navigation as the portfolio opens. Its color follows the theme text color for a monochrome black/white appearance.
+- `src/static/icons/comicine-favicon.svg` is used for the browser favicon and small web marks. `src/static/icons/comicine-xtext.svg` is the horizontal wordmark and primary social-preview image. PNG counterparts are reserved for Apple touch icons and raster-only email/social surfaces. `src/static/icons/comicine-watermark.png` remains the input to the image-watermark pipeline.
 - The self-hosted Delius Swash Caps subset is under `src/static/fonts/delius-swash-caps/`, with its OFL license alongside it. Brand wordmarks use it for the exact word `ComiCine`; Copyright lines keep their existing font for the symbol and years and use Delius only for `ComiCine`, at `1.3em` relative to the surrounding footer text. The status Worker embeds the subset it needs; all other text keeps its existing font stack.
 - Production builds use the bundled font subsets and do not depend on the development machine's original font-source directory.
 
@@ -240,7 +260,7 @@ windows and every path in the tree below:
 | Schedule | Worker | Job |
 | --- | --- | --- |
 | `* * * * *` | `ops/status-worker` | HTTP/D1 probes every minute; a Durable Object alarm re-checks every 10s while a probe is down, and alerts on state change |
-| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d) |
+| `47 3 * * *` | `ops/status-worker` | D1 retention (`src/retention.ts`): prunes `ray_log_v2` (7d), `visitors_v2` (30d), `visitor_rollups` (30d), `heartbeats` (30d), `events` (90d), `probe_uptime_daily` (90d), `auth_sessions` (60d) and `identity_handoffs` (1d); the same run records per-bucket results in `retention_state`, alerts on prune failures, and runs the account-level D1 read/write budget check; it also folds the previous seven complete UTC days of visitor details into `visitors_daily` (`src/visitor-daily.ts`), the aggregate `/api/visitors` reads for its 30-day statistics |
 | `30 3 * * *` | `ops/sync-worker` | Mirrors active D1 `blocked_ips` rows to the Cloudflare IP List `comicine_blocklist` |
 | `0 0 * * *` | `ops/d1-archive` | D1 snapshot/archive run |
 
@@ -268,7 +288,7 @@ bash ops/deploy.sh --all --full             # same, but stream every step's outp
 ```
 
 Running `ops/deploy.sh` with **no arguments is exactly `--all`**: commit + push +
-Pages + docs, the "full deploy" contract. To ship only what is already committed
+Pages + docs + Workers, the "full deploy" contract. To ship only what is already committed
 locally, pass `--pages` / `--docs` explicitly.
 
 Output is quiet by default (one status line per step); add `--full` to watch the whole
@@ -312,47 +332,89 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## Security design
 
-- Session cookies use `Secure` + `HttpOnly` + `SameSite=Lax` and are host-only, so a session cookie cannot be reused by another site;
-  every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
+- The session cookie is named `__Host-comicine_session` (contract `session_cookie`), is host-only,
+  and sets `Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` with no `Domain`; the `__Host-` prefix
+  makes the browser enforce the no-`Domain` + `Secure` + `Path=/` part, so a subdomain cannot
+  overwrite the prefixed cookie. A session presented under the pre-rename name `comicine_session`
+  is accepted only during the transition and only when it was authenticated before
+  2026-11-08T16:00Z, so a freshly minted token cannot be injected with `Domain=.comicine.com`; the
+  legacy read and its clear are removed after 2026-12-07 (one session TTL). `/logout` clears both
+  names. Every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
   rejects revoked/expired sessions. Missing runtime HMAC keys or an unavailable
   `auth_sessions` table fail closed with 503.
 - The gate fails closed too: with `TURNSTILE_SECRET`, `GATE_HMAC_KEY` or
   `SESSION_HMAC_KEY` empty, the edge answers 503 instead of rendering pages or
   issuing unsigned cookies.
-- The `__gate` cookie is `<unix-expiry>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
-  `Domain=.comicine.com`), minted and validated entirely at the edge.
-- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML and sets the short-lived state cookie; a same-origin external script then navigates to `identity.comicine.com/login`. Cloudflare Access sends the browser through `comicine.cloudflareaccess.com`, while API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+- The `__gate` cookie is `<issued-at>.<expires-at>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
+  shared across the request's current or legacy root domain), minted and validated entirely at the edge.
+- An unauthenticated browser navigation to a protected page receives HTTP 401 HTML, with a same-origin external script that navigates to `identity.comicine.com/login`. Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`; the source response has already set the short-lived state cookie. API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `comicine_blocklist` in step with the
   active rows for a WAF rule to consume (that custom rule is not deployed right now)
 - Admin writes (create/update/delete) require the admin role; viewer is read-only
+- Every write endpoint reads its JSON body through `functions/_lib/request.ts`
+  (`readJsonBody`): the body is capped at 8 KB (the identity exchange at 2 KB, the Apple
+  account reorder at 32 KB because it accepts up to 1000 ids) and an oversized request is
+  cancelled mid-stream and answered with 413 instead of being buffered whole. The declared
+  `Content-Length` is only a fast-path hint; the streamed byte count is what is enforced.
 - Visitor IPs are never returned by list APIs; the full IP is Fernet-encrypted in
   `visitor_rollups.ip_enc` and decrypted one row at a time for admins
+- The full threat model — trust tiers, the identity/session boundary, fail-closed secret handling
+  and the visitor-IP pipeline — is in [SECURITY.md](https://github.com/ComiCine/ComiCine-website/blob/main/SECURITY.md); vulnerability disclosure is
+  handled by the docs site policy it links to.
 
 ## Whitelist
 
-Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt) and copied to the generated [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt) during deployment:
+Trusted sources are maintained in [`docs/lists/own-ips.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/own-ips.txt)
+and copied to the generated [`docs/lists/whitelist.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/whitelist.txt)
+at deploy time, one entry per line:
 
 | Entry | Effect |
 | --- | --- |
-| `ASN/<number>` | Optional entry for a zone-level Cloudflare ASN Access Rule. Run `bash ops/waf_whitelist.sh --apply` manually to change zone rules; ASN entries do not bypass the Pages Functions gate. |
-| `IP-CIDR/<ip>/<mask>` | Fully allowed source at the Pages edge (for example, `IP-CIDR/97.64.18.11/32`); IPv4 prefixes must be `/24`–`/32` and IPv6 `/64`–`/128`; skips both the blocklist and the challenge gate. |
+| `ASN/<number>` | Optional ASN entry for the zone-level Cloudflare Access Rule managed manually by `ops/waf_whitelist.sh --apply`. ASN entries do not bypass the Pages Functions gate. |
+| `IP-CIDR/<ip>/<mask>` | Fully allowed source (e.g. `IP-CIDR/97.64.18.11/32`); IPv4 prefixes must be `/24`–`/32` and IPv6 `/64`–`/128`; skips both the blocklist and the challenge gate. |
 
-The current generated list has **0 ASN entries** and **2 IP CIDRs**. A full deploy generates the local whitelist but does not change zone-level ASN Access Rules. After editing `own-ips.txt`, deployment runs `ops/sync_whitelist.py`; the build then runs `ops/check_gate_trust.py --emit` to generate the edge copy.
+The current generated list contains **0 ASN entries** and **2 fully allowed IPs**. Full deploys generate the local whitelist but do not change zone-level ASN Access Rules; run `ops/waf_whitelist.sh --apply` manually when you intend to change those rules.
+
+Crawlers are a **separate, weaker tier** (challenge-only: no full trust), and their
+list is the site's own [`docs/lists/robots.txt`](https://github.com/ComiCine/ComiCine-website/blob/main/docs/lists/robots.txt) — one file
+with two jobs: `src/build.py` publishes its crawler rules at `/robots.txt` and
+appends the `Sitemap` URL from `config-contract.json`; `ops/check_gate_trust.py`
+turns every explicitly named `User-agent:` (everything except `*`) into
+`GATE_TRUST_CRAWLER_UAS` in `functions/_data/gateTrust.ts`, which
+`functions/_lib/bots.ts` matches case-insensitively against the first 512
+characters of the `User-Agent` header. Adding a crawler is one `User-agent:` line;
+the kill switch is `gate_trust.ua_allowlist_enabled` in `config-contract.json`.
+The compiled list currently holds **101 tokens** (99 User-Agents plus the
+robots-only `Google-Extended` / `Applebot-Extended`, which never match a live
+request). Because every entry is a substring match, no token may also appear in
+a real browser User-Agent: the WeChat/QQ in-app browsers, the Sogou mobile
+browser, CUBOT phones, a Spider 8 tablet, preview builds and AKAI/Funai TV
+browsers all stay behind the gate, and the generic markers are limited to
+`crawler`, `fetcher` and `LLM`. Because a User-Agent is self-declared,
+this tier never skips the D1 blocklist, never receives a `__gate` cookie and
+never counts as a visitor — see
+[Gate behavior](#gate-behavior).
+
+Per-runtime trust: edge code only treats `IP-CIDR` entries as trusted
+(`isGateTrustedIp` → `functions/_data/gateTrust.ts`). After editing
+`docs/lists/own-ips.txt` or `docs/lists/robots.txt`, regenerate the edge copy
+with a build (`bash ops/build.sh`, which runs
+`ops/check_gate_trust.py --emit`).
 
 ## Source of truth
 
 - User-facing strings: `locales/*.json`; `functions/_data/*` and API i18n routes are generated from it.
 - Shared runtime constants: `config-contract.json` is the agreed cross-runtime contract; `src/config.py` and the generated `functions/_lib/config.ts` both consume it, with `ops/check_config_contract.py` enforcing agreement.
-- Gate/redirect copy: `locales/*.json` via `functions/_data/runtime.ts`; `src/build.py` assembles it.
+- Gate copy and redirect preload assets: `locales/*.json` via `functions/_data/runtime.ts`; `src/build.py` assembles it. Redirect page copy is prerendered into `public/<lang>/redirect.html` from the same locale files.
 - D1 schema and migrations: `ops/migrations/*.sql`; `blocked_ips` is the sole authority for blocking.
 - Security response headers baseline (when enabled): `ops/security-headers.json`.
 - Deployment and runtime boundaries: `ops/deploy.sh`; Cloudflare Pages and Workers are the only runtimes.
 
 ## Cloudflare Pages runtime
 
-The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on the production Pages project `comicine`, as do the status page and every scheduled job. The project serves `comicine.pages.dev`, all production custom domains, and its encrypted runtime configuration. The docs Pages project uses `comicine-docs.pages.dev`.
+The public site (home / services / contact, the gate, the visitor panel, the Apple Account manager, the `images.comicine.com` static asset host and the redirect relay) runs on the `comicine` Cloudflare Pages project, as do the status page and every scheduled job. The project serves `comicine.pages.dev`, all production custom domains, and its encrypted runtime configuration. The docs Pages project uses `comicine-docs.pages.dev`. Worker URLs use `comicine.workers.dev`.
 
 Runtime split:
 
@@ -368,7 +430,7 @@ Runtime split:
 
 - `python3 src/build.py`: pre-renders the pages in 4 languages into `public/`, inlines
   `locales/*.json` as `functions/api/i18n/[lang].ts`, and generates shared
-  `functions/_data/runtime.ts` (gate/redirect i18n + preload assets)
+  `functions/_data/runtime.ts` (gate i18n + redirect preload assets)
 - `ops/migrations/001_init.sql`: D1 initial schema (`apple_accounts` / `blocked_ips` / `visitors`)
 - `ops/export_d1.py`: generate D1 import SQL (output in `ops/out/`, git-ignored)
 - `ops/migrations/007_visitor_status_indexes.sql`: adds `(status, ts)` and `(status, ip_hash, ts)` indexes for visitor status filtering
@@ -394,13 +456,90 @@ Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real valu
 
 ### Gate behavior
 
-Every request is checked for the signed `__gate` cookie. Cloudflare `botManagement.verifiedBot` is accepted as a verified search-engine trust signal; arbitrary `Googlebot`/`GPTBot` User-Agent strings and client-supplied `cf_clearance` cookies do not bypass the gate. Edge code trusts only the generated whitelist (`docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) for a full bypass.
+Every request is checked for the signed `__gate` cookie. There are three ways past
+the gate, and only the first two are identity-based:
 
-Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, `Domain=.comicine.com`), after which the page reloads the original target. `auth.comicine.com` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
+| Source | Bypass |
+| --- | --- |
+| IP allow-list (`IP-CIDR` entries of `docs/lists/whitelist.txt` → `functions/_data/gateTrust.ts`) | Full bypass: skips the challenge **and** the D1 blocklist |
+| Cloudflare `botManagement.verifiedBot` | Full bypass (verified search-engine signature) |
+| Declared crawler User-Agent (explicit `User-agent:` lines of `docs/lists/robots.txt` → `GATE_TRUST_CRAWLER_UAS`) | Challenge only: still subject to the blocklist, never issued a `__gate` cookie, never counted as a visitor |
+
+So crawlers and AI agents (GPTBot, ClaudeBot, PerplexityBot, Bytespider, CCBot,
+DeepSeekBot, …) read the real pages, while a browser from a non-allow-listed
+source still gets the Turnstile gate. `cf_clearance` is never accepted, and the
+User-Agent list is **self-declared** — it separates honest crawlers from
+browsers, it is not authentication (`functions/_lib/bots.ts` spells this out).
+
+The gate is one of two layers. The edge in front of it has its own AI-bot policy:
+with the Cloudflare default (`ai_bots_protection: only_on_ad_pages`) the managed
+ruleset answers GPTBot/ClaudeBot/CCBot/Amazonbot/Bytespider with `403 Your request
+was blocked.` **before** any Worker code runs, which no amount of `functions/`
+logic can undo. `ops/ai_bots.py --apply` sets that policy to "do not block" for
+every AI behaviour (Search / Agent / Training), disables AI Labyrinth
+(`crawler_protection`) and keeps Cloudflare from prepending a managed
+`robots.txt`; `--show` / `--snapshot` / `--dry-run` read and record it. Applied on
+2026-10-12 — the policy was applied successfully; its archived snapshot was removed
+on 2026-10-31. The token carries **Bot Management: Edit**, and the update verb is `PUT` (PATCH answers
+`405 / code 10405`). Two things that do *not* work, so nobody re-tries them: a WAF
+custom rule with `action: skip` over `phases: ["http_request_firewall_managed"]`
+is accepted on this Free zone but does not lift the AI-bot block, and none of the
+zone's `/settings/*` keys expose this policy.
+
+Discovery files are built by `src/build.py` and excluded from Functions in
+`_routes.json`, so crawlers get them without ever meeting the gate:
+`/robots.txt` — crawler rules from `docs/lists/robots.txt`, which allows
+everything except the endpoint/admin paths and names the welcome crawlers
+explicitly, including the robots-only `Google-Extended` / `Applebot-Extended`
+tokens (that same file is the gate allow-list above) — `/llms.txt` (curated index
+of the main site and `docs.comicine.com`) — and `/sitemap.xml` (the canonical home,
+services and contact URLs; `docs.comicine.com` has its own sitemap).
+
+`POST https://comicine.com/mcp` is a read-only MCP server implemented in `functions/mcp.ts` (JSON-RPC 2.0, tools `get_public_page` and `search_public_pages`); it only reads the pre-rendered public pages through the `ASSETS` binding. It is **not a public API** and is meant for allow-listed and internal clients only: `/llms.txt` deliberately omits it and `/robots.txt` disallows it, so it is not advertised. `isExemptPath("/mcp")` in `functions/_lib/routing.ts` returns false, so an unverified client receives the normal 403 Turnstile page. Access means passing the gate: an allow-listed IP, a Cloudflare verified bot, or a valid `__gate` cookie; the declared-crawler User-Agent list only skips human verification and is not authentication.
+
+Reads are bounded: a 64 KiB request body (`MAX_BODY_BYTES`), 12,000 characters of page text per read (`MAX_PAGE_TEXT`), at most 5 search hits, 4 languages and 4 readable paths; there is no per-client rate limit beyond the edge/gate, and every read is one `ASSETS` fetch of an already pre-rendered page.
+
+The modern `2026-07-28` protocol version requires the `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` headers plus `params._meta`; the legacy `2025-11-25` / `2025-06-18` / `2025-03-26` versions need no such headers, and unsupported versions answer `-32022` with `supportedVersions`. The policy is locked by `functions/mcp.test.ts` (gate/policy assertions) and `tests/test_build.py` (discovery files).
+
+Unverified requests get the Turnstile gate page **in place**: the host and path never change. The middleware renders `public/<lang>/auth.html` at the requested URL with status `403`, and `POST /__gate/verify` answers on that same origin with `Set-Cookie: __gate=…` (1h, scoped to that request's current or legacy root domain), after which the page reloads the original target. `auth.comicine.com` is the gate host: it serves the same page at its own root and owns the `/__gate/config|diag|verify` endpoints.
 
 Every host that renders the gate is served by the same edge code, so there is no second gate implementation to keep in sync.
 
-The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The user granted `Turnstile Sites Write`, and the widget API now returns HTTP 200 with `comicine.com` in its hostname list. The user's 2026-10-29 screenshot is from `comicine.pages.dev/?challenge=1`: Turnstile displayed success, but D1 recorded `/gate/verify` returning 403 `hostname_rejected`, because the server intentionally rejects Pages hostnames as public hosts. A successful browser challenge on `comicine.com` has not yet been confirmed. `auth.js` exposes a manual retry button and logs Turnstile's numeric client error code in the browser console. Do not disable the gate or add Pages hostnames to the public-host allowlist.
+The middleware also enforces the normalized D1 blocklist and records privacy-minimized visitor analytics. The gate page is `no-store`/`noindex` and supports dark/light theme switching. The Turnstile widget must list every host that renders it (the `comicine.com` gate subdomains, including `auth`, `status`, `visitor`, `apple` and `images`).
+
+**Authentication rate limits (`/login` and `/logout`).** Both paths are exempt from the D1 blocklist so an
+administrator on a blocked IP can still sign in or out, which also makes them the cheapest flood
+targets; `/logout` can additionally write one D1 session-revocation update. Pages Functions throttles
+both paths per source address (`CF-Connecting-IP`):
+
+| Path | Limit | Window | Over-limit |
+| --- | --- | --- | --- |
+| `/login` | 10 requests | 60 s | `429` |
+| `/logout` | 20 requests | 60 s | `429` |
+
+- Fixed windows aligned to the UTC minute. A fixed window permits at most twice the limit
+  across a rolling minute; these are abuse throttles, not billing counters, and
+  read-modify-write races between isolates may undercount.
+- The 429 carries `Retry-After` and `Cache-Control: no-store`, never a `Location` (no 3xx). It
+  is HTML by default and JSON (`{"error":"rate_limited","retry_after":N}`) when the client asks
+  only for `application/json`; a header that also lists `text/html` keeps HTML.
+- Only the exact paths are limited. `/login/entra`, `/login/callback`, `/identity/callback`, and
+  `/api/identity/exchange` are Access login callbacks and are never throttled. `IP-CIDR`
+  allow-listed sources are exempt (they are the administrator's own addresses); declared crawler
+  User-Agents are **not** exempt, because that header is self-reported.
+- Counters never touch D1: they live in the Cache API shared inside a colo, with an isolate-memory
+  fallback for local development (and for counters in tests). A counter that cannot be read or
+  written fails open, so a cache outage cannot lock administrators out.
+- Implementation: `functions/_lib/rate-limit.ts`, called from `functions/_middleware.ts` before the
+  gate and before any database work. Unit tests: `functions/_lib/rate-limit.test.ts`.
+- Threshold basis: in the seven days before 2026-11-07 the site measured 6 `/login` and 2 `/logout`
+  requests, all from one source address, so the limits stop a flood without affecting normal
+  sign-in.
+- A zone-level rate limiting rule is not used. The Free plan allows one rule, a 10-second counting
+  period, Path/Verified-Bot-only expressions, and IP counting, so it cannot express two different
+  per-path thresholds or the IP allow-list exemption, and it answers with Cloudflare's own page
+  instead of a negotiated 429. If one is added later, keep it as a broader defense-in-depth layer
+  and leave these Worker thresholds in place.
 
 ### Page serving (clean URLs, no language path prefix)
 
@@ -483,8 +622,10 @@ published to docs.comicine.com.
   generated by `src/build.py`.
 - Pre-rendered public HTML is reused through the in-process page cache
   (keyed by host + language), and responses advertise
-  `public, max-age=300, stale-while-revalidate=3600` with
-  `Vary: Accept-Language`. Edge caching is deliberately **not** claimed here:
+  `private, max-age=300, stale-while-revalidate=3600` with
+  `Vary: Accept-Language`. `private` keeps gate-protected HTML out of shared
+  caches, because the variant depends on the language cookie that `Vary` does
+  not cover. Edge caching is deliberately **not** claimed here:
   Cloudflare does not cache Pages Functions responses (`cf-cache-status` stays
   `DYNAMIC` on repeated requests), so a shared-cache lifetime directive would be
   dead configuration, and the language cookie stays out of `Vary` because it
@@ -504,29 +645,33 @@ published to docs.comicine.com.
 
 ### Production status
 
-The live deployment and pending resource cutovers, re-read any time with
+The live deployment and external resource status, re-read any time with
 `python3 ops/readme_facts.py --live`:
 
-1. **Pages**: the production project `comicine` serves the main-site Pages hosts and owns `comicine.pages.dev` with its encrypted runtime configuration. The docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains.
-2. **D1**: the new `comicine` database (APAC) is provisioned and loaded with in-use operational tables. Pages production and preview binding settings now target it; standalone Worker bindings are included in this release. The final import preserves Apple Account records unchanged and omits old visitor hashes and detailed telemetry. Sink's `comicine-sink` database is imported, the `comicine_sink` Analytics Engine dataset is configured, and its Worker is deployed; the short-link smoke check is pending.
-3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`; the old `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` secrets remain configured but no runtime reads them, as do `APPLEID_ENCRYPTION_KEY` and the two `AUTHENTIK_*` entries
-4. **Access**: `ComiCine` protects `identity.comicine.com/login`; visitor and account use the shared identity handoff. The unused `ComiCine-Admin` application for `admin.limooo.cn` was removed on 2026-10-29; that hostname has no DNS record or Pages custom domain.
-5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. Sink's D1 database and Analytics Engine dataset are migrated, and an active short link returned 302 with a Location header.
-6. **Cloudflare rules**: no WAF or Cache Rules are active. The IP List is `comicine_blocklist` and currently has no WAF filter referencing it. The `.com` dynamic-redirect phase is empty. The legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
-7. **Smoke checks**: verify `https://comicine.com/_health` returns 200, `https://docs.comicine.com/` returns 404, and `https://status.comicine.com/` and `https://sink.comicine.com/` are reachable after each release. A successful real browser challenge on `https://comicine.com/?challenge=1` has not yet been confirmed.
+1. **Pages**: the production project `comicine` serves `comicine.com`, `www`, `services`, `contact`, `auth`, `visitor`, `account`, `identity`, `images` and `redirect`, and owns `comicine.pages.dev` with the encrypted runtime configuration. The retired `comicine-production` project has no production custom domains and is retained for user-controlled deletion. The docs project is `comicine-docs` at `comicine-docs.pages.dev`; `docs.comicine.com` serves it. `image.comicine.com` is the watermark Worker, `fonts.comicine.com` uses R2, and `status.comicine.com` / `sink.comicine.com` are Worker custom domains
+2. **D1**: the new `comicine` database (APAC) is provisioned and loaded with the in-use operational tables. Pages production and preview binding settings now target it; standalone Worker bindings are included in this release. The final import preserves Apple Account records unchanged and omits old visitor hashes and detailed telemetry. `blocked_ips` remains the blocking authority, and soft-deleted rows remain for audit
+3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the nine runtime secrets include the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`. The obsolete `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` variables are not copied because runtime code does not read them; retired AppleID and Authentik secrets are not configured
+4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The obsolete `identity.limooo.cn/login` destination was removed on 2026-10-29 while preserving the application AUD and policy. The unused `ComiCine-Admin` app for `admin.limooo.cn` was also removed; that hostname has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
+5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. The `comicine-sink` database is imported, the `comicine_sink` dataset is configured, and the Sink Worker is deployed; an active short link returned 302 with a Location header
+6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
+7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 404, `https://status.comicine.com/` → 200
 
-> The Cloudflare account display name has not yet been updated: Cloudflare denied the update for insufficient permission. The Turnstile API permission is active; a successful real browser challenge on the canonical `.com` host has not yet been confirmed.
-Note: the `?challenge=1` 403 confirms only that the gate page rendered; it does not prove Turnstile verification works. The screenshot on `comicine.pages.dev` was rejected by the public-host check; verification must be confirmed on `comicine.com`.
+The Cloudflare account display name has not yet been updated because the configured API token lacks `Account Settings Write`. Sink's target D1 database is `comicine-sink`, with the `comicine_sink` Analytics Engine dataset. The status Durable Object target is listed above.
 
 The gate renders in place on every host, the real visitor IP is shown in the gate page
-and logs, and Access remains the only identity source.
+and logs, and Access remains the only identity source. The Cloudflare dashboard screenshot
+provided on 2026-10-27 shows `comicine.com` in the Turnstile widget's Hostname Management.
+The `Turnstile Sites Write` permission is now active and the widget API returns HTTP 200; its
+hostname list includes `comicine.com`. The user's 2026-10-29 screenshot is from
+`comicine.pages.dev/?challenge=1`: Turnstile displayed success, but D1 recorded `/gate/verify`
+returning 403 `hostname_rejected`, because the server intentionally rejects Pages hostnames as
+public hosts. A successful browser challenge on `comicine.com` has not yet been confirmed. Do not
+bypass or weaken verification or add Pages hostnames to the public-host allowlist.
 
 ## License
 
-Original materials owned and licensed by ComiCine are made available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 text is in [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later version depends on that version's terms.
+Original software materials owned by ComiCine and licensed by it are available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 license text is in [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ja_JP.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ko_KR.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later license version depends on that version's terms. The English additional terms are authoritative; translations are provided for reference.
 
-ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
+ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. See [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) for copyright scope and [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party materials and platform marks. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
 For additional authorization or trademark permission inquiries, contact [contact@comicine.com](mailto:contact@comicine.com). No additional authorization is required for commercial use that complies with the applicable GNU AGPL version.
-
-See [Third-Party Notices](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party fonts, dependencies, and platform marks in QR-code images, and [Copyright](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) for copyright scope.

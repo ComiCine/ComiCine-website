@@ -13,7 +13,6 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
     }
     h1 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
     p.desc { color: var(--text-muted); font-size: 13px; margin: 0 0 32px; }
-    h2 { font-size: 15px; font-weight: 600; margin: 28px 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; }
     ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
     li { margin: 0; }
     a {

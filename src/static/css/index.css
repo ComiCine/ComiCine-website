@@ -45,9 +45,6 @@
 }
 .work-box.show { opacity: 1; transform: translateY(0); }
 .work-box { cursor: pointer; }
-.work-box-label {
-    font-size: 10px; font-weight: 600; letter-spacing: calc(0.2em*var(--ls-scale)); opacity: 0.2;
-}
 /* On hover, overlay a gradient and text across the bottom 15% of the image, inside the frame. */
 .work-box-hint {
     position: absolute; left: 10px; right: 10px; bottom: 10px;
@@ -161,5 +158,16 @@ h1 { font-weight: 600 !important; }
     50% { transform: translateY(6px); opacity: 0.6; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .scroll-hint-inner { animation: none; }
+    .page-layer,
+    .portfolio-exit,
+    .reveal-item,
+    .reveal-item.show,
+    .reveal-item.exit-up,
+    .reveal-item.from-top,
+    .work-box,
+    .work-box.show,
+    .work-box-hint,
+    #hero-title,
+    #hero-title.flying { transition: none !important; }
+    .scroll-hint-inner { animation: none !important; }
 }

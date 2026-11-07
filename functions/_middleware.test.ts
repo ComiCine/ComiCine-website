@@ -655,7 +655,7 @@ describe("blocked IP enforcement", () => {
         }),
         run: async () => ({}),
       }),
-    },
+    } as unknown as Env["DB"],
     ASSETS: {
       fetch: async () => new Response("assets", { status: 200 }),
     },
@@ -670,7 +670,9 @@ describe("blocked IP enforcement", () => {
   it("blocks a banned IP on /api/* instead of letting the API early-return skip the check", async () => {
     // Regression: /api/* used to return next() before isBlocked(), disabling bans across the API surface.
     // /api/ray, /api/auth, and /api/apple-account are exempt; see the next case.
-    for (const path of ["/api/visitors", "/api/blocklist", "/api/status", "/api/i18n/zh-cn"]) {
+    // /api/csp-report is deliberately not exempt either: CSP reports skip the gate because
+    // every API does, but a blocked source must not be able to use the collector.
+    for (const path of ["/api/visitors", "/api/blocklist", "/api/status", "/api/i18n/zh-cn", "/api/csp-report"]) {
       const resp = await handleOnRequest(context(blockedRequest(path), blockedEnv()));
       expect(resp.status, `${path} must be blocked`).toBe(403);
     }
@@ -760,7 +762,7 @@ describe("blocked IP enforcement", () => {
           all: async () => ({ results: [] }),
           run: async () => ({}),
         }),
-      },
+      } as unknown as Env["DB"],
     });
 
     const crawler = await handleOnRequest(
@@ -1223,6 +1225,22 @@ describe("onRequest wrapper", () => {
       SECURITY_HEADERS["Content-Security-Policy"],
     );
 
+    // Pin the reporting pair explicitly: Report-Only must repeat the enforced directives and
+    // add only the reporting ones, and Reporting-Endpoints must name the same-origin collector.
+    const reportOnly = page.headers.get("Content-Security-Policy-Report-Only") ?? "";
+    expect(reportOnly).toBe(SECURITY_HEADERS["Content-Security-Policy-Report-Only"]);
+    expect(reportOnly).toContain("report-to csp");
+    expect(reportOnly).toContain("report-uri /api/csp-report");
+    const directivesBeforeReporting = reportOnly
+      .slice(0, reportOnly.indexOf("report-to"))
+      .trim()
+      .replace(/;$/, "");
+    expect(directivesBeforeReporting).toBe(SECURITY_HEADERS["Content-Security-Policy"]);
+    expect(page.headers.get("Reporting-Endpoints")).toBe(
+      SECURITY_HEADERS["Reporting-Endpoints"],
+    );
+    expect(page.headers.get("Reporting-Endpoints")).toBe('csp="/api/csp-report"');
+
     const { context: apiContext } = wrapperContext(
       new Request("https://comicine.com/api/visitors", {
         headers: { "CF-Connecting-IP": "97.64.18.11" },
@@ -1231,15 +1249,43 @@ describe("onRequest wrapper", () => {
     const api = await onRequest(apiContext);
 
     expect(api.status).toBe(200);
-    // /api/* only gets nosniff; the other four headers, including CSP, must be absent to avoid breaking JSON APIs.
+    // /api/* only gets nosniff; every other SECURITY_HEADERS entry, including the enforced CSP
+    // and its reporting variants, must be absent so page policies do not constrain JSON APIs.
     expect(api.headers.get("X-Content-Type-Options")).toBe(
       SECURITY_HEADERS["X-Content-Type-Options"],
     );
     expect(api.headers.get("Content-Security-Policy")).toBeNull();
+    expect(api.headers.get("Content-Security-Policy-Report-Only")).toBeNull();
+    expect(api.headers.get("Reporting-Endpoints")).toBeNull();
     for (const name of Object.keys(SECURITY_HEADERS)) {
       if (name === "X-Content-Type-Options") continue;
       expect(api.headers.get(name), `${name} must not be added to /api/*`).toBeNull();
     }
+  });
+
+  it("admits identity-host CSP reports to the same-origin collector", async () => {
+    // identity.comicine.com serves only the login flow, but CSP violations raised on that
+    // page must still reach /api/csp-report. Without the IDENTITY_ALLOWED_PATHS entry the
+    // host allowlist returns a branded 404 before next() can reach the collector route.
+    const collector = Response.json({ accepted: 1 }, { status: 202 });
+    const { context, deferred } = wrapperContext(
+      new Request("https://identity.comicine.com/api/csp-report", {
+        method: "POST",
+        headers: {
+          "CF-Connecting-IP": "97.64.18.11",
+          "Content-Type": "application/reports+json",
+        },
+        body: "[]",
+      }),
+      {},
+      async () => collector,
+    );
+
+    const resp = await onRequest(context);
+    await Promise.all(deferred);
+
+    expect(resp.status).toBe(202);
+    await expect(resp.json()).resolves.toEqual({ accepted: 1 });
   });
 
   it("keeps both Set-Cookie headers that /gate/verify issues", async () => {
@@ -1279,7 +1325,7 @@ describe("onRequest wrapper", () => {
     // A multi-cookie response from next() (for example, an API setting session and CSRF cookies)
     // passes through onRequest. The response headers use workerd semantics; see foldingCookieResponse.
     const cookies = [
-      "comicine_session=abc; Path=/; HttpOnly",
+      "__Host-comicine_session=abc; Path=/; HttpOnly",
       "comicine_csrf=def; Path=/; SameSite=Lax",
     ];
     const { context } = wrapperContext(
@@ -1391,7 +1437,7 @@ describe("request URL is parsed once per request", () => {
               headers: { "Content-Type": "text/html; charset=utf-8" },
             }),
         },
-      } as Env,
+      } as unknown as Env,
       next: async () => new Response("next", { status: 200 }),
       waitUntil: (promise: Promise<unknown>) => {
         deferred.push(promise);
@@ -1468,7 +1514,7 @@ describe("cachedPageAsset passes the asset body through", () => {
     const fetch = vi.fn(async () =>
       new Response(body, { status, statusText: status === 200 ? "OK" : "Not Found", headers: ASSET_HEADERS }),
     );
-    return { fetch } as unknown as Env["ASSETS"];
+    return { fetch } as unknown as NonNullable<Env["ASSETS"]>;
   }
 
   function pageRequest(headers: Record<string, string> = {}) {

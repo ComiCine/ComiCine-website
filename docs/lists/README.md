@@ -68,7 +68,7 @@ The allowlist sync parses IP addresses and CIDRs and rejects prefixes shorter th
 | Generate the gate edge copy and run build checks | `bash ops/ci_check.sh` |
 | Update the crawler list | Edit `robots.txt`, then run the normal deployment |
 | Manually sync ASN entries to Cloudflare zone rules | Run `bash ops/waf_whitelist.sh --dry-run`, review the result, then run `bash ops/waf_whitelist.sh --apply` |
-| Reconcile the blocklist with D1 | First run `python3 src/auto_block.py reconcile --dry-run`; remove `--dry-run` after review |
+| Reconcile the blocklist with D1 | First run `python3 src/auto_block.py reconcile --dry-run` (or `--dry-run --json` for one machine-readable stdout object); remove `--dry-run` after review |
 | Push blocklist entries only | `python3 src/auto_block.py d1 --dry-run` |
 | View or update the edge AI bot policy | `python3 ops/ai_bots.py --show` / `--apply` |
 
@@ -81,6 +81,58 @@ The allowlist sync parses IP addresses and CIDRs and rejects prefixes shorter th
 - **pull=N**: active in D1 but missing from the file; these entries will be restored to the managed section.
 
 `blocklist.txt` has a handwritten section and a managed section. D1 active records generate the managed section; the handwritten section above its marker is preserved as-is. The file is an audit snapshot, not the source of truth for blocking, and soft-deleting a D1 record does not automatically remove handwritten entries.
+
+D1 is authoritative. Pulling is additive: `reconcile` never removes an entry from `blocklist.txt` just because D1 lacks it, and administrator-sourced D1 rows are never deleted automatically. They are reported in `preserved` for manual handling instead.
+
+### JSON report
+
+`--json` is valid only together with `--dry-run`; `--json` without `--dry-run` exits 2. With both flags, stdout contains exactly one JSON object and all human-readable diagnostics go to stderr.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ok` | boolean | `true` on a completed run; `false` when the D1 query failed, in which case the command exits 1. |
+| `mode` | string | `d1` for `d1` and its `sync` alias, or `reconcile` for `reconcile`. |
+| `dry_run` | boolean | Always `true`; the report is produced only by a dry run. |
+| `to_add` | array of strings | File entries missing from D1. |
+| `to_remove` | array of strings | D1 active entries missing from the file that this tool may soft-delete; empty in `reconcile` mode. |
+| `pulled` | array of strings | D1 active entries missing from the file; only populated in `reconcile` (pull) mode. |
+| `preserved` | array of objects | Conflict rows shaped as `{"cidr", "source"}`: D1 active, missing from the file, and the source is not `auto_block`, `blocklist.txt`, empty, or `None`, so this tool never deletes them. |
+| `generated_at` | string | UTC ISO-8601 timestamp. |
+
+Example report for `python3 src/auto_block.py d1 --dry-run --json`:
+
+```json
+{
+  "ok": true,
+  "mode": "d1",
+  "dry_run": true,
+  "to_add": [],
+  "to_remove": [],
+  "pulled": [],
+  "preserved": [
+    {
+      "cidr": "198.51.100.9",
+      "source": "admin"
+    }
+  ],
+  "generated_at": "2026-11-07T12:00:00Z"
+}
+```
+
+### Handling preserved rows
+
+In `reconcile` mode, `preserved` rows also appear in `pulled`, because they are written back into the managed section of `blocklist.txt`. They are never deleted from D1 by this tool. Unblocking remains a D1 soft delete (`active=0`), which keeps the audit trail.
+
+Review every `preserved` row, then choose one action:
+
+1. Keep the administrator block: add the CIDR to the handwritten section of `blocklist.txt` when the snapshot should include it.
+2. Remove the block: unblock the address through the admin API, which performs a D1 soft delete.
+
+Never let automation delete administrator rows.
+
+### Dry-run archives
+
+`--dry-run --json` also archives the same JSON object to `ops/out/reconcile-blocklist-<UTC ISO timestamp>.json`. `ops/out/` is git-ignored and must never be committed, because the archive contains blocked CIDRs. A normal (non-dry-run) `reconcile` writes no archive. The default text output and the exit codes (0 for success, 1 for a D1 or HTTP error) are unchanged.
 
 ## Maintenance rules
 

@@ -4,10 +4,28 @@
 -- See ADDITIONAL_TERMS.txt.
 
 -- ComiCine docs/10: single source of truth for blocking (D1 -> Cloudflare IP List).
--- Apply with: wrangler d1 execute comicine --file=./migrations/004_blocklist_sync.sql
+-- Apply with: bash ops/migrate_d1.sh --remote   (do not apply this file on its own)
 -- Back up D1 before applying: this migration rebuilds the old blocked_ips table with a new schema.
-
-DROP TABLE IF EXISTS blocked_ips_new;
+--
+-- Replay-safe order. The original file dropped blocked_ips_new before rebuilding it, so a replay
+-- after DROP TABLE blocked_ips but before the rename could delete the only surviving copy. This
+-- version creates the new table (never drops it), copies rows first, and only then drops the old
+-- table. A replay therefore either completes or stops at the failed SELECT before deleting data; in
+-- particular a replay without blocked_ips leaves blocked_ips_new untouched.
+--
+-- That guarantee depends on an executor that stops at the first failed statement. Never apply this
+-- file with `wrangler d1 execute --file` or any continue-on-error client: after a failed SELECT they
+-- still execute the DROP and replace the table with the rows copied so far. The only supported path
+-- is `bash ops/migrate_d1.sh --remote`.
+--
+-- The copy reads the legacy note/added_at columns, so this file is the legacy-to-004 path only.
+-- A database that already has the post-004 schema but no schema_version row (an interrupted run)
+-- has no note/added_at; migrate_d1.sh detects that state and makes it run the idempotent tail in
+-- ops/migrations/repair/004_blocklist_sync_post004.sql via --repair.
+--
+-- A legacy row whose cidr is NULL cannot satisfy network NOT NULL and is skipped by INSERT OR IGNORE.
+-- The old migration had the same limitation; check the table before a first-time run if such rows are
+-- possible (the admin API never writes one).
 
 CREATE TABLE IF NOT EXISTS blocked_ips_new (
     cidr        TEXT PRIMARY KEY,
@@ -22,6 +40,7 @@ CREATE TABLE IF NOT EXISTS blocked_ips_new (
 );
 
 -- Migrate old data: fill the new fields and treat all legacy rows as originating from auto_block.
+-- INSERT OR IGNORE keeps a partial copy from an earlier interrupted run and fills the missing rows.
 INSERT OR IGNORE INTO blocked_ips_new
     (cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active)
 SELECT
@@ -42,6 +61,16 @@ SELECT
     'migration:004',
     1
 FROM blocked_ips c;
+
+-- A retry may find rows copied by an earlier interrupted attempt. Keep the copy, but drop rows
+-- whose cidr is no longer in the legacy table so the rebuild is exactly the current blocklist.
+-- The count guard is load-bearing: when blocked_ips is an empty stub and blocked_ips_new holds the
+-- only copy (an operator-created variant of the dangerous state), NOT IN () would delete every row.
+-- NOT EXISTS also keeps a NULL cidr in the legacy table from disabling the cleanup through SQL's
+-- three-valued logic. This statement is only reached after the SELECT above succeeded.
+DELETE FROM blocked_ips_new
+WHERE (SELECT COUNT(*) FROM blocked_ips) > 0
+  AND NOT EXISTS (SELECT 1 FROM blocked_ips c WHERE c.cidr = blocked_ips_new.cidr);
 
 DROP TABLE IF EXISTS blocked_ips;
 ALTER TABLE blocked_ips_new RENAME TO blocked_ips;

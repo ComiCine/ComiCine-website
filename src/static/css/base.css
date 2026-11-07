@@ -373,3 +373,19 @@
             will-change: transform, opacity;
         }
         .reveal-item.show { opacity: 1 !important; transform: translateY(0); }
+
+        /* Reduced motion: drop movement and fades, keeping color transitions. */
+        @media (prefers-reduced-motion: reduce) {
+            /* nav-screen.open redeclares its transition with higher specificity than
+               nav-screen, so it needs its own rule to open instantly as well. */
+            .nav-screen.open,
+            .pressable,
+            .appearance-check,
+            .appearance-icon svg,
+            .site-nav .lang-menu,
+            .reveal-item,
+            .reveal-item.show { transition: none; }
+            /* Keep the hover color transitions; the press scale and opacity fade are instant. */
+            .icon-btn, .theme-btn { transition-property: background; }
+            .nav-screen-social-link { transition-property: color; }
+        }

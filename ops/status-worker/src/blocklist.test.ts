@@ -312,7 +312,9 @@ describe("daily cron wiring for the blocklist check", () => {
 
     await scheduled("47 3 * * *", env);
 
-    expect(urls.length).toBe(2);
+    // The daily branch also runs the D1 budget step, which calls the GraphQL API with the same
+    // token; count only the IP List endpoints this step owns.
+    expect(urls.filter((url) => /\/rules\/lists|\/items/.test(url))).toHaveLength(2);
     expect(sent).toHaveLength(0);
   });
 

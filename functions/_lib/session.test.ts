@@ -16,6 +16,8 @@ import {
   ADMIN_REQUIRED_MESSAGE,
   AuthSessionUnavailableError,
   REAUTH_REQUIRED_MESSAGE,
+  clearLegacySessionCookie,
+  clearSessionCookie,
   configErrorResponse,
   createAuthSession,
   createSessionCookie,
@@ -62,14 +64,60 @@ beforeEach(() => {
 describe("session cookie", () => {
   it("round-trips a valid host-only session with sid", async () => {
     const header = await createSessionCookie(env, sessionData());
+    // The `__Host-` prefix makes the browser reject any copy carrying Domain, missing Secure, or
+    // Path=/; assert the attributes that satisfy the prefix rather than only the name.
+    expect(header.startsWith("__Host-comicine_session=")).toBe(true);
     expect(header).not.toContain("Domain=");
     expect(header).toContain("Path=/");
     expect(header).toContain("Secure");
+    expect(header).toContain("HttpOnly");
     expect(header).toContain("SameSite=Lax");
     const session = await readSession(env, header);
     expect(session?.sid).toBe("sid-1");
     expect(session?.sub).toBe("user-1");
     expect(session?.role).toBe("admin");
+  });
+
+  it("reads the pre-__Host- cookie name during the transition", async () => {
+    const header = await createSessionCookie(env, sessionData());
+    const legacy = header.replace(/^__Host-comicine_session=/, "comicine_session=");
+    expect(legacy.startsWith("comicine_session=")).toBe(true);
+    // readSession only returns data, so a legacy cookie is never renewed under the old name and the
+    // next login writes the prefixed name.
+    expect((await readSession(env, legacy.split(";")[0]))?.sid).toBe("sid-1");
+  });
+
+  it("prefers the __Host- cookie when both names are present", async () => {
+    const current = (await createSessionCookie(env, sessionData("new-"))).split(";")[0];
+    const legacy = (await createSessionCookie(env, sessionData("old-")))
+      .replace(/^__Host-comicine_session=/, "comicine_session=")
+      .split(";")[0];
+    expect((await readSession(env, `${current}; ${legacy}`))?.sid).toBe("new-sid-1");
+    expect((await readSession(env, `${legacy}; ${current}`))?.sid).toBe("new-sid-1");
+  });
+
+  it("rejects a legacy token authenticated after the rename cutoff", async () => {
+    // 1_800_000_000 is 2027-01-15, past the transition cutoff. The same signed token stays valid
+    // under the prefixed name, so the restriction applies only to the legacy path and a sibling
+    // host cannot inject a freshly minted session with Domain=.comicine.com during the transition.
+    const header = await createSessionCookie(env, { ...sessionData(), authAt: 1_800_000_000 });
+    const prefixed = header.split(";")[0];
+    const legacy = prefixed.replace(/^__Host-comicine_session=/, "comicine_session=");
+    expect((await readSession(env, prefixed))?.sid).toBe("sid-1");
+    expect(await readSession(env, legacy)).toBeNull();
+  });
+
+  it("clears both session cookie names without Domain", () => {
+    const current = clearSessionCookie();
+    const legacy = clearLegacySessionCookie();
+    expect(current.startsWith("__Host-comicine_session=;")).toBe(true);
+    expect(legacy.startsWith("comicine_session=;")).toBe(true);
+    for (const header of [current, legacy]) {
+      expect(header).toContain("Path=/");
+      expect(header).toContain("Secure");
+      expect(header).toContain("Max-Age=0");
+      expect(header).not.toContain("Domain=");
+    }
   });
 
   it("rejects tampered tokens", async () => {
@@ -93,7 +141,7 @@ describe("session cookie", () => {
   });
 
   it("rejects a cookie with malformed percent encoding", async () => {
-    await expect(readSession(env, "comicine_session=%" as string)).resolves.toBeNull();
+    await expect(readSession(env, "__Host-comicine_session=%" as string)).resolves.toBeNull();
   });
 });
 
@@ -125,6 +173,23 @@ describe("auth_sessions revoke table", () => {
     }]);
     const session = await requireAuth(env, requestWith(header));
     expect(session).toBeNull();
+  });
+
+  it("authorizes a pre-rename legacy cookie through the revocation table", async () => {
+    const header = await createSessionCookie(env, sessionData());
+    const legacy = header
+      .replace(/^__Host-comicine_session=/, "comicine_session=")
+      .split(";")[0];
+    vi.mocked(queryAll).mockResolvedValue([{
+      sid: "sid-1",
+      sub: "user-1",
+      role: "admin",
+      auth_at: 1,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      revoked_at: null,
+    }]);
+    // /logout revokes whatever readSession returns, so the legacy name must still reach D1.
+    expect((await requireAuth(env, requestWith(legacy)))?.sid).toBe("sid-1");
   });
 
   it("throws AuthSessionUnavailableError when D1 is unavailable", async () => {

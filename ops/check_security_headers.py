@@ -10,7 +10,16 @@
 """Verify that ops/security-headers.json matches functions/_lib/security.ts on Pages.
 
 This uses only the standard library. The security-headers JSON from task 05 is the sole copy
-source; this script prevents the two representations from drifting.
+source; this script prevents the two representations from drifting in either direction:
+
+* every header in the JSON must exist in the runtime table with the same value;
+* every header in the runtime table must exist in the JSON, because the JSON is the only
+  source and a value that exists only in TypeScript would ship without a reviewable record.
+
+It also validates the CSP reporting channel wired by `Content-Security-Policy-Report-Only`:
+the Report-Only policy must be a subset of the enforced policy for every shared directive
+(reporting may only tighten, never loosen), must carry `report-to csp` and
+`report-uri /api/csp-report`, and that path must resolve to a real Pages Function handler.
 
 Run:
     python3 ops/check_security_headers.py
@@ -27,6 +36,87 @@ ROOT = Path(__file__).resolve().parent.parent
 JSON_PATH = ROOT / "ops" / "security-headers.json"
 TS_PATH = ROOT / "functions" / "_lib" / "security.ts"
 
+SECURITY_HEADERS_BLOCK_RE = re.compile(
+    r"export\s+const\s+SECURITY_HEADERS\b[^=]*=\s*\{(?P<body>.*?)\n\}\s*;",
+    re.DOTALL,
+)
+# Line-anchored header keys only: a key inside a comment or a value string never matches.
+HEADER_KEY_RE = re.compile(r'^\s*"(?P<name>[A-Za-z0-9!#$%&\'*+.^_`|~-]+)"\s*:', re.MULTILINE)
+
+REPORT_GROUP = "csp"
+REPORT_URI = "/api/csp-report"
+
+
+def parse_directives(policy: str) -> dict[str, list[str]]:
+    """Split a CSP header into {lowercase directive: [sources]}; a repeated directive keeps the last."""
+    directives: dict[str, list[str]] = {}
+    for section in policy.split(";"):
+        tokens = section.split()
+        if not tokens:
+            continue
+        directives[tokens[0].lower()] = tokens[1:]
+    return directives
+
+
+def check_csp_reporting_channel(expected: dict[str, str], errors: list[str]) -> None:
+    """Validate that the Report-Only policy reports to the endpoint the handler serves."""
+    enforced = expected.get("Content-Security-Policy")
+    report_only = expected.get("Content-Security-Policy-Report-Only")
+    endpoints = expected.get("Reporting-Endpoints")
+    if not enforced or not report_only or not endpoints:
+        errors.append(
+            "security-headers.json must define Content-Security-Policy, "
+            "Content-Security-Policy-Report-Only and Reporting-Endpoints"
+        )
+        return
+
+    groups = dict(re.findall(r'([A-Za-z0-9_-]+)\s*=\s*"([^"]*)"', endpoints))
+    endpoint_url = groups.get(REPORT_GROUP)
+    if not endpoint_url:
+        errors.append(
+            f'Reporting-Endpoints lacks the "{REPORT_GROUP}" group; '
+            f'the Report-Only policy cannot resolve "report-to {REPORT_GROUP}"'
+        )
+        return
+    endpoint_path = re.sub(r"^[a-z][a-z0-9+.-]*://[^/]+", "", endpoint_url) or "/"
+    if endpoint_path != REPORT_URI:
+        errors.append(
+            f'Reporting-Endpoints "{REPORT_GROUP}" points at {endpoint_url}, '
+            f"but the collector path is {REPORT_URI}"
+        )
+
+    report_only_directives = parse_directives(report_only)
+    if REPORT_GROUP not in report_only_directives.get("report-to", []):
+        errors.append(
+            f'Report-Only CSP lacks "report-to {REPORT_GROUP}"; violations never reach the collector'
+        )
+    if report_only_directives.get("report-uri") != [REPORT_URI]:
+        errors.append(
+            f"Report-Only CSP report-uri must be {REPORT_URI} "
+            "(kept for browsers without the Reporting API)"
+        )
+
+    handler = ROOT / "functions" / (f"{REPORT_URI.strip('/')}.ts")
+    if not handler.is_file():
+        errors.append(
+            f"report-uri {REPORT_URI} has no Pages Function handler at {handler.relative_to(ROOT)}"
+        )
+
+    enforced_directives = parse_directives(enforced)
+    for name, sources in enforced_directives.items():
+        if name not in report_only_directives:
+            errors.append(
+                f"Report-Only CSP omits directive {name}, so it silently falls back to default-src; "
+                "keep both policies aligned"
+            )
+            continue
+        looser = set(report_only_directives[name]) - set(sources)
+        if looser:
+            errors.append(
+                f"Report-Only CSP {name} is looser than Content-Security-Policy: it allows "
+                f"{', '.join(sorted(looser))}; report-only may only tighten"
+            )
+
 
 def main() -> int:
     expected = json.loads(JSON_PATH.read_text(encoding="utf-8"))
@@ -36,11 +126,27 @@ def main() -> int:
 
     ts = TS_PATH.read_text(encoding="utf-8")
     errors: list[str] = []
+
+    block = SECURITY_HEADERS_BLOCK_RE.search(ts)
+    defined: list[str] = []
+    if block is None:
+        errors.append(
+            "security.ts does not define an export const SECURITY_HEADERS { ... } object literal"
+        )
+    else:
+        defined = [match.group("name") for match in HEADER_KEY_RE.finditer(block.group("body"))]
+        if not defined:
+            errors.append(
+                "security.ts SECURITY_HEADERS parsed no header names; "
+                "refusing to treat a parse failure as a pass"
+            )
+    runtime_table = block.group("body") if block else ts
+
     for name, value in expected.items():
         pattern = re.compile(
             rf'"{re.escape(name)}"\s*:\s*"((?:\\.|[^"\\])*)"',
         )
-        match = pattern.search(ts)
+        match = pattern.search(runtime_table)
         if not match:
             errors.append(f"security.ts is missing field {name}")
             continue
@@ -105,6 +211,17 @@ def main() -> int:
                         f"its requests (Turnstile shows an endless challenge); "
                         f"add {origin} to connect-src"
                     )
+
+    # Reverse direction: the runtime table must not define a header the JSON lacks.
+    for name in defined:
+        if name not in expected:
+            errors.append(
+                f"security.ts defines header {name} that security-headers.json lacks; "
+                "the JSON is the only source"
+            )
+
+    if "Content-Security-Policy" in expected:
+        check_csp_reporting_channel(expected, errors)
 
     if errors:
         print("FATAL: security headers validation failed", file=sys.stderr)

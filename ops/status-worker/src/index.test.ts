@@ -7,15 +7,23 @@
  * See ADDITIONAL_TERMS.txt.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, {
   ComiCineProbeStateV2,
+  MIN_PROBE_INTERVAL_S,
+  PROBE_JITTER_MAX_S,
   buildAlertEmail,
+  checkD1Budget,
   esc,
   pageLang,
+  probeIntervalSeconds,
+  probeJitterMs,
   record,
   renderStatusPage,
+  reportRetention,
+  resetRetentionAlertDedupe,
   runAll,
+  runDailyChecks,
   runProbe,
   deliverAlert,
   sendAlert,
@@ -24,6 +32,7 @@ import worker, {
   STATUS_HTML_CACHE_CONTROL,
   type Env,
 } from "./index";
+import type { PruneResult } from "./retention";
 
 /** Minimal D1 stub: returns preset results based on SQL keywords and records writes. */
 function fakeDb(handlers: {
@@ -778,5 +787,606 @@ describe("status page routing", () => {
     const text = await worker.fetch(new Request(`${URL_BASE}/nope`), okEnv());
     expect(text.status).toBe(404);
     expect(await text.text()).toBe("Not Found");
+  });
+});
+
+/**
+ * Record every prepare/bind pair so inserted rows can be asserted field by field.
+ * `run()` can be made to fail per SQL to test bookkeeping that must never interrupt the caller.
+ */
+function recordingDb(
+  options: { first?: (sql: string) => unknown; throwOn?: (sql: string) => boolean } = {},
+) {
+  const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const db = {
+    prepare(sql: string) {
+      const statement = (values: unknown[]) => {
+        calls.push({ sql, values });
+        return {
+          first: async () => options.first?.(sql) ?? null,
+          all: async () => ({ results: [] }),
+          run: async () => {
+            if (options.throwOn?.(sql)) throw new Error("D1_ERROR: unavailable");
+            return { meta: { changes: 0 } };
+          },
+        };
+      };
+      return {
+        bind: (...values: unknown[]) => statement(values),
+        first: async () => options.first?.(sql) ?? null,
+        all: async () => ({ results: [] }),
+        run: async () => {
+          if (options.throwOn?.(sql)) throw new Error("D1_ERROR: unavailable");
+          return { meta: { changes: 0 } };
+        },
+      };
+    },
+    batch: async () => [],
+  };
+  return { db: db as unknown as D1Database, calls };
+}
+
+/** Email-only alert channel; captures messages without touching the network. */
+function mailEnv(db: D1Database, extra: Partial<Env> = {}) {
+  const sent: Array<Record<string, unknown>> = [];
+  const env = {
+    DB: db,
+    ALERT_TO: "ops@example.com",
+    EMAIL: { send: async (m: unknown) => void sent.push(m as Record<string, unknown>) },
+    ...extra,
+  } as unknown as Env;
+  return { env, sent };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  resetRetentionAlertDedupe();
+});
+
+describe("uptime sampling weight (suggestion 14)", () => {
+  it("counts planned samples but not Durable Object retry samples in probe_uptime_daily", async () => {
+    const downPrev = () => ({ last_status: 0, consecutive_fail: 3, down_since: 1_700_000_000 });
+
+    const planned = recordingDb({ first: downPrev });
+    await record(
+      { DB: planned.db } as Env,
+      7,
+      { status: 0, latency_ms: null, msg: "http_503" },
+      "cron",
+      1_700_000_100,
+    );
+    expect(planned.calls.some((c) => /probe_uptime_daily/.test(c.sql))).toBe(true);
+
+    const retry = recordingDb({ first: downPrev });
+    await record(
+      { DB: retry.db } as Env,
+      7,
+      { status: 0, latency_ms: null, msg: "http_503" },
+      "retry",
+      1_700_000_110,
+    );
+    expect(retry.calls.some((c) => /probe_uptime_daily/.test(c.sql))).toBe(false);
+    // The retry still refreshes the live state and latency/msg the page reads.
+    expect(retry.calls.some((c) => /INSERT INTO heartbeats/.test(c.sql))).toBe(true);
+    expect(retry.calls.some((c) => /INSERT INTO probe_state/.test(c.sql))).toBe(true);
+  });
+
+  it("timestamps a planned sample with the cron tick rather than the jittered completion time", async () => {
+    const { db, calls } = recordingDb();
+    await record(
+      { DB: db } as Env,
+      3,
+      { status: 1, latency_ms: 5, msg: "ok" },
+      "cron",
+      1_700_000_000,
+    );
+    const heartbeat = calls.find((c) => /INSERT INTO heartbeats/.test(c.sql));
+    const uptime = calls.find((c) => /INSERT INTO probe_uptime_daily/.test(c.sql));
+    expect(heartbeat?.values[1]).toBe(1_700_000_000);
+    expect(uptime?.values[1]).toBe(1_700_000_000);
+  });
+
+  it("keeps uptime near the real availability during a five-minute outage with retries", async () => {
+    const totals = new Map<number, { total: number; up: number }>();
+    const db = {
+      prepare(sql: string) {
+        const make = (values: unknown[]) => ({
+          __sql: sql,
+          __values: values,
+          first: async () => null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ meta: { changes: 0 } }),
+        });
+        return { bind: (...values: unknown[]) => make(values), ...make([]) };
+      },
+      batch: async (statements: Array<{ __sql: string; __values: unknown[] }>) => {
+        for (const statement of statements) {
+          if (!/probe_uptime_daily/.test(statement.__sql)) continue;
+          const probeId = Number(statement.__values[0]);
+          const up = Number(statement.__values[2]);
+          const entry = totals.get(probeId) ?? { total: 0, up: 0 };
+          entry.total += 1;
+          entry.up += up;
+          totals.set(probeId, entry);
+        }
+        return [];
+      },
+    } as unknown as D1Database;
+
+    // Five planned samples, one per minute; the Durable Object retries every 10 seconds.
+    for (let minute = 0; minute < 5; minute += 1) {
+      await record(
+        { DB: db } as Env,
+        9,
+        { status: 1, latency_ms: 5, msg: "ok" },
+        "cron",
+        1_700_000_000 + minute * 60,
+      );
+      for (let retry = 0; retry < 6; retry += 1) {
+        await record(
+          { DB: db } as Env,
+          9,
+          { status: 0, latency_ms: null, msg: "http_503" },
+          "retry",
+          1_700_000_010 + minute * 60 + retry * 10,
+        );
+      }
+    }
+
+    const rollup = totals.get(9);
+    expect(rollup?.total).toBe(5);
+    expect(rollup?.up).toBe(5);
+    expect(((rollup?.up ?? 0) / (rollup?.total ?? 1)) * 100).toBe(100);
+    // The old behavior counted every retry (5 planned + 29 retry samples) and showed 5/34 = 14.7%.
+    expect(((5 / 34) * 100).toFixed(1)).toBe("14.7");
+  });
+});
+
+describe("probe interval and jitter (suggestion 16)", () => {
+  it("rejects intervals below the one-minute cron and falls back to 60", () => {
+    expect(probeIntervalSeconds(undefined)).toBe(60);
+    expect(probeIntervalSeconds(null)).toBe(60);
+    expect(probeIntervalSeconds("")).toBe(60);
+    expect(probeIntervalSeconds("abc")).toBe(60);
+    expect(probeIntervalSeconds(0)).toBe(60);
+    expect(probeIntervalSeconds(-30)).toBe(60);
+    expect(probeIntervalSeconds(30)).toBe(60);
+    expect(probeIntervalSeconds(60)).toBe(60);
+    expect(probeIntervalSeconds(90.9)).toBe(90);
+    expect(MIN_PROBE_INTERVAL_S).toBe(60);
+  });
+
+  it("clamps a stored 30-second interval and logs the invalid configuration once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { db } = fakeDb({
+      all: (sql) =>
+        sql.includes("FROM probes")
+          ? { results: [{ ...probe, interval_s: 30, checked_at: 1_800_000_000 - 45 }] }
+          : { results: [] },
+    });
+
+    const ran = await runAll({ DB: db } as Env, 1_800_000_000);
+    // 45 s elapsed is below the clamped 60 s, so nothing runs (the old `|| 60` would have run it).
+    expect(ran).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      warn.mock.calls.some((call) => String(call[0] ?? "").includes("probe_interval_invalid")),
+    ).toBe(true);
+
+    await runAll({ DB: db } as Env, 1_800_000_060);
+    expect(
+      warn.mock.calls.filter((call) => String(call[0] ?? "").includes("probe_interval_invalid")),
+    ).toHaveLength(1);
+  });
+
+  it("starts cron probes at deterministic staggered offsets", async () => {
+    vi.useFakeTimers();
+    const start = 1_800_000_000_000;
+    vi.setSystemTime(start);
+    const startedAt: number[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        startedAt.push(Date.now());
+        return new Response("", { status: 200 });
+      }),
+    );
+    const { db } = fakeDb({
+      all: (sql) =>
+        sql.includes("FROM probes")
+          ? {
+              results: [
+                { ...probe, id: 1, interval_s: 60, checked_at: 0 },
+                { ...probe, id: 2, interval_s: 60, checked_at: 0 },
+              ],
+            }
+          : { results: [] },
+    });
+
+    const running = runAll({ DB: db } as Env, Math.floor(start / 1000), { jitter: true });
+    await vi.advanceTimersByTimeAsync(PROBE_JITTER_MAX_S * 1000 + 1_000);
+    await running;
+
+    const offsets = startedAt.map((at) => at - start).sort((a, b) => a - b);
+    const expected = [probeJitterMs(1), probeJitterMs(2)].sort((a, b) => a - b);
+    expect(startedAt).toHaveLength(2);
+    expect(offsets).toEqual(expected);
+    expect(new Set(offsets).size).toBe(2);
+    expect(Math.max(...offsets)).toBeLessThanOrEqual(PROBE_JITTER_MAX_S * 1000);
+  });
+
+  it("keeps jitter deterministic and bounded", () => {
+    expect(probeJitterMs(1)).toBe(probeJitterMs(1));
+    expect(probeJitterMs(1)).toBeGreaterThanOrEqual(0);
+    expect(probeJitterMs(1)).toBeLessThanOrEqual(PROBE_JITTER_MAX_S * 1000);
+    expect(probeJitterMs(1, 1)).toBe(0);
+    expect(new Set([1, 2, 3, 4].map((id) => probeJitterMs(id))).size).toBeGreaterThan(1);
+  });
+});
+
+describe("retention bookkeeping and alerts (suggestion 13)", () => {
+  const NOW = 1_800_000_000;
+  const successes: PruneResult[] = [
+    { table: "heartbeats", deleted: 3, cutoff: NOW - 30 * 86400 },
+    { table: "events", deleted: 0, cutoff: NOW - 90 * 86400 },
+  ];
+  const failures: PruneResult[] = [
+    {
+      table: "heartbeats",
+      deleted: 0,
+      cutoff: NOW - 30 * 86400,
+      error: "D1_ERROR: database is locked (code 5)",
+    },
+  ];
+
+  it("writes one retention_state row per bucket and stays silent on success", async () => {
+    const { db, calls } = recordingDb();
+    const { env, sent } = mailEnv(db);
+
+    const report = await reportRetention(env, successes, NOW);
+
+    expect(report).toEqual({ state_rows: 2, failures: 0, alerted: false });
+    expect(sent).toHaveLength(0);
+    const writes = calls.filter((c) => /INSERT INTO retention_state/.test(c.sql));
+    expect(writes).toHaveLength(2);
+    expect(writes[0].values[0]).toBe("heartbeats");
+    expect(writes[0].values[1]).toBe(NOW);
+    // A success clears last_error and records the success time.
+    expect(writes[0].sql).toContain("last_error = ''");
+  });
+
+  it("records the failure row and sends one alert with the table and error summary", async () => {
+    const { db, calls } = recordingDb();
+    const { env, sent } = mailEnv(db);
+
+    const report = await reportRetention(env, failures, NOW);
+
+    expect(report).toEqual({ state_rows: 1, failures: 1, alerted: true });
+    expect(sent).toHaveLength(1);
+    const mail = sent[0] as { subject: string; text: string };
+    expect(mail.subject).toContain("D1 retention failure");
+    expect(mail.text).toContain("heartbeats");
+    expect(mail.text).toContain("database is locked");
+    const write = calls.find((c) => /INSERT INTO retention_state/.test(c.sql));
+    expect(write?.values).toEqual([
+      "heartbeats",
+      NOW,
+      "D1_ERROR: database is locked (code 5)",
+    ]);
+    // A failure keeps the previous last_success_at instead of zeroing recovery evidence.
+    expect(write?.sql).toContain("last_run_at = excluded.last_run_at");
+    expect(write?.sql).not.toContain("last_success_at = excluded.last_success_at");
+  });
+
+  it("alerts only once per table per hour and re-arms after a successful pass", async () => {
+    const { db } = recordingDb();
+    const { env, sent } = mailEnv(db);
+
+    expect((await reportRetention(env, failures, NOW)).alerted).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect((await reportRetention(env, failures, NOW + 60)).alerted).toBe(false);
+    expect(sent).toHaveLength(1);
+
+    await reportRetention(env, [successes[0]], NOW + 120);
+    expect((await reportRetention(env, failures, NOW + 180)).alerted).toBe(true);
+    expect(sent).toHaveLength(2);
+  });
+
+  it("still alerts when the retention_state bookkeeping cannot be written", async () => {
+    const { db } = recordingDb({ throwOn: (sql) => /retention_state/.test(sql) });
+    const { env, sent } = mailEnv(db);
+
+    const report = await reportRetention(env, failures, NOW);
+
+    expect(report.state_rows).toBe(0);
+    expect(report.failures).toBe(1);
+    expect(report.alerted).toBe(true);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("does not throw when no alert channel is configured", async () => {
+    const { db } = recordingDb();
+    const report = await reportRetention({ DB: db } as Env, failures, NOW);
+    expect(report.alerted).toBe(false);
+  });
+});
+
+describe("D1 daily budget check (suggestion 21)", () => {
+  const NOW = 1_800_000_000;
+  const yesterday = new Date((NOW - (NOW % 86400) - 86400) * 1000).toISOString().slice(0, 10);
+
+  function graphqlPayload(rowsRead: number, rowsWritten = 29_000) {
+    return {
+      data: {
+        viewer: {
+          accounts: [
+            {
+              d1AnalyticsAdaptiveGroups: [
+                {
+                  dimensions: { databaseId: "db-main", date: yesterday },
+                  sum: { rowsRead, rowsWritten },
+                },
+                {
+                  dimensions: { databaseId: "db-sink", date: yesterday },
+                  sum: { rowsRead: 1, rowsWritten: 0 },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+  }
+
+  function budgetEnv(db: D1Database, extra: Partial<Env> = {}) {
+    return mailEnv(db, { CLOUDFLARE_API_TOKEN: "cf-token", CLOUDFLARE_ACCOUNT_ID: "acct-id", ...extra });
+  }
+
+  it("alerts once when the last complete day reaches 70%", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(graphqlPayload(3_900_000))));
+    const { env, sent } = budgetEnv(fakeDb({}).db);
+
+    const step = await checkD1Budget(env, NOW);
+
+    expect(step).toEqual({ ok: true, issues: 1, alerted: true });
+    expect(sent).toHaveLength(1);
+    const mail = sent[0] as { subject: string; text: string };
+    expect(mail.subject).toContain("D1 daily budget warning");
+    expect(mail.text).toContain("rows_read 78% of 5000000");
+    expect(mail.text).toContain("level=warn");
+  });
+
+  it("stays silent below the threshold", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(graphqlPayload(3_400_000))));
+    const { env, sent } = budgetEnv(fakeDb({}).db);
+
+    const step = await checkD1Budget(env, NOW);
+
+    expect(step).toEqual({ ok: true, issues: 0, alerted: false });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("fails open when the token or account id is missing and never calls the API", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, sent } = mailEnv(fakeDb({}).db);
+
+    const step = await checkD1Budget(env, NOW);
+
+    expect(step).toEqual({
+      ok: false,
+      issues: 0,
+      alerted: false,
+      reason: "usage_unavailable",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("fails open without alerting when the GraphQL request keeps failing", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, sent } = budgetEnv(fakeDb({}).db);
+
+    const running = checkD1Budget(env, NOW);
+    await vi.advanceTimersByTimeAsync(1_100);
+    const step = await running;
+
+    expect(step.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("is wired into runDailyChecks, in the middle of the other steps", async () => {
+    const fetchMock = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url.includes("/graphql")) return Response.json(graphqlPayload(3_900_000));
+      if (/\/rules\/lists/.test(url)) return Response.json({ result: [] });
+      if (/\/items/.test(url)) return Response.json({ result: [], result_info: {} });
+      return new Response("unexpected", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, sent } = budgetEnv(fakeDb({}).db);
+
+    const result = await runDailyChecks(env, NOW);
+
+    expect(result.runs.ok).toBe(true);
+    expect(result.budget.issues).toBe(1);
+    expect(result.blocklist.ok).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(String((sent[0] as { subject: string }).subject)).toContain("D1 daily budget warning");
+  });
+
+  it("exposes the budget step through POST /daily-checks without disturbing the other steps", async () => {
+    const { db } = fakeDb({ all: () => ({ results: [] }) });
+    const res = await worker.fetch(
+      new Request("https://status.comicine.com/daily-checks", {
+        method: "POST",
+        headers: { Authorization: "Bearer ops-token" },
+      }),
+      { DB: db, STATUS_TOKEN: "ops-token" } as Env,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      runs: { ok: boolean };
+      budget: { ok: boolean; reason?: string };
+      blocklist: { ok: boolean };
+    };
+    expect(body.runs.ok).toBe(true);
+    // No Cloudflare credentials: the budget step cannot run, and it stays independent.
+    expect(body.budget).toMatchObject({
+      ok: false,
+      issues: 0,
+      alerted: false,
+      reason: "usage_unavailable",
+    });
+    expect(body.blocklist.ok).toBe(false);
+  });
+});
+
+describe("status page cache (suggestion 23)", () => {
+  const URL = "https://status.comicine.com";
+  const probeRow = {
+    id: 1,
+    name: "Website",
+    type: "http",
+    target: "https://comicine.com/_health",
+    group_key: "public",
+    active: 1,
+    label_key: "card_website",
+    status: 1,
+    latency_ms: 12,
+    checked_at: 1,
+    total: 10,
+    up: 10,
+  };
+
+  function fakeCache() {
+    const store = new Map<string, Response>();
+    const cache = {
+      match: async (request: Request) => store.get(request.url)?.clone(),
+      put: async (request: Request, response: Response) => {
+        store.set(request.url, response.clone());
+      },
+    };
+    vi.stubGlobal("caches", { default: cache });
+    return store;
+  }
+
+  function countingDb() {
+    let reads = 0;
+    const { db } = fakeDb({
+      all: (sql) => {
+        if (sql.includes("FROM probes")) reads += 1;
+        return { results: [probeRow] };
+      },
+    });
+    return { db, reads: () => reads };
+  }
+
+  /** Execution context used by the Worker route to schedule the Cache API write. */
+  function context() {
+    const pending: Promise<unknown>[] = [];
+    return {
+      pending,
+      ctx: { waitUntil: (promise: Promise<unknown>) => void pending.push(promise) },
+    };
+  }
+
+  it("serves a second request from the cache without reading D1 again", async () => {
+    const store = fakeCache();
+    const { db, reads } = countingDb();
+    const env = { DB: db } as Env;
+    const { ctx, pending } = context();
+
+    const first = await worker.fetch(new Request(`${URL}/?lang=zh-cn`), env, ctx);
+    expect(first.headers.get("X-Status-Cache")).toBe("miss");
+    await Promise.all(pending);
+
+    const second = await worker.fetch(new Request(`${URL}/?lang=zh-cn`), env, ctx);
+    expect(second.headers.get("X-Status-Cache")).toBe("hit");
+    expect(await second.text()).toContain("服务状态");
+    expect(store.size).toBe(1);
+    expect(reads()).toBe(1);
+  });
+
+  it("re-renders after the cached entry expires", async () => {
+    const store = fakeCache();
+    const { db, reads } = countingDb();
+    const env = { DB: db } as Env;
+    const { ctx, pending } = context();
+
+    await worker.fetch(new Request(`${URL}/?lang=zh-cn`), env, ctx);
+    await Promise.all(pending);
+    expect(reads()).toBe(1);
+
+    store.clear(); // the response's s-maxage=60 has elapsed
+
+    const afterExpiry = await worker.fetch(new Request(`${URL}/?lang=zh-cn`), env, ctx);
+    expect(afterExpiry.headers.get("X-Status-Cache")).toBe("miss");
+    expect(reads()).toBe(2);
+  });
+
+  it("keeps one cache entry per language", async () => {
+    const store = fakeCache();
+    const { db } = countingDb();
+    const env = { DB: db } as Env;
+    const { ctx, pending } = context();
+
+    await worker.fetch(new Request(`${URL}/?lang=zh-cn`), env, ctx);
+    await Promise.all(pending);
+    const english = await worker.fetch(new Request(`${URL}/?lang=en-us`), env, ctx);
+
+    expect(english.headers.get("X-Status-Cache")).toBe("miss");
+    expect(await english.text()).toContain('<html lang="en-us">');
+    expect(store.size).toBe(2);
+  });
+
+  it("does not cache POST requests, 404s, or the 503 failure page", async () => {
+    const store = fakeCache();
+    const { db } = countingDb();
+    const { ctx } = context();
+
+    const post = await worker.fetch(
+      new Request(`${URL}/?lang=zh-cn`, { method: "POST" }),
+      { DB: db } as Env,
+      ctx,
+    );
+    expect(post.headers.get("X-Status-Cache")).toBe("bypass");
+
+    const notFound = await worker.fetch(
+      new Request(`${URL}/nope`, { headers: { Accept: "text/html" } }),
+      { DB: db } as Env,
+      ctx,
+    );
+    expect(notFound.status).toBe(404);
+    expect(notFound.headers.get("Cache-Control")).toBe("no-store");
+
+    const broken = fakeDb({
+      all: () => {
+        throw new Error("D1_ERROR: network unreachable");
+      },
+    });
+    const failed = await worker.fetch(
+      new Request(`${URL}/?lang=zh-cn`),
+      { DB: broken.db } as Env,
+      ctx,
+    );
+    expect(failed.status).toBe(503);
+    expect(store.size).toBe(0);
+  });
+
+  it("renders directly when the Cache API is unavailable", async () => {
+    const { db } = countingDb();
+    const { ctx } = context();
+    const res = await worker.fetch(new Request(`${URL}/?lang=zh-cn`), { DB: db } as Env, ctx);
+    expect(res.status).toBe(200);
+    // No Cache API in this runtime: direct render, and the response says the cache was bypassed.
+    expect(res.headers.get("X-Status-Cache")).toBe("bypass");
   });
 });

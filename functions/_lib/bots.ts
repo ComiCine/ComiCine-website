@@ -21,6 +21,13 @@
  * allowlist, so they cannot drift apart. Before 2026-10-12 they lived in
  * crawlers.txt and hardcoded builder text.
  *
+ * Every entry is a substring match, so no entry may also occur in a real browser
+ * User-Agent. Browsers reused `bot` (CUBOT phones), `spider` (Spider 8 tablet),
+ * `preview` (preview builds), `AI-` (AKAI/Funai TVs), `sogou` (Sogou mobile
+ * browser) and the WeChat/QQ markers (MicroMessenger, WeChat, MQQBrowser, QQ/),
+ * so those tokens were removed or narrowed on 2026-11-07; bots.test.ts holds the
+ * negative cases.
+ *
  * This trust layer **only bypasses human verification**; it does not make the source trusted.
  *
  * User agents are self-reported; anyone can claim to be `GPTBot`. A matching
@@ -40,7 +47,7 @@ import { GATE_TRUST, GATE_TRUST_CRAWLER_UAS } from "../_data/gateTrust";
  * Maximum user-agent prefix length considered for matching.
  *
  * User-Agent headers have no length limit, and the visitor contract in README
- * makes no promise otherwise. The list has nearly 100 substring matches.
+ * makes no promise otherwise. The list holds about 100 substring matches.
  * Truncating to 512 characters covers real user agents (the longest browser
  * user agents are under 200 characters) and prevents oversized values from
  * slowing every unverified request.
@@ -51,7 +58,7 @@ export const CRAWLER_UA_MAX_LENGTH = 512;
  * Return the matched lowercase fragment, or an empty string when there is no match.
  *
  * Return the fragment instead of a boolean so logs can show which entry
- * allowed the request. The list has nearly 100 entries, and a boolean alone
+ * allowed the request. The list holds about 100 entries, and a boolean alone
  * cannot explain why a user agent matched.
  *
  * Contract switch: when `GATE_TRUST.ua_allowlist_enabled` is false, the entire

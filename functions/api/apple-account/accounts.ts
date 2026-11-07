@@ -10,6 +10,7 @@
 /** GET /api/apple-account/accounts (redacted list) / POST (create; requires admin access and CSRF). */
 
 import { queryAll, execute } from "../../_lib/d1";
+import { jsonBodyRejection, readJsonBody } from "../../_lib/request";
 import { fernetEncrypt } from "../../_lib/fernet";
 import { authUnavailableResponse, requireAdminSession, requireAuth } from "../../_lib/session";
 import { verifyCsrf } from "../../_lib/csrf";
@@ -62,13 +63,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "Encryption key is not configured" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 
-  let data: unknown;
-  try {
-    data = await context.request.json();
-  } catch {
-    return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
-  }
-  const parsed = validateCreatePayload(data);
+  const body = await readJsonBody(context.request);
+  if (!body.ok) return jsonBodyRejection(body);
+  const parsed = validateCreatePayload(body.value);
   if (!parsed) {
     return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
@@ -87,21 +84,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
     return Response.json({ error: "Encryption failed" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
-  const max = await queryAll<{ n: number }>(
-    context.env.DB,
-    "SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM apple_accounts",
-  );
-  const sortOrder = max.length ? max[0].n : 0;
 
   let ok = false;
   try {
+    // Compute the next position inside the INSERT. Reading MAX(sort_order) in a separate statement
+    // let two concurrent creates read the same value and insert duplicate positions.
     ok = await execute(
       context.env.DB,
-      "INSERT INTO apple_accounts (email, password, notes, sort_order) VALUES (?, ?, ?, ?)",
+      `INSERT INTO apple_accounts (email, password, notes, sort_order)
+       SELECT ?, ?, ?, COALESCE(MAX(sort_order), -1) + 1 FROM apple_accounts`,
       parsed.email,
       encrypted,
       parsed.notes,
-      sortOrder,
     );
   } catch (err) {
     // Return 409 only for an actual UNIQUE conflict. Exhausted write quotas, broken bindings, and network

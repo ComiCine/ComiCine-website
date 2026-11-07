@@ -31,7 +31,8 @@ import { logEvent } from "./logging";
 import { BASE_URL, LANG_COOKIE } from "./config";
 
 vi.mock("./d1", () => ({ queryAll: vi.fn() }));
-vi.mock("./logging", () => ({ logEvent: vi.fn(), shouldLogThrottled: vi.fn(() => true) }));
+vi.mock("./logging", () => ({ logEvent: vi.fn() }));
+vi.mock("./sampling", () => ({ shouldLogDiagnostic: vi.fn(() => true) }));
 
 const env = { DB: {} } as never;
 const request = new Request("https://comicine.com/");
@@ -110,7 +111,7 @@ describe("handleVerify", () => {
   }
 
   it("issues the gate cookie to fetch clients without a redirect", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com", action: "gate" })));
 
     const resp = await handleVerify(verifyContext(verifyRequest("application/json")));
 
@@ -128,7 +129,7 @@ describe("handleVerify", () => {
   });
 
   it("sends non-JavaScript form posts directly back to the requested host", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com", action: "gate" })));
 
     const resp = await handleVerify(verifyContext(verifyRequest("text/html")));
 
@@ -142,7 +143,7 @@ describe("handleVerify", () => {
 // __gate cookie signed with an empty key when GATE_HMAC_KEY was missing. The
 // middleware runtimeConfigError currently catches this, but the fallback
 // entry point must enforce the check itself in case middleware routing is absent.
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com", action: "gate" })));
     const resp = await handleVerify({
       request: verifyRequest("application/json"),
       env: { TURNSTILE_SECRET: "turnstile-secret" },
@@ -155,7 +156,7 @@ describe("handleVerify", () => {
   });
 
   it("passes CF-Connecting-IP to siteverify, ignoring spoofed forwarded headers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com" }));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ success: true, hostname: "comicine.com", action: "gate" }));
     vi.stubGlobal("fetch", fetchMock);
 
     const form = new FormData();
@@ -232,6 +233,202 @@ describe("handleVerify", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true })));
     const resp = await handleVerify(verifyContext(verifyRequest("application/json")));
     expect(resp.status).toBe(403);
+    vi.unstubAllGlobals();
+  });
+});
+
+/**
+ * Turnstile hardening: idempotent retry for transient failures and strict
+ * action/cdata echo validation.
+ *
+ * Tokens are single-use, so a retry must reuse the token and the derived
+ * idempotency key. Only timeout, network errors, and 5xx are retried; final
+ * rejections and 4xx (including 403/429) must fail once and return 503 when the
+ * verification itself could not complete.
+ */
+describe("handleVerify Turnstile retry and echo validation", () => {
+  function context(request: Request) {
+    return {
+      request,
+      env: {
+        TURNSTILE_SECRET: "turnstile-secret",
+        GATE_HMAC_KEY: "a".repeat(64),
+      },
+    } as never;
+  }
+
+  function verifyRequest(options: { accept?: string; token?: string; cdata?: string } = {}): Request {
+    const form = new FormData();
+    form.set("cf-turnstile-response", options.token ?? "token");
+    form.set("host", "comicine.com");
+    form.set("next", "/services");
+    if (options.cdata !== undefined) form.set("cdata", options.cdata);
+    return new Request("https://comicine.com/__gate/verify", {
+      method: "POST",
+      headers: { Accept: options.accept ?? "application/json" },
+      body: form,
+    });
+  }
+
+  function siteverifySuccess(extra: Record<string, unknown> = {}): Response {
+    return Response.json({ success: true, hostname: "comicine.com", action: "gate", ...extra });
+  }
+
+  function submittedForm(fetchMock: ReturnType<typeof vi.fn>, call: number): URLSearchParams {
+    return new URLSearchParams(String((fetchMock.mock.calls[call][1] as RequestInit).body));
+  }
+
+  it("retries once after a timeout and then issues the cookie", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException("The operation was aborted.", "AbortError"))
+      .mockResolvedValueOnce(siteverifySuccess());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(204);
+    expect(resp.headers.get("Set-Cookie")).toContain("__gate=");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("retries once after HTTP 500 and reuses the same UUID-shaped idempotency key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("server error", { status: 500 }))
+      .mockResolvedValueOnce(siteverifySuccess());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = submittedForm(fetchMock, 0);
+    const second = submittedForm(fetchMock, 1);
+    const key = first.get("idempotency_key") ?? "";
+    expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(second.get("idempotency_key")).toBe(key);
+// The key must not expose the single-use token, and a bare 32-hex string would be ignored.
+    expect(key).not.toBe("token");
+    expect(key).not.toMatch(/^[0-9a-f]{32}$/);
+    expect(first.get("response")).toBe("token");
+    vi.unstubAllGlobals();
+  });
+
+  it("calls siteverify once and issues the cookie for a single successful attempt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(siteverifySuccess());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("does not retry an invalid token and answers 403", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ success: false, "error-codes": ["invalid-input-response"] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("does not retry an action mismatch and answers 403", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(siteverifySuccess({ action: "newsletter" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects a token whose action echo is missing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ success: true, hostname: "comicine.com" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects a cdata echo mismatch and accepts an exact echo", async () => {
+    const mismatch = vi.fn().mockResolvedValue(siteverifySuccess({ cdata: "other" }));
+    vi.stubGlobal("fetch", mismatch);
+    const rejected = await handleVerify(context(verifyRequest({ cdata: "expected" })));
+    expect(rejected.status).toBe(403);
+    expect(mismatch).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+
+    const match = vi.fn().mockResolvedValue(siteverifySuccess({ cdata: "expected" }));
+    vi.stubGlobal("fetch", match);
+    const accepted = await handleVerify(context(verifyRequest({ cdata: "expected" })));
+    expect(accepted.status).toBe(204);
+    expect(match).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("does not retry HTTP 429 or 403 and answers 503", async () => {
+    for (const status of [429, 403]) {
+      const fetchMock = vi.fn().mockResolvedValue(new Response("rejected", { status }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const resp = await handleVerify(context(verifyRequest()));
+
+      expect(resp.status, String(status)).toBe(503);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("answers 503 after both attempts fail with 5xx", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("server error", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resp = await handleVerify(context(verifyRequest()));
+
+    expect(resp.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("reports http_5xx after both attempts fail", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("server error", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const diagnostics: { reason?: string } = {};
+
+    await expect(verifyTurnstile("token", "", "secret", diagnostics)).rejects.toThrow(
+      "siteverify HTTP 500",
+    );
+
+    expect(diagnostics.reason).toBe("http_5xx");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("reports network after both attempts fail with a transport error", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+    const diagnostics: { reason?: string } = {};
+
+    await expect(verifyTurnstile("token", "", "secret", diagnostics)).rejects.toThrow(
+      "siteverify network",
+    );
+
+    expect(diagnostics.reason).toBe("network");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.unstubAllGlobals();
   });
 });

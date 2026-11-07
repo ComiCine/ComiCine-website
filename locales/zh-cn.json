@@ -102,6 +102,13 @@
   "transport_note": "地铁末班停运需报销打车费",
   "close_aria": "关闭",
   "visitor_title": "访问者 IP 列表",
+  "visitor_updated_at": "上次更新 {time}",
+  "visitor_error_timeout": "请求超时，请重试。",
+  "visitor_error_network": "网络连接中断，请检查网络后重试。",
+  "visitor_error_auth": "登录已失效，请重新登录。",
+  "visitor_error_forbidden": "当前账户没有查看权限。",
+  "visitor_error_server": "服务暂时不可用，请稍后重试。",
+  "visitor_retry": "重试",
   "stat_ips": "独立 IP",
   "stat_requests": "总请求",
   "stat_countries": "国家/地区",
@@ -185,7 +192,9 @@
   "currency_loading": "正在加载参考汇率…",
   "currency_no_results": "没有符合搜索条件的货币。",
   "currency_api_unavailable": "参考汇率暂不可用，价格仍以 CNY 显示。",
+  "currency_cached_rates": "实时汇率暂不可用，显示 {date} 的缓存汇率。",
   "currency_rate_date": "参考汇率日期：{date}。金额仅供参考。",
   "currency_rate_unavailable": "该货币暂无 CNY 参考汇率。",
+  "currency_saved_unavailable": "上次选择的货币暂无汇率，已切回 CNY。",
   "currency_reference_label": "约 {code} {amount}，参考汇率日期 {date}。"
 }

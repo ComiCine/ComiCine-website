@@ -12,7 +12,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestPut } from "./reorder";
 import { executeBatch, queryAll } from "../../_lib/d1";
-import { authUnavailableResponse, requireAuth } from "../../_lib/session";
+import { requireAuth } from "../../_lib/session";
 import { verifyCsrf } from "../../_lib/csrf";
 import { logEvent } from "../../_lib/logging";
 import type { Env } from "../../_lib/env";
@@ -20,8 +20,10 @@ import type { Env } from "../../_lib/env";
 vi.mock("../../_lib/d1", () => ({ queryAll: vi.fn(), executeBatch: vi.fn() }));
 vi.mock("../../_lib/session", async () => {
   // Shared stubs (tasks/22 W5-15); see tests/helpers/admin-session.ts for their purpose and placement.
+  // The actual module supplies the 403 message and the 503 response, so the mock cannot drift.
+  const actual = await vi.importActual<typeof import("../../_lib/session")>("../../_lib/session");
   const { createSessionModuleMock } = await import("../../../tests/helpers/admin-session");
-  return createSessionModuleMock();
+  return createSessionModuleMock(actual);
 });
 vi.mock("../../_lib/csrf", () => ({ verifyCsrf: vi.fn() }));
 vi.mock("../../_lib/logging", () => ({ logEvent: vi.fn() }));
@@ -35,7 +37,7 @@ const db = {
   prepare: vi.fn(() => prepared),
   batch: vi.fn(async () => [{ success: true }]),
 } as never;
-const env = { DB: db } as Env;
+const env = { DB: db } as unknown as Env;
 
 function context(body: unknown) {
   return {
@@ -64,9 +66,6 @@ beforeEach(() => {
     role: "admin",
     authAt: 1,
   } as never);
-  vi.mocked(authUnavailableResponse).mockReturnValue(
-    Response.json({ error: "auth_sessions_unavailable" }, { status: 503 }),
-  );
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(queryAll).mockResolvedValue([{ id: 1 }, { id: 2 }]);
   vi.mocked(executeBatch).mockResolvedValue(true);
@@ -101,6 +100,25 @@ describe("apple-account reorder API", () => {
     expect((await onRequestPut(context({ order: [1, 2, 3] }) as never)).status).toBe(400);
   });
 
+  it("applies its own 32 KB cap, so a 2001-id body is rejected by validation, not as too large", async () => {
+    // validateOrder accepts at most 1000 ids (~17 KB), so the endpoint cannot use the 8 KB default.
+    // These 2001 ids serialize to 10016 bytes: over the default, under 32 KB, so the request has to
+    // reach the validator and come back as a normal 400.
+    const order = Array.from({ length: 2001 }, (_, index) => 1000 + index);
+    const resp = await onRequestPut(context({ order }) as never);
+    expect(resp.status).toBe(400);
+    expect(await resp.json()).toEqual({ error: "Invalid request" });
+    expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a PUT body larger than 32 KB before validation runs", async () => {
+    const resp = await onRequestPut(context({ order: [1, 2], pad: "x".repeat(40000) }) as never);
+    expect(resp.status).toBe(413);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
+    expect(await resp.json()).toEqual({ error: "Request body too large" });
+    expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
+  });
+
   it("still ignores the CSRF result on a partial order (validation first)", async () => {
     vi.mocked(queryAll).mockResolvedValue([{ id: 1 }, { id: 2 }]);
     vi.mocked(verifyCsrf).mockResolvedValue(false);
@@ -119,6 +137,7 @@ describe("apple-account reorder API", () => {
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error("auth_sessions_unavailable"));
     const resp = await onRequestPut(context({ order: [1, 2] }) as never);
     expect(resp.status).toBe(503);
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
     expect(((await resp.json()) as { error: string }).error).toBe("auth_sessions_unavailable");
     expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
   });

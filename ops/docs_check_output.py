@@ -16,6 +16,12 @@ This script and the VitePress configuration read the same rewrites.json. It also
 every localized content route ends in a supported language code and every source page has all
 supported language copies.
 
+Each generated content page must also carry one `<link rel="alternate" hreflang="...">` per
+supported language plus a single `x-default` pointing at the `default_lang` version of the same
+page. VitePress injects them through transformHead (docs/docs/.vitepress/config.mts); losing one
+breaks search-engine language discovery without breaking the page itself, so the deploy gate has
+to assert them. The language list and the default come from config-contract.json.
+
 <docs-dir> is the VitePress content root, site/docs/docs/. site/docs/ is organized by subdomain:
 docs/ belongs to docs.comicine.com and services/ belongs to services.comicine.com. The .vitepress/
 directory is a sibling of the content root.
@@ -30,8 +36,31 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DOCS_TITLE_SUFFIXES = ("| 文档", "| Docs", "| ドキュメント", "| 문서")
+LINK_TAG_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
+ATTRIBUTE_RE = re.compile(r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+
+ROOT = Path(__file__).resolve().parent.parent
+CONTRACT_PATH = ROOT / "config-contract.json"
+
+
+def parse_link_attributes(html: str) -> list[dict[str, str]]:
+    """Return the attributes of every `<link>` tag, independent of attribute order."""
+    tags: list[dict[str, str]] = []
+    for tag in LINK_TAG_RE.finditer(html):
+        attributes: dict[str, str] = {}
+        for name, double_quoted, single_quoted in ATTRIBUTE_RE.findall(tag.group(0)):
+            attributes[name.lower()] = double_quoted or single_quoted
+        tags.append(attributes)
+    return tags
+
+
+def hreflang_tag(language: str) -> str:
+    """Format a contract language code (`en-us`) as a BCP 47 tag (`en-US`)."""
+    base, _, region = language.partition("-")
+    return f"{base}-{region.upper()}" if region else base
 
 
 def main() -> int:
@@ -103,9 +132,9 @@ def main() -> int:
     rewrites: dict[str, str] = {}
     if rewrites_path.is_file():
         rewrites = json.loads(rewrites_path.read_text(encoding="utf-8"))
-    contract_path = Path(__file__).resolve().parents[1] / "config-contract.json"
-    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     languages = tuple(contract["supported_langs"])
+    default_language = contract["default_lang"]
     missing: list[tuple[str, str]] = []
     invalid_routes: list[tuple[str, str]] = []
     duplicate_routes: list[tuple[str, str]] = []
@@ -149,13 +178,63 @@ def main() -> int:
             if language not in present:
                 incomplete.append((logical_page, language))
 
+    # hreflang alternates: one per supported language plus x-default -> the default_lang copy.
+    # VitePress writes absolute hrefs, so compare pathnames and ignore the host.
+    language_tags = {language: hreflang_tag(language) for language in languages}
+    expected_tags = set(language_tags.values()) | {"x-default"}
+    hreflang_errors: list[str] = []
+    if default_language not in languages:
+        hreflang_errors.append(
+            f"config-contract.json default_lang {default_language!r} is not a supported_lang"
+        )
+    for _rel, display_route in routes:
+        # routes holds public paths with a leading slash; dist paths are relative.
+        route = display_route.lstrip("/")
+        html_path = dist / f"{route}.html"
+        if not html_path.is_file():
+            continue
+        alternates: dict[str, list[str]] = {}
+        for attributes in parse_link_attributes(html_path.read_text(encoding="utf-8", errors="replace")):
+            if attributes.get("rel", "").lower() != "alternate":
+                continue
+            tag = attributes.get("hreflang", "").strip()
+            if tag:
+                alternates.setdefault(tag, []).append(attributes.get("href", ""))
+        prefix = route.rsplit("/", 1)[0] if "/" in route else ""
+        for language in languages:
+            tag = language_tags[language]
+            hrefs = alternates.get(tag, [])
+            expected_path = f"/{prefix}/{language}"
+            if len(hrefs) != 1:
+                hreflang_errors.append(
+                    f"{route}.html must have exactly one hreflang={tag} alternate, found {len(hrefs)}"
+                )
+            elif urlsplit(hrefs[0]).path.rstrip("/") != expected_path:
+                hreflang_errors.append(
+                    f"{route}.html hreflang={tag} points to {hrefs[0]}, expected {expected_path}"
+                )
+        default_hrefs = alternates.get("x-default", [])
+        expected_default_path = f"/{prefix}/{default_language}"
+        if len(default_hrefs) != 1:
+            hreflang_errors.append(
+                f"{route}.html must have exactly one hreflang=x-default alternate, found {len(default_hrefs)}"
+            )
+        elif urlsplit(default_hrefs[0]).path.rstrip("/") != expected_default_path:
+            hreflang_errors.append(
+                f"{route}.html hreflang=x-default points to {default_hrefs[0]}, "
+                f"expected {expected_default_path}"
+            )
+        for tag in sorted(set(alternates) - expected_tags):
+            hreflang_errors.append(f"{route}.html has an unexpected hreflang={tag} alternate")
+
     width = max((len(rel) for rel, _ in routes), default=0)
     for rel, route in routes:
         print(f"  {rel:<{width}} -> {route}")
     print(
         f"[docs-check] {len(routes)} markdown file(s), {len(missing)} missing HTML, "
         f"{len(invalid_routes)} invalid routes, {len(duplicate_routes)} duplicate routes, "
-        f"{len(incomplete)} missing translations, {len(unscoped)} outside a language directory"
+        f"{len(incomplete)} missing translations, {len(unscoped)} outside a language directory, "
+        f"{len(hreflang_errors)} hreflang errors"
     )
 
     for rel in unscoped:
@@ -176,7 +255,9 @@ def main() -> int:
     if incomplete:
         for logical_page, language in incomplete:
             print(f"FATAL: {logical_page} has no {language} source copy", file=sys.stderr)
-    if failed or missing or invalid_routes or duplicate_routes or incomplete or unscoped:
+    for error in hreflang_errors:
+        print(f"FATAL: hreflang check failed: {error}", file=sys.stderr)
+    if failed or missing or invalid_routes or duplicate_routes or incomplete or unscoped or hreflang_errors:
         return 1
     return 0
 

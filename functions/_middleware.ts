@@ -10,27 +10,28 @@
 /**
  * ComiCine Pages middleware orchestration.
  *
- * This file coordinates requests, applies shared security headers, and controls
- * when tracking runs. Routing, gate, redirect, and blocklist logic live in
- * _lib/routing.ts, _lib/gate.ts, _lib/redirect.ts, and _lib/tracking.ts.
+ * This file coordinates requests and controls when tracking runs. Routing,
+ * gate, redirect, blocklist, rate-limit, and sampling logic live in
+ * _lib/routing.ts, _lib/gate.ts, _lib/redirect.ts, _lib/tracking.ts,
+ * _lib/rate-limit.ts, and _lib/sampling.ts. Public-file serving and branded
+ * 404/401 responses live in _lib/not-found.ts, host and path aliases in
+ * _lib/aliases.ts, and page cache policy plus shared response headers and gate
+ * cookie renewal in _lib/page-cache.ts.
  */
 
-import { logEvent, shouldLogThrottled } from "./_lib/logging";
-import { buildIdentityLoginStart } from "./_lib/identity-login";
-import { configErrorResponse, requireAuth, runtimeConfigError } from "./_lib/session";
-import { SECURITY_HEADERS } from "./_lib/security";
+import { logEvent } from "./_lib/logging";
+import { shouldLogDiagnostic } from "./_lib/sampling";
+import { configErrorResponse, runtimeConfigError } from "./_lib/session";
 import {
   clientIpForLogs,
+  defer,
   detectLang,
-  escapeHtml,
-  getCookie,
   isGateTrustedIp,
   isApiPath,
   isExemptPath,
   isPublicAssetPath,
   PUBLIC_FILES_PREFIX,
   pageAsset,
-  preserveSetCookie,
   requestUrl,
   withLangCookie,
   type RequestContext,
@@ -40,13 +41,8 @@ import {
   BASE_URL,
   GATE_HOSTNAME,
   IDENTITY_HOSTS,
-  IDENTITY_SITE_ROLES,
-  IMAGES_HOSTNAME,
-  LANG_COOKIE,
-  REDIRECT_HOSTNAME,
   ROOT_DOMAINS,
   ROOT_DOMAIN,
-  VISITOR_HOSTNAME,
   WWW_HOSTNAME,
 } from "./_lib/config";
 import {
@@ -54,7 +50,6 @@ import {
   handleGateDiag,
   handleGateEntry,
   handleLegacyGateRedirect,
-  gateCookieHeaders,
   handleVerify,
   isBlocked,
   renderGatePage,
@@ -62,455 +57,42 @@ import {
 } from "./_lib/gate";
 import { isRedirectHost, renderRedirectPage } from "./_lib/redirect";
 import {
+  checkRateLimit,
+  rateLimitPolicyFor,
+  rateLimitResponse,
+} from "./_lib/rate-limit";
+import {
   isTrustedCrawler,
   recordRay,
   recordVisit,
   shouldTrackRay,
   shouldTrackVisit,
 } from "./_lib/tracking";
+import {
+  IDENTITY_ALLOWED_PATHS,
+  IMAGE_ASSET_LANDING_PATHS,
+  isImageAssetHost,
+  resolveFeishuPathAlias,
+  resolveLegacyHtmlAlias,
+} from "./_lib/aliases";
+import {
+  servePublicFile,
+  withNotFoundStatus,
+  brandedNotFoundResponse,
+  adminAuthRedirect,
+} from "./_lib/not-found";
+import { cachedPageAsset, renewGateCookie, withSecurityHeaders } from "./_lib/page-cache";
 
 type PagesFunction = (context: RequestContext) => Promise<Response>;
 
-/**
- * Map `/files/<path>` to the generated `/public/files/<path>` asset and serve it publicly.
- *
- * Reject hidden, empty, and traversal path segments before looking up the asset.
- */
-async function servePublicFile(
-  context: RequestContext,
-  pathname: string,
-): Promise<Response> {
-  let relativePath: string;
-  try {
-    relativePath = decodeURIComponent(pathname.slice(PUBLIC_FILES_PREFIX.length));
-  } catch {
-    return new Response("Not Found", { status: 404 });
-  }
-  const segments = relativePath.split("/");
-  if (
-    !relativePath ||
-    segments.some(
-      (segment) =>
-        !segment ||
-        segment === "." ||
-        segment === ".." ||
-        segment.startsWith(".") ||
-        segment.includes("\\") ||
-        /[\u0000-\u001f\u007f]/.test(segment),
-    )
-  ) {
-    return new Response("Not Found", { status: 404 });
-  }
-  if (!context.env.ASSETS) return new Response("Not Found", { status: 404 });
-
-  const asset = await context.env.ASSETS.fetch(
-    new URL(
-      `/public/files/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`,
-      BASE_URL,
-    ),
-  );
-  if (!asset.ok) return new Response("Not Found", { status: 404 });
-
-  return new Response(asset.body, {
-    status: 200,
-    headers: {
-      "Content-Type":
-        asset.headers.get("Content-Type") ?? "application/octet-stream",
-      "Cache-Control": "public, max-age=86400, stale-while-revalidate=86400",
-      "X-Content-Type-Options": "nosniff",
-      ...(asset.headers.get("ETag") ? { ETag: asset.headers.get("ETag")! } : {}),
-    },
-  });
-}
-
-function withNotFoundStatus(response: Response, request: Request): Response {
-  const headers = new Headers(response.headers);
-  headers.set("Cache-Control", "no-store");
-  return new Response(request.method === "HEAD" ? null : response.body, {
-    status: 404,
-    headers,
-  });
-}
-
-async function brandedNotFoundResponse(
-  context: RequestContext,
-  response: Response,
-): Promise<Response> {
-  const { request, env } = context;
-  if (
-    response.status !== 404 ||
-    !isHtmlNavigation(request) ||
-    isApiPath(new URL(request.url).pathname)
-  ) return response;
-
-  const hostname = new URL(request.url).hostname.toLowerCase();
-  if (hostname !== ROOT_DOMAIN && hostname !== WWW_HOSTNAME) {
-    const target = `${BASE_URL}/404`;
-    const headers = new Headers({
-      "Cache-Control": "no-store",
-      "Content-Type": "text/html; charset=utf-8",
-      "Refresh": `0; url=${target}`,
-      "X-Robots-Tag": "noindex, nofollow",
-    });
-    const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${target}"><title>Page not found</title></head><body><a href="${target}">Continue to ComiCine</a></body></html>`;
-    return new Response(request.method === "HEAD" ? null : body, {
-      status: 404,
-      headers,
-    });
-  }
-  if (!env.ASSETS) return response;
-
-  const lang = detectLang(request);
-  let page = await env.ASSETS.fetch(new URL(`/${lang}/not-found.html`, BASE_URL));
-  if (!page.ok) page = await env.ASSETS.fetch(new URL("/404.html", BASE_URL));
-  if (!page.ok) return response;
-
-  const headers = new Headers(page.headers);
-  headers.set("Cache-Control", "no-store");
-  return new Response(request.method === "HEAD" ? null : page.body, {
-    status: 404,
-    headers,
-  });
-}
-
-function isHtmlNavigation(request: Request): boolean {
-  if (request.method !== "GET" && request.method !== "HEAD") return false;
-  if (
-    request.headers.get("Sec-Fetch-Dest") === "document" ||
-    request.headers.get("Sec-Fetch-Mode") === "navigate"
-  ) {
-    return true;
-  }
-  return (request.headers.get("Accept") ?? "")
-    .split(",")
-    .some((value) => {
-      const [mediaType = ""] = value.trim().split(";", 1);
-      return mediaType.toLowerCase() === "text/html";
-    });
-}
-
-function identityRequiredResponse(
-  request: Request,
-  identityUrl: string,
-  cookies: string[],
-): Response {
-  const target = escapeHtml(identityUrl);
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Sign in required</title></head><body><p>Authentication required.</p><a href="${target}">Continue to sign in</a><script src="/static/js/auth-redirect.js?v=1" data-target="${target}" defer></script></body></html>`;
-  const headers = new Headers({
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store",
-    "Referrer-Policy": "no-referrer",
-  });
-  for (const cookie of cookies) headers.append("Set-Cookie", cookie);
-  return new Response(request.method === "HEAD" ? null : body, {
-    status: 401,
-    headers,
-  });
-}
-
-/** Non-business logs must be written after the response so they do not block pages or redirects. */
-function defer(context: RequestContext, promise: Promise<unknown>): void {
-  if (typeof context.waitUntil === "function") {
-    context.waitUntil(promise);
-  } else {
-    void promise;
-  }
-}
-
-/**
- * Cache headers for public prerendered pages; **follow measured behavior, not expectations**.
- *
- * Live checks on 2026-10-11 sent three requests to the same URL; `cf-cache-status`
- * stayed `DYNAMIC` and `age` stayed 0. Pages Functions responses **are not
- * cached at the Cloudflare edge**, regardless of `s-maxage` or `Vary`. Do not
- * set `s-maxage` or vary on `Cookie`; that would create per-visitor cache keys
- * without any edge benefit.
- *
- * Keep `max-age=300` because **private browser caches** use it. HTML depends on
- * `Accept-Language`, so retain `Vary: Accept-Language` to separate browser
- * entries by language. Request-level reuse comes from the process-local Cache
- * API below, keyed by host, language, and asset path.
- */
-// `private` matches the intent above: only the visitor's own browser may cache the page.
-// A `public` header would let a shared cache store gate-protected HTML, and the variant
-// depends on the language cookie that `Vary: Accept-Language` does not cover.
-const PAGE_CACHE_CONTROL = "private, max-age=300, stale-while-revalidate=3600";
-const PAGE_CACHE_VARY = "Accept-Language";
-const PRIVATE_PAGE_HOSTS = new Set(Object.keys(IDENTITY_SITE_ROLES));
-const PRIVATE_PAGE_CACHE_CONTROL = "private, no-store";
-const IDENTITY_ALLOWED_PATHS = new Set([
-  "/login",
-  "/api/identity/exchange",
-  "/gate",
-  "/gate/verify",
-  "/gate/config",
-  "/gate/diag",
-  "/__gate",
-  "/__gate/verify",
-  "/__gate/config",
-  "/__gate/diag",
-]);
-const IMAGE_ASSET_LANDING_PATHS = new Set([
-  "/",
-  "/index.html",
-  "/portfolio",
-  "/qr-codes",
-  "/icons",
-]);
-const LEGACY_HTML_HOST_ROOTS = new Map<string, string>();
-for (const domain of ROOT_DOMAINS) {
-  LEGACY_HTML_HOST_ROOTS.set(domain, `${BASE_URL}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`www.${domain}`, `${BASE_URL}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`images.${domain}`, `${BASE_URL}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`services.${domain}`, `https://services.${ROOT_DOMAIN}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`contact.${domain}`, `https://contact.${ROOT_DOMAIN}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`visitor.${domain}`, `https://${VISITOR_HOSTNAME}/`);
-  LEGACY_HTML_HOST_ROOTS.set(`account.${domain}`, `https://${APPLE_ACCOUNT_HOSTNAME}/`);
-}
-const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
-  ["www", `${BASE_URL}/`],
-  ["images", `${BASE_URL}/`],
-  ["portfolio", `${BASE_URL}/portfolio`],
-  ["services", `https://services.${ROOT_DOMAIN}/`],
-  ["contact", `https://contact.${ROOT_DOMAIN}/`],
-  ["visitor", `https://${VISITOR_HOSTNAME}/`],
-  // account.<root> serves only /apple; its root is a deliberate 404.
-  ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/apple`],
-  ["redirect", `https://${REDIRECT_HOSTNAME}/`],
-  // This legacy .html alias is separate from docs.comicine.com, whose root is a 404.
-  ["docs", `${BASE_URL}/`],
-  ["status", `https://status.${ROOT_DOMAIN}/`],
-]);
-
-type LegacyHtmlResolution =
-  | { kind: "redirect"; target: string }
-  | { kind: "not_found" };
-
-const COMICINE_FEISHU_BASE_URL = "https://comicine.feishu.cn";
-
-function resolveFeishuPathAlias(pathname: string): string | null {
-  const match = pathname.match(/^\/(?:feishu|lark)(\/.*)?$/);
-  if (!match) return null;
-  return `${COMICINE_FEISHU_BASE_URL}${match[1] || "/"}`;
-}
-
-function isImageAssetHost(hostname: string): boolean {
-  return hostname === IMAGES_HOSTNAME || ROOT_DOMAINS.some((domain) => hostname === `images.${domain}`);
-}
-
-function resolveLegacyHtmlAlias(
-  hostname: string,
-  pathname: string,
-): LegacyHtmlResolution | null {
-  const hostRoot = LEGACY_HTML_HOST_ROOTS.get(hostname);
-  if (!hostRoot) return null;
-  const match = pathname.match(/^\/([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.html$/i);
-  if (!match) return null;
-
-  const subdomain = match[1].toLowerCase();
-  if (subdomain === "index") return { kind: "redirect", target: hostRoot };
-  const target = LEGACY_HTML_PATH_TARGETS.get(subdomain);
-  return target ? { kind: "redirect", target } : { kind: "not_found" };
-}
-
-type CacheLike = {
-  match(request: RequestInfo): Promise<Response | undefined>;
-  put(request: RequestInfo, response: Response): Promise<void>;
-};
-
-/**
- * Process-local Cache API key: **host + language + asset path**.
- *
- * Include the host in the key: `www.<root_domain>` currently shares each route
- * with the root domain (see contract page_routes). If pageAsset is later used
- * for www or two hosts map to the same asset, omitting host could serve one
- * host's page on the other. www currently redirects before the cache; this
- * preventive rule is locked down by tests.
- */
-export function pageCacheKey(host: string, assetPath: string, lang: string): URL {
-  const url = new URL(assetPath, BASE_URL);
-  url.searchParams.set("__cache", "1");
-  url.searchParams.set("lang", lang);
-  if (host) url.hostname = host;
-  return url;
-}
-
-/**
- * Do not put Access-protected admin pages in the browser cache. After an
- * Access session expires or the user signs out, Safari could display old HTML
- * whose API fetches are redirected to cloudflareaccess.com, leaving the page
- * with only a load failure instead of a login form. The internal Cache API may
- * still reuse static HTML.
- */
-function applyBrowserPageCachePolicy(response: Response, hostname: string): Response {
-  if (!PRIVATE_PAGE_HOSTS.has(hostname)) return response;
-  const headers = new Headers(response.headers);
-  preserveSetCookie(headers, response.headers);
-  headers.set("Cache-Control", PRIVATE_PAGE_CACHE_CONTROL);
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-/**
- * Cache prerendered pages by host and language to avoid reading ASSETS on every request.
- *
- * `host` is optional. Callers that already know the request host can pass it
- * in to avoid parsing the URL again for the cache key; otherwise use
- * requestUrl(context.request).
- */
-async function cachedPageAsset(
-  context: RequestContext,
-  assetPath: string,
-  lang: string,
-  host?: string,
-): Promise<Response | null> {
-  const { env, request } = context;
-  if (!env.ASSETS) return null;
-
-  const pageHost = host ?? requestUrl(request).hostname;
-  const cacheUrl = pageCacheKey(pageHost, assetPath, lang);
-  const cache = typeof caches !== "undefined"
-    ? (caches as unknown as { default?: CacheLike }).default
-    : undefined;
-
-  if (cache) {
-    try {
-      const hit = await cache.match(new Request(cacheUrl));
-      if (hit) return applyBrowserPageCachePolicy(hit, pageHost);
-    } catch {
-      // Cache failures must not prevent serving the page asset.
-    }
-  }
-
-  const asset = await env.ASSETS.fetch(new URL(assetPath, BASE_URL));
-  if (!asset.ok) return asset;
-
-  const headers = new Headers(asset.headers);
-  headers.set("Cache-Control", PAGE_CACHE_CONTROL);
-  headers.set("Vary", PAGE_CACHE_VARY);
-  // Pass through the ASSETS body stream instead of awaiting asset.arrayBuffer()
-  // and buffering the entire response. `cache.put(response.clone())` already
-  // tees the stream; pre-buffering would duplicate materialization and delay the
-  // response until the stream ends. Copy the status, statusText, and all headers
-  // (including Content-Type, ETag, and Content-Length) unchanged. The final
-  // withSecurityHeaders() also constructs a Response from the body stream, and
-  // Content-Length continues to come from the asset. asset.body is null only for
-  // bodyless statuses such as 204/205, which are not real assets; the old code
-  // threw TypeError for 204, while this implementation does not.
-  const response = new Response(asset.body, {
-    status: asset.status,
-    statusText: asset.statusText,
-    headers,
-  });
-
-  // The first visit sets a language cookie, so cache only subsequent requests.
-  if (cache && getCookie(LANG_COOKIE, request.headers.get("Cookie"))) {
-    try {
-      const put = cache.put(new Request(cacheUrl), response.clone()).catch(() => undefined);
-      if (context.waitUntil) context.waitUntil(put);
-      else void put;
-    } catch {
-      // Cache failures must not prevent serving the page asset.
-    }
-  }
-  return applyBrowserPageCachePolicy(response, pageHost);
-}
-
-/**
- * Apply shared security headers; add only nosniff to API responses to avoid breaking JSON endpoints.
- *
- * `url` is optional. Pass it when onRequest has already parsed the URL to
- * avoid duplicate work. Existing callers that pass only the first two
- * arguments continue to work with the same behavior as `new URL(request.url)`.
- */
-export function withSecurityHeaders(request: Request, resp: Response, url?: URL): Response {
-  const headers = new Headers(resp.headers);
-  preserveSetCookie(headers, resp.headers);
-  const isApi = (url ?? requestUrl(request)).pathname.startsWith("/api/");
-  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    if (isApi && name !== "X-Content-Type-Options") continue;
-    if (name === "Referrer-Policy" && headers.get(name) === "no-referrer") continue;
-    headers.set(name, value);
-  }
-  return new Response(resp.body, {
-    status: resp.status,
-    statusText: resp.statusText,
-    headers,
-  });
-}
-
-/**
- * Send unauthenticated browser page navigations to the shared identity host
- * through a 401 document; non-navigation requests retain the local /login route.
- */
-async function adminAuthRedirect(
-  env: RequestContext["env"],
-  request: Request,
-  hostname: string,
-  url?: URL,
-): Promise<Response | null> {
-  if (!Object.prototype.hasOwnProperty.call(IDENTITY_SITE_ROLES, hostname)) return null;
-  try {
-    if (await requireAuth(env, request)) return null;
-    const current = url ?? requestUrl(request);
-    const next = `${current.pathname}${current.search}`;
-    if (isHtmlNavigation(request)) {
-      const start = await buildIdentityLoginStart(env, request, current, next, 401);
-      if (!start) {
-        return new Response("Invalid identity return path\n", {
-          status: 400,
-          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-        });
-      }
-      return identityRequiredResponse(request, start.identityUrl, start.cookies);
-    }
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `/login?next=${encodeURIComponent(next)}`,
-      },
-    });
-  } catch {
-    return Response.json(
-      { error: "auth_sessions_unavailable" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-}
+// Existing tests import pageCacheKey and withSecurityHeaders from this module; keep the re-exports.
+export { pageCacheKey, withSecurityHeaders } from "./_lib/page-cache";
 
 /** Get the original path to show after verification and remove the parameter used only to force a challenge. */
 function gateNextPath(pathname: string, search: string): string {
   const nextUrl = new URL(pathname + search, BASE_URL);
   nextUrl.searchParams.delete("challenge");
   return nextUrl.pathname + nextUrl.search;
-}
-
-/**
- * Renew the __gate cookie on a normal page response when the session is near expiry.
- *
- * resolveGateTrust.shouldRenew controls renewal and waits until three quarters
- * of the TTL has elapsed, so this does not create an unbounded sliding window.
- * When renewal is unnecessary, return the response unchanged without extra allocations.
- */
-async function renewGateCookie(
-  context: RequestContext,
-  resp: Response,
-  shouldRenew: boolean,
-): Promise<Response> {
-  if (!shouldRenew) return resp;
-  const headers = new Headers(resp.headers);
-  preserveSetCookie(headers, resp.headers);
-  for (const value of await gateCookieHeaders(context.env.GATE_HMAC_KEY)) {
-    headers.append("Set-Cookie", value);
-  }
-  return new Response(resp.body, {
-    status: resp.status,
-    statusText: resp.statusText,
-    headers,
-  });
 }
 
 /** Core middleware orchestration, exported so local tests can mock dependencies. */
@@ -558,7 +140,8 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // subpaths with routing.ts isExemptPath; a broad prefix such as
 // `startsWith("/account")` would also exempt future `/account-anything` paths.
   const exempt = isExemptPath(pathname);
-  const whitelisted = isGateTrustedIp(request.headers.get("CF-Connecting-IP") ?? "");
+  const sourceIp = request.headers.get("CF-Connecting-IP") ?? "";
+  const whitelisted = isGateTrustedIp(sourceIp);
 // Cheap first stage of trust evaluation: allowlisted IP or Cloudflare
 // verifiedBot. Compute it once so blocklist checks can skip trusted sources;
 // both checks are pure or read request headers and do not query a database.
@@ -568,6 +151,31 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // blocked crawler evade blocking by changing its UA. The list applies only to
 // the gate decision below via resolveGateTrust.declaredCrawler.
   const sourceTrusted = whitelisted || isTrustedCrawler(request);
+
+// Throttle the blocklist-exempt authentication entry points. This runs before the
+// gate and before any database work: /login and /logout are the only paths a
+// blocked source can reach, and /logout can write a D1 session revocation.
+// Counters live in the Cache API or isolate memory, never in D1, and allowlisted
+// sources (the administrator's own addresses) are exempt. Declared crawler user
+// agents are deliberately not exempt: the header is self-reported.
+  const rateLimitPolicy = rateLimitPolicyFor(pathname);
+  if (rateLimitPolicy && !whitelisted && sourceIp) {
+    const decision = await checkRateLimit(rateLimitPolicy, sourceIp);
+    if (decision.limited) {
+      if (shouldLogDiagnostic("rate_limit", sourceIp)) {
+        defer(
+          context,
+          logEvent(env, "rate_limit", request, {
+            outcome: "limited",
+            status: 429,
+            path: pathname,
+            message: rateLimitPolicy.name,
+          }),
+        );
+      }
+      return rateLimitResponse(request, decision);
+    }
+  }
 
 // Route public static assets and APIs first. The redirect subdomain shares
 // /static assets; do not render redirect.<root-domain>/static/css/... as a redirect
@@ -604,12 +212,11 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
    * Keep the exempt list so blocked IPs can still reach /login and /gate
    * instead of waiting for the next Cloudflare IP List sync.
    */
-  const bannedIp = request.headers.get("CF-Connecting-IP") ?? "";
   if (
     !exempt &&
     !sourceTrusted &&
-    bannedIp &&
-    (await isBlocked(env, request, bannedIp))
+    sourceIp &&
+    (await isBlocked(env, request, sourceIp))
   ) {
     return renderGatePage(context, {
       host: hostname,
@@ -657,7 +264,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   // Keep forced challenges ahead of legacy redirects, then resolve known aliases before
   // the images-only and www catch-all branches below.
   if (forceChallenge) {
-    if (shouldLogThrottled("gate_redirect", clientIpForLogs(request))) {
+    if (shouldLogDiagnostic("gate_redirect", clientIpForLogs(request))) {
       defer(
         context,
         logEvent(env, "gate_redirect", request, {
@@ -762,7 +369,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 
   if (!gated) {
     if (trust.trusted) {
-      if (shouldLogThrottled("gate_bypass", clientIpForLogs(request))) {
+      if (shouldLogDiagnostic("gate_bypass", clientIpForLogs(request))) {
         defer(
           context,
           logEvent(env, "gate_bypass", request, {
@@ -777,7 +384,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
       // **Log crawler allowlist matches**: user agents are self-reported, so this is
       // the only record of which agents use the list. Their volume is tens to
       // hundreds per day and does not materially affect D1 writes.
-      if (shouldLogThrottled("gate_bypass_crawler", `${clientIpForLogs(request)}:${trust.crawlerToken}`)) {
+      if (shouldLogDiagnostic("gate_bypass_crawler", `${clientIpForLogs(request)}:${trust.crawlerToken}`)) {
         defer(
           context,
           logEvent(env, "gate_bypass", request, {
@@ -842,7 +449,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // If a request has __gate but still fails, write the validation result to
 // events to diagnose blocks after verification. Log only this unusual state;
 // do not write for normal first visits without a cookie.
-  if (trust.cookiePresent && shouldLogThrottled("gate_stale_cookie", clientIpForLogs(request))) {
+  if (trust.cookiePresent && shouldLogDiagnostic("gate_stale_cookie", clientIpForLogs(request))) {
     defer(
       context,
       logEvent(env, "gate_stale_cookie", request, {
@@ -866,8 +473,9 @@ export const onRequest: PagesFunction = async (context) => {
   const startedAt = Date.now();
   const resp = withSecurityHeaders(request, await handleOnRequest(context), url);
 
-// Do not track gate rejections or blocked sources; scanning traffic must not consume the D1 quota.
-  const trackResponse = resp.status !== 403;
+// Do not track gate rejections, blocked sources, or rate-limited authentication
+// requests; a flood must not consume the D1 write quota through tracking either.
+  const trackResponse = resp.status !== 403 && resp.status !== 429;
   if (trackResponse && shouldTrackVisit(request, url)) {
     if (typeof context.waitUntil === "function") {
       context.waitUntil(recordVisit(env, request, resp.status));

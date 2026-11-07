@@ -203,14 +203,21 @@ def test_thumbnails_skip_widths_wider_than_source(tmp_path):
     assert not (output / "mid-800.avif").exists()
 
 
-def test_thumbnails_skip_everything_when_source_is_narrow(tmp_path):
+def test_thumbnails_publish_source_width_below_smallest_tier(tmp_path):
+    """For a 320px source, publish one 320px tier instead of upscaling to 480, 640, or 800."""
     source = tmp_path / "src"
     source.mkdir()
     _write_image(source / "narrow.webp", (320, 480))
     output = tmp_path / "out"
 
-    assert build.generate_portfolio_thumbs(str(source), str(output)) == 0
-    assert list(output.glob("*")) == []
+    assert build.generate_portfolio_thumbs(str(source), str(output)) == 1
+    assert sorted(path.name for path in output.iterdir()) == [
+        "narrow-320.avif",
+        "narrow-320.webp",
+    ]
+    Image = pytest.importorskip("PIL.Image")
+    with Image.open(output / "narrow-320.webp") as thumb:
+        assert (thumb.width, thumb.height) == (320, 480)
 
 
 def test_thumbnails_still_generate_all_widths_for_normal_source(tmp_path):

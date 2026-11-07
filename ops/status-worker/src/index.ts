@@ -8,9 +8,30 @@
  */
 
 import { sendViaSmtp, type SmtpConfig } from "./smtp";
-import { runRetention } from "./retention";
-import { WATCHED_JOBS, formatUtc, readLatestRuns, runIssues, type RunIssue } from "./runwatch";
+import { runRetention, type PruneResult } from "./retention";
+import { runVisitorDailyAggregate } from "./visitor-daily";
+import {
+  WATCHED_JOBS,
+  errorSummary,
+  formatUtc,
+  readLatestRuns,
+  runIssues,
+  type RunIssue,
+} from "./runwatch";
 import { LIST_NAME, checkBlocklistInvariant } from "./blocklist";
+import {
+  D1_DAILY_READ_LIMIT,
+  D1_DAILY_WRITE_LIMIT,
+  assessD1Budget,
+  budgetAlertDetail,
+  readD1Usage,
+} from "./d1budget";
+import {
+  readStatusPageCache,
+  statusCacheAvailable,
+  statusPageCacheKey,
+  writeStatusPageCache,
+} from "./statuscache";
 import {
   STATUS_CSS,
   STATUS_JS,
@@ -149,13 +170,33 @@ export async function runProbe(env: Env, probe: Probe): Promise<ProbeResult> {
   }
 }
 
+/**
+ * Which path produced a probe sample (suggestion 14).
+ *
+ * The Durable Object rechecks a down probe every `RETRY_INTERVAL_S` (10 s by default). Those
+ * retry samples must keep `probe_state` and `heartbeats` current, but they are **not** planned
+ * samples: counting them would inflate `probe_uptime_daily.total` for every 10-second recheck.
+ * A five-minute outage used to add ~30 failing retry samples next to ~5 scheduled ones, which
+ * made the page show about 97.7% instead of roughly 99.65%. Retry samples therefore update the
+ * live state only; `probe_uptime_daily` receives one sample per planned interval.
+ */
+export type ProbeSampleSource = "cron" | "manual" | "retry";
+
 /** Write the heartbeat and advance probe_state. */
 export async function record(
   env: Env,
   probeId: number,
   result: ProbeResult,
+  source: ProbeSampleSource = "cron",
+  /**
+   * Planned sample time (epoch seconds). `runAll` passes the cron tick time rather than the
+   * completion time so the deterministic jitter offset cannot stretch the next due check: a
+   * 60-second probe with a 30-second offset would otherwise record completion at tick+30 and be
+   * skipped at the next tick, halving its cadence. Direct callers default to the current time.
+   */
+  at = Math.floor(Date.now() / 1000),
 ): Promise<RecordOutcome> {
-  const now = Math.floor(Date.now() / 1000);
+  const now = at;
   const threshold = num(env.FAIL_THRESHOLD, 2);
   const prev = await env.DB
     .prepare(
@@ -194,7 +235,7 @@ export async function record(
     }
   }
 
-  await env.DB.batch([
+  const statements = [
     env.DB.prepare(
       "INSERT INTO heartbeats (probe_id, ts, status, latency_ms, msg) VALUES (?1, ?2, ?3, ?4, ?5)",
     ).bind(probeId, now, result.status, result.latency_ms, result.msg),
@@ -207,17 +248,24 @@ export async function record(
          down_since = excluded.down_since,
          checked_at = excluded.checked_at`,
     ).bind(probeId, status, consecutiveFail, downSince, now),
+  ];
+  // Retry samples update the live state above but never the daily uptime denominator; see
+  // ProbeSampleSource for the incident this prevents. Historical rows are not recomputed.
+  if (source !== "retry") {
     // Aggregate seven-day uptime by day; the status page reads only this table (at most seven rows per probe).
     // The old implementation counted seven days of heartbeats on every render. The page reloads every 60 seconds,
     // so each render read about 60,000 rows, creating a recurring risk of hitting D1 daily read limits.
-    env.DB.prepare(
-      `INSERT INTO probe_uptime_daily (probe_id, day, total, up)
-       VALUES (?1, ?2 - (?2 % 86400), 1, ?3)
-       ON CONFLICT (probe_id, day) DO UPDATE SET
-         total = total + 1,
-         up = up + excluded.up`,
-    ).bind(probeId, now, result.status === UP ? 1 : 0),
-  ]);
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO probe_uptime_daily (probe_id, day, total, up)
+         VALUES (?1, ?2 - (?2 % 86400), 1, ?3)
+         ON CONFLICT (probe_id, day) DO UPDATE SET
+           total = total + 1,
+           up = up + excluded.up`,
+      ).bind(probeId, now, result.status === UP ? 1 : 0),
+    );
+  }
+  await env.DB.batch(statements);
 
   return { status, consecutiveFail, downSince, becameDown, recovered };
 }
@@ -249,7 +297,7 @@ export async function scheduleRetry(
 // See blocklist.ts for the criteria. Add each new kind to the English copy; `ALERT_KINDS` is the complete list of kinds, and
 // `runwatch.test.ts` verifies that every kind has a matching key.
 
-export const ALERT_KINDS = ["down", "up", "runs", "blocklist"] as const;
+export const ALERT_KINDS = ["down", "up", "runs", "blocklist", "retention", "budget"] as const;
 
 /**
  * Alerts always use English (requested on 2026-10-11).
@@ -260,7 +308,6 @@ export const ALERT_KINDS = ["down", "up", "runs", "blocklist"] as const;
  * the outgoing alert is English. `env.ALERT_LANG` no longer affects alerts; the field remains to preserve existing bindings.
  */
 export const ALERT_LANG_FORCED: Lang = "en-us";
-export type AlertKind = (typeof ALERT_KINDS)[number];
 
 /** Alert copy table; exported only so tests can verify that every kind has a key (runtime uses only the accessor below). */
 export const ALERT_I18N: Record<string, Record<string, string>> = {
@@ -277,6 +324,12 @@ export const ALERT_I18N: Record<string, Record<string, string>> = {
     subject_blocklist: "Blocklist drift · ComiCine",
     intro_blocklist: "Blocked IP list has drifted — the Cloudflare IP List and the active rows of D1 blocked_ips disagree, so edge blocking no longer matches the authority:",
     hint_blocklist: "Triage: python3 ops/check_blocklist_sync.py (this Worker runs the same comparison daily at 03:47 UTC).",
+    subject_retention: "D1 retention failure · ComiCine",
+    intro_retention: "The daily D1 retention pass failed for the tables below — expired rows keep growing until the next successful pass, which risks the daily write quota:",
+    hint_retention: "Triage: SELECT name, last_run_at, last_error FROM retention_state, or search the Worker logs for retention_alert. The pass runs again daily at 03:47 UTC.",
+    subject_budget: "D1 daily budget warning · ComiCine",
+    intro_budget: "Account-level D1 usage is approaching the free-plan daily limit — when a limit is reached every D1 endpoint fails with APIError 7500 until UTC midnight:",
+    hint_budget: "Triage: check the visitor page polling and status page cache first, then shrink visitor windows or move to Workers Paid. Re-check with `wrangler d1 info comicine`.",
     view: "View status page",
     hint: "Sent automatically by ComiCine monitoring. If this keeps arriving, check the service and confirm recovery on the status page.",
   },
@@ -398,7 +451,7 @@ export const ALERT_SUBJECT_CHARS = 120;
  */
 export function buildCheckAlertEmail(
   lang: string,
-  kind: "runs" | "blocklist",
+  kind: "runs" | "blocklist" | "retention" | "budget",
   items: AlertItem[],
   at: number,
   subjectNote = "",
@@ -619,7 +672,7 @@ export async function maybeAlert(
 // and adding daily checks there would read D1 1,440 times per day (see the D1 read budget in AGENTS.md).
 //
 // All three steps fail open: if a table is missing, a secret is unset, or an API call fails, only log the issue; do not alert,
-// and never let checks disrupt D1 retention cleanup in the daily task. Run cleanup first, then checks.
+// and never let checks disrupt D1 retention cleanup or the visitor aggregation in the daily task. Run cleanup, then aggregation, then checks.
 
 /** Result of one daily check. `ok=false` means the check did not run successfully, not that it found an issue. */
 export interface CheckStep {
@@ -632,6 +685,7 @@ export interface CheckStep {
 
 export interface DailyCheckResult {
   runs: CheckStep;
+  budget: CheckStep;
   blocklist: CheckStep;
 }
 
@@ -694,7 +748,7 @@ export async function checkWorkerRuns(
 export const DRIFT_SAMPLE_ITEMS = 3;
 
 /**
- * Step 2: compare the Cloudflare IP List with active rows in D1 `blocked_ips`.
+ * Step 3: compare the Cloudflare IP List with active rows in D1 `blocked_ips`.
  *
  * This and `ops/check_blocklist_sync.py` are two entry points for the same invariant. The script supports manual inspection
  * and can write a run record with `--record`; this path is automated. **Do not alert when they match**; a daily
@@ -761,21 +815,303 @@ export async function checkBlocklistRuns(env: Env): Promise<CheckStep> {
 }
 
 /**
+ * In-isolate dedupe window for retention failure alerts: one alert per table per hour.
+ *
+ * The scheduled pass runs once a day, so this mainly protects manual/retried runs. In-memory
+ * state is lost on a cold start, which is acceptable: losing it can only produce one duplicate
+ * alert, while writing a dedupe row per request would work against the D1 budget. A successful
+ * pass clears the table's entry so a new failure episode alerts again.
+ */
+export const RETENTION_ALERT_WINDOW_S = 3600;
+
+const retentionAlertedAt = new Map<string, number>();
+
+/** Test hook: forget the in-memory dedupe state. Never called by the Worker itself. */
+export function resetRetentionAlertDedupe(): void {
+  retentionAlertedAt.clear();
+}
+
+/** Error text stored in `retention_state.last_error`; long enough to identify the cause, short enough for a row. */
+export const RETENTION_ERROR_CHARS = 200;
+
+const RETENTION_STATE_SUCCESS_SQL =
+  `INSERT INTO retention_state (name, last_run_at, last_success_at, last_error)
+   VALUES (?1, ?2, ?2, '')
+   ON CONFLICT (name) DO UPDATE SET
+     last_run_at = excluded.last_run_at,
+     last_success_at = excluded.last_success_at,
+     last_error = ''`;
+
+// On failure, keep the previous last_success_at: it is the recovery evidence an operator needs.
+const RETENTION_STATE_FAILURE_SQL =
+  `INSERT INTO retention_state (name, last_run_at, last_success_at, last_error)
+   VALUES (?1, ?2, 0, ?3)
+   ON CONFLICT (name) DO UPDATE SET
+     last_run_at = excluded.last_run_at,
+     last_error = excluded.last_error`;
+
+export interface RetentionReportResult {
+  /** Table rows written to `retention_state` (0 when the table is unavailable). */
+  state_rows: number;
+  /** Number of buckets whose prune failed. */
+  failures: number;
+  alerted: boolean;
+}
+
+/**
+ * Record the outcome of one retention pass and alert on failures (suggestion 13).
+ *
+ * Previously `scheduled()` called `runRetention()` and discarded the results: a failed DELETE
+ * only appeared in the `d1_retention` log line, `retention_state` was written only by the manual
+ * `prune_d1.py`, and D1 could keep growing until it hit a storage or write limit unnoticed.
+ * This function is the automated writer:
+ *
+ *   1. Upsert one `retention_state` row per bucket (at most 8 D1 writes per day). A success
+ *      clears `last_error`; a failure updates `last_run_at`/`last_error` and keeps the previous
+ *      `last_success_at`.
+ *   2. Send one English alert for the tables whose failure has not alerted in the last hour.
+ *      The alert names the table and truncates the error summary; it never includes row content.
+ *   3. Never throw. `retention_state` bookkeeping, alert rendering, and delivery are each
+ *      guarded so the retention pass and the daily checks always continue.
+ */
+export async function reportRetention(
+  env: Env,
+  results: readonly PruneResult[],
+  now: number = Math.floor(Date.now() / 1000),
+): Promise<RetentionReportResult> {
+  let stateRows = 0;
+  const failures: PruneResult[] = [];
+
+  for (const result of results) {
+    const error = (result.error ?? "").trim();
+    if (error) failures.push(result);
+    try {
+      if (error) {
+        await env.DB.prepare(RETENTION_STATE_FAILURE_SQL)
+          .bind(result.table, now, error.slice(0, RETENTION_ERROR_CHARS))
+          .run();
+      } else {
+        await env.DB.prepare(RETENTION_STATE_SUCCESS_SQL).bind(result.table, now).run();
+        retentionAlertedAt.delete(result.table);
+      }
+      stateRows += 1;
+    } catch (err) {
+      // A fresh clone may not have migration 005 applied; bookkeeping must never break the prune.
+      // The alert below still fires: a failed prune is more important than its bookkeeping row.
+      console.warn(
+        JSON.stringify({
+          event: "retention_state_write_failed",
+          table: result.table,
+          message: String(err).slice(0, 140),
+        }),
+      );
+    }
+  }
+
+  if (!failures.length) {
+    return { state_rows: stateRows, failures: 0, alerted: false };
+  }
+
+  const due = failures.filter((failure) => {
+    const last = retentionAlertedAt.get(failure.table) ?? 0;
+    if (now - last < RETENTION_ALERT_WINDOW_S) {
+      console.log(
+        JSON.stringify({
+          event: "retention_alert_suppressed",
+          table: failure.table,
+          window_s: RETENTION_ALERT_WINDOW_S,
+        }),
+      );
+      return false;
+    }
+    return true;
+  });
+  if (!due.length) {
+    return { state_rows: stateRows, failures: failures.length, alerted: false };
+  }
+
+  try {
+    const mail = buildCheckAlertEmail(
+      ALERT_LANG_FORCED,
+      "retention",
+      due.map((failure) => ({
+        name: failure.table,
+        detail: `deleted ${failure.deleted} rows · error: ${errorSummary(failure.error)}`,
+      })),
+      now,
+    );
+    const delivered = await deliverAlert(env, mail);
+    if (delivered.sent) {
+      for (const failure of due) retentionAlertedAt.set(failure.table, now);
+    }
+    console.log(
+      JSON.stringify({
+        event: delivered.sent ? "retention_alert_sent" : "retention_alert_skipped",
+        tables: due.map((failure) => failure.table),
+        via: delivered.via,
+        reason: delivered.reason,
+      }),
+    );
+    return { state_rows: stateRows, failures: failures.length, alerted: delivered.sent };
+  } catch (err) {
+    // Deliberately not thrown: a broken alert channel must not stop the rest of the daily task.
+    console.error(
+      JSON.stringify({ event: "retention_alert_failed", message: String(err).slice(0, 140) }),
+    );
+    return { state_rows: stateRows, failures: failures.length, alerted: false };
+  }
+}
+
+/**
+ * Step 2: account-level D1 daily budget check (suggestion 21).
+ *
+ * The free plan allows 5,000,000 rows read and 100,000 rows written per day for the whole account.
+ * On 2026-09-17 production read 7,882,267 rows in one day, after which every D1 endpoint returned
+ * `APIError 7500` until UTC midnight; there was no early warning before that. This step reads the
+ * Cloudflare GraphQL D1 dataset (`d1AnalyticsAdaptiveGroups`) once per day, which costs one HTTPS
+ * request and **0 D1 reads**.
+ *
+ * The decision uses the **last complete UTC day**, not the current one: at 03:47 the current day
+ * bucket is only about four hours old, so its ratio would always look alarming. The current day
+ * only raises an early warning when at least a third of it has elapsed and it has already spent
+ * half of the read budget.
+ *
+ * Fail open: missing credentials, a token without Account Analytics Read, an HTTP error, a
+ * timeout, or a malformed body all log only. The step never throws and never disturbs the
+ * retention pass or the other daily checks.
+ */
+export async function checkD1Budget(
+  env: Env,
+  now: number = Math.floor(Date.now() / 1000),
+): Promise<CheckStep> {
+  try {
+    const usage = await readD1Usage(env, now);
+    if (!usage) {
+      console.log(JSON.stringify({ event: "d1_budget_skipped", reason: "usage_unavailable" }));
+      return { ok: false, issues: 0, alerted: false, reason: "usage_unavailable" };
+    }
+
+    const assessment = assessD1Budget(usage, now);
+    console.log(
+      JSON.stringify({
+        event: "d1_budget_checked",
+        day: usage.day,
+        rows_read: usage.rows_read,
+        rows_written: usage.rows_written,
+        ratio: usage.rows_read / D1_DAILY_READ_LIMIT,
+        write_ratio: usage.rows_written / D1_DAILY_WRITE_LIMIT,
+        level: assessment.level,
+        early_warning: assessment.early_warning,
+      }),
+    );
+    if (assessment.level === "ok") return { ok: true, issues: 0, alerted: false };
+
+    const mail = buildCheckAlertEmail(
+      ALERT_LANG_FORCED,
+      "budget",
+      [{ name: "D1 usage", detail: budgetAlertDetail(usage, assessment) }],
+      now,
+    );
+    const result = await deliverAlert(env, mail);
+    console.log(
+      JSON.stringify({
+        event: result.sent ? "d1_budget_alert_sent" : "d1_budget_alert_skipped",
+        level: assessment.level,
+        day: usage.day,
+        via: result.via,
+        reason: result.reason,
+      }),
+    );
+    return { ok: true, issues: 1, alerted: result.sent };
+  } catch (err) {
+    console.error(JSON.stringify({ event: "d1_budget_check_failed", message: String(err).slice(0, 140) }));
+    return { ok: false, issues: 0, alerted: false, reason: String(err).slice(0, 140) };
+  }
+}
+
+/**
  * Daily check entry point, shared by the `47 3 * * *` branch in `scheduled()` and the operational endpoint
  * `POST /daily-checks` (the endpoint allows verification without waiting until 03:47).
- * The two steps are independent; one can fail without affecting the other.
+ * The three steps are independent; one can fail without affecting the others.
  */
 export async function runDailyChecks(
   env: Env,
   now: number = Math.floor(Date.now() / 1000),
 ): Promise<DailyCheckResult> {
   const runs = await checkWorkerRuns(env, now);
+  const budget = await checkD1Budget(env, now);
   const blocklist = await checkBlocklistRuns(env);
-  console.log(JSON.stringify({ event: "daily_checks", runs, blocklist }));
-  return { runs, blocklist };
+  console.log(JSON.stringify({ event: "daily_checks", runs, budget, blocklist }));
+  return { runs, budget, blocklist };
 }
 
-export async function runAll(env: Env, now = Math.floor(Date.now() / 1000)): Promise<number> {
+/** Smallest accepted probe interval. The cron trigger fires every minute, so anything faster would over-sample. */
+export const MIN_PROBE_INTERVAL_S = 60;
+
+/** Largest deterministic stagger applied to a cron probe run, in seconds. */
+export const PROBE_JITTER_MAX_S = 30;
+
+/**
+ * Resolve `probes.interval_s` for the due check.
+ *
+ * Values below `MIN_PROBE_INTERVAL_S`, non-numeric values, and negative values are rejected and
+ * treated as 60 (suggestion 16). The baseline `Number(...) || 60` accepted a 30-second interval,
+ * which the one-minute cron cannot honour. Migrations and manual probe inserts must also use
+ * `interval_s >= 60`; the read path is the only enforcement point because no admin write endpoint
+ * for probes exists.
+ */
+export function probeIntervalSeconds(value: unknown): number {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds >= MIN_PROBE_INTERVAL_S
+    ? Math.floor(seconds)
+    : MIN_PROBE_INTERVAL_S;
+}
+
+const warnedInvalidIntervals = new Set<number>();
+
+/** Log an invalid stored interval once per isolate instead of once per minute. */
+function warnInvalidInterval(probeId: number, raw: unknown, used: number): void {
+  if (warnedInvalidIntervals.has(probeId)) return;
+  warnedInvalidIntervals.add(probeId);
+  console.warn(
+    JSON.stringify({
+      event: "probe_interval_invalid",
+      probe_id: probeId,
+      interval_s: String(raw),
+      used_s: used,
+    }),
+  );
+}
+
+/**
+ * Deterministic 0..`PROBE_JITTER_MAX_S` second stagger for one probe (suggestion 16).
+ *
+ * Every probe used to start in the same second of the cron tick. The offset is derived from the
+ * probe id with a multiplicative hash instead of `Math.random()` so the schedule is reproducible
+ * in tests and stable between runs. The upper bound is clamped to `interval - 1` so a probe is
+ * never delayed past its next planned sample.
+ */
+export function probeJitterMs(probeId: number, intervalS: number = MIN_PROBE_INTERVAL_S): number {
+  const id = Number.isFinite(probeId) ? Math.trunc(probeId) : 0;
+  const hashed = Math.imul(id, 0x9e3779b1) >>> 0;
+  const maxSeconds = Math.max(0, Math.min(PROBE_JITTER_MAX_S, Math.floor(intervalS) - 1));
+  return (hashed % (maxSeconds + 1)) * 1000;
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export interface RunAllOptions {
+  /** Stagger probe start times by their deterministic offset. Only the cron path sets this. */
+  jitter?: boolean;
+  /** Sample source recorded for uptime accounting; manual runs still count as planned samples. */
+  source?: ProbeSampleSource;
+}
+
+export async function runAll(
+  env: Env,
+  now = Math.floor(Date.now() / 1000),
+  options: RunAllOptions = {},
+): Promise<number> {
   // Join probe_state so a probe whose configured interval has not elapsed is skipped. The cron runs
   // every minute; without this check a 900-second probe was checked 15 times per interval.
   const { results } = await env.DB.prepare(
@@ -784,15 +1120,39 @@ export async function runAll(env: Env, now = Math.floor(Date.now() / 1000)): Pro
       WHERE p.active = 1 ORDER BY p.id`,
   ).all<Probe & { checked_at: number | null }>();
   const probes = results ?? [];
-  let ran = 0;
+  const due: Array<{ probe: Probe; slotMs: number }> = [];
 
   for (const probe of probes) {
-    const interval = Number(probe.interval_s) || 60;
+    const declared = Number(probe.interval_s);
+    const interval = probeIntervalSeconds(probe.interval_s);
+    if (!Number.isFinite(declared) || declared < MIN_PROBE_INTERVAL_S) {
+      warnInvalidInterval(probe.id, probe.interval_s, interval);
+    }
     const lastChecked = Number(probe.checked_at ?? 0);
     if (lastChecked > 0 && now - lastChecked < interval) continue;
+    due.push({
+      probe,
+      slotMs: options.jitter ? probeJitterMs(probe.id, interval) : 0,
+    });
+  }
+
+  // Jitter is applied as a target start time relative to the beginning of the run, not as an
+  // independent sleep per probe: that bounds the added wall time to PROBE_JITTER_MAX_S instead of
+  // the sum of every probe's offset. Manual runs leave `jitter` unset and start immediately.
+  if (options.jitter) due.sort((a, b) => a.slotMs - b.slotMs || a.probe.id - b.probe.id);
+  const startedAt = Date.now();
+  let ran = 0;
+
+  for (const { probe, slotMs } of due) {
+    if (slotMs > 0) {
+      const waitMs = slotMs - (Date.now() - startedAt);
+      if (waitMs > 0) await sleep(waitMs);
+    }
     ran += 1;
     const result = await runProbe(env, probe);
-    const state = await record(env, probe.id, result);
+    // Record the tick time, not the completion time: the jitter offset is a start-time shift and
+    // must not change the effective sampling interval of the next due check (see record()).
+    const state = await record(env, probe.id, result, options.source ?? "cron", now);
     if (state.becameDown) {
       await maybeAlert(env, probe, "down", result.msg);
       await scheduleRetry(env, probe.id, true);
@@ -826,6 +1186,11 @@ export async function statusPayload(env: Env) {
   // Each day bucket is a full UTC day (the write path floors to midnight), so the start time must also be midnight:
   // Midnight today minus six days gives exactly seven full-day buckets, including today.
   // The old `now - 7*86400 - 86400` expression also included the entire day eight days ago (8–9 buckets total).
+  //
+  // Sampling semantics (changed 2026-11-07, suggestion 14): buckets written from now on count planned
+  // samples only; Durable Object retries update probe_state/heartbeats but do not increment this table.
+  // Rows written before the change still mix retry samples and are not recomputed, because the daily
+  // rollup cannot be rebuilt. The 7-day percentage therefore mixes two definitions until 2026-11-14.
   const todayStart = now - (now % 86400);
   const sinceDay = todayStart - 6 * 86400;
   const { results } = await env.DB.prepare(
@@ -981,8 +1346,13 @@ export function throttleAlertTest(ip: string, now: number): boolean {
   return false;
 }
 
+/** Minimal shape of the Worker execution context; only `waitUntil` is used (Cache API writes). */
+export interface FetchContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: FetchContext): Promise<Response> {
     const url = new URL(request.url);
     // Authenticate before processing write endpoints: unauthorized requests never touch D1, so a simple cross-site POST cannot trigger probes or alerts.
     const isOpsWrite =
@@ -1020,6 +1390,21 @@ export default {
     }
     if (url.pathname === "/" || url.pathname === "/status") {
       const lang: Lang = pickLang(request, url);
+      // Explicit Cache API layer (suggestion 23). Response headers alone do not put a Worker-generated
+      // response into the edge cache, so every page view still ran renderStatusPage() and read D1.
+      // The cache key is per language, and the stored response's `s-maxage=60` sets the TTL, aligning
+      // the page with the one-minute probe cron. Only GET is cached; HEAD, POST, 404s, and the 503
+      // page below stay uncached (the response also carries `no-store`).
+      const cacheKey =
+        request.method === "GET" && statusCacheAvailable() ? statusPageCacheKey(lang) : null;
+      if (cacheKey) {
+        const cached = await readStatusPageCache(cacheKey);
+        if (cached) {
+          const hit = new Response(cached.body, cached);
+          hit.headers.set("X-Status-Cache", "hit");
+          return hit;
+        }
+      }
       let html: string;
       try {
         html = await renderStatusPage(env, lang);
@@ -1034,7 +1419,7 @@ export default {
           headers: { ...PAGE_HEADERS, "Cache-Control": "no-store" },
         });
       }
-      return new Response(html, {
+      const response = new Response(html, {
         headers: {
           ...PAGE_HEADERS,
           // Edge cache: status data changes once per minute, while every SSR request reads D1.
@@ -1046,8 +1431,18 @@ export default {
           // the cache key). **Intentionally omit Vary: Cookie** because varying on raw cookie values would fragment the edge cache,
           // increasing D1 reads again. The shared cookie is used only for a one-time client-side redirect.
           "Vary": "Accept-Language",
+          // Observability for the explicit cache: hit / miss / bypass (no Cache API or a non-GET request).
+          "X-Status-Cache": cacheKey ? "miss" : "bypass",
         },
       });
+      if (cacheKey) {
+        const waitUntil =
+          ctx && typeof ctx.waitUntil === "function"
+            ? (promise: Promise<unknown>) => ctx.waitUntil(promise)
+            : undefined;
+        writeStatusPageCache(cacheKey, response.clone(), waitUntil);
+      }
+      return response;
     }
     if (url.pathname === "/api/status") {
       try {
@@ -1062,13 +1457,14 @@ export default {
       }
     }
     // Manually run one probe cycle (for operations/troubleshooting; requires STATUS_TOKEN and returns only public status data).
+    // Manual runs never jitter: they must start immediately, and their samples are still planned samples for uptime.
     if (url.pathname === "/run" && request.method === "POST") {
-      const ran = await runAll(env);
+      const ran = await runAll(env, Math.floor(Date.now() / 1000), { source: "manual" });
       return Response.json({ ran, status: await statusPayload(env) });
     }
 
-    // Run the daily checks immediately (worker_runs and the blocklist invariant). This endpoint exists because the 03:47 UTC
-    // cron runs only once a day, so the flow cannot otherwise be verified immediately after a change or secret update.
+    // Run the daily checks immediately (worker_runs, the D1 budget, and the blocklist invariant). This endpoint exists because
+    // the 03:47 UTC cron runs only once a day, so the flow cannot otherwise be verified immediately after a change or secret update.
     // It uses the **same** runDailyChecks() as scheduled(), so it can send real alerts.
     if (url.pathname === "/daily-checks" && request.method === "POST") {
       return Response.json(await runDailyChecks(env), {
@@ -1162,15 +1558,23 @@ export default {
   },
 
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
-    // Every minute: probes. Daily at 03:47: D1 retention cleanup (migrated from the VPS prune_d1.py) and daily checks.
+    // Every minute: probes. Daily at 03:47: D1 retention cleanup (migrated from the VPS prune_d1.py), the
+    // visitors_daily aggregation behind /api/visitors, and daily checks.
     if (event.cron === "47 3 * * *") {
-      // The order is intentional: run retention cleanup first because it protects the database. Daily checks (worker_runs
-      // latest-run status and the blocklist invariant) fail open as a whole, so failures cannot disrupt cleanup.
-      await runRetention(env);
+      // The order is intentional: run retention cleanup first because it protects the database, then refresh the
+      // visitor aggregate (one statement; it logs failures and never throws), then run the daily checks (worker_runs
+      // latest-run status, the D1 budget, and the blocklist invariant), which fail open as a whole. reportRetention()
+      // runs right after retention: it writes the per-bucket retention_state row and alerts on failures without ever
+      // throwing, so neither step below is affected by a delivery failure.
+      const retention = await runRetention(env);
+      await reportRetention(env, retention);
+      await runVisitorDailyAggregate(env);
       await runDailyChecks(env);
       return;
     }
-    await runAll(env);
+    // The cron path staggers probe starts by a deterministic 0-30 second offset (suggestion 16). The cron trigger's wall time
+    // limit is 15 minutes, so the bounded stagger is safe; manual runs from POST /run stay immediate.
+    await runAll(env, Math.floor(Date.now() / 1000), { jitter: true, source: "cron" });
   },
 };
 
@@ -1220,7 +1624,9 @@ export class ComiCineProbeStateV2 implements DurableObject {
     if (!probe) return;
 
     const result = await runProbe(this.env, probe);
-    const state = await record(this.env, probeId, result);
+    // A retry is not a planned sample: it keeps the live state current but must not enlarge the
+    // daily uptime denominator (see ProbeSampleSource).
+    const state = await record(this.env, probeId, result, "retry");
 
     if (state.status === DOWN) {
       const window = num(this.env.RETRY_WINDOW_S, 280);

@@ -31,6 +31,41 @@ const BROWSER_UAS = [
   "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
 ];
 
+/**
+ * In-app browsers and device model names the generic markers must not match (2026-11-07).
+ *
+ * These are real users, so they must still see the challenge. MicroMessenger,
+ * WeChat, MQQBrowser and QQ/ matched the WeChat and QQ in-app browsers, and `bot`
+ * matched CUBOT phones; all five were removed from docs/lists/robots.txt.
+ */
+const IN_APP_BROWSER_UAS = [
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50(0x1800323c) NetType/WIFI Language/zh_CN",
+  "Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/116.0.0.0 Mobile Safari/537.36 XWEB/1160065 MMWEBSDK/20240404 MMWEBID/7205 MicroMessenger/8.0.49.2600(0x2800313d) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64",
+  "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 NetType/WIFI MicroMessenger/7.0.20.1781(0x6700143B) WindowsWechat(0x63090a5a) XWEB/9129 Flue",
+  "Mozilla/5.0 (Linux; U; Android 13; zh-cn; V2244A Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/105.0.0.0 Mobile Safari/537.36 MQQBrowser/14.7",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 QQ/9.0.50.616 V1_IPH_SQ_9.0.50_1_APP_A Pixel/1125 Core/WKWebView Device/Apple(iPhone 15) NetType/WIFI QBWebViewType/1",
+  "Mozilla/5.0 (Linux; Android 9; CUBOT X19) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (Linux; Android 11; CUBOT P30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+];
+
+/**
+ * Device, TV and preview-build browsers whose UA contains a word a generic
+ * marker used to catch (2026-11-07).
+ *
+ * `sogou` matched the Sogou mobile browser, `spider` a Spider 8 tablet,
+ * `preview` preview builds and `AI-` AKAI/Funai TV browsers. Those tokens are
+ * gone, or narrowed to `Sogou web spider`, so these real users see the challenge.
+ */
+const MARKER_SHARING_BROWSER_UAS = [
+  "Mozilla/5.0 (Linux; Android 9; MI 9 Build/PKQ1.181121.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/54.0.3438.43 Mobile Safari/537.36 AWP/2.0 SogouMSE,SogouMobileBrowser/5.22.4",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 12_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SogouMobileBrowser/5.17.1",
+  "Mozilla/5.0 (Linux; Android 13; Spider 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) MicrosoftTeams-Preview/1.3.00.5153 Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36",
+  "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.3a1) Gecko/20100208 MozillaDeveloperPreview/3.7a1",
+  "Opera/9.80 (Linux mips; U; ; en) Presto/2.10.287 Version/12.00 (avkb/pc,B:461;avvp/ssl;avui/tv;avst/off;avdn/AKAI-v.tv.2013)",
+  "Mozilla/5.0 (Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36 OPR/46.0.2207.0 OMI/20.11.2.40.Wasabi.275 Model/Funai-Model18-50PFL5703F7 TV Store/20.11",
+];
+
 /** Generic HTTP clients are excluded because they cannot be distinguished from server scripts; keep them behind the gate. */
 const GENERIC_CLIENT_UAS = [
   "curl/8.22.0",
@@ -76,6 +111,41 @@ describe("declared crawler User-Agent matching", () => {
     for (const ua of BROWSER_UAS) {
       expect(isDeclaredCrawler(withUserAgent(ua)), ua).toBe(false);
     }
+  });
+
+  it("never matches a WeChat or QQ in-app browser, or a CUBOT phone model", () => {
+    for (const ua of IN_APP_BROWSER_UAS) {
+      expect(isDeclaredCrawler(withUserAgent(ua)), ua).toBe(false);
+      expect(declaredCrawlerToken(withUserAgent(ua)), ua).toBe("");
+    }
+  });
+
+  it("never matches a device, TV or preview build that shares a marker", () => {
+    for (const ua of MARKER_SHARING_BROWSER_UAS) {
+      expect(isDeclaredCrawler(withUserAgent(ua)), ua).toBe(false);
+      expect(declaredCrawlerToken(withUserAgent(ua)), ua).toBe("");
+    }
+  });
+
+  it("keeps matching the real crawlers whose markers were narrowed", () => {
+    expect(
+      declaredCrawlerToken(withUserAgent("Mozilla/5.0 (compatible; QQBot/1.0; +http://www.qq.com)")),
+    ).toBe("qqbot");
+    expect(
+      declaredCrawlerToken(
+        withUserAgent("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"),
+      ),
+    ).toBe("googlebot");
+    expect(
+      declaredCrawlerToken(
+        withUserAgent("Sogou web spider/4.0(+http://www.sogou.com/docs/help/webmasters.htm#07)"),
+      ),
+    ).toBe("sogou web spider");
+    expect(
+      declaredCrawlerToken(
+        withUserAgent("Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)"),
+      ),
+    ).toBe("baiduspider");
   });
 
   it("never matches a generic HTTP client, so scripts stay behind the gate", () => {
