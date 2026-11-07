@@ -51,10 +51,13 @@ function headerSafe(value: string): string {
 
 function buildMime(cfg: SmtpConfig, msg: SmtpMessage): string {
   const boundary = `comicine-${crypto.randomUUID().replace(/-/g, "")}`;
+  const domain = cfg.from.includes("@") ? cfg.from.slice(cfg.from.lastIndexOf("@") + 1) : "comicine.com";
   const headers = [
     `From: ${headerSafe(cfg.from)}`,
     `To: ${headerSafe(msg.to)}`,
     `Subject: =?UTF-8?B?${b64(headerSafe(msg.subject))}?=`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomUUID()}@${headerSafe(domain)}>`,
     "MIME-Version: 1.0",
   ];
 
@@ -167,6 +170,11 @@ export async function sendViaSmtp(
 ): Promise<{ sent: boolean; reason?: string }> {
   if (!cfg.host || !cfg.user || !cfg.pass || !cfg.from || !msg.to) {
     return { sent: false, reason: "smtp_config_incomplete" };
+  }
+  // Envelope addresses reach MAIL FROM/RCPT TO as commands, where a CR/LF would inject
+  // SMTP commands. Header escaping does not protect the envelope.
+  if (/[\r\n<>]/.test(cfg.from) || /[\r\n<>]/.test(msg.to)) {
+    return { sent: false, reason: "smtp_invalid_address" };
   }
 
   let session: SmtpSession | null = null;

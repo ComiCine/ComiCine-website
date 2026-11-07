@@ -29,16 +29,19 @@ const VISITOR_WINDOW_SECONDS = VISITOR_WINDOW_DAYS * 24 * 60 * 60;
 const MAX_VISITOR_MARKERS = 500;
 
 /**
- * Cache query results for 300 seconds. The frontend polls every 600 seconds, so this mainly absorbs
- * duplicate requests within a window (multiple tabs, manual refreshes, or external crawlers).
- * A historical query read about 131,000 rows while the 30-day legacy detail table was populated;
- * at that cost, 144 uncached polls per day would exceed the 5-million-row Free-plan limit. Retention
+ * Cache query results for slightly longer than the frontend's 600-second poll interval.
+ *
+ * A 300-second TTL expired before every scheduled poll, so each poll re-ran both 30-day aggregate
+ * queries; the cache only absorbed bursts. With 660 seconds, polls at 10 and 20 minutes hit the
+ * entry written at the previous miss, halving the scan rate while never serving data older than
+ * two poll intervals. A historical query read about 131,000 rows while the legacy detail table was
+ * populated; at that cost, uncached polls would exceed the 5-million-row Free-plan limit. Retention
  * and hourly rollups reduce the current scan, but check `rows_read_24h` before changing the window
  * or refresh interval.
  */
-const VISITOR_CACHE_CONTROL = "public, max-age=300";
+const VISITOR_CACHE_CONTROL = "public, max-age=660";
 const VISITOR_RESPONSE_CACHE_CONTROL = "private, no-store";
-const VISITOR_CACHE_SECONDS = 300;
+const VISITOR_CACHE_SECONDS = 660;
 
 type VisitorCacheLike = {
   match(request: RequestInfo): Promise<Response | undefined>;
@@ -135,14 +138,14 @@ function buildMarkers(rows: MarkerRow[]): Array<{
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const auth = await requireAdminSession(context.env, context.request, "无权限");
+  const auth = await requireAdminSession(context.env, context.request, "Forbidden");
   if (auth instanceof Response) return auth;
 
   const url = new URL(context.request.url);
   const statusParam = url.searchParams.get("status");
   if (statusParam !== null && !/^\d{3}$/.test(statusParam)) {
     return Response.json(
-      { error: "无效的 status 参数，应为三位数字" },
+      { error: "Invalid status parameter: expected a three-digit status code" },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
@@ -156,7 +159,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   //
   // Authentication runs before the cache, whose key does not include identity. This is not an authorization
   // cache: requests that fail the admin check never reach this code and are never cached.
-  const cacheKeyUrl = new URL(url.toString());
+  //
+  // Key on the path plus the validated status filter only. Using the raw URL let any extra query
+  // parameter (`?x=1`, `?x=2`, ...) create a new entry and trigger another pair of full-window scans.
+  const cacheKeyUrl = new URL(url.pathname, url.origin);
+  if (statusNum !== null) cacheKeyUrl.searchParams.set("status", String(statusNum));
   cacheKeyUrl.searchParams.set("__cache", String(VISITOR_CACHE_SECONDS));
   const cache = typeof caches !== "undefined"
     ? (caches as unknown as { default?: VisitorCacheLike }).default

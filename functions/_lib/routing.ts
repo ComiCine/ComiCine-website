@@ -86,7 +86,13 @@ export async function templateText(
   let perAssets = templateTextCache.get(assets);
   const hit = perAssets?.get(path);
   if (hit !== undefined) return hit;
-  const asset = await assets.fetch(new URL(path, BASE_URL));
+  let asset: Response;
+  try {
+    asset = await assets.fetch(new URL(path, BASE_URL));
+  } catch {
+    // A binding failure must reach the caller's fail-closed 503/404 path, not an uncaught 500.
+    return null;
+  }
   if (!asset.ok) return null;
   const text = await asset.text();
   if (!perAssets) {
@@ -97,11 +103,14 @@ export async function templateText(
   return text;
 }
 
-/** Paths that must bypass the gate to avoid redirect loops. */
+/**
+ * Paths that must bypass the gate to avoid redirect loops.
+ *
+ * Do not add the gate endpoints (`/gate/verify|config|diag` and their legacy `/__gate/...`
+ * aliases) here: middleware dispatches them itself after the blocklist check, and listing them
+ * made `isPublicAssetPath` return early, so the legacy endpoints were dead (404).
+ */
 export const SKIP_PATHS = new Set<string>([
-  "/__gate/verify",
-  "/__gate/diag",
-  "/__gate/config",
   "/comicine.svg",
   "/comicine-xtext.svg",
   "/comicine-favicon.svg",
@@ -113,6 +122,7 @@ export const SKIP_PATHS = new Set<string>([
 // unverified crawlers must not receive a 403 challenge page as /robots.txt.
   "/robots.txt",
   "/llms.txt",
+  "/sitemap.xml",
 // Login flow: the Entra callback is a top-level redirect from
 // login.microsoftonline.com. Do not send it to the gate because a __gate
 // cookie expired, or login will fail.
@@ -269,7 +279,8 @@ function acceptedLanguageTags(header: string): string[] {
     const tag = rawTag?.trim().toLowerCase();
     if (!tag || tag === "*") continue;
 
-    const qualityParameter = parameters.find((parameter) => /^q\s*=/i.test(parameter));
+    // OWS is allowed around the parameter name ("zh-CN; q=0"), so anchor after optional spaces.
+    const qualityParameter = parameters.find((parameter) => /^\s*q\s*=/i.test(parameter));
     let quality = 1;
     if (qualityParameter) {
       const rawQuality = qualityParameter.slice(qualityParameter.indexOf("=") + 1).trim();

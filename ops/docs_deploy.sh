@@ -186,9 +186,9 @@ cat > "$SRC_DIR/package.json" <<JSON
     "preview": "vitepress preview ."
   },
   "devDependencies": {
-    "markdown-it-mathjax3": "^4.0.0",
+    "markdown-it-mathjax3": "4.3.2",
     "vitepress": "file:$TARBALL",
-    "vue": "^3.5.42"
+    "vue": "3.5.44"
   }
 }
 JSON
@@ -594,6 +594,11 @@ for slug in amc-10-formula-guide uk-undergraduate-majors; do
     for lang in zh-cn en-us ja-jp ko-kr; do
         check_access_challenge "/private/articles/${slug}/${lang}"
     done
+done
+# Root static assets must be served by Pages, not by the catch-all [lang].js Function.
+for asset in /comicine-favicon.svg /comicine-favicon.png /comicine-xtext.svg /comicine-xtext.png \
+    /logo.svg /hashmap.json /fonts.css; do
+    check_code "$asset" 200
 done
 private_asset_path="$(find "$DIST_DIR/assets" -maxdepth 1 -type f -name 'private_articles_amc-10-formula-guide_zh-cn.md.*' -print -quit)"
 if [ -z "$private_asset_path" ]; then

@@ -15,12 +15,14 @@
  * _lib/routing.ts, _lib/gate.ts, _lib/redirect.ts, and _lib/tracking.ts.
  */
 
-import { logEvent } from "./_lib/logging";
+import { logEvent, shouldLogThrottled } from "./_lib/logging";
 import { buildIdentityLoginStart } from "./_lib/identity-login";
 import { configErrorResponse, requireAuth, runtimeConfigError } from "./_lib/session";
 import { SECURITY_HEADERS } from "./_lib/security";
 import {
+  clientIpForLogs,
   detectLang,
+  escapeHtml,
   getCookie,
   isGateTrustedIp,
   isApiPath,
@@ -187,21 +189,12 @@ function isHtmlNavigation(request: Request): boolean {
     });
 }
 
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
 function identityRequiredResponse(
   request: Request,
   identityUrl: string,
   cookies: string[],
 ): Response {
-  const target = escapeHtmlAttribute(identityUrl);
+  const target = escapeHtml(identityUrl);
   const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Sign in required</title></head><body><p>Authentication required.</p><a href="${target}">Continue to sign in</a><script src="/static/js/auth-redirect.js?v=1" data-target="${target}" defer></script></body></html>`;
   const headers = new Headers({
     "Content-Type": "text/html; charset=utf-8",
@@ -238,10 +231,25 @@ function defer(context: RequestContext, promise: Promise<unknown>): void {
  * entries by language. Request-level reuse comes from the process-local Cache
  * API below, keyed by host, language, and asset path.
  */
-const PAGE_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
+// `private` matches the intent above: only the visitor's own browser may cache the page.
+// A `public` header would let a shared cache store gate-protected HTML, and the variant
+// depends on the language cookie that `Vary: Accept-Language` does not cover.
+const PAGE_CACHE_CONTROL = "private, max-age=300, stale-while-revalidate=3600";
 const PAGE_CACHE_VARY = "Accept-Language";
 const PRIVATE_PAGE_HOSTS = new Set(Object.keys(IDENTITY_SITE_ROLES));
 const PRIVATE_PAGE_CACHE_CONTROL = "private, no-store";
+const IDENTITY_ALLOWED_PATHS = new Set([
+  "/login",
+  "/api/identity/exchange",
+  "/gate",
+  "/gate/verify",
+  "/gate/config",
+  "/gate/diag",
+  "/__gate",
+  "/__gate/verify",
+  "/__gate/config",
+  "/__gate/diag",
+]);
 const IMAGE_ASSET_LANDING_PATHS = new Set([
   "/",
   "/index.html",
@@ -266,7 +274,8 @@ const LEGACY_HTML_PATH_TARGETS = new Map<string, string>([
   ["services", `https://services.${ROOT_DOMAIN}/`],
   ["contact", `https://contact.${ROOT_DOMAIN}/`],
   ["visitor", `https://${VISITOR_HOSTNAME}/`],
-  ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/`],
+  // account.<root> serves only /apple; its root is a deliberate 404.
+  ["apple-account", `https://${APPLE_ACCOUNT_HOSTNAME}/apple`],
   ["redirect", `https://${REDIRECT_HOSTNAME}/`],
   // This legacy .html alias is separate from docs.comicine.com, whose root is a 404.
   ["docs", `${BASE_URL}/`],
@@ -525,11 +534,10 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
-  if (
-    IDENTITY_HOSTS.has(hostname) &&
-    pathname !== "/login" &&
-    pathname !== "/api/identity/exchange"
-  ) {
+  // The identity host serves only the login flow. Keep the gate endpoints reachable there too:
+  // /login renders the gate page for an unverified visitor, and without /gate/config and
+  // /gate/verify that page could never initialize Turnstile or complete verification.
+  if (IDENTITY_HOSTS.has(hostname) && !IDENTITY_ALLOWED_PATHS.has(pathname)) {
     return brandedNotFoundResponse(context, new Response("Not Found\n", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
@@ -649,15 +657,17 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   // Keep forced challenges ahead of legacy redirects, then resolve known aliases before
   // the images-only and www catch-all branches below.
   if (forceChallenge) {
-    defer(
-      context,
-      logEvent(env, "gate_redirect", request, {
-        outcome: "forced",
-        status: 403,
-        path: pathname,
-        message: "force_theme_challenge",
-      }),
-    );
+    if (shouldLogThrottled("gate_redirect", clientIpForLogs(request))) {
+      defer(
+        context,
+        logEvent(env, "gate_redirect", request, {
+          outcome: "forced",
+          status: 403,
+          path: pathname,
+          message: "force_theme_challenge",
+        }),
+      );
+    }
     return renderGatePage(context, { host: hostname, next: gateNextPath(pathname, url.search) });
   }
 
@@ -752,28 +762,32 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 
   if (!gated) {
     if (trust.trusted) {
-      defer(
-        context,
-        logEvent(env, "gate_bypass", request, {
-          outcome: "trusted",
-          status: 200,
-          path: pathname,
-          message: whitelisted ? "gate_whitelist" : "cf_verified_bot",
-        }),
-      );
+      if (shouldLogThrottled("gate_bypass", clientIpForLogs(request))) {
+        defer(
+          context,
+          logEvent(env, "gate_bypass", request, {
+            outcome: "trusted",
+            status: 200,
+            path: pathname,
+            message: whitelisted ? "gate_whitelist" : "cf_verified_bot",
+          }),
+        );
+      }
     } else if (trust.declaredCrawler) {
-// **Log crawler allowlist matches**: user agents are self-reported, so this is
-// the only record of which agents use the list. Their volume is tens to
-// hundreds per day and does not materially affect D1 writes.
-      defer(
-        context,
-        logEvent(env, "gate_bypass", request, {
-          outcome: "crawler",
-          status: 200,
-          path: pathname,
-          message: `declared_crawler:${trust.crawlerToken}`,
-        }),
-      );
+      // **Log crawler allowlist matches**: user agents are self-reported, so this is
+      // the only record of which agents use the list. Their volume is tens to
+      // hundreds per day and does not materially affect D1 writes.
+      if (shouldLogThrottled("gate_bypass_crawler", `${clientIpForLogs(request)}:${trust.crawlerToken}`)) {
+        defer(
+          context,
+          logEvent(env, "gate_bypass", request, {
+            outcome: "crawler",
+            status: 200,
+            path: pathname,
+            message: `declared_crawler:${trust.crawlerToken}`,
+          }),
+        );
+      }
     }
 
     const lang = detectLang(request);
@@ -828,7 +842,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
 // If a request has __gate but still fails, write the validation result to
 // events to diagnose blocks after verification. Log only this unusual state;
 // do not write for normal first visits without a cookie.
-  if (trust.cookiePresent) {
+  if (trust.cookiePresent && shouldLogThrottled("gate_stale_cookie", clientIpForLogs(request))) {
     defer(
       context,
       logEvent(env, "gate_stale_cookie", request, {

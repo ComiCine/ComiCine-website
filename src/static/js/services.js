@@ -21,9 +21,13 @@ function openServiceDetail(id) {
     document.body.style.overflow = 'hidden';
     var closeButton = modal.querySelector('.modal-close');
     if (closeButton) closeButton.focus();
-    // Service details use their own paths, so links can be copied and opened directly.
-    var target = '/' + id;
-    if (location.pathname !== target || location.hash) history.pushState(null, '', target);
+    // Only services.<root_domain> routes /convention and /outdoor; on the main site's
+    // /services page, pushing those paths would 404 on reload.
+    var rootDomain = document.body.getAttribute('data-root-domain') || 'comicine.com';
+    if (location.hostname === 'services.' + rootDomain) {
+        var target = '/' + id;
+        if (location.pathname !== target || location.hash) history.pushState(null, '', target);
+    }
 }
 
 /* Remove the full hash, including #, to return to a clean URL. */
@@ -304,7 +308,13 @@ setTimeout(function() {
         return refreshData();
     }
 
+    var lastStatus = { data: null, failed: false };
+
     function updateStatus(data, failed) {
+        lastStatus = { data: data || null, failed: failed === true };
+        // The rate date is data, not a static dictionary entry; drop the key so base.js
+        // does not reset it to "Loading..." on the next language change.
+        status.removeAttribute('data-i18n');
         if (failed) {
             status.textContent = translate('currency_api_unavailable');
             return;
@@ -640,6 +650,21 @@ setTimeout(function() {
         } else if (!event.shiftKey && document.activeElement === last) {
             event.preventDefault(); first.focus();
         }
+    });
+
+    // Re-render labels when the page language changes: names come from Intl.DisplayNames and
+    // the status line carries the rate date, so both must be rebuilt rather than reloaded.
+    document.addEventListener('languagechange', function() {
+        try {
+            currencyNames = typeof Intl.DisplayNames === 'function'
+                ? new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'currency' })
+                : null;
+        } catch (_) { currencyNames = null; }
+        currencyMetadataCache = Object.create(null);
+        renderedData = null;
+        updateStatus(lastStatus.data, lastStatus.failed);
+        scheduleRenderOptions(true);
+        applyReferences();
     });
 
     scheduleCountrySearchIndex();

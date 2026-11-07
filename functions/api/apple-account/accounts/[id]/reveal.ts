@@ -40,17 +40,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
   const { session } = auth;
   if (!(await verifyCsrf(context.env, context.request, session.sid))) {
-    return Response.json({ error: "无权限" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
   const id = parseAccountId((context.params as { id?: string }).id);
-  if (!id) return Response.json({ error: "无效请求" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  if (!id) return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
 
   const rows = await queryAll<{ password: string }>(
     context.env.DB,
     "SELECT password FROM apple_accounts WHERE id = ?",
     id,
   );
-  if (!rows.length) return Response.json({ error: "未找到" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  if (!rows.length) return Response.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
   let plain = "";
   try {
@@ -65,7 +65,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       message: "password_reveal_failed",
     });
     return Response.json(
-      { error: "解密失败，已记录审计事件" },
+      { error: "Decryption failed; the audit event was recorded" },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }

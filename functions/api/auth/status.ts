@@ -9,7 +9,9 @@
 
 /** GET /api/auth/status (issues a CSRF double-submit token for authenticated users). */
 
-import { createCsrfToken, csrfCookieHeader } from "../../_lib/csrf";
+import { createCsrfToken, csrfCookieHeader, isValidCsrfToken } from "../../_lib/csrf";
+import { CSRF_COOKIE } from "../../_lib/config";
+import { getCookie } from "../../_lib/routing";
 import { authUnavailableResponse, requireAuth } from "../../_lib/session";
 import type { Env } from "../../_lib/env";
 
@@ -26,9 +28,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { headers: { "Cache-Control": "no-store" } },
     );
   }
-  let token: string;
+  let token = getCookie(CSRF_COOKIE, context.request.headers.get("Cookie")) ?? "";
   try {
-    ({ token } = await createCsrfToken(context.env, session.sid));
+    if (!token || !(await isValidCsrfToken(context.env, token, session.sid))) {
+      ({ token } = await createCsrfToken(context.env, session.sid));
+    }
   } catch {
     return Response.json(
       { error: "csrf_unavailable" },
@@ -41,6 +45,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     "Set-Cookie",
     csrfCookieHeader(token, new URL(context.request.url).protocol === "https:"),
   );
+  headers.set("Content-Type", "application/json; charset=utf-8");
   return new Response(
     JSON.stringify({
       authed: true,

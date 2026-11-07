@@ -156,7 +156,7 @@ d1_query_retry = d1_client.d1_query_retry
 
 def render_d1_row(source: str, row: dict[str, object]) -> str:
     ts = row.get("ts")
-    stamp = dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
+    stamp = dt.datetime.fromtimestamp(ts, dt.UTC).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
     host = row.get("host", "")
     method = row.get("method", "")
     path = row.get("path") or row.get("normalized_path") or ""

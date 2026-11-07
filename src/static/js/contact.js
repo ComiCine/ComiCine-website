@@ -37,8 +37,11 @@ function showTip(tipEl, message, visible) {
     }
 }
 
-/* Copy text to the clipboard and show confirmation. */
-function handleCopy(el, text) {
+/* Copy text to the clipboard and show confirmation.
+   actions.js invokes data-action handlers with the element as `this` and data-arg as the
+   first argument, so the value is the only parameter (it used to be read as `el`). */
+function handleCopy(text) {
+    var el = this;
     navigator.clipboard.writeText(text).then(function() {
         var tip = el.querySelector('.bubble-tip');
         if (tip) {
@@ -46,6 +49,9 @@ function handleCopy(el, text) {
             var tipKey = el.dataset.copyTip || 'click_to_copy';
             setTimeout(function() { showTip(tip, t(tipKey), false); }, COPY_HINT_DURATION);
         }
+    }).catch(function() {
+        var tip = el.querySelector('.bubble-tip');
+        if (tip) showTip(tip, t('click_to_copy'), false);
     });
 }
 

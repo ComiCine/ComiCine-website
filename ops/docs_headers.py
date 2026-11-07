@@ -110,6 +110,28 @@ def main() -> int:
     lines.append("/logo.svg")
     lines.append("  Cache-Control: public, max-age=86400")
 
+    # Preserve blocks that came from docs/docs/public/_headers (favicon revalidation) instead
+    # of discarding them: this script rewrites the file wholesale after VitePress copies public/.
+    generated_paths = {"/*", "/assets/*", "/logo.svg"}
+    existing = dist / "_headers"
+    if existing.is_file():
+        blocks: list[list[str]] = []
+        current: list[str] = []
+        for line in existing.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith((" ", "#")):
+                if current:
+                    blocks.append(current)
+                current = [line]
+            elif current:
+                current.append(line)
+        if current:
+            blocks.append(current)
+        for block in blocks:
+            if block[0].strip() in generated_paths:
+                continue
+            lines.append("")
+            lines.extend(block)
+
     (dist / "_headers").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(
         f"[docs-headers] wrote _headers (scripts={len(scripts)} styles={len(styles)}"

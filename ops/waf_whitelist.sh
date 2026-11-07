@@ -222,6 +222,17 @@ if MODE == "show":
 to_add = [a for a in want if a not in have]
 to_remove = [a for a in have if a not in want]
 
+# Empty-list guard: an empty ASN section means "remove every managed ASN rule", which is almost
+# always a regenerated-list mistake rather than an intended change. Require an explicit override.
+if not want and to_remove and os.environ.get("COMICINE_WAF_ALLOW_REMOVE_ALL") != "1":
+    print(
+        f"REFUSING to remove all {len(to_remove)} ASN rules because the whitelist has 0 ASN entries.\n"
+        f"  Add ASN entries to docs/lists/whitelist.txt, or re-run with\n"
+        f"  COMICINE_WAF_ALLOW_REMOVE_ALL=1 bash ops/waf_whitelist.sh --apply",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+
 # Bulk-removal guard (added 2026-10-11): this script deletes the ASN rules it manages on the zone.
 # Removing dozens of rules at once is a significant security change and requires a second check.
 # Set COMICINE_WAF_ALLOW_BULK_REMOVE=1 to allow bulk cleanup.

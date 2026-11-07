@@ -69,6 +69,8 @@ describe("detectLang reads the shared language cookie", () => {
   it("honors Accept-Language quality weights and excludes q=0 entries", () => {
     expect(detectLang(req("comicine.com", undefined, "en-US;q=0.2, ja-JP;q=0.9"))).toBe("ja-jp");
     expect(detectLang(req("comicine.com", undefined, "zh-CN;q=0, ko-KR;q=0.1"))).toBe("ko-kr");
+    // RFC 7231 allows optional whitespace around the parameter name.
+    expect(detectLang(req("comicine.com", undefined, "zh-CN; q=0, ko-KR; q=0.1"))).toBe("ko-kr");
   });
 
   it("falls back to the contract DEFAULT_LANG when nothing matches", () => {

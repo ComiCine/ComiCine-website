@@ -32,7 +32,7 @@ See ADDITIONAL_TERMS.txt.
 <meta name="twitter:title" content="{{ _('page_title_home') }}">
 <meta name="twitter:description" content="{{ _('meta_description_home') }}">
 <meta name="twitter:image" content="{{ image_asset_base }}/static/icons/comicine-xtext.png?v=5">
-<link rel="preload" as="script" href="/static/js/index.js?v=9">
+<link rel="preload" as="script" href="/static/js/index.js?v=10">
 <link rel="stylesheet" href="/static/css/index.css?v=17">
 {% endblock %}
 
@@ -62,7 +62,7 @@ See ADDITIONAL_TERMS.txt.
                Add or remove images and rebuild; filenames are not maintained in this template. #}
             {% for item in portfolio_items %}
             {% set thumb_sizes = '(min-width: 640px) 840px, 100vw' if item.orientation == 'landscape' else '(min-width: 1024px) 341px, (min-width: 640px) 33vw, 100vw' %}
-            <div class="work-box" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.comicine.com/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
+            <div class="work-box" tabindex="0" data-orientation="{{ item.orientation }}" data-action="openNewWindow" data-arg="https://services.comicine.com/outdoor" role="link" aria-label="{{ _('view_service_detail') }}" title="{{ _('view_service_detail') }}" data-i18n-attr="aria-label,title:view_service_detail">
                 <div class="work-frame">
                     <picture>
                         <source type="image/avif"
@@ -87,5 +87,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/index.js?v=9" defer></script>
+    <script src="/static/js/index.js?v=10" defer></script>
 {% endblock %}

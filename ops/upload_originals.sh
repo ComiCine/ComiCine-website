@@ -80,9 +80,13 @@ if [ ! -f "$SECRETS_FILE" ]; then
     exit 1
 fi
 
-if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
-    CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+    if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+        CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
+    fi
+    if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+        CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
+    fi
     export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 fi
 if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then

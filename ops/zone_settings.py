@@ -172,7 +172,10 @@ def describe(settings: dict[str, dict[str, object]]) -> int:
         for key, bad, why in NOTEWORTHY
         if str(settings.get(key, {}).get("value")) == bad
     }
-    width = max(len(key) for key in settings)
+    if not settings:
+        print("  (no settings in snapshot; re-run --snapshot)")
+        return 0
+    width = max((len(key) for key in settings), default=0)
     for key in sorted(settings):
         suffix = "  <- review" if key in offending else ""
         print(f"  {key:<{width}}  {settings[key].get('value')}{suffix}")
@@ -199,7 +202,11 @@ def main() -> int:
         if not SNAPSHOT.is_file():
             print(f"FATAL: no local snapshot at {SNAPSHOT}; use --show or create one with --snapshot", file=sys.stderr)
             return 1
-        data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            print(f"FATAL: cannot read {SNAPSHOT} ({error.__class__.__name__}): the snapshot is unreadable or not valid JSON", file=sys.stderr)
+            return 1
         settings = data.get("settings") or {}
         print(f"zone settings snapshot  ({data.get('captured_at', '?')})")
         describe(settings)
@@ -224,7 +231,11 @@ def main() -> int:
 
     previous: dict[str, dict[str, object]] = {}
     if SNAPSHOT.is_file():
-        previous = (json.loads(SNAPSHOT.read_text(encoding="utf-8")).get("settings") or {})
+        try:
+            previous = (json.loads(SNAPSHOT.read_text(encoding="utf-8")).get("settings") or {})
+        except (OSError, ValueError) as error:
+            print(f"WARNING: ignoring unreadable previous snapshot ({error.__class__.__name__})", file=sys.stderr)
+            previous = {}
 
     changed = [
         key

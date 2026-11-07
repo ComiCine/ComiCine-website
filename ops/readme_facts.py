@@ -138,7 +138,8 @@ def cache_facts() -> dict:
     if not directive:
         raise RuntimeError("cannot find PAGE_CACHE_CONTROL in functions/_middleware.ts")
     raw = directive.group(1)
-    if not raw.startswith("public,"):
+    # The privacy keyword is either public or private; the numeric directives are parsed below.
+    if not re.match(r"^(?:public|private),", raw):
         raise RuntimeError(f"unexpected PAGE_CACHE_CONTROL value: {raw!r}")
 
     values: dict[str, int | None] = {"max-age": None, "s-maxage": None, "stale-while-revalidate": None}
@@ -360,13 +361,14 @@ def check(facts: dict) -> list[str]:
     # do not count, or secrets/ would pass locally and fail in a clean CI checkout.
     problems.extend(tree_problems(BASE_DIR, tree_paths()))
 
-    # Trusted-list counts
+    # Trusted-list counts. Match the whole claim, not a bare number: "0" or "2" also occurs
+    # in dates and TTLs, so a substring search could never fail.
     trust = facts["gate_trust"]
-    if str(trust["asns"]) not in text or str(trust["ip_cidrs"]) not in text:
-        problems.append(
-            f"gate trust counts ({trust['asns']} ASNs / {trust['ip_cidrs']} IPs) not stated"
-        )
-    if str(trust["crawler_uas"]) not in text:
+    if not re.search(rf"\b{trust['asns']} ASN entr(?:y|ies)\b", text):
+        problems.append(f"gate trust ASN count ({trust['asns']}) not stated")
+    if not re.search(rf"\b{trust['ip_cidrs']} fully allowed IPs?\b", text):
+        problems.append(f"gate trust IP count ({trust['ip_cidrs']}) not stated")
+    if not re.search(rf"\b{trust['crawler_uas']} tokens\b", text):
         problems.append(f"gate trust crawler UA count ({trust['crawler_uas']}) not stated")
     return problems
 
@@ -518,8 +520,11 @@ def print_live_facts(facts: dict) -> None:
 def main() -> int:
     check_only = "--check" in sys.argv
     as_json = "--json" in sys.argv
+    if check_only and "--live" in sys.argv:
+        print("FATAL: --check compares the repository against the README; add --live separately", file=sys.stderr)
+        return 2
     facts = live_facts() if "--live" in sys.argv else repo_facts()
-    if check_only and "--live" not in sys.argv:
+    if check_only:
         problems = check(facts)
         if problems:
             print("readme facts: FAIL")

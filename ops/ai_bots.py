@@ -155,6 +155,9 @@ def api(token: str, method: str, path: str, body: dict | None = None) -> object:
                 f"API said: {detail}"
             ) from error
         raise RuntimeError(f"HTTP {error.code} from {path}: {detail}") from error
+    except (urllib.error.URLError, OSError) as error:
+        # A network failure must still produce the single FATAL line the CLI promises.
+        raise RuntimeError(f"cannot reach {API_BASE}{path}: {error}") from error
     if not isinstance(payload, dict) or not payload.get("success"):
         errors = payload.get("errors") if isinstance(payload, dict) else None
         raise RuntimeError(f"Cloudflare API error for {path}: {errors}")
@@ -196,7 +199,7 @@ def describe(config: dict) -> None:
             continue
         value = config[key]
         hint = ""
-        if REPORT_BLOCKING.get(key) == json.dumps(value):
+        if REPORT_BLOCKING.get(key) == str(value).lower():
             hint = "  <- blocks/challenges automated traffic; review by hand"
         print(f"  {key:<{width}}  {json.dumps(value)}{hint}")
 
@@ -204,11 +207,11 @@ def describe(config: dict) -> None:
 def load_snapshot() -> dict:
     try:
         data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    except OSError as error:
+    except (OSError, ValueError) as error:
         raise RuntimeError(
-            f"cannot read {SNAPSHOT} ({error.__class__.__name__}): no snapshot was ever "
-            "captured, because reading the policy needs the Bot Management permission. "
-            "Grant it to the API token and run --snapshot once (or use the Dashboard: "
+            f"cannot read {SNAPSHOT} ({error.__class__.__name__}): the snapshot is missing "
+            "or not valid JSON. Reading the policy needs the Bot Management permission; "
+            "grant it to the API token and run --snapshot once (or use the Dashboard: "
             "Security > Settings > Configure AI bot policies)."
         ) from error
     config = data.get("config")
@@ -255,7 +258,7 @@ def main() -> int:
 
     try:
         return run(args)
-    except RuntimeError as error:
+    except (RuntimeError, OSError) as error:
         # For missing permissions, API errors, or unreadable snapshots, print one FATAL line without a Python traceback.
         # The reader may have only a restricted token.
         print(f"FATAL: {error}", file=sys.stderr)

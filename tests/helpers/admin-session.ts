@@ -58,7 +58,7 @@
 import { vi } from "vitest";
 
 /** Same text as production `ADMIN_REQUIRED_MESSAGE`, the default denial for non-admin accounts. */
-export const ADMIN_REQUIRED_MESSAGE = "只读账户，无写入权限";
+export const ADMIN_REQUIRED_MESSAGE = "Read-only account: write access denied";
 
 /** Module mock for `functions/_lib/session`; call once per test file because module registries are isolated. */
 export function createSessionModuleMock() {
@@ -79,7 +79,7 @@ export function createSessionModuleMock() {
       }
       if (!session) {
         return Response.json(
-          { error: "未登录" },
+          { error: "Not authenticated" },
           { status: 401, headers: { "Cache-Control": "no-store" } },
         );
       }

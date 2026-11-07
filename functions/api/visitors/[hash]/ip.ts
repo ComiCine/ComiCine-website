@@ -35,12 +35,12 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const auth = await requireAdminSession(context.env, context.request, "无权限");
+  const auth = await requireAdminSession(context.env, context.request, "Forbidden");
   if (auth instanceof Response) return auth;
   const actorSub = auth.session.sub;
 
   const hash = String(context.params?.hash ?? "");
-  if (!IP_HASH_RE.test(hash)) return json({ error: "无效的访客标识" }, 400);
+  if (!IP_HASH_RE.test(hash)) return json({ error: "Invalid visitor identifier" }, 400);
 
   /**
    * Write an audit row every time a visitor's plaintext IP is retrieved (tasks/22 W9-4).

@@ -22,7 +22,13 @@ if [ -z "${PYTHON_BIN:-}" ]; then
     done
 fi
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-"$PYTHON_BIN" -m pytest
+# Run with the same hostile Git environment as ops/ci_check.sh: a CI runner has no
+# global user.name/email, so tests must not depend on the developer's identity.
+GIT_HOSTILE_HOME="$(mktemp -d -t comicine-run-tests-home-XXXXXX)"
+trap 'rm -rf "$GIT_HOSTILE_HOME"' EXIT
+env "HOME=$GIT_HOSTILE_HOME" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.useConfigOnly GIT_CONFIG_VALUE_0=true \
+    "$PYTHON_BIN" -m pytest
 
 echo "TypeScript tests"
 if command -v npm >/dev/null 2>&1 && [ -f package.json ]; then

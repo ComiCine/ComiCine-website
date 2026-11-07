@@ -45,12 +45,6 @@ function bytesToBigEndian64(value: number): Uint8Array {
   return out;
 }
 
-function bigEndian64ToNumber(bytes: Uint8Array): number {
-  let v = 0;
-  for (const b of bytes) v = v * 256 + b;
-  return v;
-}
-
 function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

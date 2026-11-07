@@ -227,6 +227,35 @@ describe("verifyAccessJwt", () => {
     expect(await verifyAccessJwt(baseEnv, token)).not.toBeNull();
   });
 
+  it("falls back to cached JWKS when a refetch after the TTL returns HTTP 500", async () => {
+    vi.resetModules();
+    const fresh = await import("./access");
+    vi.useFakeTimers();
+    const start = new Date("2026-01-01T00:00:00Z");
+    vi.setSystemTime(start);
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(JSON.stringify({ keys: [{ ...publicJwk, kid: KID, use: "sig" }] }), {
+          status: 200,
+        });
+      }
+      return new Response("boom", { status: 500 });
+    });
+
+    const expiresAt = Math.floor(start.getTime() / 1000) + 86_400;
+    const token = await signToken(baseClaims({ exp: expiresAt }));
+    expect(await fresh.verifyAccessJwt(baseEnv, token)).not.toBeNull();
+
+    // Past the one-hour cache TTL: the refetch fails, but the cached key still verifies.
+    vi.setSystemTime(new Date(start.getTime() + 2 * 60 * 60 * 1000));
+    expect(await fresh.verifyAccessJwt(baseEnv, token)).not.toBeNull();
+    expect(calls).toBe(2);
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
   it("refetches JWKS once when the token's kid is not in the cache", async () => {
 // Cloudflare rotates signing keys every six weeks. With a one-hour cache that
 // does not refresh on a kid miss, new tokens are rejected until expiry, causing

@@ -275,7 +275,7 @@ export async function sync(
 export async function runSync(
   env: Env,
   options: { dryRun?: boolean } = {},
-): Promise<SyncResult & { runId: number | null }> {
+): Promise<SyncResult & { runId: number | null; skipped: boolean }> {
   const startedAt = runStartedAt();
   const runId = await insertRun(env.DB, JOB, startedAt);
   const missingCredentials = !env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID;
@@ -289,7 +289,7 @@ export async function runSync(
       added: result.toAdd.length,
       removed: result.toRemove.length,
       dryRun: options.dryRun === true,
-    });
+    }, JOB);
     logRun({
       outcome,
       added: result.toAdd.length,
@@ -297,13 +297,13 @@ export async function runSync(
       dry_run: options.dryRun === true,
       duration_ms: runStartedAt() - startedAt,
     });
-    return { ...result, runId };
+    return { ...result, runId, skipped: missingCredentials };
   } catch (error) {
     await updateRun(env.DB, runId, {
       finishedAt: runStartedAt(),
       outcome: "failed",
       error: String(error),
-    });
+    }, JOB);
     logRun({ outcome: "failed", error: String(error), duration_ms: runStartedAt() - startedAt });
     throw error;
   }
@@ -333,6 +333,15 @@ export function authorized(request: Request, env: Env): boolean {
     diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
   }
   return diff === 0;
+}
+
+/** Read the latest run without letting an unreadable table replace the endpoint's real status. */
+async function lastRunSafe(env: Env): Promise<RunRow | null> {
+  try {
+    return await lastRun(env.DB, JOB);
+  } catch {
+    return null;
+  }
 }
 
 /** Report health only, without syncing: include the latest run and any reason the table is unavailable. */
@@ -402,13 +411,13 @@ export default {
       // and other callers; add new fields only.
       return Response.json({
         ok: true,
-        status: "synced",
-        synced: true,
+        status: result.skipped ? "skipped" : "synced",
+        synced: !result.skipped,
         dryRun,
         toAdd: result.toAdd,
         toRemove: result.toRemove,
         runId: result.runId,
-        lastRun: await lastRun(env.DB, JOB),
+        lastRun: await lastRunSafe(env),
       });
     } catch (error) {
       // Return the error and newly recorded failure row instead of only { ok:false }, so callers
@@ -420,7 +429,7 @@ export default {
           synced: false,
           dryRun,
           error: String(error),
-          lastRun: await lastRun(env.DB, JOB),
+          lastRun: await lastRunSafe(env),
         },
         { status: 502 },
       );

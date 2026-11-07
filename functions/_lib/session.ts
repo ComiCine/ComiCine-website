@@ -14,8 +14,6 @@ import type { Env } from "./env";
 import {
   PENDING_COOKIE,
   REVEAL_MAX_AUTH_AGE_SECONDS,
-  ROOT_DOMAIN,
-  rootDomainForHost,
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
 } from "./config";
@@ -268,7 +266,7 @@ export function authUnavailableResponse(): Response {
 }
 
 /** Default denial message for read-only accounts and non-admins. */
-export const ADMIN_REQUIRED_MESSAGE = "只读账户，无写入权限";
+export const ADMIN_REQUIRED_MESSAGE = "Read-only account: write access denied";
 
 /**
  * Shared authorization for admin endpoints, including session lookup and 401/403 responses.
@@ -294,7 +292,7 @@ export async function requireAdminSession(
     return authUnavailableResponse();
   }
   if (!session) {
-    return Response.json({ error: "未登录" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Not authenticated" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
   if (session.role !== "admin") {
     return Response.json(
@@ -309,7 +307,7 @@ export async function requireAdminSession(
 export const REVEAL_MAX_AUTH_AGE = REVEAL_MAX_AUTH_AGE_SECONDS;
 
 /** Recent authentication expired; the frontend uses this to repeat Access authentication at /login?next=<current page>. */
-export const REAUTH_REQUIRED_MESSAGE = "需要重新验证";
+export const REAUTH_REQUIRED_MESSAGE = "Re-authentication required";
 
 /**
  * Step-up authorization: require **recent authentication** in addition to `requireAdminSession`.

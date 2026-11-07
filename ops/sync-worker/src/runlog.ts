@@ -122,6 +122,7 @@ export async function updateRun(
   db: RunDatabase,
   runId: number | null,
   update: RunUpdate,
+  job = "unknown",
 ): Promise<boolean> {
   if (runId === null || runId === undefined) return false;
   try {
@@ -143,7 +144,7 @@ export async function updateRun(
       .run();
     return true;
   } catch (error) {
-    logRunStoreError(String(update.outcome), "update", error);
+    logRunStoreError(job, "update", error);
     return false;
   }
 }

@@ -106,22 +106,25 @@ def export_blocklist(src: str) -> int:
                 seen.add(cidr)
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, "blocklist.sql")
-    with open_private(out) as f:
-        f.write(
-            "INSERT OR IGNORE INTO blocked_ips "
-            "(cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active) VALUES\n"
+    values = []
+    for c in sorted(seen):
+        parsed = parse_cidr(c)
+        if not parsed:
+            continue
+        network, prefix = parsed
+        values.append(
+            f"({sql_str(c)}, {sql_str(network)}, {prefix}, 'blocklist.txt', "
+            "'auto_block', datetime('now'), datetime('now'), 'export_d1', 1)"
         )
-        values = []
-        for c in sorted(seen):
-            parsed = parse_cidr(c)
-            if not parsed:
-                continue
-            network, prefix = parsed
-            values.append(
-                f"({sql_str(c)}, {sql_str(network)}, {prefix}, 'blocklist.txt', "
-                "'auto_block', datetime('now'), datetime('now'), 'export_d1', 1)"
+    with open_private(out) as f:
+        if values:
+            f.write(
+                "INSERT OR IGNORE INTO blocked_ips "
+                "(cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active) VALUES\n"
             )
-        f.write(",\n".join(values) + ";\n" if values else "-- no rows\n")
+            f.write(",\n".join(values) + ";\n")
+        else:
+            f.write("-- No blocked_ips rows to restore.\n")
     print(f"[export] {len(seen)} entries -> {out}", flush=True)
     return 0
 

@@ -54,6 +54,16 @@ async function render(url: string, env: Env) {
 }
 
 describe("renderRedirectPage", () => {
+  it("does not rescan the target for placeholder tokens", async () => {
+    const target = "https://example.com/{{preload}}";
+    const { html } = await render(
+      `https://${REDIRECT_HOSTNAME}/?to=${encodeURIComponent(target)}`,
+      { ASSETS: assets() } as Env,
+    );
+    expect(html).toContain("{{preload}}");
+    expect(html).toContain('"preload":[]');
+  });
+
   it("injects an escaped to and leaves no placeholder behind", async () => {
     const payload = 'https://evil.example.com/"><script>alert(1)</script>';
     const { resp, html } = await render(

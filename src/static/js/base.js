@@ -274,7 +274,7 @@ function preloadPageImages() {
             I18N = I18N_CACHE[lang];
             document.documentElement.lang = lang;
             renderI18n();
-            document.querySelectorAll('#langMenu .theme-option').forEach(function(opt) {
+            document.querySelectorAll('#langMenu .theme-option, .nav-screen-language-option').forEach(function(opt) {
                 opt.classList.toggle('selected', opt.dataset.lang === lang);
             });
             document.dispatchEvent(new CustomEvent('languagechange'));

@@ -290,12 +290,18 @@ def main() -> int:
         error = str(exc)
 
     if error:
+        # Record the failure too: an unrecorded failed check is exactly the trace
+        # worker_runs exists to provide.
+        record_error = record_check(cfg, "error", error[:200]) if args.record else None
         if args.json:
-            print(json.dumps({"ok": False, "error": error, "run_history_error": run_error}, ensure_ascii=False))
+            print(json.dumps({"ok": False, "error": error, "run_history_error": run_error,
+                              "record_error": record_error}, ensure_ascii=False))
         else:
             print("desired=-  actual=-  to_add=-  to_remove=-  status=error")
             print(f"  error: {error}")
             print("  the check did not complete; this is NOT a statement about drift")
+            if record_error:
+                print(f"  recording the error also failed: {record_error}")
         return 2
 
     to_add, to_remove = compute_diff(desired, actual)

@@ -120,15 +120,6 @@ def _quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def _count_rows(cfg: dict[str, str], table: str, cutoff: int) -> int:
-    timestamp_column = RETENTION_TIMESTAMP_COLUMNS.get(table, "ts")
-    rows = d1_query(
-        cfg,
-        f"SELECT COUNT(*) AS count FROM {table} WHERE {timestamp_column} < {cutoff}",
-    )
-    return int(rows[0].get("count") or 0) if rows else 0
-
-
 def _day_start_expr() -> str:
     """Return the current UTC midnight by flooring unixepoch() to a multiple of 86400."""
     return f"(unixepoch() / {DAY_SECONDS}) * {DAY_SECONDS}"

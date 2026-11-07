@@ -20,7 +20,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestPost } from "./reveal";
 import { queryAll } from "../../../../_lib/d1";
-import { createSessionCookie } from "../../../../_lib/session";
+import { createSessionCookie, REAUTH_REQUIRED_MESSAGE } from "../../../../_lib/session";
 import { verifyCsrf } from "../../../../_lib/csrf";
 import { fernetDecrypt } from "../../../../_lib/fernet";
 import { logEvent } from "../../../../_lib/logging";
@@ -117,7 +117,7 @@ describe("apple-account reveal API", () => {
 
     expect(resp.status).toBe(401);
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
-    await expect(resp.json()).resolves.toEqual({ error: "需要重新验证", reauth: true });
+    await expect(resp.json()).resolves.toEqual({ error: REAUTH_REQUIRED_MESSAGE, reauth: true });
     expect(vi.mocked(fernetDecrypt)).not.toHaveBeenCalled();
     expect(vi.mocked(logEvent)).toHaveBeenCalledWith(
       env,

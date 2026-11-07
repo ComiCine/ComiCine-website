@@ -92,7 +92,7 @@ describe("apple-account reorder API", () => {
     vi.mocked(queryAll).mockResolvedValue([{ id: 1 }, { id: 2 }]);
     const resp = await onRequestPut(context({ order: [1] }) as never);
     expect(resp.status).toBe(400);
-    expect(await resp.json()).toMatchObject({ error: "无效请求" });
+    expect(await resp.json()).toMatchObject({ error: "Invalid request" });
     expect(vi.mocked(executeBatch)).not.toHaveBeenCalled();
   });
 

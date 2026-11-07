@@ -133,6 +133,7 @@ DO_PUSH=0
 DO_PAGES=0
 DO_WORKERS=0
 DO_DOCS=0
+DOCS_EXPLICIT=0
 WORKER=""
 DRY_RUN=0
 COMMIT_MESSAGE=""
@@ -144,8 +145,13 @@ while [ $# -gt 0 ]; do
         --commit) DO_COMMIT=1 ;;
         --push) DO_PUSH=1 ;;
         --pages) DO_PAGES=1 ;;
-        --docs) DO_DOCS=1 ;;
-        --workers) DO_WORKERS=1 ;;
+        --docs) DO_DOCS=1; DOCS_EXPLICIT=1 ;;
+        --workers)
+            if [ -n "$WORKER" ]; then
+                echo "FATAL: --workers and --worker=<name> are mutually exclusive" >&2
+                exit 2
+            fi
+            DO_WORKERS=1 ;;
         --all) DO_COMMIT=1; DO_PUSH=1; DO_PAGES=1; DO_DOCS=1; DO_WORKERS=1 ;;
         --full) VERBOSE=1 ;;
         --worker=*)
@@ -201,6 +207,10 @@ if [ "$DO_COMMIT" = 0 ] && [ "$DO_PUSH" = 0 ] && [ "$DO_PAGES" = 0 ] && [ "$DO_D
 fi
 
 if [ "${COMICINE_SKIP_DOCS:-0}" = 1 ]; then
+    if [ "$DOCS_EXPLICIT" = 1 ]; then
+        echo "FATAL: --docs conflicts with COMICINE_SKIP_DOCS=1; nothing would be deployed" >&2
+        exit 2
+    fi
     DO_DOCS=0
 fi
 
@@ -501,6 +511,12 @@ if [ "$NEED_PREPARATION" = 1 ]; then
     fi
 fi
 
+# The Lists and Bans steps above can rewrite tracked files, so repeat the release gate before
+# checks and before any artifact is published.
+if [ "$DO_COMMIT" = 0 ] && { [ "$DO_PAGES" = 1 ] || [ "$DO_DOCS" = 1 ] || [ -n "$WORKER" ] || [ "${DO_WORKERS:-0}" = 1 ]; }; then
+    dirty_tree_gate
+fi
+
 # Stage 0a-2: stage and snapshot after list sync and before CI.
 # The Lists and Bans steps above can legitimately update list files, so the tree to commit is only
 # final here. Run git add -A, then take a working-tree snapshot for comparison in Stage 0c.
@@ -519,6 +535,7 @@ if [ "$NEED_CHECKS" = 1 ]; then
         run_step "Check" bash ops/ci_check.sh
     elif [ "$DO_PUSH" = 1 ]; then
         run_step "Check" bash ops/ci_check.sh --ref=HEAD
+        export COMICINE_CI_CHECKED_SHA="$(git rev-parse HEAD)"
     else
         run_step "Check" bash ops/ci_check.sh
     fi
@@ -591,10 +608,16 @@ if [ "$DO_PUSH" = 1 ]; then
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "FATAL: not a git work tree; refusing to deploy without GitHub synchronization" >&2
         exit 1
-    elif ! git fetch origin main >/dev/null 2>&1; then
+    elif ! fetch_log="$(mktemp -t comicine-deploy-fetch-XXXXXX.log)"; then
+        echo "FATAL: could not create a temporary log for git fetch" >&2
+        exit 1
+    elif ! git fetch origin main >"$fetch_log" 2>&1; then
+        cat "$fetch_log" >&2
+        rm -f "$fetch_log"
         echo "FATAL: could not fetch GitHub state; refusing to deploy without GitHub synchronization" >&2
         exit 1
     else
+        rm -f "$fetch_log"
         if [ "$GIT_VERIFIED" = 0 ]; then
             verify_head_signature
         fi
@@ -604,13 +627,19 @@ if [ "$DO_PUSH" = 1 ]; then
             echo "Git: GitHub already up to date, skipped push"
         elif git merge-base --is-ancestor "$REMOTE_HEAD" "$LOCAL_HEAD"; then
             show_cmd git push origin main
-            if git push origin main >/dev/null 2>&1; then
+            push_log="$(mktemp -t comicine-deploy-push-XXXXXX.log)"
+            if git push origin main >"$push_log" 2>&1; then
+                rm -f "$push_log"
                 echo "Git: pushed to GitHub"
             elif [ "${COMICINE_ALLOW_PUSH_FAIL:-0}" = 1 ]; then
                 # Emergency override: production will get ahead of GitHub. The final output must
                 # state this clearly instead of continuing silently.
+                cat "$push_log" >&2
+                rm -f "$push_log"
                 PUSH_FAILED=1
             else
+                cat "$push_log" >&2
+                rm -f "$push_log"
                 echo "FATAL: git push failed; aborting before Pages deploy" >&2
                 echo "       fix the remote/credentials and rerun, or set COMICINE_ALLOW_PUSH_FAIL=1 to deploy anyway" >&2
                 exit 1
@@ -665,8 +694,8 @@ flush_steps
 # matching CI by installing ruff/mypy/pytest-cov and running pytest without a Git identity.
 # To see GitHub's result, run: gh run list --commit <sha>.
 
-# The emergency override warning must be the final line. This keeps the fact that production is
-# ahead of GitHub visible at the end of the log, rather than letting later steps obscure it.
+# Print the emergency override warning immediately before the final status line, so the fact that
+# production is ahead of GitHub stays visible at the end of the log.
 if [ "$PUSH_FAILED" = 1 ]; then
     echo "Warning: deployed without pushing to GitHub"
 fi

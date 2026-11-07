@@ -31,7 +31,7 @@ import { logEvent } from "./logging";
 import { BASE_URL, LANG_COOKIE } from "./config";
 
 vi.mock("./d1", () => ({ queryAll: vi.fn() }));
-vi.mock("./logging", () => ({ logEvent: vi.fn() }));
+vi.mock("./logging", () => ({ logEvent: vi.fn(), shouldLogThrottled: vi.fn(() => true) }));
 
 const env = { DB: {} } as never;
 const request = new Request("https://comicine.com/");
@@ -696,6 +696,22 @@ describe("renderGatePage template cache", () => {
     expect(a).toContain("comicine.com|/services|");
   });
 
+  it("does not rescan injected values for placeholder tokens", async () => {
+    const { env } = assetsEnv();
+    const resp = await renderGatePage(
+      {
+        request: new Request("https://comicine.com/services"),
+        env,
+        next: async () => new Response("next"),
+      } as never,
+      { host: "comicine.com", next: "/x?q={{error}}" },
+    );
+    const html = await resp.text();
+    // The literal braces from `next` must survive; sequential replaceAll would have
+    // replaced them with the (empty) error value.
+    expect(html).toContain("/x?q={{error}}");
+  });
+
   it("keeps one entry per language", async () => {
     const { env, calls } = assetsEnv();
     await render(env, "https://comicine.com/services", `${LANG_COOKIE}=zh-cn`);
@@ -753,6 +769,17 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
 // Keep trusted false so middleware continues checking blocked_ips (see _middleware.ts).
     expect(trust.trusted).toBe(false);
     expect(trust.cookieValid).toBe(false);
+  });
+
+  it("rejects a non-POST verify with Allow and no-store", async () => {
+    const resp = await handleVerify({
+      request: new Request("https://comicine.com/gate/verify"),
+      env: { GATE_HMAC_KEY: "k", TURNSTILE_SECRET: "s" } as never,
+      next: async () => new Response("next"),
+    } as never);
+    expect(resp.status).toBe(405);
+    expect(resp.headers.get("Allow")).toBe("POST");
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("leaves an ordinary browser behind the gate", async () => {

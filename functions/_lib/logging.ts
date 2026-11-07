@@ -101,13 +101,48 @@ async function ensureEventSchema(env: Env): Promise<void> {
       }
       return;
     }
+    // CREATE ... IF NOT EXISTS reports meta.changes = 0, which `execute` treats as failure;
+    // check the statement result directly so a successful no-op still finishes the bootstrap.
     for (const sql of ddl) {
-      if (!(await execute(env.DB, sql))) return;
+      const result = await env.DB.prepare(sql).run();
+      if (result?.success !== true) return;
     }
     eventSchemaReady = true;
   } catch {
     // Retry after the cooldown if D1 is not ready; do not affect the request.
   }
+}
+
+/**
+ * Suppress repeated diagnostic events from the same source within one minute.
+ *
+ * Attacker-controlled paths (a junk `__gate` cookie, `?challenge=1`, a spoofed crawler
+ * User-Agent, a blocked IP) would otherwise write one D1 `events` row per request, so a
+ * scanner can exhaust the free plan's 100k daily writes. These events are diagnostic, not
+ * billing records: keeping the first per source per window preserves the signal. Admin and
+ * audit events must never use this helper.
+ */
+const EVENT_LOG_COOLDOWN_MS = 60_000;
+const EVENT_LOG_MAX_ENTRIES = 512;
+const recentEventLogAt = new Map<string, number>();
+
+export function shouldLogThrottled(kind: string, key: string, now = Date.now()): boolean {
+  const mapKey = `${kind}:${key || "anon"}`;
+  const last = recentEventLogAt.get(mapKey) ?? 0;
+  if (now - last < EVENT_LOG_COOLDOWN_MS) return false;
+  if (recentEventLogAt.size >= EVENT_LOG_MAX_ENTRIES) {
+    for (const [entry, at] of recentEventLogAt) {
+      if (now - at >= EVENT_LOG_COOLDOWN_MS) recentEventLogAt.delete(entry);
+    }
+    if (recentEventLogAt.size >= EVENT_LOG_MAX_ENTRIES) recentEventLogAt.clear();
+  }
+  recentEventLogAt.set(mapKey, now);
+  return true;
+}
+
+/** Test hook: clear the process-local throttle so a suite can replay the same source. */
+export function resetEventLogThrottle(): void {
+  recentEventLogAt.clear();
 }
 
 /** request_id: prefer Cloudflare Ray ID so the request can be found in edge logs. */

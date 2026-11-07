@@ -11,7 +11,7 @@
 
 import { queryAll } from "./d1";
 import { contains, networkAddress, normalizeIp } from "./cidr";
-import { logEvent } from "./logging";
+import { logEvent, shouldLogThrottled } from "./logging";
 import type { RequestContext } from "./routing";
 import {
   clientCountryForLogs,
@@ -29,13 +29,7 @@ import {
 } from "./routing";
 import { isTrustedCrawler } from "./tracking";
 import { declaredCrawlerToken } from "./bots";
-import {
-  BASE_URL,
-  GATE_COOKIE,
-  GATE_TTL_SECONDS,
-  ROOT_DOMAIN,
-  rootDomainForHost,
-} from "./config";
+import { GATE_COOKIE, GATE_TTL_SECONDS, ROOT_DOMAIN, rootDomainForHost } from "./config";
 import { GATE_I18N } from "../_data/runtime";
 import { hmacSha256Hex, timingSafeEqual } from "./crypto";
 
@@ -287,20 +281,22 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
   const passed = trust.trusted || trust.declaredCrawler || trust.cookieValid;
 
   if (passed && !forceChallenge) {
-    deferLog(
-      context,
-      logEvent(env, "gate_entry", request, {
-        outcome: "passed",
-        status: 302,
-        message: trust.trusted
-          ? "trusted"
-          : trust.declaredCrawler
-            ? `declared_crawler:${trust.crawlerToken}`
-            : trust.shouldRenew
-              ? "renewed"
-              : "cookie",
-      }),
-    );
+    if (shouldLogThrottled("gate_entry", clientIpForLogs(request))) {
+      deferLog(
+        context,
+        logEvent(env, "gate_entry", request, {
+          outcome: "passed",
+          status: 302,
+          message: trust.trusted
+            ? "trusted"
+            : trust.declaredCrawler
+              ? `declared_crawler:${trust.crawlerToken}`
+              : trust.shouldRenew
+                ? "renewed"
+                : "cookie",
+        }),
+      );
+    }
     let resp = Response.redirect(`https://${host}${next}`, 302);
 // Allowlisted IPs and crawlers have no cookie, so issue one; renew existing cookies only near expiry.
     //
@@ -400,10 +396,14 @@ export async function renderGatePage(
   if (source === null) return new Response("Gate page unavailable", { status: 503 });
 // The build renders the language in <html lang="{{ g.lang }}">. No template or
 // artifact contains a `{{lang}}` placeholder, so do not perform a needless replacement.
-  const html = source
-    .replaceAll("{{host}}", escapeHtml(host))
-    .replaceAll("{{next}}", escapeHtml(next))
-    .replaceAll("{{error}}", escapeHtml(opts.errorKey ?? ""));
+  // One pass, so a value that itself contains a placeholder token is never rescanned. Sequential
+  // replaceAll calls let `next=/x?q={{error}}` swallow the later replacement.
+  const values: Record<string, string> = {
+    host: escapeHtml(host),
+    next: escapeHtml(next),
+    error: escapeHtml(opts.errorKey ?? ""),
+  };
+  const html = source.replace(/\{\{(host|next|error)\}\}/g, (_match, key: string) => values[key] ?? "");
 
 // Never cache the gate page.
   //
@@ -432,92 +432,7 @@ interface BlockedRow {
   prefix: number;
 }
 
-/**
- * Record failed gate attempts and block an IP on its third failure within 24 hours.
- *
- * Store only the HMAC of each IP. Write the normalized address to blocked_ips
- * only when blocking it. Delete the counter after a successful write to avoid
- * retaining rows for blocked sources or repeatedly auditing the same block.
- */
-/* Automatic gate-failure threshold blocking has been removed. */
-async function removedBanAfterGateFailures(
-  _env: import("./env").Env,
-  _request: Request,
-  _ip: string,
-): Promise<boolean> {
-  return false;
-/*
-  if (!env.DB || !env.OBSERVABILITY_HMAC_KEY) return false;
-  const normalized = normalizeIp(ip);
-  if (!normalized) return false;
-  const parsed = parseCidr(normalized);
-  if (!parsed) return false;
-
-  const hashedIp = await ipHash(normalized, env);
-  if (!hashedIp) return false;
-
-  try {
-    const rows = await queryAll<{ failures: number }>(
-      env.DB,
-      `INSERT INTO gate_failures (ip_hash, failures, window_started_at, last_seen_at)
-       VALUES (?, 1, unixepoch(), unixepoch())
-       ON CONFLICT(ip_hash) DO UPDATE SET
-         failures = CASE
-           WHEN gate_failures.last_seen_at < unixepoch() - ? THEN 1
-           ELSE gate_failures.failures + 1
-         END,
-         window_started_at = CASE
-           WHEN gate_failures.last_seen_at < unixepoch() - ? THEN unixepoch()
-           ELSE gate_failures.window_started_at
-         END,
-         last_seen_at = unixepoch()
-       RETURNING failures`,
-      hashedIp,
-      GATE_FAILURE_WINDOW_SECONDS,
-      GATE_FAILURE_WINDOW_SECONDS,
-    );
-    if ((rows[0]?.failures ?? 0) < GATE_FAILURE_BAN_THRESHOLD) return false;
-
-    const now = "datetime('now')";
-    const reason = `${GATE_FAILURE_BAN_THRESHOLD} unverified gate requests within 24h`;
-    const mutationSql =
-      `INSERT INTO blocked_ips
-         (cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active)
-       VALUES (?, ?, ?, ?, 'gate/threshold', ${now}, ${now}, 'gate-threshold', 1)
-       ON CONFLICT(cidr) DO UPDATE SET
-         network = excluded.network, prefix = excluded.prefix, reason = excluded.reason,
-         source = 'gate/threshold', updated_at = excluded.updated_at,
-         updated_by = 'gate-threshold', active = 1`;
-    const auditSql =
-      `INSERT INTO blocklist_audit
-         (cidr, network, prefix, action, actor, reason, source, previous_reason,
-          previous_source, previous_updated_at, created_at)
-       VALUES (?, ?, ?, 'threshold_block', 'gate-threshold', ?, 'gate/threshold',
-               '', '', '', ${now})`;
-    const clearSql = "DELETE FROM gate_failures WHERE ip_hash = ?";
-    const statements = [
-      env.DB.prepare(mutationSql).bind(parsed.cidr, parsed.network, parsed.prefix, reason),
-      env.DB.prepare(auditSql).bind(parsed.cidr, parsed.network, parsed.prefix, reason),
-      env.DB.prepare(clearSql).bind(hashedIp),
-    ];
-    const batched = await executeBatch(env.DB, statements);
-    if (!batched) {
-      if (!(await execute(env.DB, mutationSql, parsed.cidr, parsed.network, parsed.prefix, reason))) return false;
-      if (!(await execute(env.DB, auditSql, parsed.cidr, parsed.network, parsed.prefix, reason))) return false;
-      if (!(await execute(env.DB, clearSql, hashedIp))) return false;
-    }
-    await logEvent(env, "gate_threshold_block", request, {
-      outcome: "blocked",
-      status: 403,
-      ip: normalized,
-      message: `cidr=${parsed.cidr}; failures=${GATE_FAILURE_BAN_THRESHOLD}`,
-    });
-    return true;
-  } catch {
-    // Preserve the gate's existing behavior if the failure counter is unavailable; do not block by mistake.
-    return false;
-  }*/
-}
+/* Automatic gate-failure threshold blocking was removed; manual bans go through /api/blocklist. */
 
 /**
  * Process-local cache duration for the complete blocked_ips list, in milliseconds.
@@ -695,13 +610,17 @@ export async function isBlocked(
       ? matchBlockedRow(rows, normalized, maxPrefix)
       : await queryBlockedRows(env.DB, normalized, maxPrefix);
     if (matched) {
-      await logEvent(env as never, "block_match", request, {
-        ip: normalized,
-        path: url.pathname,
-        outcome: "blocked",
-        status: 403,
-        message: `cidr=${matched.cidr}`,
-      });
+      // Keep the first match per source per minute; a blocked scanner would otherwise write
+      // one events row per request and can exhaust the daily D1 write budget.
+      if (shouldLogThrottled("block_match", normalized)) {
+        await logEvent(env as never, "block_match", request, {
+          ip: normalized,
+          path: url.pathname,
+          outcome: "blocked",
+          status: 403,
+          message: `cidr=${matched.cidr}`,
+        });
+      }
       return true;
     }
   } catch {
@@ -725,9 +644,8 @@ export const GATE_TURNSTILE_ACTION = "gate";
  * define who counts as a visitor (tasks/22 W9-16, defense in depth). Reject a
  * missing hostname.
  *
- * Validate `action` only if the site declares one. The gate widget currently
- * has no action and siteverify returns none. If an action is added later, use
- * a fixed expected value here so tokens from other components cannot be reused.
+ * The gate widget declares `action: "gate"` (src/static/js/auth.js) and
+ * siteverify echoes it, so tokens minted for another widget are rejected.
  *
  * Exported so tests can verify that visitor-supplied forwarding headers never
  * reach remoteip. `handleVerify` is the only production caller.
@@ -801,7 +719,10 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
   const { request, env } = context;
   const startedAt = Date.now();
   if (request.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { Allow: "POST", "Cache-Control": "no-store" },
+    });
   }
 
   let form: FormData;
@@ -820,7 +741,9 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
     return renderGatePage(context, { errorKey: "invalid" });
   }
 
-  const token = form.get("cf-turnstile-response")?.toString() ?? "";
+  // Turnstile tokens are ~2 KB; cap the field before it reaches siteverify or the logs.
+  const submittedToken = form.get("cf-turnstile-response")?.toString() ?? "";
+  const token = submittedToken.length <= 2048 ? submittedToken : "";
   const next = safeNextPath(form.get("next")?.toString() ?? null);
   const host = sanitizeHost(form.get("host")?.toString() ?? null);
 // Turnstile compares remoteip with the challenge source. Pass only the
@@ -853,23 +776,25 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
   }
 
   if (!success) {
-    deferLog(
-      context,
-      logEvent(env, "gate_verify", request, {
-        outcome: unavailable ? "unavailable" : "failed",
-        status: unavailable ? 503 : 403,
-        durationMs: Date.now() - startedAt,
-        message: unavailable
-          ? env.GATE_HMAC_KEY
-            ? env.TURNSTILE_SECRET
-              ? "turnstile_unavailable"
-              : "turnstile_secret_missing"
-            : "gate_hmac_key_missing"
-          : token
-            ? verifyDiagnostics.reason ?? "turnstile_rejected"
-            : "missing_token",
-      }),
-    );
+    if (shouldLogThrottled("gate_verify", remoteip)) {
+      deferLog(
+        context,
+        logEvent(env, "gate_verify", request, {
+          outcome: unavailable ? "unavailable" : "failed",
+          status: unavailable ? 503 : 403,
+          durationMs: Date.now() - startedAt,
+          message: unavailable
+            ? env.GATE_HMAC_KEY
+              ? env.TURNSTILE_SECRET
+                ? "turnstile_unavailable"
+                : "turnstile_secret_missing"
+              : "gate_hmac_key_missing"
+            : token
+              ? verifyDiagnostics.reason ?? "turnstile_rejected"
+              : "missing_token",
+        }),
+      );
+    }
     const errorKey = unavailable ? "unavailable" : "failed";
     if (wantsJson(request)) {
       return Response.json(

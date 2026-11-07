@@ -133,7 +133,7 @@ describe("visitor ip API", () => {
       expect(resp.status).toBe(200);
 
       const audit = auditCall();
-      expect(audit, "解密成功必须写 audit_event").toBeTruthy();
+      expect(audit, "a successful decryption must write an audit_event").toBeTruthy();
       const details = audit?.[3] as { outcome?: string; status?: number; message?: string };
       expect(details?.outcome).toBe("visitor_ip_revealed");
       expect(details?.status).toBe(200);

@@ -97,6 +97,17 @@ export function csrfCookieHeader(token: string, secure = true): string {
 }
 
 /**
+ * Validate a token's signature and session binding without the request checks.
+ *
+ * Used by /api/auth/status to keep returning the token already in the browser's
+ * cookie: re-minting on every call rotated the shared cookie and made writes in
+ * another open tab fail with 403 until that tab reloaded.
+ */
+export async function isValidCsrfToken(env: Env, token: string, sid: string): Promise<boolean> {
+  return validToken(token, sid, csrfSecret(env));
+}
+
+/**
  * Validate a write request: trusted Origin, matching cookie and header, valid
  * server signature, and binding to the current `sid` from the caller's
  * already-validated session.

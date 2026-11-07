@@ -36,12 +36,24 @@ interface BlockedRow {
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
+/** Bound the offset so a huge ?page cannot overflow the bound integer or reach SQLite as a REAL. */
+const MAX_PAGE = 1_000_000;
+
+/** Every blocklist response contains admin identity or block reasons; never let a cache keep it. */
+const NO_STORE_JSON = { "Cache-Control": "no-store" };
+
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, { status, headers: NO_STORE_JSON });
+}
 
 /** Maximum block-reason length, consistent with the caps on other string fields and preventing oversized rows. */
 const BLOCKLIST_REASON_MAX_LENGTH = 255;
 
 function pageParams(url: URL): { page: number; pageSize: number; offset: number } {
-  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+  const page = Math.min(
+    MAX_PAGE,
+    Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1),
+  );
   const pageSize = Math.min(
     MAX_PAGE_SIZE,
     Math.max(1, Number.parseInt(url.searchParams.get("page_size") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE),
@@ -51,7 +63,7 @@ function pageParams(url: URL): { page: number; pageSize: number; offset: number 
 
 /** This file uses more direct admin-facing copy than the default, so pass it explicitly. */
 function adminSession(env: Env, request: Request) {
-  return requireAdminSession(env, request, "需要管理员权限");
+  return requireAdminSession(env, request, "Administrator permission required");
 }
 
 async function actorOf(session: { user: { email?: string; name?: string } }): Promise<string> {
@@ -85,7 +97,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     pageSize,
     offset,
   );
-  return Response.json({
+  return json({
     ok: true,
     page,
     page_size: pageSize,
@@ -98,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const auth = await adminSession(context.env, context.request);
   if (auth instanceof Response) return auth;
   if (!(await verifyCsrf(context.env, context.request, auth.session.sid))) {
-    return Response.json({ error: "csrf_invalid" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    return json({ error: "csrf_invalid" }, 403);
   }
   const { session } = auth;
   const request = context.request;
@@ -106,15 +118,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: "invalid json" }, { status: 400 });
+    return json({ error: "invalid json" }, 400);
   }
   const raw = (body as { cidr?: unknown })?.cidr;
   if (typeof raw !== "string") {
-    return Response.json({ error: "cidr required" }, { status: 400 });
+    return json({ error: "cidr required" }, 400);
   }
   const parsed = parseCidr(raw);
   if (!parsed) {
-    return Response.json({ error: "invalid cidr" }, { status: 400 });
+    return json({ error: "invalid cidr" }, 400);
   }
   // Limit the reason length. Other string fields are capped, but this one was not, so one request
   // could write hundreds of KB. That could overwhelm paginated responses, consume the 500 MB database,
@@ -124,6 +136,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const reason = rawReason.slice(0, BLOCKLIST_REASON_MAX_LENGTH);
   const actor = await actorOf(session);
   const now = "datetime('now')";
+  // A reactivation through ON CONFLICT overwrites the previous row; read it first so the audit
+  // keeps the before-state that blocklist_audit exists to provide.
+  const existingRows = await queryAll<BlockedRow>(
+    context.env.DB,
+    "SELECT cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active FROM blocked_ips WHERE cidr = ?",
+    parsed.cidr,
+  );
+  const previous = existingRows[0];
   const mutationSql =
     `INSERT INTO blocked_ips
        (cidr, network, prefix, reason, source, created_at, updated_at, updated_by, active)
@@ -136,41 +156,50 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     `INSERT INTO blocklist_audit
        (cidr, network, prefix, action, actor, reason, source, previous_reason,
         previous_source, previous_updated_at, created_at)
-     VALUES (?, ?, ?, 'add', ?, ?, 'admin/add', '', '', '', ${now})`;
+     VALUES (?, ?, ?, 'add', ?, ?, 'admin/add', ?, ?, ?, ${now})`;
   const ok = await writeAndAudit(
     context.env,
     mutationSql,
     [parsed.cidr, parsed.network, parsed.prefix, reason, actor],
     auditSql,
-    [parsed.cidr, parsed.network, parsed.prefix, actor, reason],
+    [
+      parsed.cidr,
+      parsed.network,
+      parsed.prefix,
+      actor,
+      reason,
+      previous?.reason ?? "",
+      previous?.source ?? "",
+      previous?.updated_at ?? "",
+    ],
   );
   if (!ok) {
-    return Response.json({ error: "D1 write failed" }, { status: 500 });
+    return json({ error: "D1 write failed" }, 500);
   }
   await logEvent(context.env, "blocklist_change", request, {
     outcome: "success",
-    status: 200,
+    status: 201,
     path: "blocklist",
     message: `add ${parsed.cidr} by ${actor}`,
   });
-  return Response.json({ ok: true, cidr: parsed.cidr, action: "add" }, { status: 201 });
+  return json({ ok: true, cidr: parsed.cidr, action: "add" }, 201);
 };
 
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const auth = await adminSession(context.env, context.request);
   if (auth instanceof Response) return auth;
   if (!(await verifyCsrf(context.env, context.request, auth.session.sid))) {
-    return Response.json({ error: "csrf_invalid" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    return json({ error: "csrf_invalid" }, 403);
   }
   const { session } = auth;
   const url = new URL(context.request.url);
   const raw = url.searchParams.get("cidr");
   if (!raw) {
-    return Response.json({ error: "cidr required" }, { status: 400 });
+    return json({ error: "cidr required" }, 400);
   }
   const parsed = parseCidr(raw);
   if (!parsed) {
-    return Response.json({ error: "invalid cidr" }, { status: 400 });
+    return json({ error: "invalid cidr" }, 400);
   }
   const rows = await queryAll<BlockedRow>(
     context.env.DB,
@@ -179,11 +208,11 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     parsed.cidr,
   );
   if (!rows.length) {
-    return Response.json({ ok: false, error: "not found" }, { status: 404 });
+    return json({ ok: false, error: "not found" }, 404);
   }
   const row = rows[0];
   if (row.active === 0) {
-    return Response.json({ ok: true, cidr: row.cidr, already_unblocked: true });
+    return json({ ok: true, cidr: row.cidr, already_unblocked: true });
   }
   const actor = await actorOf(session);
   const request = context.request;
@@ -205,7 +234,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     [parsed.cidr, parsed.network, parsed.prefix, actor, row.reason, row.reason, row.source, row.updated_at],
   );
   if (!ok) {
-    return Response.json({ error: "D1 write failed" }, { status: 500 });
+    return json({ error: "D1 write failed" }, 500);
   }
   await logEvent(context.env, "blocklist_change", request, {
     outcome: "success",
@@ -213,7 +242,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     path: "blocklist",
     message: `unblock ${parsed.cidr} by ${actor}`,
   });
-  return Response.json({ ok: true, cidr: parsed.cidr, action: "unblock" });
+  return json({ ok: true, cidr: parsed.cidr, action: "unblock" });
 };
 
 async function writeAndAudit(

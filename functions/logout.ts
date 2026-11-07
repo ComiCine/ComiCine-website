@@ -26,8 +26,8 @@ import {
   runtimeConfigError,
 } from "./_lib/session";
 import type { Env } from "./_lib/env";
-import { logEvent } from "./_lib/logging";
-import { safeNextUrl } from "./_lib/routing";
+import { logEvent, shouldLogThrottled } from "./_lib/logging";
+import { clientIpForLogs, safeNextUrl } from "./_lib/routing";
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
@@ -53,11 +53,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
   }
 
-  await logEvent(env, "logout", request, {
-    outcome: "ok",
-    status: 302,
-    message: session ? `sid=${session.sid.slice(0, 8)}` : "no_session",
-  });
+  // /logout is reachable without a gate cookie from a spoofed crawler UA, so keep the
+  // first logout log per source per minute instead of one events row per request.
+  if (shouldLogThrottled("logout", clientIpForLogs(request))) {
+    await logEvent(env, "logout", request, {
+      outcome: "ok",
+      status: 302,
+      message: session ? `sid=${session.sid.slice(0, 8)}` : "no_session",
+    });
+  }
 
   // If Access is not configured, fall back to redirecting only to next; the local session has already been revoked.
   const target = accessTeamDomain(env) ? accessLogoutUrl(env, next) : next;

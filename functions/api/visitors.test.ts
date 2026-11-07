@@ -204,7 +204,7 @@ describe("visitors API", () => {
       expect(first.headers.get("Cache-Control")).toBe("private, no-store");
       expect(puts).toHaveLength(1);
       expect(store.values().next().value?.headers.get("Cache-Control")).toBe(
-        "public, max-age=300",
+        "public, max-age=660",
       );
 
       const second = await onRequestGet(
@@ -215,6 +215,24 @@ describe("visitors API", () => {
       // A cache hit must not query D1 again.
       expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
       expect(data.markers[0].ip_hash).toBe("cached01");
+      vi.unstubAllGlobals();
+    });
+
+    it("ignores unknown query parameters in the cache key", async () => {
+      const { cache, puts } = fakeCache();
+      vi.stubGlobal("caches", { default: cache });
+      vi.mocked(queryAll)
+        .mockResolvedValueOnce(singleRowStats)
+        .mockResolvedValueOnce(singleRowMarkers);
+
+      await onRequestGet(
+        context(new Request("https://visitor.comicine.com/api/visitors?x=1")) as never,
+      );
+      await onRequestGet(
+        context(new Request("https://visitor.comicine.com/api/visitors?x=2")) as never,
+      );
+      expect(vi.mocked(queryAll)).toHaveBeenCalledTimes(2);
+      expect(puts).toHaveLength(1);
       vi.unstubAllGlobals();
     });
 

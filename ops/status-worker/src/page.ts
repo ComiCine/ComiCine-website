@@ -421,8 +421,12 @@ export function statusPageHtml(payload: PagePayload, lang: Lang): string {
 
   const card = (p: PageProbe) => {
     const sk = statusKey(p.status);
-    // `label_key` from D1 (`probes.label_key`) can be any string; translate known keys, otherwise use the probe name.
-    const label = (p.label_key && UI[lang][p.label_key as UiKey]) || p.name;
+    // `label_key` from D1 (`probes.label_key`) can be any string, including Object.prototype
+    // names such as "toString"; only own UI keys are translated, otherwise use the probe name.
+    const label =
+      (p.label_key && Object.prototype.hasOwnProperty.call(UI[lang], p.label_key)
+        ? UI[lang][p.label_key as UiKey]
+        : "") || p.name;
     const uptime = p.uptime === null ? "—" : `${p.uptime.toFixed(2)}%`;
     // Show a reason only for non-healthy states; otherwise the line is noise, and an up code
     // (`http_200` or `ok`) gives visitors no useful information.
