@@ -123,6 +123,13 @@ html[lang^="en"] { --ls-scale: 0.3; }
     --focus-ring: var(--accent);
     --footer-border: var(--line);
 
+    /* Hover and shine roles mirrored from the dark palette, so a hover never inherits the
+       dark value: white hover text on a white surface was invisible. */
+    --hover-highlight: #1f2328;
+    --hover-highlight-soft: rgba(31, 35, 40, 0.07);
+    --hover-highlight-overlay: rgba(31, 35, 40, 0.06);
+    --shine-subtle: rgba(31, 35, 40, 0.06);
+
     /* Translucent overlays and shadows. */
     --visitor-panel-rgb: 240, 240, 240;
     --auth-card-bg: #ffffff;

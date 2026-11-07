@@ -271,3 +271,10 @@ h1, h3 { font-weight: 600 !important; }
     .currency-picker { padding: 12px; align-items: end; }
     .currency-picker-panel { width: 100%; max-height: min( min(82vh, 620px), calc(100dvh - 24px) ); padding: 16px; border-radius: var(--radius-lg) var(--radius-lg) 12px 12px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .service-card, .service-card::before, .detail-hint, .detail-hint svg,
+    .service-modal, .modal-panel, .cta-link { transition: none; }
+    .service-card:hover { transform: none; }
+    .service-card:hover .detail-hint svg { transform: none; }
+}

@@ -46,8 +46,8 @@ See ADDITIONAL_TERMS.txt.
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
     <link rel="preload" as="image" type="image/png" href="{{ _('survey_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-<link rel="preload" as="script" href="/static/js/contact.js?v=4">
-<link rel="stylesheet" href="/static/css/contact.css?v=8">
+<link rel="preload" as="script" href="/static/js/contact.js?v=5">
+<link rel="stylesheet" href="/static/css/contact.css?v=9">
 {% endblock %}
 
 
@@ -83,6 +83,7 @@ See ADDITIONAL_TERMS.txt.
 
         <!-- QQ. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
+            role="button" tabindex="0"
             data-action="handleCopy" data-arg="264755512"
             data-qr="{{ image_asset_base }}/static/qr-codes/qq.png">
             <div class="bubble-tip" data-i18n="click_to_copy">{{ _('click_to_copy') }}</div>
@@ -93,6 +94,7 @@ See ADDITIONAL_TERMS.txt.
 
         <!-- WeChat. -->
         <div class="reveal-item copyable pressable qr-trigger cursor-pointer relative"
+            role="button" tabindex="0"
             data-action="handleCopy" data-arg="-Lime-official-"
             data-qr="{{ image_asset_base }}/static/qr-codes/wechat.png">
             <div class="bubble-tip" data-i18n="click_to_copy">{{ _('click_to_copy') }}</div>
@@ -128,5 +130,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/contact.js?v=4" defer></script>
+    <script src="/static/js/contact.js?v=5" defer></script>
 {% endblock %}

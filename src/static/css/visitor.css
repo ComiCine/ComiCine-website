@@ -89,6 +89,7 @@
             transition: background 0.15s var(--ease-out); cursor: pointer;
         }
         .visitor-row:hover { background: var(--hover-highlight-soft); }
+        .visitor-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
         .visitor-row .dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
         .visitor-row .dot.geo { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
         .visitor-row .dot.nogeo { background: var(--text-ghost); }
@@ -121,7 +122,7 @@
             40% { opacity: 1; transform: scale(1.8); }
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 767px) {
             html, body { overflow-y: auto; height: auto; min-height: 100%; }
             .main-layout { position: relative; top: auto; left: auto; right: auto; bottom: auto; margin-top: 70px; flex-direction: column; }
             .left-panel { flex: none; padding: 32px 14px calc(4.75rem + env(safe-area-inset-bottom)) 14px; }
@@ -131,7 +132,7 @@
             .stat-value { font-size: 18px; }
             .stat-label { font-size: 8px; }
         }
-        @media (min-width: 769px) {
+        @media (min-width: 768px) {
             .main-layout { top: 100px; }
         }
 
@@ -143,3 +144,9 @@
             opacity: 0; transition: opacity 0.3s var(--ease-out); pointer-events: none;
         }
         .toast.show { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-dot { animation: none; opacity: 0.6; }
+    .visitor-row, .chip, .btn, .panel-btn, .toast { transition: none; }
+    .chip:active, .btn:active, .panel-btn:active { transform: none; }
+}

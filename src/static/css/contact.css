@@ -43,6 +43,17 @@
     .copyable a:hover { color: var(--hover-highlight); opacity: 1; }
 }
 
+/* Copy rows are buttons, so they need a visible keyboard focus ring. */
+.copyable[role="button"]:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bubble-tip, .hover-line, .qr-display { transition: none; }
+}
+
 /* Desktop QR overlay, shown at the right when hovering a social link. */
 @media (hover: hover) {
     .qr-display {
