@@ -258,7 +258,7 @@ function renderList(markers) {
         Number(m.statuses[c]) + '</span>')
       .join('');
 
-    return '<div class="visitor-row" data-hash="' + esc(markerId) + '" title="' +
+    return '<div class="visitor-row" role="button" tabindex="0" data-hash="' + esc(markerId) + '" title="' +
       esc(t('ip_view_hint')) + '">' +
       '<div class="dot ' + (hasGeo ? 'geo' : 'nogeo') + '"></div>' +
       '<div class="info">' + locHtml +
@@ -397,6 +397,14 @@ async function openIpInfo(hash, row) {
 document.getElementById('visitor-list').addEventListener('click', (event) => {
   const row = event.target.closest('.visitor-row');
   if (!row) return;
+  openIpInfo(row.dataset.hash, row);
+});
+
+document.getElementById('visitor-list').addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const row = event.target.closest('.visitor-row');
+  if (!row) return;
+  event.preventDefault();
   openIpInfo(row.dataset.hash, row);
 });
 

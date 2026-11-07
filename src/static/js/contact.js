@@ -112,6 +112,16 @@ function handleCopy(text) {
     copyText(text).then(onCopied, onFailed);
 }
 
+/* Rows that copy on click are buttons; Enter/Space must run the same delegated click.
+   The email row is excluded: its inner mailto link is the keyboard path. */
+document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    var row = event.target.closest && event.target.closest('.copyable[role="button"]');
+    if (!row) return;
+    event.preventDefault();
+    row.click();
+});
+
 /* On desktop, show the matching social account's QR code on hover. */
 var qrDisplay, qrImage;
 
