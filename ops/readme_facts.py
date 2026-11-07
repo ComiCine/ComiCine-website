@@ -359,7 +359,12 @@ def check(facts: dict) -> list[str]:
 
     # Every path in the directory tree must exist (see tree_problems for the rule). Locally ignored paths
     # do not count, or secrets/ would pass locally and fail in a clean CI checkout.
-    problems.extend(tree_problems(BASE_DIR, tree_paths()))
+    tree = tree_paths()
+    if not tree:
+        # A renamed heading used to make this check silently pass with zero paths.
+        problems.append("README has no parseable project-structure tree")
+    else:
+        problems.extend(tree_problems(BASE_DIR, tree))
 
     # Trusted-list counts. Match the whole claim, not a bare number: "0" or "2" also occurs
     # in dates and TTLs, so a substring search could never fail.
