@@ -326,7 +326,7 @@ describe("force theme challenge", () => {
     // so s-maxage is omitted. max-age serves only the browser's private cache, while
     // stale-while-revalidate remains enabled.
     expect(resp.headers.get("Cache-Control")).toBe(
-      "public, max-age=300, stale-while-revalidate=3600",
+      "private, max-age=300, stale-while-revalidate=3600",
     );
     expect(resp.headers.get("Cache-Control")).not.toContain("s-maxage");
     expect(resp.headers.get("Vary")).toContain("Accept-Language");
@@ -389,13 +389,29 @@ describe("force theme challenge", () => {
   });
 });
 
+describe("identity host gate support", () => {
+  it("keeps the gate config reachable so /login can complete verification", async () => {
+    const config = await handleOnRequest(
+      context(new Request("https://identity.comicine.com/gate/config")),
+    );
+    expect(config.status).toBe(200);
+    await expect(config.json()).resolves.toHaveProperty("root_domain", "comicine.com");
+
+    // Any other path on the identity host stays a deliberate 404.
+    const other = await handleOnRequest(
+      context(new Request("https://identity.comicine.com/visitor")),
+    );
+    expect(other.status).toBe(404);
+  });
+});
+
 describe("legacy HTML redirects", () => {
   it.each([
     ["https://comicine.com/www.html", "https://comicine.com/"],
     ["https://comicine.com/images.html", "https://comicine.com/"],
     ["https://comicine.com/portfolio.html", "https://comicine.com/portfolio"],
     ["https://comicine.com/visitor.html", "https://visitor.comicine.com/"],
-    ["https://comicine.com/apple-account.html", "https://account.comicine.com/"],
+    ["https://comicine.com/apple-account.html", "https://account.comicine.com/apple"],
     ["https://comicine.com/redirect.html", "https://redirect.comicine.com/"],
     ["https://comicine.com/status.html", "https://status.comicine.com/"],
     ["https://services.comicine.com/index.html", "https://services.comicine.com/"],
@@ -1105,6 +1121,21 @@ describe("canonical /gate entry", () => {
     );
     expect(diag.status).toBe(200);
   });
+
+  it("keeps the legacy /__gate config and verify aliases reachable", async () => {
+    const config = await handleOnRequest(
+      context(new Request("https://comicine.com/__gate/config")),
+    );
+    expect(config.status).toBe(200);
+    await expect(config.json()).resolves.toHaveProperty("root_domain", "comicine.com");
+
+    // A GET reaches the verify handler, which rejects everything but POST; a 404 would mean the
+    // legacy alias is not routed at all.
+    const verify = await handleOnRequest(
+      context(new Request("https://comicine.com/__gate/verify")),
+    );
+    expect(verify.status).toBe(405);
+  });
 });
 
 describe("onRequest wrapper", () => {
@@ -1458,7 +1489,7 @@ describe("cachedPageAsset passes the asset body through", () => {
       expect(resp.statusText).toBe("OK");
       // The page cache headers use the overridden values; all other headers are copied from ASSETS.
       expect(resp.headers.get("Cache-Control")).toBe(
-        "public, max-age=300, stale-while-revalidate=3600",
+        "private, max-age=300, stale-while-revalidate=3600",
       );
       expect(resp.headers.get("Vary")).toBe("Accept-Language");
       expect(resp.headers.get("Content-Type")).toBe(ASSET_HEADERS["Content-Type"]);

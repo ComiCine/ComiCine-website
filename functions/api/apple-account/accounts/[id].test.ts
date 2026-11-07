@@ -229,7 +229,7 @@ describe("apple-account account id API", () => {
       vi.mocked(execute).mockRejectedValueOnce(new Error("D1_ERROR: Exceeded maximum DB size"));
       const resp = await onRequestPut(context(request("PUT", updateBody)) as never);
       expect(resp.status).toBe(500);
-      expect(((await resp.json()) as { error: string }).error).not.toContain("已存在");
+      expect(((await resp.json()) as { error: string }).error).not.toContain("already exists");
       expect((auditCall()?.[3] as { outcome?: string })?.outcome).toBe("account_update_failed");
     });
 

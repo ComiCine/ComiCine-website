@@ -7,6 +7,8 @@
 
 """Tests for blocklist parsing and D1 sync (Nginx scanning was removed with the VPS)."""
 
+import sqlite3
+
 import pytest
 
 import auto_block
@@ -205,3 +207,57 @@ def test_managed_section_starts_empty_and_grows(tmp_path):
 
     auto_block._write_pulled_section(str(p), {"9.9.9.9": "cli/add"}, ["9.9.9.9"])
     assert auto_block.read_blocklist(str(p)) == ["9.9.9.9/32"]
+
+
+def _blocked_ips_table(conn):
+    conn.execute(
+        "CREATE TABLE blocked_ips ("
+        "cidr TEXT PRIMARY KEY, network TEXT NOT NULL, prefix INTEGER NOT NULL, "
+        "reason TEXT DEFAULT '', source TEXT DEFAULT '', "
+        "created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), "
+        "updated_by TEXT DEFAULT '', active INTEGER DEFAULT 1)"
+    )
+
+
+def test_d1_upsert_supplies_every_declared_column(monkeypatch):
+    """The INSERT lists nine columns, so it must supply nine values."""
+    captured = {}
+
+    def fake_call(_token, _method, _path, body):
+        captured["sql"] = body["sql"]
+        return {"result": [{"meta": {"changes": 1}}]}
+
+    monkeypatch.setattr(auto_block, "_call", fake_call)
+    changes = auto_block._upsert_blocklist("t", "a", "d", ["1.2.3.4/32", "10.0.0.0/8"])
+    assert changes == 1
+
+    conn = sqlite3.connect(":memory:")
+    _blocked_ips_table(conn)
+    conn.execute(captured["sql"])
+    rows = conn.execute("SELECT cidr, active FROM blocked_ips ORDER BY cidr").fetchall()
+    assert rows == [("1.2.3.4/32", 1), ("10.0.0.0/8", 1)]
+
+
+def test_d1_delete_soft_deletes_instead_of_destroying_the_row(monkeypatch):
+    """Unblocking keeps the row (active=0) as the rollback basis."""
+    captured = {}
+
+    def fake_call(_token, _method, _path, body):
+        captured["sql"] = body["sql"]
+        return {"result": [{"meta": {"changes": 1}}]}
+
+    monkeypatch.setattr(auto_block, "_call", fake_call)
+    changes = auto_block._delete_blocklist("t", "a", "d", ["1.2.3.4/32"])
+    assert changes == 1
+    assert captured["sql"].startswith("UPDATE blocked_ips")
+    assert "active = 0" in captured["sql"]
+
+    conn = sqlite3.connect(":memory:")
+    _blocked_ips_table(conn)
+    conn.execute(
+        "INSERT INTO blocked_ips (cidr, network, prefix, reason, source) "
+        "VALUES ('1.2.3.4/32', '1.2.3.4', 32, 'kept', 'auto_block')"
+    )
+    conn.execute(captured["sql"])
+    row = conn.execute("SELECT active, reason FROM blocked_ips").fetchone()
+    assert row == (0, "kept")

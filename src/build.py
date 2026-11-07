@@ -1334,5 +1334,6 @@ if __name__ == "__main__":
     # --verify-manifest: check only whether existing artifacts match manifest.json. It is called before deployment by
     # ops/pages_deploy.sh and does not build anything.
     if "--verify-manifest" in sys.argv[1:]:
-        sys.exit(verify_manifest())
+        # Exit codes wrap at 256: returning the raw problem count made 256 mismatches exit 0.
+        sys.exit(1 if verify_manifest() else 0)
     sys.exit(main())

@@ -542,6 +542,31 @@ def test_deploy_rejects_workers_together_with_a_single_worker(tmp_path):
     assert "mutually exclusive" in result.stderr
 
 
+def test_deploy_rejects_workers_after_a_single_worker(tmp_path):
+    """The same conflict must fail regardless of argument order."""
+    repo = make_repo(tmp_path)
+    result = run(
+        [BASH, "ops/deploy.sh", "--worker=comicine-status", "--workers", "--dry-run"],
+        cwd=repo,
+    )
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "mutually exclusive" in result.stderr
+
+
+def test_deploy_rejects_explicit_docs_when_docs_are_skipped(tmp_path):
+    """An explicit --docs combined with COMICINE_SKIP_DOCS=1 would deploy nothing."""
+    repo = make_repo(tmp_path)
+    result = run(
+        [BASH, "ops/deploy.sh", "--docs", "--dry-run"],
+        cwd=repo,
+        env={"COMICINE_SKIP_DOCS": "1"},
+    )
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "COMICINE_SKIP_DOCS" in result.stderr
+
+
 def test_migrate_apply_requires_remote():
     result = run(
         [BASH, "ops/migrate_d1.sh"],

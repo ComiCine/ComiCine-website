@@ -170,19 +170,33 @@ describe("sendViaSmtp", () => {
     vi.mocked(connect).mockReturnValue(socket as never);
 
     await sendViaSmtp(CONFIG, {
-      to: "ops@example.com\r\nBcc: attacker@example.com",
+      to: "ops@example.com",
       subject: "down\r\nX-Injected: 1",
       text: "body",
     });
 
     const header = headerBlock(written());
-    expect(header).not.toContain(CRLF + "Bcc:");
     expect(header).not.toContain(CRLF + "X-Injected:");
-    expect(header).toContain("To: ops@example.com Bcc: attacker@example.com");
+    expect(header).toContain("To: ops@example.com");
     expect(header).toContain("Subject: =?UTF-8?B?");
     // The headers must not contain an unencoded injection payload (no raw CRLF outside
     // the B-word encoding).
-    expect(header.split(CRLF).every((line) => !line.startsWith("Bcc:"))).toBe(true);
+    expect(header.split(CRLF).every((line) => !line.startsWith("X-Injected:"))).toBe(true);
+  });
+
+  it("rejects envelope addresses that could inject SMTP commands", async () => {
+    const { socket, written } = scriptedSocket();
+    vi.mocked(connect).mockReturnValue(socket as never);
+
+    const result = await sendViaSmtp(CONFIG, {
+      to: "ops@example.com\r\nRCPT TO:<attacker@example.com>",
+      subject: "down",
+      text: "body",
+    });
+
+    expect(result.sent).toBe(false);
+    expect(result.reason).toBe("smtp_invalid_address");
+    expect(written()).not.toContain("attacker@example.com");
   });
 
   it("wraps base64 payloads at 76 columns and round-trips the text", async () => {

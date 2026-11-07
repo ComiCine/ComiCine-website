@@ -99,22 +99,24 @@ export function pageSlug(pathname: string): string {
   return first || "root";
 }
 
+/** Bot markers, compiled once instead of rebuilding the table on every tracked request. */
+const UA_BOT_FAMILIES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/googlebot/, "googlebot"],
+  [/bingbot/, "bingbot"],
+  [/baiduspider/, "baiduspider"],
+  [/yandex/, "yandexbot"],
+  [/applebot/, "applebot"],
+  [/gptbot|chatgpt-|oai-searchbot/, "ai-bot"],
+  [/claudebot|anthropic-ai|claude-web/, "ai-bot"],
+  [/perplexitybot|amazonbot|ccbot|diffbot/, "ai-bot"],
+  [/uptimerobot|pingdom|gtmetrix|statuscake|datadog|zabbix/, "monitor"],
+];
+
 /** Allowlisted user-agent categories; store only a limited classification, never the original UA. */
 export function uaFamily(userAgent: string): string {
   const ua = userAgent.toLowerCase();
   if (!ua) return "";
-  const bots: Array<[RegExp, string]> = [
-    [/googlebot/, "googlebot"],
-    [/bingbot/, "bingbot"],
-    [/baiduspider/, "baiduspider"],
-    [/yandex/, "yandexbot"],
-    [/applebot/, "applebot"],
-    [/gptbot|chatgpt-|oai-searchbot/, "ai-bot"],
-    [/claudebot|anthropic-ai|claude-web/, "ai-bot"],
-    [/perplexitybot|amazonbot|ccbot|diffbot/, "ai-bot"],
-    [/uptimerobot|pingdom|gtmetrix|statuscake|datadog|zabbix/, "monitor"],
-  ];
-  for (const [re, name] of bots) if (re.test(ua)) return name;
+  for (const [re, name] of UA_BOT_FAMILIES) if (re.test(ua)) return name;
   if (ua.includes("edg/")) return "edge";
   if (ua.includes("chrome")) return "chrome";
   if (ua.includes("firefox")) return "firefox";
@@ -242,8 +244,11 @@ async function ensureTrackingSchema(env: Env): Promise<void> {
       }
       return;
     }
+    // CREATE ... IF NOT EXISTS reports meta.changes = 0, which `execute` treats as failure;
+    // check the statement result directly so a successful no-op still finishes the bootstrap.
     for (const sql of TRACKING_DDL) {
-      if (!(await execute(env.DB, sql))) return;
+      const result = await env.DB.prepare(sql).run();
+      if (result?.success !== true) return;
     }
     trackingSchemaReady = true;
   } catch {

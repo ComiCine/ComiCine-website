@@ -10,14 +10,14 @@ See ADDITIONAL_TERMS.txt.
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>页面预览</title>
+<title>Page preview</title>
 
 <link rel="stylesheet" href="../static/css/tokens.css?v=3">
 <link rel="stylesheet" href="../static/css/preview.css?v=4">
 </head>
 <body>
-    <h1>ComiCine 页面预览</h1>
-    <p class="desc">所有子域页面（单语言），点击在本地浏览器中预览（图片/导航均为本地文件）。</p>
+    <h1>ComiCine page preview</h1>
+    <p class="desc">Every subdomain page in one language. Click a page to preview it locally; images and links are local files.</p>
     <ul>{% for page in pages %}<li><a href="{{ page }}" target="_blank" rel="noopener">{{ page.replace('.html', '') }}</a></li>{% endfor %}</ul>
 </body>
 </html>

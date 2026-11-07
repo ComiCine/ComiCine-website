@@ -32,6 +32,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -361,7 +362,7 @@ def _upsert_blocklist(token: str, account_id: str, db_id: str, cidrs: list[str])
             network, prefix = parsed
             sql_value = (
                 f"({_sql_str(cidr)}, {_sql_str(network)}, {prefix}, '', "
-                f"'auto_block', datetime('now'), datetime('now'), 'auto_block')"
+                f"'auto_block', datetime('now'), datetime('now'), 'auto_block', 1)"
             )
             values.append(sql_value)
         if not values:
@@ -390,9 +391,12 @@ def _delete_blocklist(token: str, account_id: str, db_id: str, cidrs: list[str])
     changes = 0
     for chunk in _chunks(cidrs, BATCH):
         placeholders = ", ".join(_sql_str(cidr) for cidr in chunk)
+        # Soft delete: blocked_ips is the authoritative source and an unblock keeps its
+        # rollback basis (reason/source/timestamps) instead of destroying the row.
         sql = (
-            f"DELETE FROM blocked_ips "
-            f"WHERE cidr IN ({placeholders}) "
+            f"UPDATE blocked_ips SET active = 0, updated_at = datetime('now'), "
+            f"updated_by = 'auto_block' "
+            f"WHERE cidr IN ({placeholders}) AND active = 1 "
             "AND source IN ('auto_block', 'blocklist.txt')"
         )
         resp = _call(
@@ -424,14 +428,27 @@ def _render_managed_section(rows: dict[str, str], pulled: list[str]) -> str:
 
 
 def _write_pulled_section(path: str, rows: dict[str, str], pulled: list[str]) -> None:
-    """Preserve the manually maintained section and rewrite the managed section."""
+    """Preserve the manually maintained section and rewrite the managed section atomically."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
     markers = (MANAGED_MARKER, *LEGACY_MANAGED_MARKERS)
     marker_positions = [position for marker in markers if (position := text.find(marker)) >= 0]
     head = text[:min(marker_positions)].rstrip("\n") if marker_positions else text.rstrip("\n")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(head + _render_managed_section(rows, pulled))
+    content = head + _render_managed_section(rows, pulled)
+    # Rewrite through a temporary file in the same directory: a crash during the write must
+    # not truncate the handwritten section of the hand-maintained snapshot.
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    fd, tmp_path = tempfile.mkstemp(prefix=".blocklist-", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def sync_d1(dry_run: bool = False, pull: bool = False) -> int:

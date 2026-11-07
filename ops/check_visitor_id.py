@@ -66,7 +66,7 @@ def normalize(raw: str) -> str:
 def fmt_ts(value: object) -> str:
     if not isinstance(value, (int, float)):
         return "-"
-    return dt.datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")
+    return dt.datetime.fromtimestamp(value, dt.UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def d1_query_retry(cfg: dict[str, str], sql: str, tries: int = 4) -> list[dict]:
@@ -140,30 +140,45 @@ def main() -> int:
         warn(f"\nno records found: {visitor} (this ID is outside the visitor_rollups retention window)")
         return 1
 
-    statuses = d1_query_retry(
-        cfg,
-        "SELECT status, SUM(requests) AS n FROM visitor_rollups "
-        f"WHERE ip_hash = '{visitor}' GROUP BY status ORDER BY n DESC",
-    )
-    pages = d1_query_retry(
-        cfg,
-        "SELECT page_slug, SUM(requests) AS n FROM visitor_rollups "
-        f"WHERE ip_hash = '{visitor}' GROUP BY page_slug ORDER BY n DESC LIMIT 8",
-    )
+    statuses = []
+    pages = []
+    statuses_failed = False
+    try:
+        statuses = d1_query_retry(
+            cfg,
+            "SELECT status, SUM(requests) AS n FROM visitor_rollups "
+            f"WHERE ip_hash = '{visitor}' GROUP BY status ORDER BY n DESC",
+        )
+    except Exception as exc:  # noqa: BLE001
+        warn(f"  status distribution query failed: {exc}")
+        statuses_failed = True
+    try:
+        pages = d1_query_retry(
+            cfg,
+            "SELECT page_slug, SUM(requests) AS n FROM visitor_rollups "
+            f"WHERE ip_hash = '{visitor}' GROUP BY page_slug ORDER BY n DESC LIMIT 8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        warn(f"  page distribution query failed: {exc}")
 
     print(f"  first      {fmt_ts(row.get('first_ts'))}")
     print(f"  last       {fmt_ts(row.get('last_ts'))}")
     print(f"  requests   {row.get('total_requests')} visits / {row.get('rows_n')} rollup rows")
     print(f"  country    {row.get('countries') or '-'}")
-    print(f"  status     {summarize(statuses)}")
+    print(f"  status     {summarize(statuses) if not statuses_failed else '-'}")
     print("  pages      " + (" ".join(f"{r['page_slug']}×{r['n']}" for r in pages) or "-"))
 
     # Read only the latest ciphertext: an IP may have many hourly rows, but the ciphertext is identical.
-    tokens = d1_query_retry(
-        cfg,
-        "SELECT ip_enc, last_ts FROM visitor_rollups "
-        f"WHERE ip_hash = '{visitor}' AND ip_enc != '' ORDER BY last_ts DESC LIMIT 1",
-    )
+    try:
+        tokens = d1_query_retry(
+            cfg,
+            "SELECT ip_enc, last_ts FROM visitor_rollups "
+            f"WHERE ip_hash = '{visitor}' AND ip_enc != '' ORDER BY last_ts DESC LIMIT 1",
+        )
+    except Exception as exc:  # noqa: BLE001
+        warn(f"  IP ciphertext query failed: {exc}")
+        warn(f"\nquery incomplete: {visitor} (this does NOT mean the IP is unavailable; please retry)")
+        return 1
     token = (tokens[0].get("ip_enc") if tokens else "") or ""
 
     if not token:
@@ -202,6 +217,7 @@ def main() -> int:
                 "The main lookup above uses the (ip_hash, last_ts) index instead; drop --requests to skip this read.",
             )
         )
+        detail_failed = False
         try:
             hits = d1_query_retry(
                 cfg,
@@ -212,7 +228,8 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             warn(f"  ray_log_v2 query failed: {exc}")
             hits = []
-        if not hits:
+            detail_failed = True
+        if not hits and not detail_failed:
             print("  (no detail records within the retention window)")
         for hit in hits:
             print(

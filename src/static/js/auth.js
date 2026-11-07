@@ -548,7 +548,11 @@ showError(document.body.getAttribute('data-gate-error') || '');
 
 fetch('/gate/config', { headers: { 'Accept': 'application/json' } })
   .then(function (r) { return r.ok ? r.json() : null; })
-  .then(function (cfg) { if (cfg) initGateConfig(cfg); })
+  .then(function (cfg) {
+    // Without the sitekey the widget cannot render; fail visibly instead of leaving a blank gate.
+    if (cfg) initGateConfig(cfg);
+    else showError('unavailable');
+  })
   .catch(function () { showError('unavailable'); });
 
 fetch('/gate/diag', { headers: { 'Accept': 'application/json' } })

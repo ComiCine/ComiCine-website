@@ -123,6 +123,12 @@ if [ -z "${PYTHON_BIN:-}" ]; then
     done
 fi
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+# The build helper treats COMICINE_VENV_PYTHON as a path and tests `[ -x ]`; a bare
+# command name from PATH would fail that test, so only pass a real executable path.
+PYTHON_IS_EXECUTABLE=0
+if [ -x "$PYTHON_BIN" ]; then
+    PYTHON_IS_EXECUTABLE=1
+fi
 
 if [ "$RUN_TS" != 1 ] || [ "$RUN_PY" != 1 ] || [ "$DO_BUILD" != 1 ]; then
     REQUIRED_CHECKS_UNVERIFIED=1
@@ -298,7 +304,12 @@ NODE
 
     if [ "$DO_BUILD" = 1 ]; then
         echo "[ci] npm run build"
-        (cd "$TARGET" && COMICINE_VENV_PYTHON="$PYTHON_BIN" npm run build)
+        if [ "$PYTHON_IS_EXECUTABLE" = 1 ]; then
+            (cd "$TARGET" && COMICINE_VENV_PYTHON="$PYTHON_BIN" npm run build)
+        else
+            # Match CI: let build.sh create its own build venv from the PATH interpreter.
+            (cd "$TARGET" && npm run build)
+        fi
     fi
 
     if [ -n "$REF" ]; then

@@ -85,16 +85,21 @@ def check_pins(txt: dict[str, str], lock: dict[str, str]) -> list[str]:
     return problems
 
 
-def latest_versions(names: list[str]) -> dict[str, str]:
-    """Return PyPI's `info.version` (latest stable release), or silently skip a package on network failure."""
+def latest_versions(names: list[str]) -> tuple[dict[str, str], int]:
+    """Return PyPI's `info.version` for each package and the number of failed lookups.
+
+    A failed request is counted, not hidden: reporting "none behind PyPI" after a
+    total network failure would be a false green.
+    """
     out: dict[str, str] = {}
+    failures = 0
     for name in names:
         try:
             with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=20) as resp:  # noqa: S310
                 out[name] = json.loads(resp.read().decode("utf-8"))["info"]["version"]
         except (urllib.error.URLError, KeyError, json.JSONDecodeError, TimeoutError):
-            continue
-    return out
+            failures += 1
+    return out, failures
 
 
 def main() -> int:
@@ -149,17 +154,22 @@ def main() -> int:
     )
 
     if args.latest:
-        newest = latest_versions(runtime)
+        newest, failures = latest_versions(runtime)
         behind = [
             f"{name}: locked {lock[name]}, PyPI {newest[name]}"
             for name in runtime
             if name in newest and newest[name] != lock[name]
         ]
+        if failures:
+            print(
+                f"\nbehind PyPI: unknown for {failures} of {len(runtime)} packages "
+                "(PyPI requests failed; this is not a statement that they are current)"
+            )
         if behind:
             print(f"\nbehind PyPI ({len(behind)}) - report only, no failure:")
             for entry in behind:
                 print(f"  {entry}")
-        else:
+        elif not failures:
             print("behind PyPI: none")
 
     return 0

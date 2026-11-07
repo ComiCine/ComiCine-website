@@ -37,7 +37,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         continue
     fi
     echo "[pre-push] checking ${local_ref} -> ${remote_ref} (${local_sha})" >&2
-    if ! bash ops/ci_check.sh --ref="$local_sha"; then
+    # Do not let a child inherit the ref list on stdin; a child that reads stdin would
+    # silently skip the remaining refs in a multi-commit push.
+    if ! bash ops/ci_check.sh --ref="$local_sha" </dev/null; then
         echo "[pre-push] push rejected: the commit failed the local CI check; fix it before pushing" >&2
         status=1
     fi

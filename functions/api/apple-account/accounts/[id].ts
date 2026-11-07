@@ -24,26 +24,37 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   const auth = await requireAdminSession(context.env, context.request);
   if (auth instanceof Response) return auth;
   const id = parseAccountId((context.params as { id?: string }).id);
-  if (!id) return Response.json({ error: "无效请求" }, { status: 400, headers: NO_STORE });
+  if (!id) return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
   if (!(await verifyCsrf(context.env, context.request, auth.session.sid))) {
-    return Response.json({ error: "无权限" }, { status: 403, headers: NO_STORE });
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE });
   }
 
   let data: unknown;
   try {
     data = await context.request.json();
   } catch {
-    return Response.json({ error: "无效请求" }, { status: 400, headers: NO_STORE });
+    return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
   }
   const parsed = validateUpdatePayload(data);
-  if (!parsed) return Response.json({ error: "无效请求" }, { status: 400, headers: NO_STORE });
+  if (!parsed) return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
 
   let password = "";
   if (parsed.passwordChanged) {
     if (!context.env.APPLE_ACCOUNT_ENCRYPTION_KEY) {
-      return Response.json({ error: "服务器未配置加密密钥" }, { status: 500, headers: NO_STORE });
+      return Response.json({ error: "Encryption key is not configured" }, { status: 500, headers: NO_STORE });
     }
-    password = await fernetEncrypt(parsed.password ?? "", context.env.APPLE_ACCOUNT_ENCRYPTION_KEY);
+    try {
+      password = await fernetEncrypt(parsed.password ?? "", context.env.APPLE_ACCOUNT_ENCRYPTION_KEY);
+    } catch (err) {
+      await logEvent(context.env, "audit_event", context.request, {
+        outcome: "account_update_failed",
+        status: 500,
+        accountId: id,
+        actorSub: auth.session.sub,
+        message: `encryption_failed: ${describeWriteError(err)}`,
+      });
+      return Response.json({ error: "Encryption failed" }, { status: 500, headers: NO_STORE });
+    }
   } else {
     const existing = await queryAll<{ password: string }>(
       context.env.DB,
@@ -58,7 +69,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         actorSub: auth.session.sub,
         message: "apple_account_missing",
       });
-      return Response.json({ error: "未找到" }, { status: 404, headers: NO_STORE });
+      return Response.json({ error: "Not found" }, { status: 404, headers: NO_STORE });
     }
     password = existing[0].password;
   }
@@ -84,9 +95,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       message: conflict ? "apple_account_duplicate_email" : describeWriteError(err),
     });
     if (conflict) {
-      return Response.json({ error: "该邮箱已存在" }, { status: 409, headers: NO_STORE });
+      return Response.json({ error: "This email already exists" }, { status: 409, headers: NO_STORE });
     }
-    return Response.json({ error: "写入失败" }, { status: 500, headers: NO_STORE });
+    return Response.json({ error: "Write failed" }, { status: 500, headers: NO_STORE });
   }
   // The audit records only the password-state change, never the password or ciphertext itself.
   await logEvent(context.env, "audit_event", context.request, {
@@ -103,9 +114,9 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const auth = await requireAdminSession(context.env, context.request);
   if (auth instanceof Response) return auth;
   const id = parseAccountId((context.params as { id?: string }).id);
-  if (!id) return Response.json({ error: "无效请求" }, { status: 400, headers: NO_STORE });
+  if (!id) return Response.json({ error: "Invalid request" }, { status: 400, headers: NO_STORE });
   if (!(await verifyCsrf(context.env, context.request, auth.session.sid))) {
-    return Response.json({ error: "无权限" }, { status: 403, headers: NO_STORE });
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE });
   }
   const existing = await queryAll<{ id: number }>(context.env.DB, "SELECT id FROM apple_accounts WHERE id = ?", id);
   if (!existing.length) {
@@ -116,7 +127,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       actorSub: auth.session.sub,
       message: "apple_account_missing",
     });
-    return Response.json({ error: "未找到" }, { status: 404, headers: NO_STORE });
+    return Response.json({ error: "Not found" }, { status: 404, headers: NO_STORE });
   }
   let ok = false;
   try {
@@ -129,7 +140,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       actorSub: auth.session.sub,
       message: describeWriteError(err),
     });
-    return Response.json({ error: "删除失败" }, { status: 500, headers: NO_STORE });
+    return Response.json({ error: "Delete failed" }, { status: 500, headers: NO_STORE });
   }
   await logEvent(context.env, "audit_event", context.request, {
     outcome: ok ? "account_deleted" : "account_delete_missing",

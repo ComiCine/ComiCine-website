@@ -56,6 +56,26 @@ def main() -> int:
         if not isinstance(excludes, list) or "/fonts.css" not in excludes:
             print(f"FATAL: {routes_path} must exclude /fonts.css from Pages Functions", file=sys.stderr)
             failed = True
+            continue
+        # Root files and static directories must bypass the catch-all [lang].js Function;
+        # otherwise the favicon, wordmark, and hashmap.json answer 404 on every page.
+        required: set[str] = set()
+        for entry in dist.iterdir():
+            # Hidden files (.DS_Store and similar) are never referenced by a page.
+            if entry.name.startswith(".") or entry.name in {"_headers", "_redirects", "_routes.json"}:
+                continue
+            if entry.is_file():
+                required.add("/" + entry.name)
+            elif entry.is_dir() and not any(entry.rglob("*.html")):
+                required.add("/" + entry.name + "/*")
+        missing_excludes = sorted(required.difference(excludes))
+        if missing_excludes:
+            print(
+                f"FATAL: {routes_path} does not exclude root assets from Pages Functions: "
+                + ", ".join(missing_excludes),
+                file=sys.stderr,
+            )
+            failed = True
 
     font_css = dist / "fonts.css"
     font_file = dist / "fonts" / "delius-swash-caps" / "delius-swash-caps-copyright.woff2"
@@ -88,7 +108,9 @@ def main() -> int:
     languages = tuple(contract["supported_langs"])
     missing: list[tuple[str, str]] = []
     invalid_routes: list[tuple[str, str]] = []
+    duplicate_routes: list[tuple[str, str]] = []
     routes: list[tuple[str, str]] = []
+    route_sources: dict[str, str] = {}
     language_copies: dict[str, set[str]] = {}
     unscoped: list[str] = []
     for md in sorted(docs.rglob("*.md")):
@@ -106,8 +128,16 @@ def main() -> int:
         route = rewrites.get(rel, rel)
         if route.endswith(".md"):
             route = route[: -len(".md")]
-        if route.rstrip("/").rsplit("/", 1)[-1] not in languages:
+        # A localized URL must end in the source page's own language. Accepting any
+        # supported code would let an English page publish at /page/zh-cn and still
+        # pass the deploy gate.
+        if route.rstrip("/").rsplit("/", 1)[-1] != source_language:
             invalid_routes.append((rel, "/" + route))
+        previous_source = route_sources.get(route)
+        if previous_source is None:
+            route_sources[route] = rel
+        elif previous_source != rel:
+            duplicate_routes.append((rel, "/" + route))
         html = dist / f"{route}.html"
         routes.append((rel, "/" + route))
         if not html.is_file():
@@ -124,8 +154,8 @@ def main() -> int:
         print(f"  {rel:<{width}} -> {route}")
     print(
         f"[docs-check] {len(routes)} markdown file(s), {len(missing)} missing HTML, "
-        f"{len(invalid_routes)} invalid routes, {len(incomplete)} missing translations, "
-        f"{len(unscoped)} outside a language directory"
+        f"{len(invalid_routes)} invalid routes, {len(duplicate_routes)} duplicate routes, "
+        f"{len(incomplete)} missing translations, {len(unscoped)} outside a language directory"
     )
 
     for rel in unscoped:
@@ -136,11 +166,17 @@ def main() -> int:
             print(f"FATAL: {rel} produced no {route}.html", file=sys.stderr)
     if invalid_routes:
         for rel, route in invalid_routes:
-            print(f"FATAL: {rel} route does not end in a supported language code: {route}", file=sys.stderr)
+            print(
+                f"FATAL: {rel} route does not end in its own language code: {route}",
+                file=sys.stderr,
+            )
+    if duplicate_routes:
+        for rel, route in duplicate_routes:
+            print(f"FATAL: {rel} maps to a route already produced by another source: {route}", file=sys.stderr)
     if incomplete:
         for logical_page, language in incomplete:
             print(f"FATAL: {logical_page} has no {language} source copy", file=sys.stderr)
-    if failed or missing or invalid_routes or incomplete or unscoped:
+    if failed or missing or invalid_routes or duplicate_routes or incomplete or unscoped:
         return 1
     return 0
 

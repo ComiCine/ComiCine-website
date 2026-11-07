@@ -198,16 +198,22 @@ function decodeHtmlEntities(value: string): string {
     hellip: "…",
   };
 
-  return value
-    .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => {
-      const point = Number.parseInt(hex, 16);
-      return point <= 0x10ffff ? String.fromCodePoint(point) : " ";
-    })
-    .replace(/&#(\d+);/g, (_match, decimal: string) => {
-      const point = Number.parseInt(decimal, 10);
-      return point <= 0x10ffff ? String.fromCodePoint(point) : " ";
-    })
-    .replace(/&([a-z]+);/gi, (match, name: string) => named[name.toLowerCase()] ?? match);
+  // Decode in a single pass: sequential replaces would turn "&#38;lt;" into "<",
+  // because the ampersand decode feeds the named-entity replace.
+  return value.replace(
+    /&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi,
+    (match, hex: string | undefined, decimal: string | undefined, name: string | undefined) => {
+      if (hex !== undefined) {
+        const point = Number.parseInt(hex, 16);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : " ";
+      }
+      if (decimal !== undefined) {
+        const point = Number.parseInt(decimal, 10);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : " ";
+      }
+      return named[(name ?? "").toLowerCase()] ?? match;
+    },
+  );
 }
 
 function htmlToText(html: string): string {

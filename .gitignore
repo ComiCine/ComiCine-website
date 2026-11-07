@@ -72,6 +72,10 @@ secrets/
 Logs/
 data/*.log
 
+# Live Cloudflare snapshots written by ops/ai_bots.py and ops/zone_settings.py (local state)
+ops/ai-bots.snapshot.json
+ops/zone-settings.snapshot.json
+
 # Server reset backups (database dumps and similar files; never track)
 backup-comicine-*/
 ops/backups/

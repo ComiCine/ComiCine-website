@@ -15,6 +15,7 @@ import worker, {
   pageLang,
   record,
   renderStatusPage,
+  runAll,
   runProbe,
   deliverAlert,
   sendAlert,
@@ -61,6 +62,30 @@ const probe = {
   group_key: "public",
   interval_s: 60,
 };
+
+describe("runAll", () => {
+  it("skips probes whose interval has not elapsed", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { db } = fakeDb({
+      all: (sql) =>
+        sql.includes("FROM probes")
+          ? {
+              results: [
+                { ...probe, id: 1, interval_s: 60, checked_at: 1_000 },
+                { ...probe, id: 2, interval_s: 900, checked_at: 1_000 },
+              ],
+            }
+          : { results: [] },
+    });
+
+    const ran = await runAll({ DB: db } as Env, 1_100);
+
+    expect(ran).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
 
 describe("runProbe", () => {
   it("200 maps to up and records latency", async () => {
@@ -459,6 +484,22 @@ describe("alert channel priority", () => {
   it("falls back to the Email binding when the webhook fails", async () => {
     const captured = { value: null as unknown };
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
+    const r = await deliverAlert(
+      { ...emailEnv(captured), ALERT_WEBHOOK_URL: "https://open.feishu.cn/hook" } as unknown as Env,
+      mail,
+    );
+    expect(r.sent).toBe(true);
+    expect(r.via).toBe("email");
+    expect(captured.value).not.toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to the Email binding when a Feishu bot returns an error code with HTTP 200", async () => {
+    const captured = { value: null as unknown };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ code: 9499, msg: "too many requests" })),
+    );
     const r = await deliverAlert(
       { ...emailEnv(captured), ALERT_WEBHOOK_URL: "https://open.feishu.cn/hook" } as unknown as Env,
       mail,

@@ -211,7 +211,7 @@ describe("requireAdminSession", () => {
     const resp = (await requireAdminSession(env, requestWith(""))) as Response;
     expect(resp.status).toBe(401);
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
-    expect((await resp.json() as { error: string }).error).toBe("未登录");
+    expect((await resp.json() as { error: string }).error).toBe("Not authenticated");
   });
 
   it("returns 403 with the default message for a non-admin", async () => {
@@ -224,9 +224,9 @@ describe("requireAdminSession", () => {
 
   it("honours a caller-supplied forbidden message", async () => {
     grantRow("viewer");
-    const resp = (await requireAdminSession(env, await cookieFor("viewer"), "需要管理员权限")) as Response;
+    const resp = (await requireAdminSession(env, await cookieFor("viewer"), "Administrator permission required")) as Response;
     expect(resp.status).toBe(403);
-    expect((await resp.json() as { error: string }).error).toBe("需要管理员权限");
+    expect((await resp.json() as { error: string }).error).toBe("Administrator permission required");
   });
 
   it("returns 503 when the session store is unavailable", async () => {
@@ -310,7 +310,7 @@ describe("requireRecentAdminSession", () => {
   it("keeps 401 for no session and 403 for a fresh viewer (order unchanged)", async () => {
     const anon = (await requireRecentAdminSession(env, requestWith(""))) as Response;
     expect(anon.status).toBe(401);
-    expect((await anon.json() as { error: string }).error).toBe("未登录");
+    expect((await anon.json() as { error: string }).error).toBe("Not authenticated");
 
     grantRow("viewer");
     const viewer = (await requireRecentAdminSession(env, await cookieWithAge(0, "viewer"))) as Response;

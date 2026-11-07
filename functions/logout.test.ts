@@ -24,6 +24,7 @@ import { revokeAuthSession, readSession } from "./_lib/session";
   // Logout writes an audit row; this test checks only Location, so D1 is not asserted here.
 vi.mock("./_lib/logging", () => ({
   logEvent: async () => undefined,
+  shouldLogThrottled: () => true,
 }));
 vi.mock("./_lib/session", async (importOriginal) => {
   const original = await importOriginal<typeof import("./_lib/session")>();

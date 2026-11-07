@@ -56,7 +56,7 @@ const LANGS: LangDef[] = [
 
 const CODES = LANGS.map((l) => l.code)
 const VITEPRESS_ROOT_LANG = LANGS.find((l) => l.root)?.code ?? CODES[0]
-const SECURITY_X_DEFAULT_LANG = MAIN_SITE_CONTRACT.default_lang
+const DOCS_DEFAULT_LANG = MAIN_SITE_CONTRACT.default_lang
 
 /** Map a docs language code to its BCP 47 tag for HTML and metadata. */
 function langTag(code: string): string {
@@ -206,7 +206,6 @@ const REWRITES: Record<string, string> = JSON.parse(
   readFileSync(new URL('./rewrites.json', import.meta.url), 'utf-8')
 )
 
-const SOCIAL_IMAGE_SVG = 'https://images.comicine.com/static/icons/comicine-xtext.svg?v=4'
 const SOCIAL_IMAGE_PNG = 'https://images.comicine.com/static/icons/comicine-xtext.png?v=5'
 
 function canonicalUrlForPage(page: string): string | null {
@@ -221,25 +220,39 @@ function canonicalUrlForPage(page: string): string | null {
   return new URL(route ? '/' + route : '/', SITE_URL).toString()
 }
 
-function languageAlternatesForPage(page: string): [string, Record<string, string>][] {
-  const sourcePage = page.startsWith('/') ? page.slice(1) : page
-  const outputPage = REWRITES[sourcePage] ?? sourcePage
-  const match = outputPage.match(/^security\/(policy|acknowledgments)\/(zh-cn|en-us|ja-jp|ko-kr)\.md$/)
-  if (!match) return []
-
-  const route = `/security/${match[1]}`
-  const alternates = LANGS.map(({ code, lang }) => [
-    'link',
-    { rel: 'alternate', hreflang: lang, href: new URL(`${route}/${code}`, SITE_URL).toString() }
-  ] as [string, Record<string, string>])
-  alternates.push([
-    'link',
-    {
-      rel: 'alternate',
-      hreflang: 'x-default',
-      href: new URL(`${route}/${SECURITY_X_DEFAULT_LANG}`, SITE_URL).toString()
-    }
+/** Map a rewritten route (no leading slash, no .md) to its source page. */
+const ROUTES: Map<string, string> = new Map(
+  Object.entries(REWRITES).map(([source, target]) => [
+    target.endsWith('.md') ? target.slice(0, -'.md'.length) : target,
+    source
   ])
+)
+
+function languageAlternatesForPage(page: string): [string, Record<string, string>][] {
+  // VitePress passes the rewritten page path (`README/en-us.md`), so the language is the
+  // last segment. Derive every alternate from rewrites.json instead of listing pages here.
+  const path = page.replace(/^\/+/, '').replace(/\.md$/, '')
+  const parts = path.split('/')
+  const sourceLang = parts.pop() ?? ''
+  if (!CODES.includes(sourceLang) || parts.length === 0) return []
+  const prefix = parts.join('/')
+
+  const alternates: [string, Record<string, string>][] = []
+  for (const { code, lang } of LANGS) {
+    const route = `${prefix}/${code}`
+    if (!ROUTES.has(route)) continue
+    alternates.push([
+      'link',
+      { rel: 'alternate', hreflang: lang, href: new URL('/' + route, SITE_URL).toString() }
+    ])
+  }
+  const defaultRoute = `${prefix}/${DOCS_DEFAULT_LANG}`
+  if (ROUTES.has(defaultRoute)) {
+    alternates.push([
+      'link',
+      { rel: 'alternate', hreflang: 'x-default', href: new URL('/' + defaultRoute, SITE_URL).toString() }
+    ])
+  }
   return alternates
 }
 
@@ -300,12 +313,9 @@ export default defineConfig({
       ['meta', { property: 'og:title', itemprop: 'name', content: title }],
       ['meta', { property: 'og:description', itemprop: 'description', content: description }],
       ['meta', { property: 'og:url', content: canonicalUrl }],
-      ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE_SVG }],
-      ['meta', { property: 'og:image:type', content: 'image/svg+xml' }],
-      ['meta', { property: 'og:image:width', content: '5250' }],
-      ['meta', { property: 'og:image:height', content: '1500' }],
-      ['meta', { property: 'og:image:alt', content: 'ComiCine logo' }],
-      ['meta', { property: 'og:image', content: SOCIAL_IMAGE_PNG }],
+      // PNG only: VitePress deduplicates head tags by property, so an SVG entry would
+      // silently replace this one, and Facebook/LinkedIn do not render SVG previews.
+      ['meta', { property: 'og:image', itemprop: 'image', content: SOCIAL_IMAGE_PNG }],
       ['meta', { property: 'og:image:type', content: 'image/png' }],
       ['meta', { property: 'og:image:width', content: '5250' }],
       ['meta', { property: 'og:image:height', content: '1500' }],

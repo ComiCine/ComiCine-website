@@ -49,6 +49,28 @@ function payload(over: Partial<PagePayload> = {}): PagePayload {
   };
 }
 
+describe("probe label resolution", () => {
+  it("does not resolve Object.prototype names as label keys", () => {
+    const html = statusPageHtml(
+      payload({
+        probes: [
+          {
+            name: "Prototype Probe",
+            group: "public",
+            label_key: "toString",
+            status: 1,
+            uptime: 99.5,
+            detail: "http_200",
+          },
+        ],
+      }),
+      "en-us",
+    );
+    expect(html).toContain("Prototype Probe");
+    expect(html).not.toContain("function");
+  });
+});
+
 describe("page chrome (inherited from base.html / _footer.html)", () => {
   const html = statusPageHtml(payload(), "zh-cn");
 

@@ -235,7 +235,7 @@ def test_templates_use_the_correct_logo_variant():
     assert 'src="https://images.comicine.com/static/icons/comicine-xtext.svg?v=4" alt="ComiCine" width="525" height="150"' in gate
     assert "https://image.comicine.com" not in home + services + contact + gate
     assert "data-image-watermark-base" not in home
-    assert "/static/js/base.js?v=20" in home
+    assert "/static/js/base.js?v=21" in home
     assert 'data-brandify="ComiCine"' in gate
     assert 'href="/static/fonts-round75.css?v=4"' in home
     assert 'href="/static/fonts/delius-swash-caps/delius-swash-caps-copyright.woff2?v=1"' in home

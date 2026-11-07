@@ -46,7 +46,7 @@ See ADDITIONAL_TERMS.txt.
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
     <link rel="preload" as="image" type="image/png" href="{{ _('survey_qr') }}"
         media="(hover: hover) and (pointer: fine)" referrerpolicy="origin">
-<link rel="preload" as="script" href="/static/js/contact.js?v=2">
+<link rel="preload" as="script" href="/static/js/contact.js?v=3">
 <link rel="stylesheet" href="/static/css/contact.css?v=8">
 {% endblock %}
 
@@ -64,7 +64,7 @@ See ADDITIONAL_TERMS.txt.
         <a id="surveyBlock" href="{{ _('survey_link') }}" target="_blank" rel="noopener noreferrer"
             class="reveal-item copyable pressable qr-trigger text-inherit cursor-pointer relative block no-underline"
             data-qr="{{ _('survey_qr') }}"
-            data-i18n-attr="href:survey_link;data-qr:survey_qr">
+            data-i18n-attr="href:survey_link|data-qr:survey_qr">
             <div class="bubble-tip" data-i18n="survey_click">{{ _('survey_click') }}</div>
             <p class="text-[11px] opacity-40 mb-1 tracking-[calc(0.3em*var(--ls-scale))]" data-i18n="platform_survey">{{ _('platform_survey') }}</p>
             <p class="text-lg md:text-2xl opacity-90 border-b-2 border-[var(--line)] pb-1 font-medium" data-i18n="survey_title">{{ _('survey_title') }}</p>
@@ -127,5 +127,5 @@ See ADDITIONAL_TERMS.txt.
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/contact.js?v=2" defer></script>
+    <script src="/static/js/contact.js?v=3" defer></script>
 {% endblock %}

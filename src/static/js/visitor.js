@@ -103,7 +103,9 @@ async function refresh() {
     refreshed = true;
   } catch (error) {
     console.error('Failed to load:', error);
-    showError();
+    // Keep the last good table visible: a transient refresh failure must not blank the
+    // dashboard for up to ten minutes until the next poll succeeds.
+    if (!dataLoaded) showError();
   } finally {
     inFlight = false;
     if (refreshed) applyFilter();
@@ -334,9 +336,11 @@ document.getElementById('visitor-list').addEventListener('click', (event) => {
 });
 
 function esc(value) {
-  const div = document.createElement('div');
-  div.textContent = value || '';
-  return div.innerHTML;
+  // Escape quotes as well: the result is interpolated into HTML attributes such as
+  // data-hash and title, where textContent-based escaping is not sufficient.
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[ch]);
 }
 
 // Pause auto-refresh while the page is hidden to avoid background requests; refresh once when it becomes
@@ -369,8 +373,11 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// Preserve the current filter after a language change and reload data without a status parameter.
-document.addEventListener('languagechange', () => { refresh(); });
+// A language change only affects labels; markers carry no localized text. Re-render from the
+// cached data instead of re-running the 30-day aggregate query (the site's heaviest D1 read).
+document.addEventListener('languagechange', () => {
+  if (dataLoaded) applyFilter();
+});
 
 // Template onclick handlers still call refresh() and handleLogout(). Expose these module-scoped functions
 // on window to preserve the behavior of the previous classic script.

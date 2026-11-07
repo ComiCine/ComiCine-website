@@ -528,6 +528,28 @@ describe("health endpoint", () => {
     expect(body.lastRun).toMatchObject({ outcome: "ok" });
   });
 
+  it("reports a skipped run instead of synced:true when credentials are missing", async () => {
+    const parts = mockRunDb();
+    captureConsole();
+    const env = {
+      DB: parts.db,
+      CLOUDFLARE_API_TOKEN: "",
+      CLOUDFLARE_ACCOUNT_ID: "",
+      SYNC_TOKEN: "s3cret-token",
+    } as never;
+
+    const resp = await worker.fetch(
+      new Request("https://sync.example.com/", { headers: { Authorization: "Bearer s3cret-token" } }),
+      env,
+    );
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("skipped");
+    expect(body.synced).toBe(false);
+  });
+
   it("reports a failed manual trigger as 502 with the error and the recorded run", async () => {
     const parts = mockRunDb();
     captureConsole();

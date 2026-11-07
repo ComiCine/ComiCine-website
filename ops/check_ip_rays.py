@@ -181,21 +181,21 @@ def rays_legacy(cfg: dict[str, str], ip: str, limit: int) -> tuple[list[dict], s
 
 def render_v2(row: dict) -> str:
     ts = row.get("ts")
-    stamp = dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
+    stamp = dt.datetime.fromtimestamp(ts, dt.UTC).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
     host = str(row.get("host", ""))
     method = str(row.get("method", ""))
     path = str(row.get("path", ""))
     status = str(row.get("status", ""))
     country = str(row.get("country", ""))
     duration = row.get("duration_ms")
-    ms = f"{int(duration)}ms" if isinstance(duration, (int, float)) and duration else ""
+    ms = f"{int(duration)}ms" if isinstance(duration, (int, float)) else "-"
     # Use fixed-width columns for time, ray, status, method, country, and duration; put host and path last because their lengths are unbounded.
     return f"{stamp} {row.get('ray',''):<22} {status:>3} {method:<4} {country:<2} {ms:>7}  {host}{path}"
 
 
 def render_legacy(row: dict) -> str:
     ts = row.get("ts")
-    stamp = dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
+    stamp = dt.datetime.fromtimestamp(ts, dt.UTC).strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts, (int, float)) else ""
     host = str(row.get("host", ""))
     method = str(row.get("method", ""))
     path = str(row.get("path", ""))
@@ -253,6 +253,7 @@ def main() -> int:
             "",
             "indexed by (ip_hash, ts DESC) since migration 017; only the matching hashes' rows are read",
             "Pass --hash <ip_hash> to also skip the ip_enc scan on the plaintext-IP path.",
+            probe=False,
         )
     )
     rows, warn_msg = rays_by_hash(cfg, hashes, limit)

@@ -56,6 +56,15 @@ var workBoxes = document.querySelectorAll('.work-box');
 var heroTitle = document.getElementById('hero-title');
 var navLogo = document.getElementById('nav-logo');
 
+/* Portfolio cards are links; Enter/Space must activate the same delegated click action. */
+workBoxes.forEach(function(box) {
+    box.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        box.click();
+    });
+});
+
 function setPortfolioPath(replace) {
     var url = new URL('/portfolio', location.href);
     if (location.pathname !== url.pathname || location.hash) {

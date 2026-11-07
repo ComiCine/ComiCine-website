@@ -154,10 +154,18 @@ async function fetchJwks(env: Env, force = false): Promise<JwkLike[] | { error: 
       { headers: { Accept: "application/json", "User-Agent": "comicine-pages/1.0" } },
       JWKS_TIMEOUT_MS,
     );
-    if (!resp.ok) return { error: `jwks_http_${resp.status}` };
+    // After the TTL a transient 5xx/429 must still fall back to the previous keys;
+    // otherwise every login returns 401 while the cached keys would verify fine.
+    if (!resp.ok) {
+      if (jwksCache && jwksCache.url === url) return jwksCache.keys;
+      return { error: `jwks_http_${resp.status}` };
+    }
     const body = (await resp.json()) as { keys?: JwkLike[] };
     const keys = Array.isArray(body.keys) ? body.keys : [];
-    if (!keys.length) return { error: "jwks_empty" };
+    if (!keys.length) {
+      if (jwksCache && jwksCache.url === url) return jwksCache.keys;
+      return { error: "jwks_empty" };
+    }
     jwksCache = { url, keys, fetchedAt: Date.now() };
     return keys;
   } catch {
@@ -256,7 +264,9 @@ export async function verifyAccessJwt(
   if (stripTrailingSlash(String(claims.iss ?? "")) !== expectedIssuer) return null;
 
   const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp !== "number" || claims.exp <= now) return null;
+  if (typeof claims.exp !== "number" || !Number.isSafeInteger(claims.exp) || claims.exp <= now) {
+    return null;
+  }
   if (typeof claims.nbf === "number" && claims.nbf > now + CLOCK_SKEW_SECONDS) return null;
   if (typeof claims.iat === "number" && claims.iat > now + CLOCK_SKEW_SECONDS) return null;
 
@@ -265,8 +275,9 @@ export async function verifyAccessJwt(
   if (!expectedAud || !auds.includes(expectedAud)) return null;
 
   const sub = String(claims.sub ?? "").trim();
-  if (!sub) return null;
+  if (!sub || sub.length > 512) return null;
   const email = String(claims.email ?? "").trim();
+  if (email.length > 254) return null;
 
   return {
     sub: `access:${sub}`,

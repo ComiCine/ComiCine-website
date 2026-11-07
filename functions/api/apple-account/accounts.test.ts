@@ -184,7 +184,7 @@ describe("apple account accounts API", () => {
       const audit = vi
         .mocked(logEvent)
         .mock.calls.find((call) => call[1] === "audit_event");
-      expect(audit, "创建账号必须写 audit_event").toBeTruthy();
+      expect(audit, "creating an account must write an audit_event").toBeTruthy();
       const details = audit?.[3] as { outcome?: string; status?: number; actorSub?: string } | undefined;
       expect(details?.outcome).toBe("account_created");
       expect(details?.status).toBe(200);
@@ -204,13 +204,23 @@ describe("apple account accounts API", () => {
       expect((audit?.[3] as { outcome?: string })?.outcome).toBe("account_create_conflict");
     });
 
+    it("returns a JSON 500 and audits a malformed encryption key", async () => {
+      vi.mocked(fernetEncrypt).mockRejectedValueOnce(new Error("invalid key material"));
+      const resp = await onRequestPost(context(appleAccountRequest("POST", payload)) as never);
+      expect(resp.status).toBe(500);
+      expect(resp.headers.get("Content-Type")).toContain("application/json");
+      const audit = vi.mocked(logEvent).mock.calls.find((call) => call[1] === "audit_event");
+      expect((audit?.[3] as { outcome?: string; message?: string })?.outcome).toBe("account_create_failed");
+      expect((audit?.[3] as { message?: string })?.message).toContain("encryption_failed");
+    });
+
     it("returns 500 and audits a non-UNIQUE D1 failure instead of claiming the email exists", async () => {
       vi.mocked(queryAll).mockResolvedValueOnce([{ n: 0 }]);
       vi.mocked(execute).mockRejectedValueOnce(new Error("D1_ERROR: Exceeded maximum DB size"));
       const resp = await onRequestPost(context(appleAccountRequest("POST", payload)) as never);
       expect(resp.status).toBe(500);
       const error = (await resp.json()) as { error: string };
-      expect(error.error).not.toContain("已存在");
+      expect(error.error).not.toContain("already exists");
       const audit = vi.mocked(logEvent).mock.calls.find((call) => call[1] === "audit_event");
       expect((audit?.[3] as { outcome?: string })?.outcome).toBe("account_create_failed");
     });

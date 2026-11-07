@@ -12,7 +12,7 @@
 import { detectLang, escapeHtml, requestUrl, templateText, withLangCookie } from "./routing";
 import type { RequestContext } from "./routing";
 import { BASE_URL, REDIRECT_HOSTNAME } from "./config";
-import { REDIRECT_I18N, REDIRECT_PRELOAD_IMAGES } from "../_data/runtime";
+import { REDIRECT_PRELOAD_IMAGES } from "../_data/runtime";
 
 /** Read the generated <lang>/redirect.html and inject to, preload, and preload_links. */
 export async function renderRedirectPage(context: RequestContext): Promise<Response> {
@@ -32,10 +32,13 @@ export async function renderRedirectPage(context: RequestContext): Promise<Respo
   if (source === null) return new Response("Redirect page unavailable", { status: 503 });
 // The build renders the language in <html lang="{{ g.lang }}">. No template or
 // artifact contains a `{{lang}}` placeholder; inject only runtime to/preload values.
-  const html = source
-    .replaceAll("{{to}}", escapeHtml(to))
-    .replaceAll("{{preload}}", JSON.stringify(rels))
-    .replaceAll("{{preload_links}}", preloadLinks);
+  // One pass, so a target containing a placeholder token cannot consume a later replacement.
+  const values: Record<string, string> = {
+    to: escapeHtml(to),
+    preload: JSON.stringify(rels),
+    preload_links: preloadLinks,
+  };
+  const html = source.replace(/\{\{(to|preload|preload_links)\}\}/g, (_match, key: string) => values[key] ?? "");
 
   return withLangCookie(
     request,

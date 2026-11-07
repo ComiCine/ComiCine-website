@@ -59,6 +59,7 @@ beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue(adminSession());
   vi.mocked(execute).mockResolvedValue(true);
   vi.mocked(executeBatch).mockResolvedValue(true);
+  vi.mocked(queryAll).mockResolvedValue([]);
   vi.mocked(verifyCsrf).mockResolvedValue(true);
 });
 
@@ -118,6 +119,39 @@ describe("blocklist API", () => {
     expect(data.cidr).toBe("1.2.3.4/32");
     expect(vi.mocked(execute)).toHaveBeenCalled();
     expect(vi.mocked(logEvent)).toHaveBeenCalled();
+  });
+
+  it("keeps the previous row state when a blocked cidr is reactivated", async () => {
+    vi.mocked(queryAll).mockResolvedValueOnce([
+      {
+        cidr: "1.2.3.4/32",
+        network: "1.2.3.4",
+        prefix: 32,
+        reason: "old reason",
+        source: "auto_block",
+        created_at: "2026-08-27 00:00:00",
+        updated_at: "2026-08-28 00:00:00",
+        updated_by: "auto_block",
+        active: 0,
+      },
+    ]);
+    const resp = await onRequestPost(
+      context(
+        new Request("https://comicine.com/api/blocklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cidr: "1.2.3.4", reason: "manual block" }),
+        }),
+      ) as never,
+    );
+    expect(resp.status).toBe(201);
+    const auditCall = vi
+      .mocked(execute)
+      .mock.calls.find((call) => String(call[1]).includes("blocklist_audit"));
+    expect(auditCall).toBeTruthy();
+    expect(auditCall?.slice(2)).toEqual(
+      expect.arrayContaining(["old reason", "auto_block", "2026-08-28 00:00:00"]),
+    );
   });
 
   it("soft-deletes an active row with audit", async () => {

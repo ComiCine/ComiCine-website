@@ -11,7 +11,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env";
-import { ipHash, logEvent, sanitizeLogMessage } from "./logging";
+import { ipHash, logEvent, resetEventLogThrottle, sanitizeLogMessage, shouldLogThrottled } from "./logging";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -168,5 +168,18 @@ describe("event schema bootstrap", () => {
 
     expect(batches).toHaveLength(0);
     expect(preparedSql.filter((sql) => sql.startsWith("CREATE TABLE")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("diagnostic event throttle", () => {
+  it("keeps the first event per kind and source per minute", () => {
+    resetEventLogThrottle();
+    const now = 1_000_000;
+    expect(shouldLogThrottled("gate_redirect", "1.2.3.4", now)).toBe(true);
+    expect(shouldLogThrottled("gate_redirect", "1.2.3.4", now + 1_000)).toBe(false);
+    expect(shouldLogThrottled("gate_redirect", "5.6.7.8", now + 1_000)).toBe(true);
+    expect(shouldLogThrottled("gate_stale_cookie", "1.2.3.4", now + 1_000)).toBe(true);
+    expect(shouldLogThrottled("gate_redirect", "1.2.3.4", now + 60_000)).toBe(true);
+    resetEventLogThrottle();
   });
 });

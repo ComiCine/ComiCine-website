@@ -190,7 +190,9 @@ async function loadAccounts() {
     try {
         const resp = await fetch('/api/apple-account/accounts');
         if (resp.status === 401) { window.location.href = '/login?next=' + encodeURIComponent(location.href); return; }
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         accounts = await resp.json();
+        if (!Array.isArray(accounts)) throw new Error('unexpected account list payload');
         pwVisible = {};
         renderList();
     } catch(e) { container.innerHTML = '<div class="empty-state">' + esc(t('load_failed')) + '</div>'; }
@@ -199,7 +201,11 @@ async function loadAccounts() {
 function renderList() {
     const container = document.getElementById('account-list');
     const search = document.getElementById('search').value.toLowerCase().trim();
-    let filtered = search ? accounts.filter(a => a.email.toLowerCase().includes(search) || a.notes.toLowerCase().includes(search)) : accounts;
+    let filtered = search
+        ? accounts.filter(a =>
+            String(a.email || '').toLowerCase().includes(search) ||
+            String(a.notes || '').toLowerCase().includes(search))
+        : accounts;
 
     document.getElementById('count-badge').textContent = t('apple_account_count', { count: filtered.length });
     if (!filtered.length) { container.innerHTML = '<div class="empty-state"><div class="big-icon">🔑</div>' + esc(t('apple_account_empty')) + '</div>'; return; }
@@ -347,7 +353,13 @@ function closeDeleteModal() {
 async function confirmDelete() {
     if (deleteTargetId === null) return;
     const id = deleteTargetId;
-    const resp = await fetch('/api/apple-account/accounts/' + id, { method: 'DELETE', headers: csrfHeaders() });
+    let resp;
+    try {
+        resp = await fetch('/api/apple-account/accounts/' + id, { method: 'DELETE', headers: csrfHeaders() });
+    } catch (e) {
+        toast(t('toast_delete_failed'));
+        return;
+    }
     closeDeleteModal();
     if (!resp.ok) { handleApiFailure(resp, t('toast_delete_failed')); return; }
     accounts = accounts.filter(a => a.id !== id);

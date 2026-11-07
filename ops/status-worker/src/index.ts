@@ -475,8 +475,29 @@ export async function deliverAlert(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.ok) return { sent: true, via: "webhook" };
-      lastReason = `webhook_http_${res.status}`;
+      if (res.ok) {
+        // Feishu custom bots answer HTTP 200 even when the bot rejects the message
+        // ({"code": 9xxx, "msg": "..."}); treating that as delivered silently skipped
+        // the email/SMTP fallback. An unparseable body keeps the historical success path.
+        if (kind === "feishu") {
+          let code: unknown = undefined;
+          try {
+            const payload = (await res.json()) as { code?: unknown } | null;
+            code = payload?.code;
+          } catch {
+            code = undefined;
+          }
+          if (typeof code === "number" && code !== 0) {
+            lastReason = `webhook_feishu_code_${code}`;
+          } else {
+            return { sent: true, via: "webhook" };
+          }
+        } else {
+          return { sent: true, via: "webhook" };
+        }
+      } else {
+        lastReason = `webhook_http_${res.status}`;
+      }
     } catch (err) {
       lastReason = `webhook_error: ${String(err)}`;
     }
@@ -754,13 +775,22 @@ export async function runDailyChecks(
   return { runs, blocklist };
 }
 
-export async function runAll(env: Env): Promise<number> {
+export async function runAll(env: Env, now = Math.floor(Date.now() / 1000)): Promise<number> {
+  // Join probe_state so a probe whose configured interval has not elapsed is skipped. The cron runs
+  // every minute; without this check a 900-second probe was checked 15 times per interval.
   const { results } = await env.DB.prepare(
-    "SELECT id, name, type, target, group_key, interval_s FROM probes WHERE active = 1 ORDER BY id",
-  ).all<Probe>();
+    `SELECT p.id, p.name, p.type, p.target, p.group_key, p.interval_s, s.checked_at
+       FROM probes p LEFT JOIN probe_state s ON s.probe_id = p.id
+      WHERE p.active = 1 ORDER BY p.id`,
+  ).all<Probe & { checked_at: number | null }>();
   const probes = results ?? [];
+  let ran = 0;
 
   for (const probe of probes) {
+    const interval = Number(probe.interval_s) || 60;
+    const lastChecked = Number(probe.checked_at ?? 0);
+    if (lastChecked > 0 && now - lastChecked < interval) continue;
+    ran += 1;
     const result = await runProbe(env, probe);
     const state = await record(env, probe.id, result);
     if (state.becameDown) {
@@ -771,7 +801,7 @@ export async function runAll(env: Env): Promise<number> {
       await scheduleRetry(env, probe.id, false);
     }
   }
-  return probes.length;
+  return ran;
 }
 
 interface StatusRow {

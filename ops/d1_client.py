@@ -163,6 +163,7 @@ def scan_note(
     where: str,
     reason: str,
     hint: str,
+    probe: bool = True,
 ) -> str:
     """Describe the cost of a query accurately (tasks/22 W7-9).
 
@@ -173,12 +174,16 @@ def scan_note(
     must not cause another D1 read incident, so explain the approximate scan size before querying
     and provide a cheaper alternative.
     """
-    probe = bounded_row_count(cfg, table, where)
-    if probe is None:
+    if not probe:
+        # Index-driven lookups read only the matching rows, so the probe would add
+        # a scan of its own just to print a number; describe the cost instead.
+        return f"note: this run queries {table} ({reason}). {hint}"
+    result = bounded_row_count(cfg, table, where)
+    if result is None:
         return (
             f"note: this run scans {table} ({reason}); the row count probe failed, "
             f"so the scan size is unknown. {hint}"
         )
-    count, capped = probe
+    count, capped = result
     sized = f"at least {count}" if capped else str(count)
     return f"note: this run scans {sized} rows of {table} ({reason}). {hint}"

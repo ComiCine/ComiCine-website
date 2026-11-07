@@ -91,14 +91,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   let exchange: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
     exchange = await fetch(`https://${IDENTITY_HOSTNAME}/api/identity/exchange`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: codes[0], sourceHost, state: states[0] }),
+      signal: controller.signal,
     });
   } catch {
     return callbackResponse(503, "Identity service unavailable");
+  } finally {
+    clearTimeout(timer);
   }
   if (!exchange.ok) {
     return callbackResponse(exchange.status >= 500 ? 503 : 401, "Identity handoff rejected");

@@ -25,7 +25,7 @@ interface RayRow {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, params, request }) => {
-  const auth = await requireAdminSession(env, request, "无权限");
+  const auth = await requireAdminSession(env, request, "Forbidden");
   if (auth instanceof Response) return auth;
 
   const id = String((params as { id?: string }).id ?? "").toLowerCase().split("-")[0];

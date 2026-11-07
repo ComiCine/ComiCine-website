@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
         --build-only|--no-deploy) BUILD_ONLY=1 ;;
-        --help|-h) sed -n '3,17p' "$0"; exit 0 ;;
+        --help|-h) sed -n '16,21p' "$0"; exit 0 ;;
         *)
             echo "FATAL: unknown argument $1 (supported: --dry-run / --build-only)" >&2
             exit 2

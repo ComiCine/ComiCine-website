@@ -34,7 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return authUnavailableResponse();
   }
   if (!session) {
-    return Response.json({ error: "未登录" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Not authenticated" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
   const rows = await queryAll<Row>(
     context.env.DB,
@@ -56,24 +56,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const auth = await requireAdminSession(context.env, context.request);
   if (auth instanceof Response) return auth;
   if (!(await verifyCsrf(context.env, context.request, auth.session.sid))) {
-    return Response.json({ error: "无权限" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
   if (!context.env.APPLE_ACCOUNT_ENCRYPTION_KEY) {
-    return Response.json({ error: "服务器未配置加密密钥" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Encryption key is not configured" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 
   let data: unknown;
   try {
     data = await context.request.json();
   } catch {
-    return Response.json({ error: "无效请求" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
   const parsed = validateCreatePayload(data);
   if (!parsed) {
-    return Response.json({ error: "无效请求" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Invalid request" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
 
-  const encrypted = await fernetEncrypt(parsed.password, context.env.APPLE_ACCOUNT_ENCRYPTION_KEY);
+  let encrypted: string;
+  try {
+    encrypted = await fernetEncrypt(parsed.password, context.env.APPLE_ACCOUNT_ENCRYPTION_KEY);
+  } catch (err) {
+    // A present-but-malformed key throws here; without this catch the Worker returns a
+    // non-JSON 500 and writes no audit event.
+    await logEvent(context.env, "audit_event", context.request, {
+      outcome: "account_create_failed",
+      status: 500,
+      actorSub: auth.session.sub,
+      message: `encryption_failed: ${describeWriteError(err)}`,
+    });
+    return Response.json({ error: "Encryption failed" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+  }
   const max = await queryAll<{ n: number }>(
     context.env.DB,
     "SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM apple_accounts",
@@ -101,9 +114,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       message: conflict ? "apple_account_duplicate_email" : describeWriteError(err),
     });
     if (conflict) {
-      return Response.json({ error: "该邮箱已存在" }, { status: 409, headers: { "Cache-Control": "no-store" } });
+      return Response.json({ error: "This email already exists" }, { status: 409, headers: { "Cache-Control": "no-store" } });
     }
-    return Response.json({ error: "写入失败" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Write failed" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
   if (!ok) {
     await logEvent(context.env, "audit_event", context.request, {
@@ -112,7 +125,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       actorSub: auth.session.sub,
       message: "zero_rows_affected",
     });
-    return Response.json({ error: "写入失败" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ error: "Write failed" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
   await logEvent(context.env, "audit_event", context.request, {
     outcome: "account_created",

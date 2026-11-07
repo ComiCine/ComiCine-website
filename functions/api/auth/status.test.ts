@@ -21,9 +21,11 @@ vi.mock("../../_lib/session", () => ({
 
 const env = { SESSION_HMAC_KEY: "test-session" } as Env;
 
-function context() {
+function context(cookie?: string) {
+  const headers: Record<string, string> = {};
+  if (cookie) headers.Cookie = cookie;
   return {
-    request: new Request("https://account.comicine.com/api/auth/status"),
+    request: new Request("https://account.comicine.com/api/auth/status", { headers }),
     env,
     params: {},
     next: async () => new Response("next"),
@@ -63,5 +65,23 @@ describe("auth status", () => {
     expect(resp.headers.get("X-CSRF-Token")).toBe(data.csrf_token);
     expect(resp.headers.get("Set-Cookie")).toContain("comicine_csrf=");
     expect(resp.headers.get("Set-Cookie")).not.toContain("HttpOnly");
+    expect(resp.headers.get("Content-Type")).toBe("application/json; charset=utf-8");
+  });
+
+  it("reuses a valid token from the cookie instead of rotating it", async () => {
+    vi.mocked(requireAuth).mockResolvedValue({
+      sid: "sid-1",
+      sub: "user-1",
+      user: { email: "admin@example.com", name: "Admin" },
+      role: "admin",
+      authAt: 1,
+    } as never);
+    const first = await onRequestGet(context() as never);
+    const token = (await first.json()).csrf_token as string;
+
+    const second = await onRequestGet(context(`comicine_csrf=${token}`) as never);
+    const data = await second.json();
+    expect(data.csrf_token).toBe(token);
+    expect(second.headers.get("X-CSRF-Token")).toBe(token);
   });
 });
