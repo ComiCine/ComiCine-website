@@ -238,7 +238,8 @@ fi
 SENSITIVE_PATTERNS=(
     'secrets/*' '.dev.vars' '*.db' '*.db-shm' '*.db-wal' '*.pem' '*.key'
     'ops/out/*' 'ops/backups/*' 'backup-comicine-*' '各种密钥.txt' '*.mmdb'
-    'docs/docs/*/private/*'
+    'docs/docs/zh-cn/private/*' 'docs/docs/en-us/private/*'
+    'docs/docs/ja-jp/private/*' 'docs/docs/ko-kr/private/*'
 )
 
 sensitive_paths() {
@@ -277,11 +278,12 @@ fi
 # They are Access-protected content, but on 2026-11-04 `git add -A` committed them and GitHub
 # served them like any other file. The .gitignore rule keeps them out, so fail when a copy is
 # tracked again or when the rule disappears.
-PRIVATE_DOCS_TRACKED="$(cd "$TARGET" && git ls-files | grep -E '^docs/docs/[^/]+/private/' || true)"
+PRIVATE_DOCS_TRACKED="$(cd "$TARGET" && git ls-files | grep -E '^docs/docs/(zh-cn|en-us|ja-jp|ko-kr)/private/' || true)"
 if [ -n "$PRIVATE_DOCS_TRACKED" ]; then
     echo "[ci] FAIL: private docs article sources are tracked by Git:" >&2
     printf '%s\n' "$PRIVATE_DOCS_TRACKED" | sed 's/^/       /' >&2
-    echo "       run: git rm -r --cached -- 'docs/docs/*/private'" >&2
+    echo "       run: git rm -r --cached -- docs/docs/zh-cn/private" >&2
+    echo "            docs/docs/en-us/private docs/docs/ja-jp/private docs/docs/ko-kr/private" >&2
     exit 1
 fi
 if ! (cd "$TARGET" && git check-ignore -q --no-index docs/docs/zh-cn/private/articles/untracked-check.md); then
