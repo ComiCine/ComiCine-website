@@ -56,4 +56,6 @@ def test_tree_problems_accepts_missing_parent_chain(clean_repo):
 
 def test_readme_tree_check_has_no_drift():
     """The README directory tree in the real repository matches the current commit."""
-    assert readme_facts.tree_problems(readme_facts.BASE_DIR, readme_facts.tree_paths()) == []
+    paths = readme_facts.tree_paths()
+    assert len(paths) >= 20, "the project-structure tree must be parseable"
+    assert readme_facts.tree_problems(readme_facts.BASE_DIR, paths) == []

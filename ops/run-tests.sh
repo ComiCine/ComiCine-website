@@ -36,5 +36,6 @@ if command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
     npm run typecheck
     npm test
 else
-    echo "WARNING: npm/package.json not found; skipping vitest" >&2
+    echo "NOT VERIFIED: npm/package.json not found; TypeScript tests did not run" >&2
+    exit 1
 fi
