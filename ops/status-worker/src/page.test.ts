@@ -15,10 +15,14 @@ import {
   THEME_JS,
   navHtml,
   renderErrorHtml,
+  sevenDayWindow,
   statusPageHtml,
   type PagePayload,
 } from "./page";
 import { LANGS } from "./i18n";
+
+/** First day of the seven-day window for `updated_at` 1_700_000_000 (2023-11-08 UTC). */
+const FIRST_DAY = 1_699_401_600;
 
 /** One healthy and one failing probe cover both render branches: no reason for up, translated reason for down. */
 function payload(over: Partial<PagePayload> = {}): PagePayload {
@@ -32,16 +36,25 @@ function payload(over: Partial<PagePayload> = {}): PagePayload {
         group: "public",
         label_key: "card_website",
         status: 1,
+        latency_ms: 123,
         uptime: 99.5,
         detail: "http_200",
+        // One full, one partial, and one failed day; the remaining four days have no row yet.
+        days: [
+          { day: FIRST_DAY, up: 10, total: 10 },
+          { day: FIRST_DAY + 86400, up: 5, total: 10 },
+          { day: FIRST_DAY + 2 * 86400, up: 0, total: 10 },
+        ],
       },
       {
         name: "D1 Health",
         group: "internal",
         label_key: null,
         status: 0,
+        latency_ms: null,
         uptime: 12.34,
         detail: "http_503",
+        days: [],
       },
     ],
     ...over,
@@ -58,8 +71,10 @@ describe("probe label resolution", () => {
             group: "public",
             label_key: "toString",
             status: 1,
+            latency_ms: 42,
             uptime: 99.5,
             detail: "http_200",
+            days: [],
           },
         ],
       }),
@@ -178,11 +193,48 @@ describe("status content", () => {
     expect(statusPageHtml(payload(), "ko-kr")).toContain("D1 Health"); // Without label_key, use the database name.
   });
 
-  it("renders an empty state instead of an empty grid when no probe is active", () => {
+  it("renders a compact overall strip with the muted down count", () => {
+    const zh = statusPageHtml(payload(), "zh-cn");
+    expect(zh).toContain('class="overall partial"');
+    expect(zh).toContain("部分系统异常");
+    expect(zh).toContain('<span class="overall-count">(1/2)</span>');
+    // The strip is a tinted panel, not a large outlined card.
+    expect(STATUS_CSS).toContain(".overall{");
+    expect(STATUS_CSS).toContain(".overall.partial{");
+    expect(STATUS_CSS).not.toContain(".overall.all{border-color");
+  });
+
+  it("shows latency only when it is known, the uptime, and a translated status pill", () => {
+    const zh = statusPageHtml(payload(), "zh-cn");
+    expect(zh).toContain('<span class="probe-latency">123 ms</span>');
+    expect(zh.match(/class="probe-latency"/g)?.length).toBe(1); // The second probe has no latency.
+    expect(zh).toContain('<span class="probe-uptime" title="7 天在线率">99.50%</span>');
+    expect(zh).toContain('<span class="pill up">运行正常</span>');
+    expect(zh).toContain('<span class="pill down">异常</span>');
+
+    const base = payload();
+    const pending = statusPageHtml(
+      { ...base, probes: [{ ...base.probes[0]!, status: null, latency_ms: null, uptime: null }] },
+      "zh-cn",
+    );
+    expect(pending).toContain('<span class="pill pending">待检测</span>');
+    expect(statusPageHtml(payload(), "en-us")).toContain('<span class="pill down">Down</span>');
+  });
+
+  it("renders an empty state instead of probe cards when no probe is active", () => {
     const empty = statusPageHtml(payload({ total: 0, down: 0, probes: [] }), "zh-cn");
     expect(empty).toContain("暂无探针配置");
-    expect(empty).not.toContain('class="grid"');
+    expect(empty).not.toContain('class="probe-card"');
+    expect(empty).not.toContain('class="heartbeat"');
     expect(empty).toContain("(0/0)");
+  });
+
+  it("no longer renders the data-source note on either page", () => {
+    for (const page of [statusPageHtml(payload(), "zh-cn"), renderErrorHtml("zh-cn")]) {
+      expect(page).not.toContain('class="note"');
+      expect(page).not.toContain("数据来源");
+    }
+    expect(STATUS_CSS).not.toContain(".note{");
   });
 
   it("escapes anything that comes from the database", () => {
@@ -196,8 +248,10 @@ describe("status content", () => {
             group: "public",
             label_key: null,
             status: 0,
+            latency_ms: null,
             uptime: null,
             detail: "d1_error",
+            days: [],
           },
         ],
       }),
@@ -209,11 +263,50 @@ describe("status content", () => {
   });
 });
 
+describe("7-day heartbeat bar", () => {
+  it("renders seven segments per probe, colored by each day's uptime", () => {
+    const html = statusPageHtml(payload(), "zh-cn");
+    // Two probes × seven days; missing daily buckets still get a gray segment.
+    expect(html.match(/class="hb-seg/g)?.length).toBe(14);
+    expect(html.match(/class="hb-seg up"/g)?.length).toBe(1);
+    expect(html.match(/class="hb-seg partial"/g)?.length).toBe(1);
+    expect(html.match(/class="hb-seg down"/g)?.length).toBe(1);
+    expect(html.match(/class="hb-seg" role="img"/g)?.length).toBe(11);
+  });
+
+  it("labels each segment with its UTC day and percentage in the current language", () => {
+    const zh = statusPageHtml(payload(), "zh-cn");
+    expect(zh).toContain('title="2023-11-08 · 在线率 100.00%"');
+    expect(zh).toContain('aria-label="2023-11-09 · 在线率 50.00%"');
+    expect(zh).toContain('title="2023-11-10 · 在线率 0.00%"');
+    expect(zh).toContain('title="2023-11-11 · 无数据"');
+
+    const en = statusPageHtml(payload(), "en-us");
+    expect(en).toContain('title="2023-11-08 · 100.00% uptime"');
+    expect(en).toContain('aria-label="2023-11-11 · no data"');
+
+    const ja = statusPageHtml(payload(), "ja-jp");
+    expect(ja).toContain("2023-11-11 · データなし");
+    const ko = statusPageHtml(payload(), "ko-kr");
+    expect(ko).toContain("2023-11-11 · 데이터 없음");
+  });
+
+  it("aligns the day window with the seven full-day query window", () => {
+    // statusPayload() reads `day >= midnight - 6 days`; the last bucket is today's midnight.
+    const days = sevenDayWindow(1_700_000_000);
+    expect(days).toHaveLength(7);
+    expect(days[0]).toBe(FIRST_DAY);
+    expect(days[6]).toBe(1_699_920_000);
+    expect(days[6]! - days[0]!).toBe(6 * 86400);
+  });
+});
+
 describe("failure pages", () => {
   it("the render-failure page is localized and explains itself", () => {
     expect(renderErrorHtml("zh-cn")).toContain("状态数据暂时不可用");
     expect(renderErrorHtml("en-us")).toContain("Status data is temporarily unavailable");
-    expect(renderErrorHtml("en-us")).toContain("ComiCine Status Worker");
+    expect(renderErrorHtml("en-us")).toContain("Go to comicine.com");
+    expect(renderErrorHtml("en-us")).not.toContain("Data source");
   });
 });
 
@@ -254,16 +347,62 @@ describe("assets", () => {
     expect(THEME_JS).toContain("classList.add('light-mode')");
   });
 
-  it("wires the flyout, the theme pill, the countdown and the cookie bridge", () => {
+  it("defines every class the status content renders", () => {
+    for (const selector of [
+      ".status-main",
+      ".status-head",
+      ".status-sub",
+      ".overall",
+      ".overall-text",
+      ".overall-count",
+      ".dot",
+      ".group",
+      ".group-label",
+      ".probe-list",
+      ".probe-card",
+      ".probe-row",
+      ".probe-id",
+      ".probe-name",
+      ".probe-meta",
+      ".probe-latency",
+      ".probe-uptime",
+      ".pill",
+      ".reason",
+      ".heartbeat",
+      ".hb-seg",
+      ".empty",
+      ".status-footer",
+    ]) {
+      expect(STATUS_CSS, selector).toContain(`${selector}{`);
+    }
+  });
+
+  it("keeps status colors readable in both themes", () => {
+    expect(STATUS_CSS).toContain("--up:#4ade80");
+    expect(STATUS_CSS).toContain("--down:#f87171");
+    expect(STATUS_CSS).toContain("--pending:#fbbf24");
+    // Light mode overrides the same tokens with darker text colors for contrast on white.
+    expect(STATUS_CSS).toContain("--up:#166534");
+    expect(STATUS_CSS).toContain("--down:#b91c1c");
+    expect(STATUS_CSS).toContain("--pending:#92400e");
+    // The heartbeats stay seven segments on a phone-width column.
+    expect(STATUS_CSS).toContain("@media(max-width:560px)");
+  });
+
+  it("wires the flyout, the theme pill, the countdown and the language menu", () => {
     expect(STATUS_JS).toContain("user_lang_preference");
     expect(STATUS_JS).toContain("comicine_theme");
     expect(STATUS_JS).toContain("catch(e){return m[1]}");
-    expect(STATUS_JS).toContain("comicine_status_lang_synced");
     expect(STATUS_JS).toContain("domain=.'+ROOT");
     expect(STATUS_JS).toContain("refresh-count");
     expect(STATUS_JS).toContain("location.reload()");
+    // The language menu writes the shared cookie and reloads with ?lang=.
+    expect(STATUS_JS).toContain("save(LANG_COOKIE,c)");
     expect(STATUS_JS).toContain("searchParams.set('lang'");
-    expect(STATUS_JS).toContain("location.replace");
+    // The server resolves the language, so there is no client-side redirect any more.
+    expect(STATUS_JS).not.toContain("location.replace");
+    expect(STATUS_JS).not.toContain("sessionStorage");
+    expect(STATUS_JS).not.toContain("comicine_status_lang_synced");
     // The automatic refresh interval must use the same constant as the initial countdown.
     expect(STATUS_JS).toContain("var REFRESH=300");
     const html = statusPageHtml(payload(), "zh-cn");

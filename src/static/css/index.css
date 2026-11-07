@@ -111,11 +111,14 @@ h1 { font-weight: 600 !important; }
     transform: translate(-50%, -40px);
     transition: opacity 200ms ease-out, transform 267ms var(--ease-out);
     white-space: nowrap;
+    /* Keep the hero on its own compositor layer: the flight scales a 6rem text run, and
+       rasterizing it on the main thread every frame is what made the animation stutter. */
+    will-change: transform;
+    backface-visibility: hidden;
 }
 #hero-title.visible { opacity: 1; transform: translate(-50%, -50%); }
-#hero-title.flying {
-    transition: left 267ms var(--ease-out), top 267ms var(--ease-out), transform 267ms var(--ease-out);
-}
+/* The flight animates transform only; see morphHeroToNav in index.js. */
+#hero-title.flying { transition: transform 267ms var(--ease-out); }
 .hero-closed { pointer-events: none; }
 
 /* Scroll indicator. */

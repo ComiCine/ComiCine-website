@@ -141,12 +141,15 @@ summed because the limit is account-level).
 `src/index.ts` reads D1, `src/page.ts` builds the markup. Responses are cached with
 `public, max-age=30, s-maxage=60, stale-while-revalidate=300` and
 `Vary: Accept-Language`. The language comes from an explicit `?lang=` parameter
-first, then `Accept-Language`, then `zh-cn`.
+first, then the shared `user_lang_preference` cookie, then `Accept-Language`, then
+`zh-cn`. The cookie is read on the server so the first response is already in the
+visitor's language; there is no client-side language redirect.
 
-The shared `user_lang_preference` cookie is deliberately **not** part of the cache
-key (no `Vary: Cookie`): that would fragment the edge cache by cookie text and
-multiply D1 reads. Instead `/status.js` redirects once per session to
-`?lang=<cookie>` when the shared preference differs from the rendered page.
+The cookie is deliberately **not** part of a `Vary` header (no `Vary: Cookie`):
+that would fragment the edge cache by cookie text and multiply D1 reads. Instead
+the resolved language is part of the explicit Cache API key, so each language
+keeps exactly one cached render while a cookie-carrying request for `zh-cn` joins
+the `zh-cn` entry rather than creating a per-visitor copy.
 
 | File | Role |
 | --- | --- |

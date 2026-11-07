@@ -150,10 +150,11 @@ export const STATUS_CSS =
   BRAND_FONT_CSS +
   `
 :root{
-color-scheme:dark;--text-primary:#e2e2e3;--text-secondary:#b7b7bb;--text-muted:#a1a1aa;--text-subtle:#787880;--text-disabled:#65656b;--text-inverse:#fff;--text-rgb:226,226,227;--bg:#1b1b1f;--browser-theme-color:#1e1e1e;--text:var(--text-primary);--line:#2e2e32;--panel-bg:#202127;--highlight-surface:#2a2a2f;--highlight:var(--highlight-surface);--hover-highlight:#fff;--hover-highlight-soft:rgba(255,255,255,.12);--hover-highlight-border:rgba(255,255,255,.68);--hover-highlight-overlay:rgba(255,255,255,.14);--footer-border:var(--line);--accent:#05A5A6;--accent-soft:rgba(5,165,166,.12);--accent-glow:rgba(5,165,166,.2);--focus-ring:var(--accent);--danger:#f43f5e;--danger-strong:#ff4757;--danger-soft:rgba(255,71,87,.12);--success:#4ade80;--success-soft:rgba(34,197,94,.13);--info:#60a5fa;--info-soft:rgba(59,130,246,.13);--warning:#fbbf24;--warning-soft:rgba(245,158,11,.13);--purple:#c084fc;--purple-soft:rgba(168,85,247,.16);--status-down:#dc2626;--status-pending:#d97706;--shadow-soft:rgba(0,0,0,.15);--ease-out:cubic-bezier(.23,1,.32,1);--radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-full:999px;--ls-scale:.65;--switch-icon:#dfdfd6;--switch-shadow:0 1px 3px var(--shadow-panel);--shadow-panel:rgba(0,0,0,.35);--muted:var(--text-muted);--up:var(--accent);--down:var(--status-down);--pending:var(--status-pending)
+color-scheme:dark;--text-primary:#e2e2e3;--text-secondary:#b7b7bb;--text-muted:#a1a1aa;--text-subtle:#787880;--text-disabled:#65656b;--text-inverse:#fff;--text-rgb:226,226,227;--bg:#1b1b1f;--browser-theme-color:#1e1e1e;--text:var(--text-primary);--line:#2e2e32;--panel-bg:#202127;--highlight-surface:#2a2a2f;--highlight:var(--highlight-surface);--hover-highlight:#fff;--hover-highlight-soft:rgba(255,255,255,.12);--hover-highlight-border:rgba(255,255,255,.68);--hover-highlight-overlay:rgba(255,255,255,.14);--footer-border:var(--line);--accent:#05A5A6;--accent-soft:rgba(5,165,166,.12);--accent-glow:rgba(5,165,166,.2);--focus-ring:var(--accent);--danger:#f43f5e;--danger-strong:#ff4757;--danger-soft:rgba(255,71,87,.12);--success:#4ade80;--success-soft:rgba(34,197,94,.13);--info:#60a5fa;--info-soft:rgba(59,130,246,.13);--warning:#fbbf24;--warning-soft:rgba(245,158,11,.13);--purple:#c084fc;--purple-soft:rgba(168,85,247,.16);--shadow-soft:rgba(0,0,0,.15);--ease-out:cubic-bezier(.23,1,.32,1);--radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-full:999px;--ls-scale:.65;--switch-icon:#dfdfd6;--switch-shadow:0 1px 3px var(--shadow-panel);--shadow-panel:rgba(0,0,0,.35);--muted:var(--text-muted);--up:#4ade80;--up-soft:var(--success-soft);--down:#f87171;--down-soft:var(--danger-soft);--pending:#fbbf24;--pending-soft:var(--warning-soft)
 }
 html[lang^="en"]{--ls-scale:.3}
-.light-mode{color-scheme:light;--text-primary:#1f2328;--text-secondary:#45474c;--text-muted:#6b7280;--text-subtle:#858b94;--text-disabled:#9ca3af;--text-inverse:#fff;--text-rgb:31,35,40;--bg:#fff;--browser-theme-color:#fff;--text:var(--text-primary);--line:#e2e2e3;--panel-bg:#f6f6f7;--highlight-surface:#f2f2f3;--highlight:var(--highlight-surface);--footer-border:var(--line);--switch-icon:#67676c;--shadow-soft:rgba(0,0,0,.15);--switch-shadow:0 1px 2px var(--shadow-soft);--muted:var(--text-muted)}
+/* Light mode darkens the status colors so pill text keeps readable contrast on white. */
+.light-mode{color-scheme:light;--text-primary:#1f2328;--text-secondary:#45474c;--text-muted:#6b7280;--text-subtle:#858b94;--text-disabled:#9ca3af;--text-inverse:#fff;--text-rgb:31,35,40;--bg:#fff;--browser-theme-color:#fff;--text:var(--text-primary);--line:#e2e2e3;--panel-bg:#f6f6f7;--highlight-surface:#f2f2f3;--highlight:var(--highlight-surface);--footer-border:var(--line);--switch-icon:#67676c;--shadow-soft:rgba(0,0,0,.15);--switch-shadow:0 1px 2px var(--shadow-soft);--muted:var(--text-muted);--up:#166534;--up-soft:rgba(22,163,74,.1);--down:#b91c1c;--down-soft:rgba(220,38,38,.1);--pending:#92400e;--pending-soft:rgba(217,119,6,.12)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;width:100%}
 body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
@@ -210,6 +211,8 @@ body{background:var(--bg);color:var(--text);font:500 15px/1.6 Inter,ui-sans-seri
 @media(hover:hover) and (pointer:fine){.nav-menu-button:not(.active):hover .nav-hamburger .top{top:0;transform:translateX(4px)}.nav-menu-button:not(.active):hover .nav-hamburger .middle{top:6px;transform:translateX(0)}.nav-menu-button:not(.active):hover .nav-hamburger .bottom{top:12px;transform:translateX(8px)}}
 .lang-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:132px;padding:4px;z-index:200;background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--radius-md);opacity:0;visibility:hidden;transform:translateY(-4px) scale(.92);transform-origin:top right;transition:opacity 150ms var(--ease-out),transform 150ms var(--ease-out),visibility 150ms;box-shadow:0 8px 28px var(--shadow-soft)}
 .lang-menu.open{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
+/* Hover bridge over the 4px gap between the language button and its menu. */
+.lang-toggle:has(.lang-menu.open)::after{content:"";position:absolute;left:-10px;right:-10px;top:100%;height:12px}
 .theme-option{display:block;padding:8px 14px;margin:2px 0;border-radius:var(--radius-sm);font-size:12px;font-weight:600;letter-spacing:calc(.05em*var(--ls-scale));cursor:pointer;white-space:nowrap;text-decoration:none;opacity:.5;color:var(--text);transition:background 150ms var(--ease-out)}
 .theme-option.selected{opacity:1;background:var(--highlight)}
 @media(hover:hover) and (pointer:fine){.theme-option:hover{opacity:1;background:var(--highlight)}}
@@ -253,39 +256,46 @@ html.nav-screen-open,html.nav-screen-open body{overflow:hidden}
 .footer-copyright .brand-word{font-family:'Delius Swash Caps','Apple Chancery','Segoe Print',cursive;font-weight:400;font-size:1.3em;letter-spacing:normal}
 .footer-source-link{color:inherit;text-decoration:underline;white-space:nowrap}
 
-/* Status content */
-.status-main{max-width:880px;margin:0 auto;padding:96px 20px 110px}
+/* Status content, following Uptime Kuma's monitor-row layout: a compact overall strip, small
+   group labels, and one card per probe with a seven-day heartbeat bar. */
+.status-main{max-width:720px;margin:0 auto;padding:96px 20px 110px}
 @media(min-width:768px){.status-main{padding-top:132px}}
-h1{font-size:28px;margin:0 0 6px}
-.sub{color:var(--muted);margin:0 0 28px}
-.overall{display:flex;align-items:center;gap:12px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel-bg)}
-.overall.all{border-color:var(--up)}
-.overall.partial{border-color:var(--pending)}
-.overall.down{border-color:var(--down)}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 auto}
-/* The overview uses all/partial/down and cards use up/down/pending, so both groups need colors.
-   Previously, only .dot had a rule and failure-card dots stayed gray instead of matching the state text. */
+h1{font-size:30px;line-height:1.25;margin:0 0 18px;letter-spacing:-.01em}
+.status-head{margin:0 0 26px}
+.status-head h1{margin:0 0 8px}
+.status-sub{color:var(--text-secondary);font-size:15px;margin:0}
+.overall{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius-md);background:var(--up-soft)}
+.overall.partial{background:var(--pending-soft)}
+.overall.down{background:var(--down-soft)}
+.overall-text{font-size:15px;font-weight:600;line-height:1.4;margin:0}
+.overall-count{color:var(--muted);font-size:13px;font-weight:500}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:0 0 auto}
 .dot.all,.dot.up{background:var(--up)}
 .dot.partial,.dot.pending{background:var(--pending)}
 .dot.down{background:var(--down)}
-.overall h2{font-size:17px;margin:0}
-.count{color:var(--muted);font-size:14px}
-section{margin-top:32px}
-.sec-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-.card{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel-bg);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.card-top{display:flex;align-items:center;gap:8px}
-.card h3{font-size:15px;font-weight:600;margin:0}
-.card-bottom{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.state{font-size:13px}
-.state.up{color:var(--up)}
-.state.down{color:var(--down)}
-.state.pending{color:var(--pending)}
-.uptime{color:var(--muted);font-size:13px}
-.status-footer{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
-.reason{color:var(--muted);font-size:12.5px;line-height:1.5;margin:0;overflow-wrap:anywhere}
-.empty{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:var(--radius-lg);padding:16px 18px;margin:0}
-.note{color:var(--muted);font-size:12px;margin-top:10px}
+.group{margin-top:30px}
+.group-label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.probe-list{display:flex;flex-direction:column;gap:10px}
+.probe-card{padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel-bg)}
+.probe-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.probe-id{display:flex;align-items:center;gap:9px;min-width:0}
+.probe-name{font-size:15px;font-weight:600;line-height:1.4;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.probe-meta{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.probe-latency{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.probe-uptime{color:var(--text-secondary);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.pill{padding:3px 9px;border-radius:var(--radius-full);font-size:12px;font-weight:600;line-height:1.4;white-space:nowrap}
+.pill.up{color:var(--up);background:var(--up-soft)}
+.pill.down{color:var(--down);background:var(--down-soft)}
+.pill.pending{color:var(--pending);background:var(--pending-soft)}
+.reason{color:var(--muted);font-size:12.5px;line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere}
+.heartbeat{display:flex;gap:3px;margin-top:12px}
+.hb-seg{flex:1 1 0;min-width:0;height:10px;border-radius:2px;background:var(--line)}
+.hb-seg.up{background:var(--up)}
+.hb-seg.down{background:var(--down)}
+.hb-seg.partial{background:var(--pending)}
+.empty{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:var(--radius-md);padding:16px 18px;margin:0}
+.status-footer{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:13px;margin-top:32px;border-top:1px solid var(--line);padding-top:14px}
+@media(max-width:560px){.probe-row{flex-wrap:wrap;align-items:flex-start}.probe-meta{width:100%;margin-top:8px;justify-content:flex-start;flex-wrap:wrap}.status-footer{flex-direction:column;gap:4px}}
 
 /* Error pages (404 or render failure) */
 .err-box{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel-bg);padding:20px}
@@ -311,12 +321,13 @@ export const THEME_JS =
 export const REFRESH_SECONDS = 300;
 
 /**
- * Page script for the countdown, automatic refresh, language overlay, theme toggle, and bridge between the language cookie and initial page language.
+ * Page script for the countdown, automatic refresh, language menu, and theme toggle.
  *
- * Unlike the main site's `base.js`, which swaps dictionaries without reloading, this script
- * reloads with `?lang=`. The status page is server-rendered and edge-cached, so putting the
- * language in the query string gives each language its own cache key without sending all four
- * dictionaries on every page load.
+ * The server resolves the language (query string, shared cookie, then Accept-Language) before
+ * rendering, so there is no client-side language redirect and the first response is already in
+ * the visitor's language. The language menu writes the shared cookie and reloads with `?lang=`:
+ * the status page is server-rendered and edge-cached, so the query string gives each language
+ * its own cache key without sending all four dictionaries on every page load.
  * Language and theme cookies use the current `.comicine.com` root; changing either here also
  * affects the main site and docs.comicine.com on the next visit, matching the docs bridge strategy.
  */
@@ -352,7 +363,9 @@ export const STATUS_JS =
   "if(btn)btn.addEventListener('click',function(e){e.stopPropagation();open(!menu.classList.contains('open'));openNav(false)});" +
   "if(navBtn)navBtn.addEventListener('click',function(e){e.stopPropagation();openNav(!navScreen.classList.contains('open'));open(false)});" +
   "if(fly&&window.matchMedia('(hover: hover) and (pointer: fine)').matches){" +
-  "fly.addEventListener('mouseenter',function(){open(true)});fly.addEventListener('mouseleave',function(){open(false)})}" +
+  "var hoverTimer=0;function cancelHoverClose(){if(!hoverTimer)return;clearTimeout(hoverTimer);hoverTimer=0}" +
+  "fly.addEventListener('mouseenter',function(){cancelHoverClose();open(true)});" +
+  "fly.addEventListener('mouseleave',function(){cancelHoverClose();hoverTimer=setTimeout(function(){hoverTimer=0;open(false)},220)})}" +
   "doc.addEventListener('click',function(e){if(!e.target.closest('.lang-toggle'))open(false);if(!e.target.closest('.nav-screen')&&!e.target.closest('.nav-mobile-menu'))openNav(false)});" +
   "function chooseLang(e){e.stopPropagation();var el=e.target.closest('[data-lang]');if(!el)return;e.preventDefault();" +
   "var c=el.getAttribute('data-lang');if(LANGS.indexOf(c)<0)return;save(LANG_COOKIE,c);" +
@@ -362,10 +375,14 @@ export const STATUS_JS =
   "if(navScreen)navScreen.addEventListener('click',function(e){if(e.target===navScreen||e.target.closest('.nav-screen-link'))openNav(false)});" +
   "doc.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(navScreen&&navScreen.classList.contains('open')){openNav(false);if(navBtn)navBtn.focus()}else open(false)});" +
   "window.addEventListener('resize',function(){if(window.matchMedia('(min-width: 768px)').matches)openNav(false)});" +
-  "var pref=cookie(LANG_COOKIE),explicit=new URL(location.href).searchParams.get('lang'),guard='comicine_status_lang_synced';" +
-  "if(pref&&LANGS.indexOf(pref)>=0&&pref!==html.lang&&!explicit){var done=false;" +
-  "try{done=sessionStorage.getItem(guard)==='1'}catch(e){}if(!done){try{sessionStorage.setItem(guard,'1')}catch(e){}" +
-  "var v=new URL(location.href);v.searchParams.set('lang',pref);location.replace(v.toString())}}})();";
+  "})();";
+
+/** One UTC day of the seven-day uptime window; `day` is a Unix timestamp floored to UTC midnight. */
+export interface PageDay {
+  day: number;
+  up: number;
+  total: number;
+}
 
 /** Probe record for rendering. `detail` is a normalized error code, not raw exception text. */
 export interface PageProbe {
@@ -373,8 +390,11 @@ export interface PageProbe {
   group: string;
   label_key: string | null;
   status: number | null;
+  latency_ms: number | null;
   uptime: number | null;
   detail: string;
+  /** Daily buckets from probe_uptime_daily, oldest first; days without data are omitted. */
+  days: PageDay[];
 }
 
 export interface PagePayload {
@@ -387,6 +407,23 @@ export interface PagePayload {
 /** Map probe status to one of the display states: 1 up, 0 down, otherwise pending. */
 export function statusKey(status: number | null): "up" | "down" | "pending" {
   return status === 1 ? "up" : status === 0 ? "down" : "pending";
+}
+
+/**
+ * The seven full UTC days ending at the render time, oldest first.
+ *
+ * This mirrors the window in `statusPayload()`: midnight today minus six days gives exactly
+ * seven buckets, including today. The page uses it to render a gray segment for every day that
+ * has no row yet, so the heartbeat bar always keeps seven segments.
+ */
+export function sevenDayWindow(updatedAt: number): number[] {
+  const todayStart = updatedAt - (updatedAt % 86400);
+  return Array.from({ length: 7 }, (_, index) => todayStart - (6 - index) * 86400);
+}
+
+/** `YYYY-MM-DD` in UTC, matching how the daily buckets are keyed. */
+function dayLabel(day: number): string {
+  return new Date(day * 1000).toISOString().slice(0, 10);
 }
 
 /** Page shell; `<head>` contains only two same-origin assets (stylesheet and theme preload script), with no inline script or styles. */
@@ -419,6 +456,29 @@ export function statusPageHtml(payload: PagePayload, lang: Lang): string {
     bucket.probes.push(p);
   }
 
+  /**
+   * Seven daily segments: green for a full day, red for a day with no successful sample, amber
+   * for a partial day, and the muted line color when the bucket does not exist yet. Each segment
+   * carries the same day/percentage text as its title and aria-label.
+   */
+  const heartbeat = (p: PageProbe) => {
+    const buckets = new Map(p.days.map((bucket) => [bucket.day, bucket]));
+    return sevenDayWindow(payload.updated_at)
+      .map((day) => {
+        const bucket = buckets.get(day);
+        const date = dayLabel(day);
+        if (!bucket || bucket.total <= 0) {
+          const text = esc(t(lang, "hb_nodata", { day: date }));
+          return `<span class="hb-seg" role="img" title="${text}" aria-label="${text}"></span>`;
+        }
+        const percent = (bucket.up / bucket.total) * 100;
+        const state = percent >= 100 ? "up" : percent <= 0 ? "down" : "partial";
+        const text = esc(t(lang, "hb_title", { day: date, percent: percent.toFixed(2) }));
+        return `<span class="hb-seg ${state}" role="img" title="${text}" aria-label="${text}"></span>`;
+      })
+      .join("");
+  };
+
   const card = (p: PageProbe) => {
     const sk = statusKey(p.status);
     // `label_key` from D1 (`probes.label_key`) can be any string, including Object.prototype
@@ -427,6 +487,10 @@ export function statusPageHtml(payload: PagePayload, lang: Lang): string {
       (p.label_key && Object.prototype.hasOwnProperty.call(UI[lang], p.label_key)
         ? UI[lang][p.label_key as UiKey]
         : "") || p.name;
+    const latency =
+      p.latency_ms === null
+        ? ""
+        : `<span class="probe-latency">${esc(t(lang, "latency", { ms: String(p.latency_ms) }))}</span>`;
     const uptime = p.uptime === null ? "—" : `${p.uptime.toFixed(2)}%`;
     // Show a reason only for non-healthy states; otherwise the line is noise, and an up code
     // (`http_200` or `ok`) gives visitors no useful information.
@@ -435,11 +499,14 @@ export function statusPageHtml(payload: PagePayload, lang: Lang): string {
         ? ""
         : `<p class="reason">${esc(t(lang, "reason_line", { detail: probeDetailSafe(p.detail, lang) }))}</p>`;
     return (
-      `<div class="card"><div class="card-top"><span class="dot ${sk}"></span><h3>${esc(label)}</h3></div>` +
-      `<div class="card-bottom"><span class="state ${sk}">${esc(t(lang, sk))}</span>` +
-      `<span class="uptime">${esc(uptime)} <span>${esc(t(lang, "uptime"))}</span></span></div>` +
+      `<article class="probe-card"><div class="probe-row">` +
+      `<div class="probe-id"><span class="dot ${sk}" aria-hidden="true"></span>` +
+      `<h3 class="probe-name">${esc(label)}</h3></div>` +
+      `<div class="probe-meta">${latency}` +
+      `<span class="probe-uptime" title="${esc(t(lang, "uptime"))}">${esc(uptime)}</span>` +
+      `<span class="pill ${sk}">${esc(t(lang, sk))}</span></div></div>` +
       reason +
-      "</div>"
+      `<div class="heartbeat">${heartbeat(p)}</div></article>`
     );
   };
 
@@ -447,24 +514,26 @@ export function statusPageHtml(payload: PagePayload, lang: Lang): string {
     .filter((g) => g.probes.length > 0)
     .map(
       (g) =>
-        `<section><h2 class="sec-title">${esc(g.label)}</h2><div class="grid">` +
-        g.probes.map(card).join("") +
-        "</div></section>",
+        `<section class="group" aria-labelledby="group-${esc(g.key)}">` +
+        `<h2 class="group-label" id="group-${esc(g.key)}">${esc(g.label)}</h2>` +
+        `<div class="probe-list">${g.probes.map(card).join("")}</div></section>`,
     )
     .join("");
 
   const overallKey = payload.down === 0 ? "all" : payload.down < payload.total ? "partial" : "down";
   const body =
     '<main class="status-main">' +
-    `<h1>${esc(t(lang, "title"))}</h1><p class="sub">${esc(t(lang, "sub"))}</p>` +
-    `<div class="overall ${overallKey}"><div class="dot ${overallKey}"></div>` +
-    `<div><h2>${esc(t(lang, `overall_${overallKey}`))}</h2>` +
-    `<span class="count">(${payload.down}/${payload.total})</span></div></div>` +
+    '<header class="status-head">' +
+    `<h1>${esc(t(lang, "title"))}</h1><p class="status-sub">${esc(t(lang, "sub"))}</p>` +
+    "</header>" +
+    `<div class="overall ${overallKey}">` +
+    `<span class="dot ${overallKey}" aria-hidden="true"></span>` +
+    `<h2 class="overall-text">${esc(t(lang, `overall_${overallKey}`))}</h2>` +
+    `<span class="overall-count">(${payload.down}/${payload.total})</span></div>` +
     (payload.total === 0 ? `<p class="empty">${esc(t(lang, "no_probes"))}</p>` : sections) +
     `<footer class="status-footer"><span>${esc(t(lang, "updated"))} ` +
     `<time id="updated-at" data-epoch="${payload.updated_at}">—</time></span>` +
     `<span>${esc(t(lang, "refresh"))} <span id="refresh-count">${REFRESH_SECONDS}</span>s</span></footer>` +
-    `<p class="note">${esc(t(lang, "note"))}</p>` +
     "</main>";
   return shell(lang, t(lang, "title"), body);
 }
@@ -494,6 +563,6 @@ export function renderErrorHtml(lang: Lang): string {
     `<a class="btn primary" href="/">${esc(t(lang, "err_retry"))}</a>` +
     `<a class="btn" href="${HOME_URL}">${esc(t(lang, "back_home"))}</a>` +
     "</div></div>" +
-    `<p class="note">${esc(t(lang, "note"))}</p></main>`;
+    "</main>";
   return shell(lang, t(lang, "err_title"), body);
 }

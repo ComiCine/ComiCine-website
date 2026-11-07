@@ -33,6 +33,7 @@ import worker, {
   type Env,
 } from "./index";
 import type { PruneResult } from "./retention";
+import { STATUS_CACHE_KEY_PREFIX, STATUS_CACHE_ORIGIN } from "./statuscache";
 
 /** Minimal D1 stub: returns preset results based on SQL keywords and records writes. */
 function fakeDb(handlers: {
@@ -191,69 +192,90 @@ describe("record state machine", () => {
 });
 
 describe("statusPayload", () => {
-  it("summarises overall / down / uptime", async () => {
-    const { db } = fakeDb({
-      all: () => ({
-        results: [
-          {
-            id: 1,
-            name: "Website",
-            type: "http",
-            target: "https://comicine.com/_health",
-            group_key: "public",
-            active: 1,
-            status: 1,
-            latency_ms: 12,
-            checked_at: 1,
-            total: 10,
-            up: 9,
-          },
-          {
-            id: 2,
-            name: "Admin",
-            type: "http",
-            target: "https://admin.comicine.com/_health",
-            group_key: "internal",
-            active: 1,
-            status: 0,
-            latency_ms: null,
-            checked_at: 1,
-            total: 10,
-            up: 4,
-          },
-        ],
-      }),
+  const probeRows = () => [
+    {
+      id: 1,
+      name: "Website",
+      type: "http",
+      target: "https://comicine.com/_health",
+      group_key: "public",
+      active: 1,
+      status: 1,
+      latency_ms: 12,
+      checked_at: 1,
+      total: 10,
+      up: 9,
+    },
+    {
+      id: 2,
+      name: "Admin",
+      type: "http",
+      target: "https://admin.comicine.com/_health",
+      group_key: "internal",
+      active: 1,
+      status: 0,
+      latency_ms: null,
+      checked_at: 1,
+      total: 10,
+      up: 4,
+    },
+  ];
+
+  it("summarises overall / down / uptime and maps daily buckets to probes", async () => {
+    const { db, prepared } = fakeDb({
+      all: (sql) =>
+        sql.includes("SELECT probe_id, day, up, total FROM probe_uptime_daily")
+          ? {
+              results: [
+                // Out of order on purpose: the payload orders each probe's days oldest first.
+                { probe_id: 1, day: 1_699_574_400, up: 0, total: 10 },
+                { probe_id: 1, day: 1_699_401_600, up: 10, total: 10 },
+                { probe_id: 2, day: 1_699_401_600, up: 4, total: 10 },
+              ],
+            }
+          : { results: probeRows() },
     });
     const payload = await statusPayload({ DB: db } as Env);
     expect(payload.total).toBe(2);
     expect(payload.down).toBe(1);
     expect(payload.overall).toBe("partial");
-    expect(payload.probes[0].uptime).toBeCloseTo(90);
-    expect(payload.probes[1].uptime).toBeCloseTo(40);
+    expect(payload.probes[0]!.uptime).toBeCloseTo(90);
+    expect(payload.probes[1]!.uptime).toBeCloseTo(40);
+    expect(payload.probes[0]!.days).toEqual([
+      { day: 1_699_401_600, up: 10, total: 10 },
+      { day: 1_699_574_400, up: 0, total: 10 },
+    ]);
+    expect(payload.probes[1]!.days).toEqual([{ day: 1_699_401_600, up: 4, total: 10 }]);
+    // One flat query for all probes, never one query per probe.
+    expect(prepared.filter((sql) => sql.includes("SELECT probe_id, day, up, total FROM probe_uptime_daily")).length).toBe(1);
   });
 
   it("uptime is null when there are no heartbeats", async () => {
     const { db } = fakeDb({
-      all: () => ({
-        results: [
-          {
-            id: 1,
-            name: "X",
-            type: "http",
-            target: "t",
-            group_key: "public",
-            active: 1,
-            status: null,
-            latency_ms: null,
-            checked_at: null,
-            total: 0,
-            up: 0,
-          },
-        ],
-      }),
+      all: (sql) =>
+        sql.includes("SELECT probe_id, day, up, total FROM probe_uptime_daily")
+          ? { results: [] }
+          : {
+              results: [
+                {
+                  id: 1,
+                  name: "X",
+                  type: "http",
+                  target: "t",
+                  group_key: "public",
+                  active: 1,
+                  status: null,
+                  latency_ms: null,
+                  checked_at: null,
+                  total: 0,
+                  up: 0,
+                },
+              ],
+            },
     });
     const payload = await statusPayload({ DB: db } as Env);
-    expect(payload.probes[0].uptime).toBeNull();
+    expect(payload.probes[0]!.uptime).toBeNull();
+    expect(payload.probes[0]!.days).toEqual([]);
     expect(payload.overall).toBe("all");
   });
 });
@@ -337,6 +359,27 @@ describe("status page rendering", () => {
   it("pageLang prefers a supported lang query parameter", () => {
     const request = new Request("https://x/?lang=ja-jp", {
       headers: { "Accept-Language": "en-US" },
+    });
+    expect(pageLang(request)).toBe("ja-jp");
+  });
+
+  it("pageLang uses the shared language cookie before Accept-Language", () => {
+    const request = new Request("https://x/", {
+      headers: { "Accept-Language": "en-US", Cookie: "user_lang_preference=ko-kr" },
+    });
+    expect(pageLang(request)).toBe("ko-kr");
+  });
+
+  it("pageLang prefers ?lang= over the shared cookie", () => {
+    const request = new Request("https://x/?lang=en-us", {
+      headers: { "Accept-Language": "ja-JP", Cookie: "user_lang_preference=ko-kr" },
+    });
+    expect(pageLang(request)).toBe("en-us");
+  });
+
+  it("pageLang ignores unsupported cookie and header values", () => {
+    const request = new Request("https://x/", {
+      headers: { "Accept-Language": "ja-JP", Cookie: "user_lang_preference=fr-fr" },
     });
     expect(pageLang(request)).toBe("ja-jp");
   });
@@ -707,7 +750,19 @@ describe("status page routing", () => {
     up: 5,
     msg: "d1_error: Error: D1_ERROR: no such table: probes",
   };
-  const okEnv = () => ({ DB: fakeDb({ all: () => ({ results: [probeRow] }) }).db }) as unknown as Env;
+  const dailyRows = [
+    { probe_id: 1, day: 1_699_401_600, up: 10, total: 10 },
+    { probe_id: 1, day: 1_699_488_000, up: 0, total: 10 },
+  ];
+  const okEnv = () =>
+    ({
+      DB: fakeDb({
+        all: (sql) =>
+          sql.includes("SELECT probe_id, day, up, total FROM probe_uptime_daily")
+            ? { results: dailyRows }
+            : { results: [probeRow] },
+      }).db,
+    }) as unknown as Env;
   const brokenEnv = () =>
     ({
       DB: fakeDb({
@@ -728,6 +783,20 @@ describe("status page routing", () => {
     const html = await res.text();
     expect(html).toContain('<html lang="ja-jp">');
     expect(html).toContain("サービスステータス");
+  });
+
+  it("renders the shared cookie language in the very first response", async () => {
+    const res = await worker.fetch(
+      new Request(`${URL_BASE}/`, {
+        headers: { "Accept-Language": "en-US", Cookie: "user_lang_preference=ko-kr" },
+      }),
+      okEnv(),
+    );
+    expect(res.status).toBe(200);
+    // The language is part of the explicit cache key, so the response never varies on Cookie.
+    expect(res.headers.get("Vary")).toBe("Accept-Language");
+    expect(res.headers.get("Vary")).not.toContain("Cookie");
+    expect(await res.text()).toContain('<html lang="ko-kr">');
   });
 
   it("serves the theme preload script that the head blocks on", async () => {
@@ -752,6 +821,10 @@ describe("status page routing", () => {
     const res = await worker.fetch(new Request(`${URL_BASE}/api/status`), okEnv());
     const body = (await res.json()) as { probes: Array<Record<string, unknown>> };
     expect(body.probes[0].detail).toBe("d1_error");
+    expect(body.probes[0].days).toEqual([
+      { day: 1_699_401_600, up: 10, total: 10 },
+      { day: 1_699_488_000, up: 0, total: 10 },
+    ]);
     expect(JSON.stringify(body)).not.toContain("no such table");
     const html = await worker.fetch(new Request(`${URL_BASE}/?lang=zh-cn`), okEnv());
     expect(await html.text()).toContain("数据库查询失败");
@@ -1345,6 +1418,28 @@ describe("status page cache (suggestion 23)", () => {
     expect(english.headers.get("X-Status-Cache")).toBe("miss");
     expect(await english.text()).toContain('<html lang="en-us">');
     expect(store.size).toBe(2);
+  });
+
+  it("stores and reads a cookie-resolved page under the resolved language key", async () => {
+    const store = fakeCache();
+    const { db, reads } = countingDb();
+    const env = { DB: db } as Env;
+    const { ctx, pending } = context();
+    const headers = { Cookie: "user_lang_preference=ja-jp", "Accept-Language": "en-US" };
+
+    const first = await worker.fetch(new Request(`${URL}/`, { headers }), env, ctx);
+    expect(first.headers.get("X-Status-Cache")).toBe("miss");
+    expect(await first.text()).toContain('<html lang="ja-jp">');
+    await Promise.all(pending);
+    expect([...store.keys()]).toEqual([
+      `${STATUS_CACHE_ORIGIN}${STATUS_CACHE_KEY_PREFIX}ja-jp`,
+    ]);
+    expect(reads()).toBe(1);
+
+    const second = await worker.fetch(new Request(`${URL}/`, { headers }), env, ctx);
+    expect(second.headers.get("X-Status-Cache")).toBe("hit");
+    expect(await second.text()).toContain('<html lang="ja-jp">');
+    expect(reads()).toBe(1);
   });
 
   it("does not cache POST requests, 404s, or the 503 failure page", async () => {

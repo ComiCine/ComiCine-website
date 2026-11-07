@@ -11,7 +11,7 @@
 
 import { BASE_URL, IDENTITY_SITE_ROLES, ROOT_DOMAIN, WWW_HOSTNAME } from "./config";
 import { buildIdentityLoginStart } from "./identity-login";
-import { detectLang, escapeHtml, isApiPath, PUBLIC_FILES_PREFIX, requestUrl, type RequestContext } from "./routing";
+import { detectLang, isApiPath, PUBLIC_FILES_PREFIX, requestUrl, type RequestContext } from "./routing";
 import { requireAuth } from "./session";
 
 /**
@@ -132,28 +132,26 @@ export function isHtmlNavigation(request: Request): boolean {
     });
 }
 
-export function identityRequiredResponse(
-  request: Request,
-  identityUrl: string,
-  cookies: string[],
-): Response {
-  const target = escapeHtml(identityUrl);
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Sign in required</title></head><body><p>Authentication required.</p><a href="${target}">Continue to sign in</a><script src="/static/js/auth-redirect.js?v=1" data-target="${target}" defer></script></body></html>`;
+/**
+ * Redirect straight to the shared identity host without an intermediate page.
+ *
+ * A 401 document with a script used to sit in this path, and any browser that did not run the
+ * script (or ran it late) showed a visible "Authentication required" stop that needed a click.
+ * A 302 has no body to paint and needs no JavaScript, and the state cookie is honored on it.
+ */
+export function identityRedirectResponse(identityUrl: string, cookies: string[]): Response {
   const headers = new Headers({
-    "Content-Type": "text/html; charset=utf-8",
+    Location: identityUrl,
     "Cache-Control": "no-store",
     "Referrer-Policy": "no-referrer",
   });
   for (const cookie of cookies) headers.append("Set-Cookie", cookie);
-  return new Response(request.method === "HEAD" ? null : body, {
-    status: 401,
-    headers,
-  });
+  return new Response(null, { status: 302, headers });
 }
 
 /**
- * Send unauthenticated browser page navigations to the shared identity host
- * through a 401 document; non-navigation requests retain the local /login route.
+ * Send unauthenticated browser page navigations to the shared identity host; non-navigation
+ * requests retain the local /login route.
  */
 export async function adminAuthRedirect(
   env: RequestContext["env"],
@@ -167,14 +165,14 @@ export async function adminAuthRedirect(
     const current = url ?? requestUrl(request);
     const next = `${current.pathname}${current.search}`;
     if (isHtmlNavigation(request)) {
-      const start = await buildIdentityLoginStart(env, request, current, next, 401);
+      const start = await buildIdentityLoginStart(env, request, current, next);
       if (!start) {
         return new Response("Invalid identity return path\n", {
           status: 400,
           headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
-      return identityRequiredResponse(request, start.identityUrl, start.cookies);
+      return identityRedirectResponse(start.identityUrl, start.cookies);
     }
     return new Response(null, {
       status: 302,

@@ -666,6 +666,15 @@
             if (target.closest('.nav-screen-link')) closeNavMenu({});
         }
 
+        var HOVER_CLOSE_DELAY_MS = 220;
+        var hoverCloseTimer = 0;
+
+        function cancelHoverClose() {
+            if (!hoverCloseTimer) return;
+            win.clearTimeout(hoverCloseTimer);
+            hoverCloseTimer = 0;
+        }
+
         /* On desktop, hover opens and closes the language flyout; touch uses clicks. */
         function bindHover() {
             var fly = doc.querySelector('.lang-flyout');
@@ -674,10 +683,17 @@
             try { hoverable = win.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (_) {}
             if (!hoverable) return;
             fly.addEventListener('mouseenter', function () {
+                cancelHoverClose();
                 setLangMenuOpen(true, {});
             });
             fly.addEventListener('mouseleave', function () {
-                setLangMenuOpen(false, {});
+                cancelHoverClose();
+                /* A 1px overshoot at the menu edge must not close it: wait long enough for the
+                   pointer to come back, and cancel the close as soon as it re-enters. */
+                hoverCloseTimer = win.setTimeout(function () {
+                    hoverCloseTimer = 0;
+                    setLangMenuOpen(false, {});
+                }, HOVER_CLOSE_DELAY_MS);
             });
         }
 
