@@ -446,6 +446,7 @@ if any(
     for rule in ruleset.get("rules", [])
 ):
     raise SystemExit("FATAL: an obsolete public docs redirect remains active")
+
 print("[docs] obsolete public docs redirects removed")
 PY
 
@@ -462,6 +463,84 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --branch "$PAGES_BRANCH" \
         --commit-dirty=true 2>&1 | strip_emoji
 )
+
+# Remove the retired Worker only after Pages has published the replacement 404 behavior.
+python3 - "$SECRETS_FILE" <<'PY'
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+
+secrets_path = pathlib.Path(sys.argv[1])
+token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+account_id = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+if (not token or not account_id) and secrets_path.is_file():
+    secret_text = secrets_path.read_text()
+    if not token:
+        match = re.search(r"^CLOUDFLARE_API_TOKEN=(.*)$", secret_text, re.M)
+        token = match.group(1).strip() if match else ""
+    if not account_id:
+        match = re.search(r"^CLOUDFLARE_ACCOUNT_ID=(.*)$", secret_text, re.M)
+        account_id = match.group(1).strip() if match else ""
+if not token or not account_id:
+    raise SystemExit("FATAL: Cloudflare credentials are missing; cannot remove the retired docs Worker")
+
+base_url = "https://api.cloudflare.com/client/v4"
+legacy_worker = "comicine-docs-legacy-404"
+legacy_route_patterns = {
+    "docs.comicine.com/articles/amc-10-formula-guide",
+    "docs.comicine.com/articles/amc-10-formula-guide/*",
+    "docs.comicine.com/articles/uk-undergraduate-majors",
+    "docs.comicine.com/articles/uk-undergraduate-majors/*",
+}
+
+def call(method, url):
+    config = f'header = "Authorization: Bearer {token}"\nurl = "{url}"\nrequest = "{method}"\n'
+    response = subprocess.run(
+        ["curl", "--http1.1", "-sS", "--config", "-"],
+        input=config,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    try:
+        payload = json.loads(response.stdout)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"FATAL: Cloudflare API returned invalid JSON: {error}")
+    if not payload.get("success"):
+        errors = json.dumps(payload.get("errors", []), ensure_ascii=True)
+        raise SystemExit(f"FATAL: Cloudflare API request failed: {errors}")
+    return payload.get("result")
+
+zones = call("GET", f"{base_url}/zones?name=comicine.com&status=active")
+zone = next((item for item in zones or [] if item.get("name") == "comicine.com"), None)
+if not zone:
+    raise SystemExit("FATAL: active comicine.com zone was not found")
+
+worker_routes_url = f"{base_url}/zones/{zone['id']}/workers/routes"
+worker_routes = call("GET", worker_routes_url) or []
+for route in worker_routes:
+    if route.get("script") == legacy_worker or route.get("pattern") in legacy_route_patterns:
+        call("DELETE", f"{worker_routes_url}/{route['id']}")
+
+worker_routes = call("GET", worker_routes_url) or []
+if any(
+    route.get("script") == legacy_worker or route.get("pattern") in legacy_route_patterns
+    for route in worker_routes
+):
+    raise SystemExit("FATAL: a retired docs Worker route remains active")
+
+worker_scripts_url = f"{base_url}/accounts/{account_id}/workers/scripts"
+worker_scripts = call("GET", worker_scripts_url) or []
+if any(script.get("id") == legacy_worker for script in worker_scripts):
+    call("DELETE", f"{worker_scripts_url}/{legacy_worker}")
+worker_scripts = call("GET", worker_scripts_url) or []
+if any(script.get("id") == legacy_worker for script in worker_scripts):
+    raise SystemExit("FATAL: the retired docs Worker script remains deployed")
+print("[docs] retired Worker routes and script removed")
+PY
 
 # Stage 8: smoke checks.
 echo "[docs] post-deploy check"
