@@ -508,15 +508,16 @@ check_custom_404() {
 }
 
 check_access_challenge() {
-    local path="$1" i result code location
+    local path="$1" i result code location location_base
     for i in 1 2 3 4 5 6; do
         result="$(curl -s -o /dev/null -w '%{http_code}\n%{redirect_url}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
         code="${result%%$'\n'*}"
         location="${result#*$'\n'}"
-        if [ "$code" = 302 ] && [[ "$location" == https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then break; fi
+        location_base="${location%%\?*}"
+        if [ "$code" = 302 ] && [[ "$location_base" == https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then break; fi
         sleep 10
     done
-    if [ "$code" != 302 ] || [[ "$location" != https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then
+    if [ "$code" != 302 ] || [[ "$location_base" != https://comicine.cloudflareaccess.com/cdn-cgi/access/login/* ]]; then
         echo "FATAL: https://${DOCS_HOST}${path} did not redirect to Cloudflare Access (status ${code})" >&2
         exit 1
     fi
@@ -570,8 +571,8 @@ check_language_redirect /security/policy /security/policy/en-us
 check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
-check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/en-us
-check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/ja-jp "user_lang_preference=ja-jp" "en-US"
+# Cloudflare Access intercepts private entry URLs before Pages Functions run.
+check_access_challenge /private/articles/mu5735-report
 
 check_custom_404 /
 check_custom_404 /__codex_missing_page__
