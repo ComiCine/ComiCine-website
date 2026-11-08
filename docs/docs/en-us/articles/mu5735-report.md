@@ -12,7 +12,7 @@ tags: [MU5735, DCA22WA102, aviation accident, FDR, CVR]
 
 ::: tip Reading navigation
 
-Quick reading: §0 Summary → §2 Timeline → §4 FDR event → §5 upk decoding → §6 Radar, physics, and impact → §9 Conflicts → §10 Limits and conclusions. Technical detail is in §§4–7; investigation history is in §8. The page outline provides the complete section list.
+Quick reading: §0 Summary → §2 Timeline → §4 FDR event → §5 ARINC 717 decoding → §6 Radar, physics, and impact → §9 Conflicts → §10 Limits and conclusions. Technical detail is in §§4–7; investigation history is in §8. The page outline provides the complete section list.
 
 :::
 
@@ -31,7 +31,7 @@ Cruise at 29,103 ft → both engine fuel control switch parameters changed to CU
 **What the materials support:**
 
 1. At 29,103 ft in cruise, **the fuel control switch parameters for both engines changed from RUN to CUTOFF within the same one-second sampling window**. N2 then declined monotonically from 92.4% to 49.9% (Eng 1) / 52.5% (Eng 2); N1 from 83.5% to 25.6% / 25.8%; EGT from 623°C to 395 / 397°C; and fuel flow reached 0. **Throttle lever angle remained between 58.9° and 60.1° throughout; there was no throttle movement.**
-2. The first valid control-input sample appears about 1.8 s after cutoff: **control wheel −28.1°**. It then varied repeatedly between −19° and −102°, with a peak of −101.95° and a median of about −47°. The ailerons followed proportionally, reaching about +17.8° / −18.4° at full deflection. **The aircraft continued rolling in the same leftward direction, accumulating about −528° to −540° over 16.3 s (≈1.45–1.50 revolutions; −521 is the old v1 time-base integral), at an average −32 ± 2°/s; pitch attitude changed from +2.46° to −35.86°; IAS from 265 to 339.75 kt; altitude from 29,103 to 25,389 ft.**
+2. The first valid control-input sample appears about 1.8 s after cutoff: **control wheel −28.1°**. It then varied repeatedly between −19° and −102°, with a peak of −101.95° and a median of about −47°. The ailerons followed proportionally, reaching about +17.8° / −18.4° at full deflection. **The aircraft continued rolling in the same leftward direction, accumulating about −528° to −540° over 16.3 s (≈1.45–1.50 revolutions; ), at an average −32 ± 2°/s; pitch attitude changed from +2.46° to −35.86°; IAS from 265 to 339.75 kt; altitude from 29,103 to 25,389 ft.**
 3. **The aircraft systems were operating at the time**: hydraulic pressure A 2,960–3,004 / B 2,972–3,016 psi; the ailerons, elevators, control wheel, and control column all moved with the inputs; both engine fire-warning indications were NO FIRE in valid data; both engines decayed in sync, with neither failing first.
 4. **The FDR stopped at about 25,389 ft after generator dropout**; the inferred N2 dropout threshold is about 49% (48.6–49.9%, **inference**), at about 06:21:06–07Z. The last measured radar point at 06:21:40Z was 3,380 m, showing that the aircraft descended another approximately 4,300 m after recording stopped.
 5. **All four CVR channels were rated Excellent** (about 120 min on each of the three audio panels and about 180 min on CAM). The NTSB received the recorder and downloaded it, then returned all audio to the CAAC and retained none. The FOIA response explicitly says the NTSB holds no CVR data. **Therefore, this release contains no audio and no transcript.**
@@ -47,7 +47,7 @@ The materials do not establish who moved the controls, why, or whether the actio
 
 ## 1. Materials and integrity
 
-### 1.1 FOIA response
+### 1.1 NTSB FOIA response (DCA22WA102)
 
 | Item | Count |
 |---|---:|
@@ -60,13 +60,13 @@ The materials do not establish who moved the controls, why, or whether the actio
 | Total partially redacted | **314 pages (response ledger)** |
 | Release rate | 1,959 / 2,818 = **69.5%** |
 
-**Physical cross-check**: In the released PDFs, b(5) text labels appear on 75 pages, b(6) on 119, and either label on 124; four pages are marked Referred (vol. 8 pp. 37/38/39/112); b(4) appears on 0 pages. Pixel-based black-box counting found **192 pages** with any solid black area (180 in vol. 8 + 12 in vol. 1; 163 with >0.5% coverage), still below the ledger total of 314. **The 190-page discrepancy cannot be explained solely by “photographic black boxes without text labels.”** The more likely explanation is that the ledger also counts pages withheld in full or deleted against a white background. The released PDFs establish only that 124 pages carry text labels and 192 have black boxes. **Do not state that “314 pages have been verified”**.
+**Physical cross-check**: In the released records, b(5) text labels appear on 75 pages, b(6) on 119, and either label on 124; four pages are marked Referred (vol. 8 pp. 37/38/39/112); b(4) appears on 0 pages. Pixel-based black-box counting found **192 pages** with any solid black area (180 in vol. 8 + 12 in vol. 1; 163 with >0.5% coverage), still below the ledger total of 314. **The 190-page discrepancy cannot be explained solely by “photographic black boxes without text labels.”** The more likely explanation is that the ledger also counts pages withheld in full or deleted against a white background. The released records establish only that 124 pages carry text labels and 192 have black boxes. **Do not state that “314 pages have been verified”**.
 
-Key points in the response: the NTSB does not hold CVR data; FDR files require specialized software and proprietary manufacturer documentation; some pages originated with the FAA and are marked “Referred.”
+Key points in the response: the NTSB does not hold CVR data; FDR data require specialized software and proprietary manufacturer documentation; some pages originated with the FAA and are marked “Referred.”
 
 ### 1.2 OCR and derived data
 
-All eight PDFs were image-only (1275×1650 JPEG, 150 dpi, no text layer) and were fully OCR'd. Another **300-dpi OCR pass plus visual review of cropped key values across 47 items** was done for 52 critical pages (vol. 1 pp. 1–33 and vol. 8 pp. 157–175): none of the numbers, part numbers, times, or weights was overturned (CVR/FDR P/Ns, 120/120/120/180 min, 6.5+1.3 s, 26,000 ft, TOW 66,039, PAX 123, crew hours, radar 3,380 m / 1,010 km/h / 117.8°). The 300-dpi pass corrected only letter-level readings such as `.dlu` / `.wav` (13 instances), and introduced 12 new f→t misreads; therefore the main text follows the 144-dpi OCR, while `.dlu` / `.wav` follow the 300-dpi pass. `CABINE` / `EXRA` / `PLANED` in the PowerPoint are source typos, not OCR errors. Neither OCR version of the embossed markings on photographs, chip markings, nor the axes on the plots on pp. 25–27 is reliable; do not cite them. Both FDR CSV files were audited column by column; all three upk files were reverse-engineered into dataframes and decoded.
+The released scans were image-only (1275×1650 JPEG, 150 dpi, no text layer) and were fully OCR'd. Another **300-dpi OCR pass plus visual review of cropped key values across 47 items** was done for 52 critical pages (vol. 1 pp. 1–33 and vol. 8 pp. 157–175): none of the numbers, part numbers, times, or weights was overturned (CVR/FDR P/Ns, 120/120/120/180 min, 6.5+1.3 s, 26,000 ft, TOW 66,039, PAX 123, crew hours, radar 3,380 m / 1,010 km/h / 117.8°). The 300-dpi pass corrected only letter-level readings such as audio-file-format labels (13 instances), and introduced 12 new f→t misreads; therefore the main text follows the 144-dpi OCR, while readings of audio-file-format labels follow the 300-dpi pass. `CABINE` / `EXRA` / `PLANED` in the PowerPoint are source typos, not OCR errors. Neither OCR version of the embossed markings on photographs, chip markings, nor the axes on the plots on pp. 25–27 is reliable; do not cite them. Both FDR data tables were audited column by column; all three ARINC 717 data segments were decoded.
 
 ---
 
@@ -76,7 +76,7 @@ All eight PDFs were image-only (1275×1650 JPEG, 150 dpi, no text layer) and wer
 
 - CAAC/ATC times are Beijing time (UTC+8); ACARS times are UTC; FOIA emails use Eastern Daylight Time (EDT, UTC−4).
 - FDR `Time (sec)` is the recorder's internal counter (288,200–288,978 s), not clock time; it was back-calculated using the “end of recording + radar.”
-- **The upk block length is determined to be 1.000 s/block** (the U2 gap recurs every 8 blocks = 8 s in the NTSB data; full-segment altitude fit B=1.0, while B=1.0195 has RMS 12,980 ft). The previous-flight ARINC 717 data are an exception: their time base was stretched by 1.385×, so they cannot be used for absolute synchronization.
+- **The ARINC 717 data-block length is determined to be 1.000 s/block** (the U2 gap recurs every 8 blocks = 8 s in the NTSB data; full-segment altitude fit B=1.0, while B=1.0195 has RMS 12,980 ft). The previous-flight ARINC 717 data are an exception: their time base was stretched by 1.385×, so they cannot be used for absolute synchronization.
 
 ### 2.2 Main timeline (key intervals)
 
@@ -85,8 +85,8 @@ All eight PDFs were image-only (1275×1650 JPEG, 150 dpi, no text layer) and wer
 | 12:54 | 04:54 | Crew first contacts Kunming ATC | vol. 8 p. 174 |
 | 13:15 | 05:15 | Kunming Tower issues takeoff clearance | vol. 8 p. 174 |
 | **13:16:26** (13:15:53–13:16:50) | **05:16:26** | **Liftoff**; ACARS TKO message at 05:16:00Z | ACARS + FDR + CAAC |
-| 13:27:26 | 05:27:26 | Reaches and maintains 8,900 m (29,199 ft); FDR reads 29,228 ft (including −125.6 ft offset) | CAAC + upk |
-| 13:35 | 05:35 | ATC instructs a 5-nm offset; during the same minute the FDR shows a −27° left-bank maneuver (direction inconsistent with “right”) | vol. 8 p. 171; upk |
+| 13:27:26 | 05:27:26 | Reaches and maintains 8,900 m (29,199 ft); FDR reads 29,228 ft (including −125.6 ft offset) | CAAC + ARINC 717 data |
+| 13:35 | 05:35 | ATC instructs a 5-nm offset; during the same minute the FDR shows a −27° left-bank maneuver (direction inconsistent with “right”) | vol. 8 p. 171; ARINC 717 data |
 | 14:16 / 14:17 | 06:16 / 06:17 | Contacts Guangzhou Area Control / enters Guangzhou control area | vol. 8 pp. 171/174 |
 | **14:20:48** (14:20:45–14:20:50) | **06:20:48** | **Both engine fuel control switch parameters change from RUN to CUTOFF**; 29,103 ft; first radar row is 8,870 m | FDR + radar |
 | 14:20:55 | 06:20:55 | Radar **CL warning** (Deviation from Cleared Level) | SSR table |
@@ -105,7 +105,7 @@ All eight PDFs were image-only (1275×1650 JPEG, 150 dpi, no text layer) and wer
 | CUTOFF | 06:20:45–50Z | Best radar-altitude fit is 06:20:48; FDR counter 288,958.586 |
 | FDR stop | 06:21:04–07Z | Strict anchor 06:21:06.98; timeline value 06:21:05; radar interpolation 06:21:04.1 |
 | Impact | 06:22:15–42Z, center 06:22:30 | Pure vertical extrapolation gives 06:22:12–19, but the landing point is 8.6 km from the point cited from outside the release; use the external point |
-| Liftoff | 13:16:26 (13:15:53–13:16:50) | ACARS whole-minute time + upk 64.37 min (liftoff→CUTOFF) / 64.85 min (→FDR stop) + CAAC 13:16 |
+| Liftoff | 13:16:26 (13:15:53–13:16:50) | ACARS whole-minute time + ARINC 717 data: 64.37 min (liftoff→CUTOFF) / 64.85 min (→FDR stop) + CAAC 13:16 |
 
 ![Main accident-day timeline, BJT/UTC dual scale, 12:54–14:23](/assets/articles_mu5735_fig01_timeline.png)
 
@@ -113,12 +113,12 @@ All eight PDFs were image-only (1275×1650 JPEG, 150 dpi, no text layer) and wer
 
 ---
 
-## 3. NTSB recorder report (33 pages, 2022-07-01)
+## 3. NTSB Cockpit Voice and Flight Data Recorder Combined Download Report (33 pages, 2022-07-01)
 
 ### 3.1 CVR (Cockpit Voice Recorder; Honeywell HFR5-V, P/N 980-6032-001, S/N CVR-04014)
 
 - Found on March 23, with severe impact damage; the Chinese team repeatedly failed to download it in Beijing using a replacement chassis.
-- The NTSB received the `.dlu` on March 28. Playback32 extracted four WAV files, but they were **unintelligible / unusable** (p. 5).
+- The NTSB received CVR data on March 28. Playback32 extracted four audio tracks, but they were **unintelligible / unusable** (p. 5).
 - Microscopic examination: connector solder pads broken, pins deformed, and ground plane fractured; more pins were found pressed down after the case was opened; one power-filter capacitor had already been unsoldered at manufacture.
 - After connector repair, a DLDR chip image plus Playback32 produced **Fair** audio on the three audio panels and **Poor** on CAM (p. 10).
 - The unit was opened, fitted with a new connector shell, connected to an NTSB HFR5-V golden chassis, and downloaded again; **all four channels were rated Excellent** (p. 13): about 120 min per panel and about 180 min on CAM.
@@ -178,7 +178,7 @@ The report covers recorder repair, readout, and transfer only; it contains no an
 
 *Figure 2: Six-panel view of the final 60 seconds (altitude/IAS/roll/control wheel/N1/N2).*
 
-Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over the full 8-Hz window gives −540.4°. The main text's −528 to −540° range in §§4.3/6.2 rounds the lower bound from −527.9 (a 0.1° difference) and uses the 8-Hz integration for the upper bound; −521 is the old v1 time-base integral (B=1.0195) and is not used. **The table's +143.4/+59.2 are wrapped values at ±180°; unwrapped they are −216.6/−300.8 (continuing left roll), not right roll.**
+Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over the full 8-Hz window gives −540.4°. The main text's −528 to −540° range in §§4.3/6.2 rounds the lower bound from −527.9 (a 0.1° difference) and uses the 8-Hz integration for the upper bound;  (B=1.0195) and is not used. **The table's +143.4/+59.2 are wrapped values at ±180°; unwrapped they are −216.6/−300.8 (continuing left roll), not right roll.**
 
 ### 4.2 Engines
 
@@ -190,7 +190,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 
 - Control wheel: +3.5° → first valid sample −28.1° → peak **−101.95°**; event-segment **median about −47°**. Only **18%** of samples were ≤ −90°; the wheel repeatedly moved between −19° and −102°, so this was **not “held at full left.”**
 - Ailerons followed proportionally, reaching about +17.8°/−18.4° at full deflection; elevator −4.5 → −7.7°, control column 0.2 → −5.0°, control force about −0.95 to +0.71 lb (sign convention not supplied, so pull/push cannot be determined).
-- Roll: continued in the same leftward direction, accumulating **about −528° to −540° over 16.3 s (≈1.45–1.50 revolutions; −521 is the old v1 time-base integral)**, average **−32 ± 2°/s**; pitch attitude +2.46 → −35.86°; Nz **about −0.29…+1.29 g** (88% of samples < 1 g).
+- Roll: continued in the same leftward direction, accumulating **about −528° to −540° over 16.3 s (≈1.45–1.50 revolutions; )**, average **−32 ± 2°/s**; pitch attitude +2.46 → −35.86°; Nz **about −0.29…+1.29 g** (88% of samples < 1 g).
 - **The rudder channel cannot establish that the rudder was functioning normally**: 5,052 of 5,133 samples are frozen at −1.0°; −54° appears only in the final bad frame. Use Rudder Ped Pos instead (−0.99…0.00°; 11.42° is a full-scale bad frame at 288977.449) and Rudder Servo Cmd (±2°).
 - Hydraulic pressure A 2,960–3,004 / B 2,972–3,016 psi; no fire warning; no thrust asymmetry.
 
@@ -210,18 +210,18 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 
 **Closed loop**: The FDR stopped at 25,389 ft after both engines' N2 fell below generator dropout speed (the FDR has no battery); radar continued to record the aircraft down to 3,380 m at 06:21:40, showing a further descent of about 4,300 m after recording stopped; impact was about 06:22:30 (see §6).
 
-## 5. upk decoding and two-flight profiles
+## 5. ARINC 717 decoding and two-flight profiles
 
 ### 5.1 Decoding method and calibration
 
 - ARINC 717: 512 12-bit words per second; 512-word block = 1 s; sync words 0x247/0x5B8/0xA47/0xDB8 cycle every four seconds; 0xFFF is invalid.
 - **Block structure = 16 minor frames × 32 words**; each parameter is fixed at a set of minor-frame phases, leaving only one unknown slot k (0–31).
-- Time alignment: **T0 = 43.000 s** (block i ↔ 288,243.0+i; add mf/16 s for the minor frame and k/512 s for each word). **v2's T0=40.000 was aligned to NTSB row number `640+16i`, overlooking three one-second gaps and causing a 3-s drift; v1's 43.3125 differs by only 0.3125 s.** The 8-Hz cross-check used pointwise residuals: at T0=43.0, Roll/Pitch residual p90 falls from 0.178° to 0.003° (a quantization step). Block length is **1.000 s** (U2 gap every 8 blocks = 8 s; rejected B=1.0195 because its full-segment altitude RMS is 12,980 ft).
-- Altitude: v3 refit gives **31.807 ft/count**; v2's `raw×32.08+99` is systematically 126.6 ft high (physics fit 125.6 ft; 1-ft difference is the fit window); calibrated cruise altitude is 29,102 ft = FL291, and final altitude is 25,389 ft, matching radar 8,870 m at 06:20:50 within 0.3 ft. The 32-ft quantization is a hard limit; do not treat differences <32 ft as real.
-- Verified: IAS median difference 0.00 kt, EGT 0, N1 0, **N2 bit-exact**; roll/pitch/wheel p95 <2°; v3 slot and timestamp inversion agree **31/31** (median per-sample timestamp grid residual 1.9e-5 s).
-- **v3 has 32 columns** (25 in v2 + Roll_Rate, Accel_Lat/Long, Eng2_EGT/FF/N1, HydB); 31 decoded, Flap not decoded. Aileron scales **17.309/17.539**, rudder **17.844**; elevator/control column are essentially unchanged. Median residuals: ailerons **0.0138/0.0117°** (176×/245× better than v2), elevator 0.00065/0.00106° (3.3×), control column 0.00152/0.00581° (5.3×), rudder 0.0282° (3×), roll rate 0.0093°/s.
-- **Accel Lat/Long decoded in v3**: scale 1964.4/1964.6 counts/g, residual 5e-5/3e-4 g (export precision), medium confidence (±5%). Still unresolved: Oil Press/Temp, Flap (8-s square-wave artifact); Stab Trim is not among the 165 columns. A v3 absolute-time version of the previous-flight ARINC 717 data was not produced because there is no independent evidence for block-to-absolute-time alignment.
-- **Independent v3 cross-check**: **31/31 channels reproduced**; aileron scales 17.309/17.539 hold; rudder scale 17.844 may be 10–15% low (quantization-level back-calculation suggests about 15.4); altitude-change quantization median 32.5 ft (not 2.1 ft as in cruise); the negative-time segment of the combined two-flight ARINC 717 data has 7 all-zero blocks / 3 damaged blocks, not affecting the accident segment (735/735 blocks match the accident-flight data); the sign of the Elevator_R v2 offset in the parameter mapping was corrected.
+- Time alignment: **T0 = 43.000 s** (block i ↔ 288,243.0+i; add mf/16 s for the minor frame and k/512 s for each word). **Aligning to NTSB row number `640+16i` without accounting for three one-second gaps creates a 3-s drift; the cross-check supports T0=43.000 s.** The 8-Hz cross-check used pointwise residuals: at T0=43.0, Roll/Pitch residual p90 falls from 0.178° to 0.003° (a quantization step). Block length is **1.000 s** (U2 gap every 8 blocks = 8 s; rejected B=1.0195 because its full-segment altitude RMS is 12,980 ft).
+- Altitude: The calibrated scale is **31.807 ft/count**; the earlier formula `raw×32.08+99` is systematically 126.6 ft high (physics fit 125.6 ft; 1-ft difference is the fit window); calibrated cruise altitude is 29,102 ft = FL291, and final altitude is 25,389 ft, matching radar 8,870 m at 06:20:50 within 0.3 ft. The 32-ft quantization is a hard limit; do not treat differences <32 ft as real.
+- Verified: IAS median difference 0.00 kt, EGT 0, N1 0, **N2 bit-exact**; roll/pitch/wheel p95 <2°; decoded channel-slot and timestamp inversion agree **31/31** (median per-sample timestamp grid residual 1.9e-5 s).
+- **The final decode has 32 channels**, including Roll_Rate, Accel_Lat/Long, Eng2_EGT/FF/N1, and HydB; 31 are decoded, while Flap remains unresolved. Aileron scales **17.309/17.539**, rudder **17.844**; elevator/control column are essentially unchanged. Median residuals: ailerons **0.0138/0.0117°** (176×/245× better than the earlier calibration), elevator 0.00065/0.00106° (3.3×), control column 0.00152/0.00581° (5.3×), rudder 0.0282° (3×), roll rate 0.0093°/s.
+- **Accel Lat/Long are decoded**: scale 1964.4/1964.6 counts/g, residual 5e-5/3e-4 g (export precision), medium confidence (±5%). Still unresolved: Oil Press/Temp, Flap (8-s square-wave artifact); Stab Trim is not among the 165 columns. An independently supported absolute-time alignment was not established for the previous-flight ARINC 717 data because there is no independent evidence for block-to-absolute-time alignment.
+- **Independent cross-check**: **31/31 channels reproduced**; aileron scales 17.309/17.539 hold; rudder scale 17.844 may be 10–15% low (quantization-level back-calculation suggests about 15.4); altitude-change quantization median 32.5 ft (not 2.1 ft as in cruise); the negative-time segment of the combined two-flight ARINC 717 data has 7 all-zero blocks / 3 damaged blocks, not affecting the accident segment (735/735 blocks match the accident-flight data); the sign of the Elevator_R calibration offset in the parameter mapping was corrected.
 - **8-Hz check**: control wheel P2P **105.5°** (never right wheel, only left input and relaxation); aileron L/R P2P **19.8/21.8°**; roll-rate P2P **48.8°/s** (slot 9/odd, raw/15.992, residual 0.0093); control column 8.7°, elevator 7.7°, rudder 3.1°.
 - Input pattern was **repeated near-full left input followed by relaxation**: 719/725–726/729–730 deflected to −99…−102°; 723/728 relaxed to −26…−9°; primary frequency about 0.09–0.10 Hz, with another ~19% of the energy at 0.7–1.5 Hz from rapid corrections. Wheel-to-aileron lag 46 ms (r=−0.993), aileron-to-roll-rate lag 0.56 s (r=−0.972), roll angle lags roll rate by 89.2° (integrator).
 
@@ -236,7 +236,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 | Upset/dive | 0.28 min | CUTOFF → left roll −528 to −540° → pitch −35.86°; FDR stops |
 
 - Cruise altitude has only one quantization code (29,227.6 ft); the apparent “variation” is 128.32-ft quantization noise. Actual Mach changes from 0.69 to 0.81 (`FMC_Mach` is the target, not measured Mach).
-- No step change or single-engine pattern (v3 decoded Eng2 N1/N2/EGT/FF; both engines were symmetrical).
+- No step change or single-engine pattern (the decode includes Eng2 N1/N2/EGT/FF; both engines were symmetrical).
 
 ### 5.3 Previous flight (MU5864, Chongqing ZUC → Kunming ZPP)
 
@@ -250,7 +250,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 | Landing/taxi in | 0.57+5.15 min | IAS 151→45 kt / 35 s (−3.11 kt/s), peak reverse-thrust N1 76.3% |
 
 - **Important limitation**: the combined previous-flight / accident-flight ARINC 717 data are joined at block 4877 (previous flight shutdown / accident-flight start), **so the Kunming turnaround is truncated**; only an upper bound can be given for the previous flight's absolute time.
-- Anchoring on ACARS MU5864 TKO at 02:11Z (10:11 Beijing) and upk liftoff-to-touchdown duration of 72.45 min gives **landing at about 11:24 Beijing (11:2x–11:3x)**, corresponding to Δ≈1.9 h (11:24 landing → 13:16 takeoff = 1 h 52 min). Do not use 12:55:39 based on a false continuity assumption or 12:30 inferred from a “25-min turnaround.”
+- Anchoring on ACARS MU5864 TKO at 02:11Z (10:11 Beijing) and ARINC 717 data duration of 72.45 min from liftoff to landing gives **landing at about 11:24 Beijing (11:2x–11:3x)**, corresponding to Δ≈1.9 h (11:24 landing → 13:16 takeoff = 1 h 52 min). Do not use 12:55:39 based on a false continuity assumption or 12:30 inferred from a “25-min turnaround.”
 - The accident flight is entirely after the join point; its timeline is unaffected.
 
 ![Altitude, IAS, and N1 profiles for both flights](/assets/articles_mu5735_fig04_two_flights.png)
@@ -297,12 +297,12 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 
 | Quantity | Result |
 |---|---|
-| Roll rate | −32 ± 2°/s (plateau), peak −34.2°/s; cumulative over 16.3 s **−528° to −540°** (≈1.45–1.50 revolutions; −521 is the old v1 time-base integral) |
+| Roll rate | −32 ± 2°/s (plateau), peak −34.2°/s; cumulative over 16.3 s **−528° to −540°** (≈1.45–1.50 revolutions; ) |
 | Pitch rate | Mean −1.74°/s, peak −3.76°/s; pitch attitude +2.46 → −35.86° |
 | Flight-path angle | 0 → −29.1° |
-| Nz | **16 Hz: −0.29…+1.29 g** (FDR 1-Hz sample −0.19…+1.19; upk 1-Hz 0.48–1.28 is a different convention), 88.5% <1 g; n=1/cosφ does not hold |
+| Nz | **16 Hz: −0.29…+1.29 g** (FDR 1-Hz sample −0.19…+1.19; decoded ARINC 717 data at 1 Hz 0.48–1.28 is a different convention), 88.5% <1 g; n=1/cosφ does not hold |
 | Specific energy | 11,135.9 → 10,898.0 m, net loss −238 m over 19.4 s; altitude fell 1,134 m, of which 896 m became kinetic energy (79%) |
-| IAS/TAS | 265→**339.75** kt (upk final 337.5); TAS 409.8→484.1 kt (750→897 km/h); M 0.69→0.81 |
+| IAS/TAS | 265→**339.75** kt (decoded ARINC 717 final value 337.5); TAS 409.8→484.1 kt (750→897 km/h); M 0.69→0.81 |
 | Descent rate | 0 → 22,700 ft/min; final 8 s average −20,800 ft/min |
 | Radar lag | 06:21:00 residual −215 m; optimal shifts of −1.25/−2.25 s reduce residual to 3.8/4.6 m → radar altitude lags FDR by about 1.5–2 s |
 
@@ -384,7 +384,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 ### 8.4 Where the final approximately 70–97 seconds of CVR audio are (evidence chain)
 
 - CSMU recovered on 3/23; after Chinese download attempts in Beijing failed on 3/24–25, assistance was requested; on 3/28 the NTSB received the module and formed a recovery group (“performed by NTSB personnel and overseen and recorded by CAAC personnel,” p. 4).
-- First `.dlu`: four WAV files with expected duration/sample rate but **unintelligible / unusable** (p. 5, unrated).
+- Initial download: four audio tracks with the expected duration and sample rate, but **unintelligible / unusable** (p. 5, unrated).
 - Chip-image route: 14 DLDR chip images → CHIPS `.du` → Playback32: panels **Fair**, CAM **Poor**, with repeated audio in the accident segment (pp. 9–10).
 - Final download after opening the case, repairing the connector, and fitting a new shell: correct sequence, accident at the end, all four channels **Excellent** (pp. 12–13).
 - Nine types of files returned to CAAC: original download, chip images, all `.du` files, all WAV files, time-corrected + 8k→16k upsampled audio, RAPT-R `.mdf`, enhancement, time stretching, photographs/microscope images; the NTSB kept only photos/scans/microscope images (p. 14).
@@ -402,7 +402,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 The volume 8 analysis organizes 174 emails + 4 documents from volume 8 into **99 administrative events** (38 dates), in four periods:
 
 - **Initial response (3-21–4-07, 53 events)**: 05:12 WOC notification → 05:19 initial report (132 POB, local 14:22) → **05:58 Aireon report arrived before the CAAC notification form at 09:48** (CES5735) → 09:48 CAAC notification form (B1791 / 06:30 UTC / 123+9 / IIC Lin Hang) → 3/24 CAAC formal invitation (requested passports; same email says “CVR has been retrieved and we hope to have your help”) → 3/28 parallel tracks (U.S. team traveled to China on DL287 / Chinese team traveled to U.S. for FDR repair) → 4/05 signed the Investigation Protocol → 4/07 operational-factors meeting on Zoom + 19-page PowerPoint.
-- **Recorders and preliminary report (17 events)**: CVR CSMU on 3/23 → trans-Pacific technical channel 3/24 → recovery group and four unusable `.dlu` WAVs on 3/28 → FDR CCA transfer 4/04 (golden chassis, DLDR all zeros, U2 crack) → CVR repaired, all four channels Excellent, all audio returned to CAAC → preliminary-report body fully withheld under b(5) on 4/20, report itself absent → 33-page report on 7/01.
+- **Recorders and preliminary report (17 events)**: CVR CSMU on 3/23 → trans-Pacific technical channel 3/24 → recovery group and four unusable audio tracks on 3/28 → FDR CCA transfer 4/04 (golden chassis, DLDR all zeros, U2 crack) → CVR repaired, all four channels Excellent, all audio returned to CAAC → preliminary-report body fully withheld under b(5) on 4/20, report itself absent → 33-page report on 7/01.
 - **Media and anniversaries (14 events)**: 5/17 WSJ “intentional act” question remains, answer removed in four b(5) blocks; Chinese-side 03:26 reply gives no position and diverts to Chongqing A320 on 5/12; progress asked in 2023-01 → 02-08 “no information to update”; interim report asked about on 03-16 → interim statement on 03-20 (body b(5), attachment absent); seven anniversary strategy emails on 03-21, all b(5).
 - **Second anniversary and FOIA (15 events)**: 2024-03-21 04:52 long letter (Annex 13 filed differences, §1114(f), “final report has yet to be issued,” FOIA risk, flight data most sensitive, asks report timeframe) → 07:41 Chinese side “willing to have a video meeting,” **no words on timing** → 22 months later, two FOIA requests in 2026-01 → response in 2026-04.
 
@@ -422,7 +422,7 @@ The volume 8 analysis organizes 174 emails + 4 documents from volume 8 into **99
 | C02 | Accident time: 06:30 / 06:21:40 / 06:22:30 | 06:30 is rounded on the notification form; 06:21:40 is the last radar point; impact was about 06:22:30. |
 | C06 | ARINC 717 time bases differ by 1.385× | The previous-flight data are uncorrected; use only the corrected combined flight data for absolute synchronization. |
 | C04 | FDR stop altitude: 26,000 / 25,389 / 25,506 | Report is rounded; cite 25,389 ft. |
-| C07 | CVR quality Fair/Poor vs Excellent | Two downloads; first `.dlu` unusable, then Fair/Poor after connector repair, Excellent after replacing the shell. |
+| C07 | CVR quality Fair/Poor vs Excellent | Two downloads; the first audio download unusable, then Fair/Poor after connector repair, Excellent after replacing the shell. |
 | C09 | FOIA withheld/redacted: 478/122 vs 859/314 | 478/122 covers b(5) only; overall full withholding is 859, partial redaction 314 (ledger). |
 | C12 | FDR stopped at 14:20:51 / 14:21:04 / 14:21:05 | Interval is 14:21:04–07. |
 | C13 | Impact at 14:22:05 vs 14:22:18 vs 14:22:30 | Center is 14:22:30 ±10 s. |
@@ -442,8 +442,8 @@ The volume 8 analysis organizes 174 emails + 4 documents from volume 8 into **99
 - What cannot be established: who, why, or whether it was intentional; the FDR cannot distinguish intent, incapacitation, a struggle, or common-mode failure; the CVR is critical and is held by the Chinese side.
 - Official conclusion: the CAAC is the lead authority; no final report was public as of the April 2026 release; the 2024-03-21 email still said “since a final report has yet to be issued.”
 - The 737NG fuel-control switch's lift-to-move detent is supported by FAA SAIB NM-18-33 (“must be lifted to move”), but **the same SAIB concerns detent failure that can allow movement without lifting**. Thus “must be lifted” cannot prove that non-human movement was impossible; it is design context only.
-- **Sensitivity analysis**: of 10 core conclusions, **5 robust, 4 moderate, 1 fragile**. Most robust: both engines shut down in sync (does not depend on the discrete-state column); hydraulics/fire warning/twin-engine symmetry; the fuel control switch parameters changed (16 continuous CUTOFF values in Exact plus the engine-decay onset independently anchor it). Most fragile: **impact geometry**—the full “36° left turn + pull-up” reconstruction depends on the external CAAC preliminary-report point; ±5 km corresponds to about ±18 s, and without that point the result reverts to pure extrapolation at 06:22:12–19. Rudder pedals / cumulative roll / control input attribution are moderate: direction is robust, but FDR alone cannot establish the exact value or attribution to a “human hand.”
-- When citing: do not use “about 26,000 ft” as a measured value; do not treat 06:30 as impact time; do not treat the previous flight's upk absolute times as true; do not use the rudder channel as evidence the rudder functioned normally; do not treat the 06:21:25–35 radar track as an actual turn.
+- **Sensitivity analysis**: of 10 core conclusions, **5 robust, 4 moderate, 1 fragile**. Most robust: both engines shut down in sync (does not depend on the discrete-state column); hydraulics/fire warning/twin-engine symmetry; the fuel control switch parameters changed (16 continuous CUTOFF values in the original-sample data plus the engine-decay onset independently anchor it). Most fragile: **impact geometry**—the full “36° left turn + pull-up” reconstruction depends on the external CAAC preliminary-report point; ±5 km corresponds to about ±18 s, and without that point the result reverts to pure extrapolation at 06:22:12–19. Rudder pedals / cumulative roll / control input attribution are moderate: direction is robust, but FDR alone cannot establish the exact value or attribution to a “human hand.”
+- When citing: do not use “about 26,000 ft” as a measured value; do not treat 06:30 as impact time; do not treat the previous flight's ARINC 717 absolute-time alignment as true; do not use the rudder channel as evidence the rudder functioned normally; do not treat the 06:21:25–35 radar track as an actual turn.
 
 ---
 
@@ -470,7 +470,7 @@ All figures are 1500–1800 px wide, with a white background, Arial text, and so
 |---|---|---|
 | NTSB FOIA production | All 1,959 released pages OCR'd and classified; 52 pages checked at 300 dpi | 859 pages fully withheld; 314 pages partly redacted in the response ledger (124 actual text labels, 192 black boxes); b(5)/b(6) bodies are not in the release |
 | FDR tabular data | 165 parameters audited; 143 usable; event segment reconstructed | 63 status parameters are text enumerations; three full-second data losses; final bad frames; no fuel quantity or Stab Trim |
-| ARINC 717 flight data | v3 decoded 31 of 32 channels | Oil Press/Temp have only 4–7/3 distinct values and are nonphysical; Flap is an 8-s square-wave artifact; Stab Trim is not among the 165 parameters |
+| ARINC 717 flight data | 31 of 32 channels decoded | Oil Press/Temp have only 4–7/3 distinct values and are nonphysical; Flap is an 8-s square-wave artifact; Stab Trim is not among the 165 parameters |
 | ACARS engine messages | All 1,956 messages parsed; trends, anomalies, and accident-flight TKO reviewed | EGT Margin entirely blank; ESNs all zeroed; no fault/warning messages; no accident-flight CRZ |
 | Investigation correspondence | 174 messages indexed; CVR/WSJ/preliminary-report/anniversary topics examined in depth | 121/187 pages contain redactions; preliminary report, interim statement, and 2024 letter body removed |
 | Engine maintenance records | Parts / LLP ledger reviewed | Records cover only the 2015 new-aircraft entry; no AD/SB, repairs, or remaining LLP life |
