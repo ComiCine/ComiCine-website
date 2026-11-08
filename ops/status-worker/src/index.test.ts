@@ -846,16 +846,19 @@ describe("status page routing", () => {
     expect(await res.json()).toEqual({ error: "unavailable" });
   });
 
-  it("sends browser 404s to the main site's 404 without using a 3xx response", async () => {
+  it("renders the status site's own branded 404 page without a redirect stub", async () => {
     const html = await worker.fetch(
       new Request(`${URL_BASE}/nope`, { headers: { Accept: "text/html,application/xhtml+xml" } }),
       okEnv(),
     );
     expect(html.status).toBe(404);
     expect(html.headers.get("Cache-Control")).toBe("no-store");
-    expect(html.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+    expect(html.headers.get("Refresh")).toBeNull();
     expect(html.headers.get("Location")).toBeNull();
-    expect(await html.text()).toContain("https://comicine.com/404");
+    const body = await html.text();
+    expect(body).toContain("404");
+    expect(body).toContain('class="status-main"');
+    expect(body).not.toContain("Continue to ComiCine");
 
     const text = await worker.fetch(new Request(`${URL_BASE}/nope`), okEnv());
     expect(text.status).toBe(404);

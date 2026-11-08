@@ -71,17 +71,13 @@ function isHtmlNavigation(request) {
 
 function mainSite404Response(request, response) {
   if (response.status !== 404 || !isHtmlNavigation(request)) return response;
+  // This Worker serves images and has no page assets. Send the browser straight to the canonical
+  // 404 page instead of painting an unstyled "Continue to ComiCine" stub that reads like a login stop.
   const headers = new Headers(response.headers);
-  headers.delete("Location");
   headers.set("Cache-Control", "no-store");
-  headers.set("Content-Type", "text/html; charset=utf-8");
-  headers.set("Refresh", `0; url=${MAIN_404_URL}`);
+  headers.set("Location", MAIN_404_URL);
   headers.set("X-Robots-Tag", "noindex, nofollow");
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${MAIN_404_URL}"><title>Page not found</title></head><body><a href="${MAIN_404_URL}">Continue to ComiCine</a></body></html>`;
-  return new Response(request.method === "HEAD" ? null : body, {
-    status: 404,
-    headers,
-  });
+  return new Response(null, { status: 302, headers });
 }
 
 // Historical icon URLs stay live but always resolve to the current ComiCine artwork.
