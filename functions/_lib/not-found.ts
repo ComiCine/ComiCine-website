@@ -86,23 +86,13 @@ export async function brandedNotFoundResponse(
     isApiPath(new URL(request.url).pathname)
   ) return response;
 
-  const hostname = new URL(request.url).hostname.toLowerCase();
-  if (hostname !== ROOT_DOMAIN && hostname !== WWW_HOSTNAME) {
-    const target = `${BASE_URL}/404`;
-    const headers = new Headers({
-      "Cache-Control": "no-store",
-      "Content-Type": "text/html; charset=utf-8",
-      "Refresh": `0; url=${target}`,
-      "X-Robots-Tag": "noindex, nofollow",
-    });
-    const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${target}"><title>Page not found</title></head><body><a href="${target}">Continue to ComiCine</a></body></html>`;
-    return new Response(request.method === "HEAD" ? null : body, {
-      status: 404,
-      headers,
-    });
-  }
   if (!env.ASSETS) return response;
 
+  // Every host in this Pages project serves the same localized not-found page, including the
+  // subsites. A bare "Continue to ComiCine" redirect stub used to sit here; with no styling it
+  // read like an authentication stop, so a missing URL looked broken instead of simply absent.
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  const subsite = hostname !== ROOT_DOMAIN && hostname !== WWW_HOSTNAME;
   const lang = detectLang(request);
   let page = await env.ASSETS.fetch(new URL(`/${lang}/not-found.html`, BASE_URL));
   if (!page.ok) page = await env.ASSETS.fetch(new URL("/404.html", BASE_URL));
@@ -110,6 +100,7 @@ export async function brandedNotFoundResponse(
 
   const headers = new Headers(page.headers);
   headers.set("Cache-Control", "no-store");
+  if (subsite) headers.set("X-Robots-Tag", "noindex, nofollow");
   return new Response(request.method === "HEAD" ? null : page.body, {
     status: 404,
     headers,

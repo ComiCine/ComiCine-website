@@ -11,10 +11,11 @@
  * Cross-host 404 contract audit.
  *
  * A user-facing HTML 404 keeps status 404 and no Location, is uncacheable, and
- * moves the browser to https://comicine.com/404 with the exact Refresh header
- * and a matching meta refresh on subsites. The main site renders its localized
- * 404 in place, and API or asset 404s keep their native format. These cases
- * live in their own file so the orchestration tests can change independently.
+ * renders the same branded not-found page on every host of the main Pages project.
+ * A bare Refresh stub used to move subsite 404s to https://comicine.com/404; it read
+ * like an authentication stop and was removed. API or asset 404s keep their native
+ * format. These cases live in their own file so the orchestration tests can change
+ * independently.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -38,8 +39,6 @@ const keys = {
 };
 
 const TRUSTED_IP = "97.64.18.11";
-const REFRESH_TARGET = "https://comicine.com/404";
-const REFRESH_VALUE = `0; url=${REFRESH_TARGET}`;
 const NOT_FOUND_PAGE =
   '<!doctype html><html lang="en"><body><h1 id="not-found-heading">Page not found</h1></body></html>';
 
@@ -86,13 +85,13 @@ describe("cross-host 404 contract", () => {
     async (accept) => {
       // Media types are case-insensitive and parameters must not stop the match.
       const response = await handleOnRequest(
-        context(htmlRequest("https://services.comicine.com/__missing_page__", accept)),
+        context(htmlRequest("https://services.comicine.com/__missing_page__", accept), notFoundAssets()),
       );
 
       expect(response.status).toBe(404);
       expect(response.headers.get("Location")).toBeNull();
-      expect(response.headers.get("Refresh")).toBe(REFRESH_VALUE);
-      await expect(response.text()).resolves.toContain(REFRESH_TARGET);
+      expect(response.headers.get("Refresh")).toBeNull();
+      await expect(response.text()).resolves.toContain('id="not-found-heading"');
     },
   );
 
@@ -101,10 +100,10 @@ describe("cross-host 404 contract", () => {
       method: "HEAD",
       headers: { Accept: "text/html", "CF-Connecting-IP": TRUSTED_IP },
     });
-    const response = await handleOnRequest(context(request));
+    const response = await handleOnRequest(context(request, notFoundAssets()));
 
     expect(response.status).toBe(404);
-    expect(response.headers.get("Refresh")).toBe(REFRESH_VALUE);
+    expect(response.headers.get("Refresh")).toBeNull();
     await expect(response.text()).resolves.toBe("");
   });
 
@@ -120,15 +119,15 @@ describe("cross-host 404 contract", () => {
     await expect(response.text()).resolves.toBe("missing");
   });
 
-  it("moves a browser 404 on the image host to the main 404 without Location", async () => {
+  it("renders the branded 404 on the image host without a redirect stub", async () => {
     const response = await handleOnRequest(
-      context(htmlRequest("https://image.comicine.com/__missing_page__")),
+      context(htmlRequest("https://image.comicine.com/__missing_page__"), notFoundAssets()),
     );
 
     expect(response.status).toBe(404);
-    expect(response.headers.get("Refresh")).toBe(REFRESH_VALUE);
+    expect(response.headers.get("Refresh")).toBeNull();
     expect(response.headers.get("Location")).toBeNull();
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    await expect(response.text()).resolves.toContain(REFRESH_TARGET);
+    await expect(response.text()).resolves.toContain('id="not-found-heading"');
   });
 });

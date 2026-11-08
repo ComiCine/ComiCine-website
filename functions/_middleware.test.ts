@@ -134,7 +134,7 @@ describe("shared identity navigation", () => {
 });
 
 describe("subsite not-found navigation", () => {
-  it("moves browsers to the main-site 404 while preserving the 404 status", async () => {
+  it("renders the branded not-found page instead of a redirect stub", async () => {
     const fetchedPaths: string[] = [];
     const assets = {
       fetch: async (input: string | URL | Request) => {
@@ -164,10 +164,11 @@ describe("subsite not-found navigation", () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(response.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+    expect(response.headers.get("Refresh")).toBeNull();
     expect(response.headers.get("Location")).toBeNull();
-    await expect(response.text()).resolves.toContain("https://comicine.com/404");
-    expect(fetchedPaths).toEqual(["/static/missing-page"]);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    await expect(response.text()).resolves.toBe("localized 404");
+    expect(fetchedPaths).toEqual(["/static/missing-page", "/ja-jp/not-found.html"]);
   });
 });
 
@@ -486,7 +487,7 @@ describe("legacy HTML redirects", () => {
     expect(resp.headers.get("Location")).toBe("https://comicine.com/");
   });
 
-  it("keeps main-site 404s local and sends subsite 404s to the main path without 3xx", async () => {
+  it("keeps 404s local on every host without a redirect stub", async () => {
     const aliases = [
       "https://comicine.com/not-a-page.html",
       "https://services.comicine.com/fail.html?from=legacy",
@@ -506,13 +507,9 @@ describe("legacy HTML redirects", () => {
 
       expect(resp.status).toBe(404);
       expect(resp.headers.get("Location")).toBeNull();
-      if (new URL(url).hostname === "comicine.com") {
-        expect(resp.headers.get("Refresh")).toBeNull();
-        await expect(resp.text()).resolves.toBe("Not Found");
-      } else {
-        expect(resp.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
-        await expect(resp.text()).resolves.toContain("https://comicine.com/404");
-      }
+      // No Refresh stub and no 3xx on any host: a subsite 404 renders the branded page.
+      expect(resp.headers.get("Refresh")).toBeNull();
+      await expect(resp.text()).resolves.toContain("Not Found");
     }
   });
 
