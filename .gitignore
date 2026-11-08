@@ -51,14 +51,13 @@ preview/*
 # Portfolio originals (large and not tracked; kept locally and in the private comicine-originals R2 bucket)
 src/static/portfolio/
 
-# Private docs article sources (Access-protected content; the repository is public).
+# Access-protected AMC 10 and UK majors sources; the MU5735 report is public under articles/.
 # Keep this list explicit: docs/docs/*/private/ would also ignore docs/docs/functions/private/,
 # where the language-less entry Functions live.
 docs/docs/zh-cn/private/
 docs/docs/en-us/private/
 docs/docs/ja-jp/private/
 docs/docs/ko-kr/private/
-docs/docs/public/assets/private_articles_mu5735_*.png
 
 # Migration exports (may contain sensitive data such as encrypted passwords; never track)
 ops/out/

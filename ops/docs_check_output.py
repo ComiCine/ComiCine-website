@@ -137,7 +137,7 @@ def main() -> int:
     default_language = contract["default_lang"]
     missing: list[tuple[str, str]] = []
     invalid_routes: list[tuple[str, str]] = []
-    missing_entry_routes: set[str] = set()
+    missing_entry_routes: dict[str, str] = {}
     duplicate_routes: list[tuple[str, str]] = []
     routes: list[tuple[str, str]] = []
     route_sources: dict[str, str] = {}
@@ -156,8 +156,16 @@ def main() -> int:
         language_copies.setdefault(logical_page, set()).add(source_language)
         if logical_page.startswith("private/articles/") and logical_page.endswith(".md"):
             slug = logical_page[len("private/articles/") : -len(".md")]
-            if not (docs / "functions" / "private" / "articles" / f"{slug}.js").is_file():
-                missing_entry_routes.add(f"/private/articles/{slug}")
+            function = docs / "functions" / "private" / "articles" / f"{slug}.js"
+            if not function.is_file():
+                missing_entry_routes[f"/private/articles/{slug}"] = (
+                    "docs/functions/private/articles/<slug>.js"
+                )
+        elif logical_page.startswith("articles/") and logical_page.endswith(".md"):
+            slug = logical_page[len("articles/") : -len(".md")]
+            function = docs / "functions" / "articles" / f"{slug}.js"
+            if not function.is_file():
+                missing_entry_routes[f"/articles/{slug}"] = "docs/functions/articles/<slug>.js"
 
         route = rewrites.get(rel, rel)
         if route.endswith(".md"):
@@ -261,10 +269,10 @@ def main() -> int:
         for logical_page, language in incomplete:
             print(f"FATAL: {logical_page} has no {language} source copy", file=sys.stderr)
     if missing_entry_routes:
-        for route in sorted(missing_entry_routes):
+        for route, function in sorted(missing_entry_routes.items()):
             print(
                 f"FATAL: {route} has no language-less entry route; add "
-                "docs/functions/private/articles/<slug>.js with redirectLocalizedEntry",
+                f"{function} with redirectLocalizedEntry",
                 file=sys.stderr,
             )
     for error in hreflang_errors:
