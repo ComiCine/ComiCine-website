@@ -282,16 +282,19 @@ contract support before connecting it to the broker.
 The docs Pages project uses those destinations on the shared application; docs requests do not
 use the host-only identity handoff. `ops/docs_deploy.sh` verifies the shared policy, protects the
 private article bundles before publishing, adds the docs destinations, and removes redundant
-docs-specific applications after migration. Keep private docs out of public navigation and the
-sitemap. Source files for both articles live under each language's
-`private/articles/` directory and rewrite to `/private/articles/<slug>/<lang>`. Former public
-`/articles/<slug>/<lang>` paths return HTTP 404 and navigate the browser to `https://comicine.com/404`;
-they are not redirected to private pages. The deploy script removes the former article edge redirect
-after publishing the new routes.
+docs-specific applications after migration. The MU5735 report is public: its four language sources
+live under each language's `articles/` directory, rewrite to `/articles/mu5735-report/<lang>`, and
+are included in the sitemap. Its figures use `/assets/articles_mu5735_*` and remain public. The AMC
+10 and UK majors sources remain private under `private/articles/` and rewrite to
+`/private/articles/<slug>/<lang>`; protect those pages and their generated
+`/assets/private_articles_*` bundles with the shared application, and keep them out of navigation
+and the sitemap with `noindex, nofollow`. Former public `/articles/<slug>/<lang>` paths return
+HTTP 404 only for those two private slugs and navigate the browser to `https://comicine.com/404`.
+The deploy script removes the former UK majors edge redirect after publishing the current routes.
 The `comicine-docs-legacy-404` Worker handles only the retired AMC 10 formula-guide and UK majors
-slugs on the docs host before Pages static caching can serve an old copy. Keep other `/articles/*`
-paths available for future public articles, and keep `/private/*` outside those routes so the
-production Access application protects it.
+slugs on the docs host before Pages static caching can serve an old copy. Keep
+`/articles/mu5735-report/*` public, leave unassigned `/articles/*` paths available for future public
+articles, and keep `/private/*` outside those routes so the production Access application protects it.
 User-facing HTML 404s across docs Pages, the main Pages subdomains, the status Worker, and the image
 Worker keep HTTP 404 and send the browser to `https://comicine.com/404` with a Refresh navigation,
 not a 3xx response. The main site's `/404` remains the canonical localized page. API and asset 404s
