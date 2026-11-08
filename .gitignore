@@ -58,6 +58,7 @@ docs/docs/zh-cn/private/
 docs/docs/en-us/private/
 docs/docs/ja-jp/private/
 docs/docs/ko-kr/private/
+docs/docs/public/assets/private_articles_mu5735_*.png
 
 # Migration exports (may contain sensitive data such as encrypted passwords; never track)
 ops/out/
