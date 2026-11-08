@@ -14,6 +14,7 @@ import {
   redirectLocalizedEntry,
 } from "../../functions/_lib/security-language.js";
 import { onRequest as amc10Entry } from "../../functions/private/articles/amc-10-formula-guide.js";
+import { onRequest as mu5735Entry } from "../../functions/private/articles/mu5735-report.js";
 import { onRequest as ukMajorsEntry } from "../../functions/private/articles/uk-undergraduate-majors.js";
 
 function request(headers: Record<string, string> = {}, country?: string): Request {
@@ -90,6 +91,7 @@ describe("docs language selection follows the main site", () => {
 describe("private article entry routes", () => {
   for (const [entry, slug] of [
     [amc10Entry, "amc-10-formula-guide"],
+    [mu5735Entry, "mu5735-report"],
     [ukMajorsEntry, "uk-undergraduate-majors"],
   ] as const) {
     it(`resolves /private/articles/${slug} with the shared language preference`, () => {
