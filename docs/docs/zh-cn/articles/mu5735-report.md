@@ -48,7 +48,15 @@ tags: [MU5735, DCA22WA102, 航空事故, FDR, CVR]
 
 ## 1. 资料与完整性
 
+**本文引用的原始文件**：NTSB FOIA 资料包 [“DCA22WA102 3/21/2022 Wuzhou, China”](https://securefoia.ntsb.gov/app/AddAttachment.aspx?docid=66&ispaldoc=F) 中的以下文件：
+
+- **PDF 记录卷：** `FOIA Release Records - DCA22WA102 (1).pdf`、`FOIA Release Records - DCA22WA102 (2).pdf`、`FOIA Release Records - DCA22WA102 (3).pdf`、`FOIA Release Records - DCA22WA102 (4).pdf`、`FOIA Release Records - DCA22WA102 (5).pdf`、`FOIA Release Records - DCA22WA102 (6).pdf`、`FOIA Release Records - DCA22WA102 (7).pdf`、`FOIA Release Records - DCA22WA102 (8).pdf`。第 1 卷第 1–33 页为 NTSB《驾驶舱语音记录器与飞行数据记录器联合下载报告》。
+- **FDR CSV：** `DCA22WA102-220414-AllValidated-ExactSample.csv`、`DCA22WA102-220414-AllValidated-TableResolution.csv`。
+- **FDR `.upk` 文件：** `DCA22WA102-Final12minutes.upk`、`Last2Flights(final).upk`、`PreviousLanding+LastFlight_PartiallyCorrected(AsOf220414).upk`。
+
 ### 1.1 NTSB FOIA 回信（案号 DCA22WA102）
+
+回信文件：[`NTSB response to FOIA request on China Eastern Airlines Flight MU5735 alternative version.pdf`](https://upload.wikimedia.org/wikipedia/commons/4/47/NTSB_response_to_FOIA_request_on_China_Eastern_Airlines_Flight_MU5735_alternative_version.pdf)。
 
 | 项目 | 数量 |
 |---|---|

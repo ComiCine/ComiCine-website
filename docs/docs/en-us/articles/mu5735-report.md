@@ -47,7 +47,15 @@ The materials do not establish who moved the controls, why, or whether the actio
 
 ## 1. Materials and integrity
 
+**Primary files cited in this report:** the NTSB FOIA package [“DCA22WA102 3/21/2022 Wuzhou, China”](https://securefoia.ntsb.gov/app/AddAttachment.aspx?docid=66&ispaldoc=F) contains the following files:
+
+- **PDF record volumes:** `FOIA Release Records - DCA22WA102 (1).pdf`, `FOIA Release Records - DCA22WA102 (2).pdf`, `FOIA Release Records - DCA22WA102 (3).pdf`, `FOIA Release Records - DCA22WA102 (4).pdf`, `FOIA Release Records - DCA22WA102 (5).pdf`, `FOIA Release Records - DCA22WA102 (6).pdf`, `FOIA Release Records - DCA22WA102 (7).pdf`, and `FOIA Release Records - DCA22WA102 (8).pdf`. Volume 1, pages 1–33, is the NTSB Cockpit Voice and Flight Data Recorder Combined Download Report.
+- **FDR CSV files:** `DCA22WA102-220414-AllValidated-ExactSample.csv` and `DCA22WA102-220414-AllValidated-TableResolution.csv`.
+- **FDR `.upk` files:** `DCA22WA102-Final12minutes.upk`, `Last2Flights(final).upk`, and `PreviousLanding+LastFlight_PartiallyCorrected(AsOf220414).upk`.
+
 ### 1.1 NTSB FOIA response (DCA22WA102)
+
+Response file: [`NTSB response to FOIA request on China Eastern Airlines Flight MU5735 alternative version.pdf`](https://upload.wikimedia.org/wikipedia/commons/4/47/NTSB_response_to_FOIA_request_on_China_Eastern_Airlines_Flight_MU5735_alternative_version.pdf).
 
 | Item | Count |
 |---|---:|
