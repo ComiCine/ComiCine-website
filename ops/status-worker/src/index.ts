@@ -38,6 +38,7 @@ import {
   THEME_JS,
   esc,
   renderErrorHtml,
+  renderNotFoundHtml,
   statusPageHtml,
   type PageDay,
 } from "./page";
@@ -1581,14 +1582,13 @@ export default {
         (request.headers.get("Sec-Fetch-Mode") === "navigate") ||
         (request.headers.get("Accept") ?? "").includes("text/html"))
     ) {
-      const target = "https://comicine.com/404";
-      const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${target}"><title>Page not found</title></head><body><a href="${target}">Continue to ComiCine</a></body></html>`;
-      return new Response(request.method === "HEAD" ? null : body, {
+      // Render the status site's own branded 404 instead of a bare "Continue to ComiCine" stub:
+      // the stub had no styling and read like an authentication stop.
+      return new Response(request.method === "HEAD" ? null : renderNotFoundHtml(pageLang(request)), {
         status: 404,
         headers: {
           ...PAGE_HEADERS,
           "Cache-Control": "no-store",
-          "Refresh": `0; url=${target}`,
           "X-Robots-Tag": "noindex, nofollow",
         },
       });

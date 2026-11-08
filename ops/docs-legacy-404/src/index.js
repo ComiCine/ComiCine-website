@@ -44,12 +44,9 @@ function notFoundResponse(request) {
     });
   }
 
-  headers.set("Refresh", `0; url=${MAIN_404_URL}`);
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta http-equiv="refresh" content="0; url=${MAIN_404_URL}"><title>Page not found</title></head><body><a href="${MAIN_404_URL}">Continue to ComiCine</a></body></html>`;
-  return new Response(request.method === "HEAD" ? null : body, {
-    status: 404,
-    headers,
-  });
+  // Send the browser to the canonical branded 404 instead of an unstyled stub.
+  headers.set("Location", MAIN_404_URL);
+  return new Response(null, { status: 302, headers });
 }
 
 export default {

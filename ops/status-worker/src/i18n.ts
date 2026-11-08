@@ -200,6 +200,8 @@ const ZH_CN = {
   err_text: "无法从数据库读取探针数据，请稍后重试。",
   err_retry: "重试",
   back_home: "回到 comicine.com",
+  not_found_title: "页面未找到",
+  not_found_text: "这个地址没有对应的页面。",
 
   // Header and footer (matching keys and values in site/locales/*.json)
   nav_home: "主页",
@@ -282,6 +284,8 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_text: "Could not read probe data from the database. Please try again later.",
     err_retry: "Retry",
     back_home: "Go to comicine.com",
+    not_found_title: "Page not found",
+    not_found_text: "There is no page at this address.",
 
     nav_home: "Home",
     nav_services: "Services",
@@ -357,6 +361,8 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_text: "データベースからプローブデータを読み取れませんでした。しばらくしてから再度お試しください。",
     err_retry: "再試行",
     back_home: "comicine.com へ",
+    not_found_title: "ページが見つかりません",
+    not_found_text: "このアドレスに対応するページはありません。",
 
     nav_home: "ホーム",
     nav_services: "サービス",
@@ -432,6 +438,8 @@ export const UI: Record<Lang, Record<UiKey, string>> = {
     err_text: "데이터베이스에서 프로브 데이터를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.",
     err_retry: "다시 시도",
     back_home: "comicine.com으로",
+    not_found_title: "페이지를 찾을 수 없습니다",
+    not_found_text: "이 주소에 해당하는 페이지가 없습니다.",
 
     nav_home: "홈",
     nav_services: "서비스",

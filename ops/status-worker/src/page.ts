@@ -554,6 +554,18 @@ function probeDetailSafe(code: string, lang: Lang): string {
  * generic 1101 page, which has no branding or exit link and makes visitors think the whole site
  * is down. Copy comes from the same table and is available in all four languages.
  */
+/** Branded 404 for unknown page navigations; the status site keeps its own shell instead of a bare redirect stub. */
+export function renderNotFoundHtml(lang: Lang): string {
+  const body =
+    '<main class="status-main">' +
+    `<h1>404</h1>` +
+    `<p class="status-sub">${esc(t(lang, "not_found_title"))}</p>` +
+    `<div class="err-box"><p>${esc(t(lang, "not_found_text"))}</p>` +
+    `<div class="err-actions"><a class="btn primary" href="${HOME_URL}">${esc(t(lang, "back_home"))}</a></div></div>` +
+    "</main>";
+  return shell(lang, t(lang, "not_found_title"), body);
+}
+
 export function renderErrorHtml(lang: Lang): string {
   const body =
     '<main class="status-main">' +
