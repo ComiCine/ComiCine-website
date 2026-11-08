@@ -82,9 +82,7 @@ The materials do not establish who moved the controls, why, or whether the actio
 | Impact | 06:22:15–42Z, center 06:22:30 | Pure vertical extrapolation gives 06:22:12–19, but the landing point is 8.6 km from the point cited from outside the release; use the external point |
 | Liftoff | 13:16:26 (13:15:53–13:16:50) | ACARS whole-minute time + ARINC 717 data: 64.37 min (liftoff→CUTOFF) / 64.85 min (→FDR stop) + CAAC 13:16 |
 
-![Main accident-day timeline, BJT/UTC dual scale, 12:54–14:23](/assets/articles_mu5735_fig01_timeline.png)
-
-*Figure 1: Main accident-day timeline (BJT/UTC dual scale, 12:54–14:23).*
+**Text description:** The dual BJT/UTC timeline marks liftoff at 13:16:26, about 8,900 m at 13:27:26, dual-engine CUTOFF at 14:20:48, FDR stop at about 14:21:05, and the last measured radar point at 14:21:40 (3,380 m). Impact is estimated near 14:22:30, with an inferred interval of 14:22:15–42.
 
 ---
 
@@ -149,9 +147,7 @@ The report covers recorder repair, readout, and transfer only; it contains no an
 - **T+0.3–1.8**: U2 gap of about 1.4 s.
 - **T+18.75**: last valid sample; **T+18.95**: recording terminates.
 
-![Six-panel view of the final 60 seconds: altitude, IAS, roll, control wheel, N1, and N2](/assets/articles_mu5735_fig02_last60s.png)
-
-*Figure 2: Six-panel view of the final 60 seconds (altitude/IAS/roll/control wheel/N1/N2).*
+**Text description:** With dual-engine fuel CUTOFF (FDR second 758.6) as T=0, the six traces cover T−45 to T+20 s: altitude, IAS, roll, control-wheel input, N1, and N2. Shaded gaps are dropped FDR samples and are not interpolated. The last valid sample is about T+18.75 s; recording ends at T+18.95 s.
 
 Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over the full 8-Hz window gives −540.4°. The main text's −528 to −540° range in §§3.3/5.2 rounds the lower bound from −527.9 (a 0.1° difference) and uses the 8-Hz integration for the upper bound;  (B=1.0195) and is not used. **The table's +143.4/+59.2 are wrapped values at ±180°; unwrapped they are −216.6/−300.8 (continuing left roll), not right roll.**
 
@@ -228,9 +224,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 - Anchoring on ACARS MU5864 TKO at 02:11Z (10:11 Beijing) and ARINC 717 data duration of 72.45 min from liftoff to landing gives **landing at about 11:24 Beijing (11:2x–11:3x)**, corresponding to Δ≈1.9 h (11:24 landing → 13:16 takeoff = 1 h 52 min). Do not use 12:55:39 based on a false continuity assumption or 12:30 inferred from a “25-min turnaround.”
 - The accident flight is entirely after the join point; its timeline is unaffected.
 
-![Altitude, IAS, and N1 profiles for both flights](/assets/articles_mu5735_fig04_two_flights.png)
-
-*Figure 3: Altitude/IAS/N1 profiles for both flights (join at block 4,877).*
+**Text description:** On the ARINC 717 block scale (about 1 s per block), blocks 0–4,876 are the preceding MU5864 flight, 4,878–9,646 are MU5735, and 4,877 is the join. The profiles compare altitude, IAS, and N1. MU5864 cruised near FL258 (25,700 ft) and MU5735 near FL291 (29,228 ft); the earlier flight’s absolute times remain estimates based on continuity assumptions.
 
 ### 4.4 Data gaps and artifacts
 
@@ -264,9 +258,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 - Horizontal distance over 50 s is about 10.7 km, mean groundspeed about 850 km/h.
 - Track values from 06:21:25–35 are unreliable (see §4.4).
 
-![Radar descent and track from 06:20:50 to 06:21:55](/assets/articles_mu5735_fig03_radar.png)
-
-*Figure 4: Radar descent and track (06:20:50–06:21:55).*
+**Text description:** Measured radar altitude falls from 8,870 m at 06:20:50 UTC to 3,380 m at 06:21:40: a mean descent rate of −109.8 m/s over 50 s, about 10.7 km horizontally, and mean groundspeed of about 850 km/h. Radar altitude is missing from 06:21:45 onward; later positions are labeled Radar Prediction. Track values for 06:21:25–35 are unreliable.
 
 ### 5.2 Physical reconstruction (final 20 s)
 
@@ -315,9 +307,7 @@ Note: the unwrapped final roll value at T+18.75 is −527.9°; integration over 
 - **Accident-flight positioning**: EGT1 875°C is at the raw 89.9th percentile; after matching 60 nearest samples by GW/SAT/altitude it is at the **44.2nd percentile**; in the tight match band (GW 64–68 t, SAT 18–23°C, Alt 6.5–8.5 kft, n=75) it is at the **42.0th percentile**; conditional residual **−6.1°C → 11.2th percentile**. N1 100.1% (93.7→86.7), FF 3,765 (62.5→57.5), oil 95°C (90.3→87.5). **High-normal, not abnormal**: explained by 66.17-t heavy weight + SAT 20.5°C + 7,437-ft sampling point; engines symmetrical and within the prior five MU5735 takeoffs (EGT 842–876).
 - **FF unit confirmation: kg/h per engine**. FDR median Eng 1 flow at same altitude band (7,000–8,000 ft, N1>99) was 8,280 pph = 3,755.7 kg/h, versus ACARS 3,765 → **+0.25%**; if interpreted as twin-engine total, −49.9%; if as lb/h per engine, −54.5%. Cruise cross-check: ACARS FL290 band 1,234 kg/h versus FDR FL291 2,640 pph = 1,197 kg/h → **+3.0%**. For 925 mass-balance pairs (cleaned; 949 raw), actual burn 3,978 ÷ ACARS twin-engine cruise flow 2,455 = **1.61** (99.9% between 1.0–2.5); if lb/h, 3.54 (only 0.2% plausible).
 
-![ACARS takeoff and cruise EGT and fuel-flow trends](/assets/articles_mu5735_fig06_acars_trend.png)
-
-*Figure 5: ACARS takeoff/cruise EGT and FF trends.*
+**Text description:** Across 1,956 ACARS messages (2021-04-13 to 2022-03-21), takeoff EGT trends −54 °C/year (R²=0.14, n=963) and cruise EGT −26 °C/year (R²=0.07, n=941), with strong seasonality. Cruise fuel flow rises about 12.6–13.4 kg/h per 1,000 kg of weight. The accident day has a TKO message but no CRZ message.
 
 ---
 
@@ -383,9 +373,7 @@ The volume 8 analysis organizes 174 emails + 4 documents from volume 8 into **99
 
 **Five largest gaps**: G1 preliminary report (4/20, entire body b(5), report absent); G2 interim statement + anniversary strategy (2023-03-20/21); G3 answer to WSJ's “intentional act” question; G4 report schedule (asked four times, no answer); G5 promised items and the full record (15-item ledger, 11 undelivered; 2024-03-20 letter body missing; 859 pages fully withheld; 190-page gap between 314 and 124).
 
-![Investigation administrative timeline, 2022–2026](/assets/articles_mu5735_fig08_investigation_timeline.png)
-
-*Figure 6: 2022–2026 investigation administrative timeline (99 events).*
+**Text description:** The 99 investigation-administration events fall into seven categories. Delivery status: 25 delivered, 9 partial, 3 promised only, 26 submitted but withheld, 10 declined or unanswered, 7 requested with no record, and 19 with no responsive object. G1–G5 summarize gaps involving the preliminary report, anniversary documents, the WSJ question, report timing, and 15 promises plus the complete record.
 
 ---
 
