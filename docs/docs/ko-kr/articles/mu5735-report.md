@@ -47,7 +47,15 @@ tags: [MU5735, DCA22WA102, 항공 사고, FDR, CVR]
 
 ## 1. 자료 및 완전성
 
+**이 보고서에서 인용한 원본 파일:** NTSB FOIA 자료 묶음 [“DCA22WA102 3/21/2022 Wuzhou, China”](https://securefoia.ntsb.gov/app/AddAttachment.aspx?docid=66&ispaldoc=F)에 포함된 파일은 다음과 같습니다.
+
+- **기록 PDF 파일:** `FOIA Release Records - DCA22WA102 (1).pdf`, `FOIA Release Records - DCA22WA102 (2).pdf`, `FOIA Release Records - DCA22WA102 (3).pdf`, `FOIA Release Records - DCA22WA102 (4).pdf`, `FOIA Release Records - DCA22WA102 (5).pdf`, `FOIA Release Records - DCA22WA102 (6).pdf`, `FOIA Release Records - DCA22WA102 (7).pdf`, `FOIA Release Records - DCA22WA102 (8).pdf`. 제1권 1–33쪽은 NTSB의 `COCKPIT VOICE AND FLIGHT DATA RECORDER COMBINED DOWNLOAD REPORT`입니다.
+- **FDR CSV 파일:** `DCA22WA102-220414-AllValidated-ExactSample.csv`, `DCA22WA102-220414-AllValidated-TableResolution.csv`.
+- **FDR `.upk` 파일:** `DCA22WA102-Final12minutes.upk`, `Last2Flights(final).upk`, `PreviousLanding+LastFlight_PartiallyCorrected(AsOf220414).upk`.
+
 ### 1.1 NTSB FOIA 회신(DCA22WA102)
+
+회신 파일: [`NTSB response to FOIA request on China Eastern Airlines Flight MU5735 alternative version.pdf`](https://upload.wikimedia.org/wikipedia/commons/4/47/NTSB_response_to_FOIA_request_on_China_Eastern_Airlines_Flight_MU5735_alternative_version.pdf).
 
 | 항목 | 수량 |
 |---|---:|
