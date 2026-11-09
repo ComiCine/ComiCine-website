@@ -9,6 +9,7 @@
 
 import type { Env } from "./_lib/env";
 import { BASE_URL, ROOT_DOMAIN } from "./_lib/config";
+import { readBoundedBytes } from "./_lib/request";
 import { pageAsset } from "./_lib/routing";
 
 const MODERN_PROTOCOL_VERSION = "2026-07-28";
@@ -147,32 +148,6 @@ function modernResult(result: JsonObject): JsonObject {
       [SERVER_INFO_META]: SERVER_INFO,
     },
   };
-}
-
-async function readBoundedBody(request: Request): Promise<string | null> {
-  const reader = request.body?.getReader();
-  if (!reader) return "";
-
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_BODY_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
 }
 
 function sameOriginRequest(request: Request): boolean {
@@ -503,14 +478,17 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     });
   }
 
-  const raw = await readBoundedBody(request);
-  if (raw === null) {
-    return jsonResponse(rpcError(null, -32700, "Request body is too large."), 413);
+  const body = await readBoundedBytes(request, MAX_BODY_BYTES);
+  if (!body.ok) {
+    if (body.error === "payload_too_large") {
+      return jsonResponse(rpcError(null, -32700, "Request body is too large."), 413);
+    }
+    return jsonResponse(rpcError(null, -32700, "Parse error."), 400);
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body.bytes));
   } catch {
     return jsonResponse(rpcError(null, -32700, "Parse error."), 400);
   }

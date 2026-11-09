@@ -1387,7 +1387,7 @@ export interface FetchContext {
   waitUntil(promise: Promise<unknown>): void;
 }
 
-export default {
+const statusWorker = {
   async fetch(request: Request, env: Env, ctx?: FetchContext): Promise<Response> {
     const url = new URL(request.url);
     // Authenticate before processing write endpoints: unauthorized requests never touch D1, so a simple cross-site POST cannot trigger probes or alerts.
@@ -1614,6 +1614,19 @@ export default {
     // The cron path staggers probe starts by a deterministic 0-30 second offset (suggestion 16). The cron trigger's wall time
     // limit is 15 minutes, so the bounded stagger is safe; manual runs from POST /run stay immediate.
     await runAll(env, Math.floor(Date.now() / 1000), { jitter: true, source: "cron" });
+  },
+};
+
+export default {
+  ...statusWorker,
+  async fetch(request: Request, env: Env, ctx?: FetchContext): Promise<Response> {
+    const response = await statusWorker.fetch(request, env, ctx);
+    if (request.method !== "HEAD" || response.body === null) return response;
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   },
 };
 

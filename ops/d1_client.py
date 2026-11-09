@@ -31,6 +31,27 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from config import CLOUDFLARE_API_BASE, D1_DATABASE_ID  # noqa: E402
 
+TRANSIENT_HTTP_STATUS_CODES = frozenset({408, 425, 429})
+
+
+class D1HTTPError(RuntimeError):
+    """A Cloudflare D1 HTTP failure with its status preserved for retry decisions."""
+
+    def __init__(self, status: int, detail: str) -> None:
+        super().__init__(f"D1 HTTP {status}: {detail}")
+        self.status = status
+
+
+def is_transient_cloudflare_error(error: Exception) -> bool:
+    """Retry connection failures and temporary HTTP statuses, never request or SQL errors."""
+    if isinstance(error, D1HTTPError):
+        status = error.status
+    elif isinstance(error, urllib.error.HTTPError):
+        status = error.code
+    else:
+        return isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError))
+    return status in TRANSIENT_HTTP_STATUS_CODES or 500 <= status <= 599
+
 
 def load_env(*paths: str | Path) -> dict[str, str]:
     """Read env files; return an empty mapping when a file is missing and never echo values."""
@@ -91,8 +112,11 @@ def d1_query(cfg: dict[str, str], sql: str) -> list[dict[str, Any]]:
         with urllib.request.urlopen(request, timeout=30) as response:
             data = json.load(response)
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[:300]
-        raise RuntimeError(f"D1 HTTP {exc.code}: {detail}") from exc
+        try:
+            detail = exc.read(300).decode("utf-8", "replace")
+        finally:
+            exc.close()
+        raise D1HTTPError(exc.code, detail) from exc
     if not data.get("success"):
         raise RuntimeError(f"D1 API returned a failure: {str(data)[:300]}")
     results = data.get("result") or []
@@ -124,8 +148,10 @@ def d1_query_retry(
     for attempt in range(tries):
         try:
             return d1_query(cfg, sql)
-        except Exception as exc:  # noqa: BLE001 - Handle transient network failures uniformly.
+        except Exception as exc:  # noqa: BLE001 - Classify retryable and terminal API failures.
             last = exc
+            if not is_transient_cloudflare_error(exc):
+                break
             if attempt < tries - 1:
                 time.sleep(1.5 * (attempt + 1))
     if raise_on_failure:

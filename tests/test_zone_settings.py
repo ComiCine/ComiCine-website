@@ -109,3 +109,38 @@ def test_rendered_snapshot_holds_no_credentials() -> None:
 
     for needle in ("token", "secret", "bearer", "authorization"):
         assert needle not in raw, f"snapshot mentions {needle!r}"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[]",
+        '{"settings": []}',
+        '{"settings": {"http3": []}}',
+    ],
+)
+def test_dry_run_rejects_valid_json_with_invalid_snapshot_shapes(
+    content: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    snapshot = tmp_path / "zone-settings.json"
+    snapshot.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(zone_settings, "SNAPSHOT", snapshot)
+    monkeypatch.setattr(sys, "argv", ["zone_settings.py", "--dry-run"])
+
+    assert zone_settings.main() == 1
+    error = capsys.readouterr().err
+    assert "FATAL: invalid snapshot" in error
+    assert "Traceback" not in error
+
+
+def test_snapshot_without_settings_remains_a_valid_empty_snapshot(tmp_path: Path) -> None:
+    snapshot = tmp_path / "zone-settings.json"
+    snapshot.write_text('{"captured_at": "2026-11-09T00:00:00Z"}', encoding="utf-8")
+
+    data, settings = zone_settings.load_snapshot(snapshot)
+
+    assert data["captured_at"] == "2026-11-09T00:00:00Z"
+    assert settings == {}
