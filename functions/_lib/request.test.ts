@@ -166,6 +166,36 @@ describe("readJsonBody", () => {
     expect(stats.pulledBytes).toBeLessThanOrEqual(2 * chunkBytes);
   });
 
+  it("keeps the size rejection when cancelling an oversized stream fails", async () => {
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        start(controller) {
+          controller.enqueue(new Uint8Array(5));
+        },
+        cancel() {
+          throw new Error("cancel failed");
+        },
+      },
+      { highWaterMark: 0 },
+    );
+
+    const result = await readJsonBody(streamRequest(stream), { maxBytes: 4 });
+
+    expect(result).toMatchObject({ ok: false, status: 413, error: "payload_too_large" });
+  });
+
+  it("returns a 400 result when reading the body stream fails", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("read failed"));
+      },
+    });
+
+    const result = await readJsonBody(streamRequest(stream));
+
+    expect(result).toMatchObject({ ok: false, status: 400, error: "invalid_json" });
+  });
+
   it("rejects invalid UTF-8 as invalid JSON", async () => {
     const request = new Request(ENDPOINT, { method: "POST", body: new Uint8Array([0xff, 0xfe]) });
 

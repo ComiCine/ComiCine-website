@@ -1189,6 +1189,19 @@ describe("onRequest wrapper", () => {
     },
   });
 
+  it("returns bodyless HEAD responses while preserving status and headers", async () => {
+    const { context } = wrapperContext(
+      new Request("https://comicine.com/_health", { method: "HEAD" }),
+    );
+
+    const response = await onRequest(context);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toBeNull();
+    expect(response.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   /**
    * Create a response with workerd semantics: iteration (the path used by
    * `new Headers(resp.headers)`) sees one comma-joined `set-cookie`, while

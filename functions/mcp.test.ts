@@ -58,6 +58,12 @@ function post(body: string | Uint8Array<ArrayBuffer>, headers: Record<string, st
   });
 }
 
+function postStream(body: ReadableStream<Uint8Array>): Request {
+  const request = post("");
+  Object.defineProperty(request, "body", { value: body });
+  return request;
+}
+
 function rpc(body: RpcBody | Record<string, unknown>, headers: Record<string, string> = {}): Request {
   return post(JSON.stringify(body), headers);
 }
@@ -193,6 +199,35 @@ describe("MCP transport and framing", () => {
       code: -32700,
       message: "Request body is too large.",
     });
+  });
+
+  it("keeps a failed body read on the JSON-RPC parse-error path", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("client disconnected"));
+      },
+    });
+
+    const response = await call(postStream(body));
+
+    expect(response.status).toBe(400);
+    expect((await bodyOf(response)).error).toMatchObject({ code: -32700, message: "Parse error." });
+  });
+
+  it("keeps the 413 result when cancelling an oversized body fails", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(64 * 1024 + 1));
+      },
+      cancel() {
+        throw new Error("cancel failed");
+      },
+    });
+
+    const response = await call(postStream(body));
+
+    expect(response.status).toBe(413);
+    expect((await bodyOf(response)).error).toMatchObject({ code: -32700 });
   });
 });
 

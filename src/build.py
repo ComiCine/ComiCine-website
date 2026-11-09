@@ -364,7 +364,8 @@ def main() -> int:
     src = os.path.join(PUBLIC_DIR, PREVIEW_LANG)
     for name in os.listdir(src):
         if name.endswith(".html"):
-            html = open(os.path.join(src, name), encoding="utf-8").read()
+            with open(os.path.join(src, name), encoding="utf-8") as source_file:
+                html = source_file.read()
             # Localize eager and deferred asset attributes plus srcset candidates, while leaving
             # absolute URLs in JavaScript untouched.
             #   Construct all three hostnames from contract values; do not hardcode comicine.com.

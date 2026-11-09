@@ -37,6 +37,12 @@ export interface JsonBodyRejected {
 
 export type JsonBodyResult = JsonBodyAccepted | JsonBodyRejected;
 
+export type BoundedBodyError = "payload_too_large" | "invalid_body";
+
+export type BoundedBodyResult =
+  | { ok: true; bytes: Uint8Array<ArrayBuffer> }
+  | { ok: false; error: BoundedBodyError };
+
 const DECIMAL_DIGITS = /^\d+$/;
 
 /** A well-formed `Content-Length`, or null when the header is missing or unusable. */
@@ -48,18 +54,26 @@ function declaredLength(request: Request): number | null {
 }
 
 /**
- * Read the body as UTF-8 text without ever buffering more than `maxBytes`.
+ * Read the body without ever buffering more than `maxBytes`.
  *
- * The cap is checked before a chunk is kept, so the retained chunks stay within the limit even
- * when the sender declares a smaller length or omits the header.
+ * The streamed byte count is authoritative even when Content-Length is missing or inaccurate.
+ * The cap is checked before a chunk is retained, and a failed cancellation never replaces the
+ * intended 413 result.
  */
-async function readBoundedText(
+export async function readBoundedBytes(
   request: Request,
   maxBytes: number,
-): Promise<{ ok: true; text: string } | { ok: false; tooLarge: boolean }> {
+): Promise<BoundedBodyResult> {
+  const cap = Number.isSafeInteger(maxBytes) && maxBytes > 0
+    ? maxBytes
+    : DEFAULT_MAX_JSON_BODY_BYTES;
+  const declared = declaredLength(request);
+  if (declared !== null && declared > cap) {
+    return { ok: false, error: "payload_too_large" };
+  }
+
   const body = request.body;
-  // A bodyless request still goes through JSON parsing, which rejects the empty string.
-  if (!body) return { ok: true, text: "" };
+  if (!body) return { ok: true, bytes: new Uint8Array() };
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -68,19 +82,25 @@ async function readBoundedText(
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
-      if (total + value.byteLength > maxBytes) {
+      if (total + value.byteLength > cap) {
         try {
           await reader.cancel();
         } catch {
-          // A stream that already failed cannot be cancelled; the body is rejected either way.
+          // The stream may already have failed; the size limit still decides the response.
         }
-        return { ok: false, tooLarge: true };
+        return { ok: false, error: "payload_too_large" };
       }
       total += value.byteLength;
       chunks.push(value);
     }
   } catch {
-    return { ok: false, tooLarge: false };
+    return { ok: false, error: "invalid_body" };
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // Releasing an errored stream reader can itself fail; the body is already rejected.
+    }
   }
   const bytes = new Uint8Array(total);
   let offset = 0;
@@ -88,12 +108,7 @@ async function readBoundedText(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  try {
-    return { ok: true, text: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
-  } catch {
-    // Invalid UTF-8 is a malformed body, not an oversized one.
-    return { ok: false, tooLarge: false };
-  }
+  return { ok: true, bytes };
 }
 
 export async function readJsonBody(
@@ -106,18 +121,16 @@ export async function readJsonBody(
   const maxBytes =
     Number.isSafeInteger(requested) && requested > 0 ? requested : DEFAULT_MAX_JSON_BODY_BYTES;
 
-  const declared = declaredLength(request);
-  if (declared !== null && declared > maxBytes) {
-    return { ok: false, status: 413, error: "payload_too_large" };
-  }
-
-  const body = await readBoundedText(request, maxBytes);
+  const body = await readBoundedBytes(request, maxBytes);
   if (!body.ok) {
-    if (body.tooLarge) return { ok: false, status: 413, error: "payload_too_large" };
+    if (body.error === "payload_too_large") {
+      return { ok: false, status: 413, error: "payload_too_large" };
+    }
     return { ok: false, status: 400, error: "invalid_json" };
   }
   try {
-    return { ok: true, value: JSON.parse(body.text) as unknown };
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(body.bytes);
+    return { ok: true, value: JSON.parse(text) as unknown };
   } catch {
     return { ok: false, status: 400, error: "invalid_json" };
   }

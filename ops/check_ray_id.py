@@ -83,9 +83,14 @@ def cf_request(cfg: dict[str, str], url: str, body: object | None = None) -> dic
             req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8"))
-        except Exception as exc:  # noqa: BLE001 - Retry transient network failures uniformly.
+        except Exception as exc:  # noqa: BLE001 - Classify retryable and terminal API failures.
             last = exc
-            time.sleep(1.5 * (attempt + 1))
+            if isinstance(exc, urllib.error.HTTPError):
+                exc.close()
+            if not d1_client.is_transient_cloudflare_error(exc):
+                break
+            if attempt < 3:
+                time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(f"Cloudflare API request failed: {last}")
 
 

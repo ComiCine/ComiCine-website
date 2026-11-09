@@ -138,6 +138,24 @@ describe("handleVerify", () => {
     vi.unstubAllGlobals();
   });
 
+  it("rejects an oversized form before parsing or calling siteverify", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const form = new FormData();
+    form.set("cf-turnstile-response", "token");
+    form.set("extra", "x".repeat(9 * 1024));
+    const request = new Request("https://comicine.com/__gate/verify", {
+      method: "POST",
+      body: form,
+    });
+
+    const response = await handleVerify(verifyContext(request));
+
+    expect(response.headers.get("Set-Cookie")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("fails closed when GATE_HMAC_KEY is missing instead of signing with an empty key", async () => {
 // handleVerify previously checked only TURNSTILE_SECRET and would issue a
 // __gate cookie signed with an empty key when GATE_HMAC_KEY was missing. The

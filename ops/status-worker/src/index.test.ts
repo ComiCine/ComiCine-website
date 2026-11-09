@@ -723,6 +723,21 @@ describe("ops endpoint auth", () => {
       expect(res.status, path).toBe(200);
     }
   });
+
+  it("returns bodyless HEAD responses across the public status surface", async () => {
+    const { env } = opsEnv();
+    for (const [path, status] of [
+      ["/_health", 200],
+      ["/", 200],
+      ["/status.css", 200],
+      ["/status.js", 200],
+      ["/missing", 404],
+    ] as const) {
+      const response = await worker.fetch(opsRequest(path, { method: "HEAD" }), env);
+      expect(response.status, path).toBe(status);
+      expect(response.body, path).toBeNull();
+    }
+  });
 });
 
 /**

@@ -158,7 +158,7 @@ export function withSecurityHeaders(request: Request, resp: Response, url?: URL)
     if (name === "Referrer-Policy" && headers.get(name) === "no-referrer") continue;
     headers.set(name, value);
   }
-  return new Response(resp.body, {
+  return new Response(request.method === "HEAD" ? null : resp.body, {
     status: resp.status,
     statusText: resp.statusText,
     headers,

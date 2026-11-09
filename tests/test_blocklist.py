@@ -325,7 +325,7 @@ def _blocked_ips_table(conn):
     )
 
 
-def test_d1_upsert_supplies_every_declared_column(monkeypatch):
+def test_d1_upsert_supplies_every_declared_column(monkeypatch, request):
     """The INSERT lists nine columns, so it must supply nine values."""
     captured = {}
 
@@ -338,13 +338,14 @@ def test_d1_upsert_supplies_every_declared_column(monkeypatch):
     assert changes == 1
 
     conn = sqlite3.connect(":memory:")
+    request.addfinalizer(conn.close)
     _blocked_ips_table(conn)
     conn.execute(captured["sql"])
     rows = conn.execute("SELECT cidr, active FROM blocked_ips ORDER BY cidr").fetchall()
     assert rows == [("1.2.3.4/32", 1), ("10.0.0.0/8", 1)]
 
 
-def test_d1_delete_soft_deletes_instead_of_destroying_the_row(monkeypatch):
+def test_d1_delete_soft_deletes_instead_of_destroying_the_row(monkeypatch, request):
     """Unblocking keeps the row (active=0) as the rollback basis."""
     captured = {}
 
@@ -359,6 +360,7 @@ def test_d1_delete_soft_deletes_instead_of_destroying_the_row(monkeypatch):
     assert "active = 0" in captured["sql"]
 
     conn = sqlite3.connect(":memory:")
+    request.addfinalizer(conn.close)
     _blocked_ips_table(conn)
     conn.execute(
         "INSERT INTO blocked_ips (cidr, network, prefix, reason, source) "

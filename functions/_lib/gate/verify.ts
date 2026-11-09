@@ -11,6 +11,7 @@
 
 import { logEvent } from "../logging";
 import { shouldLogDiagnostic } from "../sampling";
+import { readBoundedBytes } from "../request";
 import {
   clientIpForLogs,
   defer,
@@ -25,6 +26,7 @@ import { verifyTurnstile } from "./turnstile";
 
 /** Turnstile's documented cdata limit; anything longer cannot have been echoed by the widget. */
 const TURNSTILE_CDATA_MAX_LENGTH = 255;
+const MAX_VERIFY_BODY_BYTES = 8 * 1024;
 
 function wantsJson(request: Request): boolean {
   return request.headers.get("Accept")?.includes("application/json") ?? false;
@@ -32,6 +34,22 @@ function wantsJson(request: Request): boolean {
 
 function gateTarget(host: string, path: string): string {
   return `https://${host}${path}`;
+}
+
+function invalidFormResponse(context: RequestContext, startedAt: number): Promise<Response> {
+  const { request, env } = context;
+  if (shouldLogDiagnostic("gate_verify_invalid_form", clientIpForLogs(request))) {
+    defer(
+      context,
+      logEvent(env, "gate_verify", request, {
+        outcome: "failed",
+        status: 400,
+        durationMs: Date.now() - startedAt,
+        message: "invalid_form",
+      }),
+    );
+  }
+  return renderGatePage(context, { errorKey: "invalid" });
 }
 
 /** POST /__gate/verify: validate Turnstile and issue a cookie on success.
@@ -50,24 +68,23 @@ export async function handleVerify(context: RequestContext): Promise<Response> {
     });
   }
 
+  const boundedBody = await readBoundedBytes(request, MAX_VERIFY_BODY_BYTES);
+  if (!boundedBody.ok) return invalidFormResponse(context, startedAt);
+
   let form: FormData;
   try {
-    form = await request.formData();
+    const headers = new Headers(request.headers);
+    headers.delete("Content-Length");
+    const boundedRequest = new Request(request.url, {
+      method: request.method,
+      headers,
+      body: boundedBody.bytes,
+    });
+    form = await boundedRequest.formData();
   } catch {
     // Malformed form data is attacker-controlled (a JSON body makes formData() throw),
     // so it must not produce one D1 row per POST.
-    if (shouldLogDiagnostic("gate_verify_invalid_form", clientIpForLogs(request))) {
-      defer(
-        context,
-        logEvent(env, "gate_verify", request, {
-          outcome: "failed",
-          status: 400,
-          durationMs: Date.now() - startedAt,
-          message: "invalid_form",
-        }),
-      );
-    }
-    return renderGatePage(context, { errorKey: "invalid" });
+    return invalidFormResponse(context, startedAt);
   }
 
   // Turnstile tokens are ~2 KB; cap the field before it reaches siteverify or the logs.

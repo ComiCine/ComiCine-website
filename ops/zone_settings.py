@@ -165,6 +165,26 @@ def render(settings: dict[str, dict[str, object]], zone_id: str | None) -> dict[
     }
 
 
+def load_snapshot(path: Path) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
+    """Load and validate the local snapshot's object-shaped settings data."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("snapshot must be a JSON object")
+
+    raw_settings = data.get("settings")
+    if raw_settings is None:
+        return data, {}
+    if not isinstance(raw_settings, dict):
+        raise ValueError("snapshot settings must be a JSON object")
+
+    settings: dict[str, dict[str, object]] = {}
+    for key, value in raw_settings.items():
+        if not isinstance(key, str) or not isinstance(value, dict):
+            raise ValueError("snapshot settings entries must be JSON objects")
+        settings[key] = value
+    return data, settings
+
+
 def describe(settings: dict[str, dict[str, object]]) -> int:
     """Print the current values and flag the noteworthy ones. Returns a note count."""
     offending = {
@@ -203,11 +223,13 @@ def main() -> int:
             print(f"FATAL: no local snapshot at {SNAPSHOT}; use --show or create one with --snapshot", file=sys.stderr)
             return 1
         try:
-            data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+            data, settings = load_snapshot(SNAPSHOT)
         except (OSError, ValueError) as error:
-            print(f"FATAL: cannot read {SNAPSHOT} ({error.__class__.__name__}): the snapshot is unreadable or not valid JSON", file=sys.stderr)
+            print(
+                f"FATAL: invalid snapshot {SNAPSHOT} ({error.__class__.__name__}): {error}",
+                file=sys.stderr,
+            )
             return 1
-        settings = data.get("settings") or {}
         print(f"zone settings snapshot  ({data.get('captured_at', '?')})")
         describe(settings)
         return 0
@@ -232,7 +254,7 @@ def main() -> int:
     previous: dict[str, dict[str, object]] = {}
     if SNAPSHOT.is_file():
         try:
-            previous = (json.loads(SNAPSHOT.read_text(encoding="utf-8")).get("settings") or {})
+            _, previous = load_snapshot(SNAPSHOT)
         except (OSError, ValueError) as error:
             print(f"WARNING: ignoring unreadable previous snapshot ({error.__class__.__name__})", file=sys.stderr)
             previous = {}
