@@ -7,67 +7,46 @@
  * See ADDITIONAL_TERMS.txt.
  */
 
-async function docsNotFound(request: Request): Promise<Response> {
-  const originalUrl = new URL(request.url);
-  const notFoundUrl = new URL("/__codex_missing_page__", originalUrl);
-  const headers = new Headers({ Accept: "text/html" });
-  const acceptLanguage = request.headers.get("Accept-Language");
-  if (acceptLanguage) headers.set("Accept-Language", acceptLanguage);
+const MAIN_404_URL = "https://comicine.com/404";
 
-  // This unassigned same-zone path reaches the Pages origin without re-entering this Worker.
-  const page = await fetch(new Request(notFoundUrl, { method: "GET", headers }));
-  const contentType = page.headers.get("Content-Type") ?? "";
+function isHtmlNavigation(request: Request): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
   if (
-    page.status !== 404 ||
-    !contentType.toLowerCase().startsWith("text/html")
+    request.headers.get("Sec-Fetch-Dest") === "document" ||
+    request.headers.get("Sec-Fetch-Mode") === "navigate"
   ) {
-    throw new Error("The docs Pages origin did not return its custom HTML 404");
+    return true;
   }
-  if (!(await page.clone().text()).includes('<meta name="generator" content="VitePress v')) {
-    throw new Error("The docs Pages origin returned an unexpected HTML 404 page");
-  }
-
-  const responseHeaders = new Headers(page.headers);
-  for (const name of [
-    "Content-Encoding",
-    "Content-Length",
-    "Location",
-    "Refresh",
-    "Transfer-Encoding",
-  ]) {
-    responseHeaders.delete(name);
-  }
-  responseHeaders.set("Cache-Control", "no-store");
-  responseHeaders.set("X-Robots-Tag", "noindex, nofollow");
-
-  return new Response(request.method === "HEAD" ? null : page.body, {
-    status: 404,
-    statusText: page.statusText,
-    headers: responseHeaders,
-  });
+  return (request.headers.get("Accept") ?? "")
+    .split(",")
+    .some((value) => value.trim().split(";", 1)[0].toLowerCase() === "text/html");
 }
 
-function textNotFound(): Response {
-  return new Response("Not Found\n", {
+function notFoundResponse(request: Request): Response {
+  const isAsset = new URL(request.url).pathname.startsWith("/assets/");
+  const isPageNavigation = !isAsset && isHtmlNavigation(request);
+  const headers = new Headers({
+    "Cache-Control": "no-store",
+    "Content-Type": isPageNavigation
+      ? "text/html; charset=utf-8"
+      : "text/plain; charset=utf-8",
+    "X-Robots-Tag": "noindex, nofollow",
+  });
+
+  let body = "Not Found\n";
+  if (isPageNavigation) {
+    headers.set("Refresh", `0; url=${MAIN_404_URL}`);
+    body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta http-equiv="refresh" content="0;url=${MAIN_404_URL}"><title>404</title></head><body><p>404</p><a href="${MAIN_404_URL}">ComiCine</a></body></html>`;
+  }
+
+  return new Response(request.method === "HEAD" ? null : body, {
     status: 404,
-    headers: {
-      "Cache-Control": "no-store",
-      "Content-Type": "text/plain; charset=utf-8",
-      "X-Robots-Tag": "noindex, nofollow",
-    },
+    headers,
   });
 }
 
 export default {
   async fetch(request: Request): Promise<Response> {
-    const isAsset = new URL(request.url).pathname.startsWith("/assets/");
-    if (isAsset) return textNotFound();
-
-    try {
-      return await docsNotFound(request);
-    } catch (error) {
-      console.error("Failed to load the docs custom 404 page", error);
-      return textNotFound();
-    }
+    return notFoundResponse(request);
   },
 };
