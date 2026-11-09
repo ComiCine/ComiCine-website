@@ -288,9 +288,9 @@ live under each language's `private/articles/` directory and rewrite to
 `/assets/private_articles_mu5735_*`. Protect these pages and assets with the shared application on
 production and preview hosts; private pages are marked `noindex, nofollow` and excluded from
 navigation and the sitemap. The AMC 10 and UK majors sources remain private under
-`private/articles/` with the same protection. Former public MU5735 URLs and figure assets are protected by Access while old edge cache entries
-may still exist; the new Pages build has no public copies. Former public AMC 10 and UK majors
-article routes return HTTP 404 and navigate the browser to `https://comicine.com/404`. The
+`private/articles/` with the same protection. Former public MU5735 URLs and figure assets return direct HTTP 404 responses from
+`comicine-docs-legacy-404` before Pages static caching; they do not redirect or use Access.
+Former public AMC 10 and UK majors article routes also return direct HTTP 404. The
 deploy script removes former edge redirects and retired Worker routes after publishing the current
 Pages build; Pages middleware handles the resulting HTML 404s. Leave unassigned `/articles/*` paths
 available for future public articles, and keep `/private/*` outside those routes so the production

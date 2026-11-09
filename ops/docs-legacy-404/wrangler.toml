@@ -1,0 +1,14 @@
+name = "comicine-docs-legacy-404"
+main = "src/index.ts"
+compatibility_date = "2026-11-09"
+account_id = "4a7fd8c8f1a59a265981a73e631b9e3f"
+
+routes = [
+  { pattern = "docs.comicine.com/articles/amc-10-formula-guide", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/articles/amc-10-formula-guide/*", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/articles/uk-undergraduate-majors", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/articles/uk-undergraduate-majors/*", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/articles/mu5735-report", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/articles/mu5735-report/*", zone_name = "comicine.com" },
+  { pattern = "docs.comicine.com/assets/articles_mu5735_*", zone_name = "comicine.com" },
+]
