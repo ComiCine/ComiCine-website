@@ -521,7 +521,7 @@ def test_deploy_all_includes_every_worker(tmp_path):
         assert step in result.stdout, f"{step} missing from a full deploy"
 
 
-def test_docs_deploy_checks_for_an_inline_vitepress_404():
+def test_docs_deploy_checks_for_vitepress_404_with_canonical_refresh():
     docs_deploy = (ROOT / "ops" / "docs_deploy.sh").read_text()
     match = re.search(r"(?ms)^check_custom_404\(\) \{\n(.*?)^\}", docs_deploy)
 
@@ -530,10 +530,10 @@ def test_docs_deploy_checks_for_an_inline_vitepress_404():
     assert "-o \"$body_file\"" in check
     assert "<title>404</title>" in check
     assert 'name="generator" content="VitePress v' in check
-    assert "'^refresh:'" in check
+    assert "refresh:[[:space:]]*0;[[:space:]]*url=https://comicine\\.com/404" in check
     assert "'^location:'" in check
     assert 'http-equiv="refresh"' in check
-    assert "Refresh: 0; url=https://comicine.com/404" not in check
+    assert "https://comicine.com/404" in check
 
 
 def test_deploy_workers_only_does_not_touch_pages_or_docs(tmp_path):

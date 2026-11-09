@@ -14,7 +14,7 @@ const invoke = handleDocs404 as unknown as (input: {
 }) => Promise<Response>;
 
 describe("docs 404 middleware", () => {
-  it("keeps the VitePress 404 page inline and uncached", async () => {
+  it("keeps the VitePress 404 inline and sends browsers to the canonical 404", async () => {
     const html = "<!doctype html><html><head><title>404</title></head><body>Not found</body></html>";
     const response = await invoke({
       request: new Request("https://docs.comicine.com/missing"),
@@ -25,13 +25,17 @@ describe("docs 404 middleware", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(await response.text()).toBe(html);
+    const body = await response.text();
+    expect(body).toContain(html.slice(0, html.indexOf("</head>")));
+    expect(body).toContain('<meta http-equiv="refresh" content="0;url=https://comicine.com/404">');
+    expect(body).toContain("https://comicine.com/404");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
-    expect(response.headers.get("Refresh")).toBeNull();
+    expect(response.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
+    expect(response.headers.get("Location")).toBeNull();
   });
 
-  it("returns a bodyless 404 for HEAD without consuming the upstream page", async () => {
+  it("returns a bodyless HEAD 404 with the canonical refresh header", async () => {
     const html = "<!doctype html><html><body>Not found</body></html>";
     const response = await invoke({
       request: new Request("https://docs.comicine.com/missing", { method: "HEAD" }),
@@ -44,6 +48,7 @@ describe("docs 404 middleware", () => {
     expect(response.status).toBe(404);
     expect(response.body).toBeNull();
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Refresh")).toBe("0; url=https://comicine.com/404");
   });
 
   it("leaves non-HTML 404 responses unchanged", async () => {

@@ -606,7 +606,7 @@ check_code() {
 }
 
 check_custom_404() {
-    local path="$1" i result metadata code content_type headers refresh_present location_present body_ok body_file
+    local path="$1" i result metadata code content_type headers refresh_ok location_present body_ok body_file
     body_file="$(mktemp "${TMPDIR:-/tmp}/comicine-docs-404.XXXXXX")" || {
         echo "FATAL: could not create a temporary file for the docs 404 check" >&2
         exit 1
@@ -617,28 +617,29 @@ check_custom_404() {
         headers="${result%$'\n'*}"
         code="${metadata%%$'\t'*}"
         content_type="${metadata#*$'\t'}"
-        refresh_present=0
+        refresh_ok=0
         location_present=0
         body_ok=0
-        if printf '%s\n' "$headers" | grep -Eiq '^refresh:'; then refresh_present=1; fi
         if printf '%s\n' "$headers" | grep -Eiq '^location:'; then location_present=1; fi
         if grep -Fqi '<title>404</title>' "$body_file" \
             && grep -Eqi '<meta name="generator" content="VitePress v' "$body_file" \
-            && ! grep -Fqi 'http-equiv="refresh"' "$body_file"; then body_ok=1; fi
+            && grep -Fqi 'http-equiv="refresh"' "$body_file" \
+            && grep -Fqi 'https://comicine.com/404' "$body_file"; then body_ok=1; fi
+        if printf '%s\n' "$headers" | grep -Eiq '^refresh:[[:space:]]*0;[[:space:]]*url=https://comicine\.com/404'; then refresh_ok=1; fi
         if [ "$code" = 404 ] && [[ "$content_type" == text/html* ]] \
-            && [ "$refresh_present" = 0 ] && [ "$location_present" = 0 ] \
+            && [ "$refresh_ok" = 1 ] && [ "$location_present" = 0 ] \
             && [ "$body_ok" = 1 ]; then break; fi
         if [ "$i" -lt 6 ]; then sleep 10; fi
     done
     if [ "$code" != 404 ] || [[ "$content_type" != text/html* ]] \
-        || [ "$refresh_present" != 0 ] || [ "$location_present" != 0 ] \
+        || [ "$refresh_ok" != 1 ] || [ "$location_present" != 0 ] \
         || [ "$body_ok" != 1 ]; then
         rm -f -- "$body_file"
-        echo "FATAL: https://${DOCS_HOST}${path} did not return an inline VitePress 404 (status ${code}, content type ${content_type:--})" >&2
+        echo "FATAL: https://${DOCS_HOST}${path} did not return the VitePress 404 with canonical refresh navigation (status ${code}, content type ${content_type:--})" >&2
         exit 1
     fi
     rm -f -- "$body_file"
-    echo "[docs] ${path} = inline VitePress 404 with HTTP 404 OK"
+    echo "[docs] ${path} = VitePress 404 with canonical refresh navigation OK"
 }
 
 check_direct_404() {
