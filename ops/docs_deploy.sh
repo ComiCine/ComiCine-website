@@ -247,8 +247,17 @@ strip_emoji() {
     perl -CSD -pe 's/[\x{1F000}-\x{1FAFF}\x{2705}\x{274C}\x{26A0}\x{26C5}\x{2728}\x{2B50}][\x{FE0F}\x{200D}]*\h?//g'
 }
 
+# Put the direct-404 Worker in front of Pages before removing legacy Access destinations.
+# It handles moved article paths before Pages' static cache can serve an old response.
+echo "[docs] deploying direct-404 Worker"
+(
+    cd "$ROOT/ops/docs-legacy-404"
+    "$WRANGLER_BIN" deploy --config "$ROOT/ops/docs-legacy-404/wrangler.toml" 2>&1 | strip_emoji
+)
+
 # Stage 6: reconcile Cloudflare Access.
 # Protect private routes and assets on the existing shared Access app before publishing the build.
+# Legacy public MU5735 paths now return direct 404s and must not remain Access redirects.
 python3 - "$SECRETS_FILE" <<'PY'
 import json
 import os
@@ -316,12 +325,12 @@ docs_private_asset_routes = {
     "comicine-docs.pages.dev/assets/private_articles_*",
     "*.comicine-docs.pages.dev/assets/private_articles_*",
 }
-docs_legacy_mu5735_routes = {
+legacy_mu5735_routes = {
     "docs.comicine.com/articles/mu5735-report",
     "docs.comicine.com/articles/mu5735-report/*",
     "docs.comicine.com/assets/articles_mu5735_*",
 }
-docs_access_routes = docs_private_routes | docs_private_asset_routes | docs_legacy_mu5735_routes
+docs_access_routes = docs_private_routes | docs_private_asset_routes
 legacy_docs_app_names = {
     "ComiCine Docs Archived and Preview Paths",
     "ComiCine Docs Private",
@@ -361,8 +370,10 @@ def policy_links(policies):
         links.append({key: policy[key] for key in ("id", "account_id", "precedence") if key in policy})
     return links
 
-def update_app_destinations(app, required_routes, name=None):
+def update_app_destinations(app, required_routes, name=None, remove_routes=None):
     destinations = list(app.get("destinations") or [])
+    remove_routes = remove_routes or set()
+    destinations = [destination for destination in destinations if destination.get("uri", "") not in remove_routes]
     existing = {destination.get("uri", "") for destination in destinations}
     for uri in sorted(required_routes):
         if uri not in existing:
@@ -418,10 +429,17 @@ for legacy_app in legacy_apps:
         raise SystemExit("FATAL: the shared Access application name did not update")
 
 shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
-shared_app = update_app_destinations(shared_app, docs_access_routes | {identity_uri}, "ComiCine")
+shared_app = update_app_destinations(
+    shared_app,
+    docs_access_routes | {identity_uri},
+    "ComiCine",
+    legacy_mu5735_routes,
+)
 updated_uris = destination_uris(shared_app)
 if not docs_access_routes.issubset(updated_uris) or identity_uri not in updated_uris:
     raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
+if legacy_mu5735_routes.intersection(updated_uris):
+    raise SystemExit("FATAL: the old MU5735 URLs still have Cloudflare Access destinations")
 if policy_signature(shared_app.get("policies") or []) != policy_signature(shared_policies):
     raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
 if shared_app.get("name") != "ComiCine":
@@ -431,6 +449,7 @@ remaining_apps = call("GET", apps_url) or []
 if any(item.get("name") in legacy_docs_app_names for item in remaining_apps):
     raise SystemExit("FATAL: a redundant docs Access application remains")
 print("[docs] private docs and identity share the existing ComiCine Access application")
+print("[docs] legacy MU5735 URLs return direct 404s without redirects")
 if legacy_apps:
     print(f"[docs] removed {len(legacy_apps)} redundant docs Access application(s)")
 
@@ -469,7 +488,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
         --commit-dirty=true 2>&1 | strip_emoji
 )
 
-# Remove the retired Worker only after Pages has published the replacement 404 behavior.
+# Verify the direct-404 Worker routes remain active after the Pages publish.
 python3 - "$SECRETS_FILE" <<'PY'
 import json
 import os
@@ -494,11 +513,14 @@ if not token or not account_id:
 
 base_url = "https://api.cloudflare.com/client/v4"
 legacy_worker = "comicine-docs-legacy-404"
-legacy_route_patterns = {
+required_route_patterns = {
     "docs.comicine.com/articles/amc-10-formula-guide",
     "docs.comicine.com/articles/amc-10-formula-guide/*",
     "docs.comicine.com/articles/uk-undergraduate-majors",
     "docs.comicine.com/articles/uk-undergraduate-majors/*",
+    "docs.comicine.com/articles/mu5735-report",
+    "docs.comicine.com/articles/mu5735-report/*",
+    "docs.comicine.com/assets/articles_mu5735_*",
 }
 
 def call(method, url):
@@ -526,25 +548,15 @@ if not zone:
 
 worker_routes_url = f"{base_url}/zones/{zone['id']}/workers/routes"
 worker_routes = call("GET", worker_routes_url) or []
-for route in worker_routes:
-    if route.get("script") == legacy_worker or route.get("pattern") in legacy_route_patterns:
-        call("DELETE", f"{worker_routes_url}/{route['id']}")
-
-worker_routes = call("GET", worker_routes_url) or []
-if any(
-    route.get("script") == legacy_worker or route.get("pattern") in legacy_route_patterns
+active_routes = {
+    route.get("pattern")
     for route in worker_routes
-):
-    raise SystemExit("FATAL: a retired docs Worker route remains active")
-
-worker_scripts_url = f"{base_url}/accounts/{account_id}/workers/scripts"
-worker_scripts = call("GET", worker_scripts_url) or []
-if any(script.get("id") == legacy_worker for script in worker_scripts):
-    call("DELETE", f"{worker_scripts_url}/{legacy_worker}")
-worker_scripts = call("GET", worker_scripts_url) or []
-if any(script.get("id") == legacy_worker for script in worker_scripts):
-    raise SystemExit("FATAL: the retired docs Worker script remains deployed")
-print("[docs] retired Worker routes and script removed")
+    if route.get("script") == legacy_worker
+}
+missing_routes = sorted(required_route_patterns - active_routes)
+if missing_routes:
+    raise SystemExit("FATAL: the docs direct-404 Worker is missing routes: " + ", ".join(missing_routes))
+print("[docs] direct-404 Worker routes verified")
 PY
 
 # Stage 8: smoke checks.
@@ -601,6 +613,41 @@ check_custom_404() {
     fi
     rm -f -- "$body_file"
     echo "[docs] ${path} = inline VitePress 404 with HTTP 404 OK"
+}
+
+check_direct_404() {
+    local path="$1" expected_type="$2" i result metadata code content_type headers refresh_present location_present body_ok body_file
+    body_file="$(mktemp "${TMPDIR:-/tmp}/comicine-legacy-404.XXXXXX")" || {
+        echo "FATAL: could not create a temporary file for the legacy 404 check" >&2
+        exit 1
+    }
+    for i in 1 2 3 4 5 6; do
+        result="$(curl -sS -H 'Accept: text/html' -D - -o "$body_file" -w $'\n%{http_code}\t%{content_type}' --max-time 20 "https://${DOCS_HOST}${path}" || true)"
+        metadata="${result##*$'\n'}"
+        headers="${result%$'\n'*}"
+        code="${metadata%%$'\t'*}"
+        content_type="${metadata#*$'\t'}"
+        refresh_present=0
+        location_present=0
+        body_ok=0
+        if printf '%s\n' "$headers" | grep -Eiq '^refresh:'; then refresh_present=1; fi
+        if printf '%s\n' "$headers" | grep -Eiq '^location:'; then location_present=1; fi
+        if [[ "$expected_type" == text/html* ]] && grep -Fqi '<title>404</title>' "$body_file"; then body_ok=1; fi
+        if [[ "$expected_type" == text/plain* ]] && grep -Fxqi 'Not Found' "$body_file"; then body_ok=1; fi
+        if [ "$code" = 404 ] && [[ "$content_type" == "$expected_type"* ]] \
+            && [ "$refresh_present" = 0 ] && [ "$location_present" = 0 ] \
+            && [ "$body_ok" = 1 ]; then break; fi
+        if [ "$i" -lt 6 ]; then sleep 10; fi
+    done
+    if [ "$code" != 404 ] || [[ "$content_type" != "$expected_type"* ]] \
+        || [ "$refresh_present" != 0 ] || [ "$location_present" != 0 ] \
+        || [ "$body_ok" != 1 ]; then
+        rm -f -- "$body_file"
+        echo "FATAL: https://${DOCS_HOST}${path} did not return a direct HTTP 404 (status ${code}, content type ${content_type:--})" >&2
+        exit 1
+    fi
+    rm -f -- "$body_file"
+    echo "[docs] ${path} = direct 404 with no redirect OK"
 }
 
 check_access_challenge() {
@@ -677,8 +724,8 @@ for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/
 done
 for slug in amc-10-formula-guide uk-undergraduate-majors; do
     for lang in zh-cn en-us ja-jp ko-kr; do
-        check_custom_404 "/articles/${slug}/${lang}"
-        check_custom_404 "/articles/${slug}/${lang}/"
+        check_direct_404 "/articles/${slug}/${lang}" "text/html"
+        check_direct_404 "/articles/${slug}/${lang}/" "text/html"
     done
 done
 
@@ -690,10 +737,10 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
     check_code "$path" 200
 done
-check_access_challenge /articles/mu5735-report
+check_direct_404 /articles/mu5735-report "text/html"
 for lang in zh-cn en-us ja-jp ko-kr; do
-    check_access_challenge "/articles/mu5735-report/${lang}"
-    check_access_challenge "/articles/mu5735-report/${lang}/"
+    check_direct_404 "/articles/mu5735-report/${lang}" "text/html"
+    check_direct_404 "/articles/mu5735-report/${lang}/" "text/html"
     check_access_challenge "/private/articles/mu5735-report/${lang}"
 done
 for slug in amc-10-formula-guide uk-undergraduate-majors mu5735-report; do
@@ -725,6 +772,10 @@ for asset in \
     /assets/private_articles_mu5735_fig04_two_flights.png \
     /assets/private_articles_mu5735_fig06_acars_trend.png \
     /assets/private_articles_mu5735_fig08_investigation_timeline.png; do
-    check_access_challenge "$asset"
+    if [[ "$asset" == /assets/articles_mu5735_* ]]; then
+        check_direct_404 "$asset" "text/plain"
+    else
+        check_access_challenge "$asset"
+    fi
 done
 echo "[docs] done."
