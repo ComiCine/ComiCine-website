@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -211,6 +212,14 @@ def test_deploy_rejects_worker_name_with_unsafe_characters():
     assert "FATAL: invalid Worker name" in result.stderr
 
 
+def test_deploy_rejects_a_specific_worker_combined_with_all():
+    result = run([BASH, "ops/deploy.sh", "--worker=comicine-status", "--all", "--dry-run"])
+
+    assert result.returncode == 2
+    assert "FATAL: --all and --worker=<name> are mutually exclusive" in result.stderr
+    assert "Deploy: dry-run done" not in result.stdout
+
+
 # W3-1: Do not commit or push from a branch other than main.
 
 
@@ -338,6 +347,39 @@ def test_deploy_commits_when_the_list_sync_changes_the_tree(tmp_path, deploy_tes
     assert "Git: committed" in result.stdout
     # Verify that refreshed content is included in the commit, so the checked tree and committed tree are the same.
     assert "refreshed-by-the-list-step" in git(["show", "HEAD:tracked.txt"], repo).stdout
+
+
+@pytest.mark.parametrize("failing_command", ["read-tree", "add", "write-tree"])
+def test_deploy_aborts_when_worktree_snapshot_cannot_be_created(tmp_path, failing_command):
+    repo = make_repo(tmp_path)
+    real_git = shlex.quote(shutil.which("git") or "git")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    git_wrapper = bin_dir / "git"
+    git_wrapper.write_text(
+        "#!/bin/bash\n"
+        'if [ -n "${GIT_INDEX_FILE:-}" ] && [ "$1" = "${DEPLOY_TEST_FAIL_SNAPSHOT_COMMAND:-}" ]; then\n'
+        '    echo "simulated temporary index failure" >&2\n'
+        "    exit 1\n"
+        "fi\n"
+        f"exec {real_git} \"$@\"\n"
+    )
+    git_wrapper.chmod(0o755)
+    initial_head = git(["rev-parse", "HEAD"], repo).stdout.strip()
+
+    result = run(
+        [BASH, "ops/deploy.sh", "--commit"],
+        cwd=repo,
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+            "DEPLOY_TEST_FAIL_SNAPSHOT_COMMAND": failing_command,
+        },
+    )
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "FATAL: could not" in result.stderr
+    assert "Git: committed" not in result.stdout
+    assert git(["rev-parse", "HEAD"], repo).stdout.strip() == initial_head
 
 
 def test_deploy_accepts_configured_openpgp_key_id(tmp_path, deploy_test_signing_key):

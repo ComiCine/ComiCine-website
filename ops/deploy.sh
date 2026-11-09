@@ -155,7 +155,13 @@ while [ $# -gt 0 ]; do
                 exit 2
             fi
             DO_WORKERS=1 ;;
-        --all) DO_COMMIT=1; DO_PUSH=1; DO_PAGES=1; DO_DOCS=1; DO_WORKERS=1 ;;
+        --all)
+            if [ -n "$WORKER" ]; then
+                echo "FATAL: --all and --worker=<name> are mutually exclusive" >&2
+                exit 2
+            fi
+            DO_COMMIT=1; DO_PUSH=1; DO_PAGES=1; DO_DOCS=1; DO_WORKERS=1
+            ;;
         --full) VERBOSE=1 ;;
         --worker=*)
             WORKER="${1#--worker=}"
@@ -421,11 +427,21 @@ worktree_snapshot() {
     if ! GIT_INDEX_FILE="$tmp" git read-tree HEAD 2>/dev/null; then
         rm -f "$tmp"
         ACTIVE_TMP_INDEX=""
-        WORKTREE_SNAPSHOT="unavailable"
-        return 0
+        echo "FATAL: could not create the temporary Git index for the working-tree snapshot" >&2
+        return 1
     fi
-    GIT_INDEX_FILE="$tmp" git add -A -- . >/dev/null 2>&1 || true
-    WORKTREE_SNAPSHOT="$(GIT_INDEX_FILE="$tmp" git write-tree 2>/dev/null || echo "unavailable")"
+    if ! GIT_INDEX_FILE="$tmp" git add -A -- .; then
+        rm -f "$tmp"
+        ACTIVE_TMP_INDEX=""
+        echo "FATAL: could not add working-tree files to the temporary Git index" >&2
+        return 1
+    fi
+    if ! WORKTREE_SNAPSHOT="$(GIT_INDEX_FILE="$tmp" git write-tree 2>/dev/null)"; then
+        rm -f "$tmp"
+        ACTIVE_TMP_INDEX=""
+        echo "FATAL: could not write the working-tree snapshot tree" >&2
+        return 1
+    fi
     rm -f "$tmp"
     ACTIVE_TMP_INDEX=""
 }

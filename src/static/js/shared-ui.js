@@ -703,9 +703,11 @@
             doc.addEventListener('keydown', handleKeydown);
             if (win) {
                 win.addEventListener('resize', function () {
-                    if (win.matchMedia('(min-width: 768px)').matches) {
-                        setNavScreenOpen(false, { returnFocus: false });
+                    var isDesktop = win.innerWidth >= 768;
+                    if (typeof win.matchMedia === 'function') {
+                        try { isDesktop = win.matchMedia('(min-width: 768px)').matches; } catch (_) {}
                     }
+                    if (isDesktop) setNavScreenOpen(false, { returnFocus: false });
                 });
             }
             bindHover();

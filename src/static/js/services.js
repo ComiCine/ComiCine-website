@@ -228,9 +228,22 @@ setTimeout(function() {
         writeStoredCurrency(code);
     }
 
+    function validRateDate(value) {
+        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        var date = new Date(value + 'T00:00:00Z');
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    }
+
     function validCache(data) {
-        if (!data || typeof data !== 'object' || typeof data.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return false;
-        if (!Number.isFinite(data.savedAt) || !data.rates || !data.currencies) return false;
+        if (!data || typeof data !== 'object' || !validRateDate(data.date)) return false;
+        if (!Number.isFinite(data.savedAt)) return false;
+        if (!data.rates || typeof data.rates !== 'object' || Array.isArray(data.rates)) return false;
+        if (!data.currencies || typeof data.currencies !== 'object' || Array.isArray(data.currencies)) return false;
+        var codes = Object.keys(data.rates);
+        if (data.rates.CNY !== 1 || !codes.some(function(code) { return code !== 'CNY'; })) return false;
+        if (codes.some(function(code) {
+            return !/^[A-Z]{3}$/.test(code) || !Number.isFinite(data.rates[code]) || data.rates[code] <= 0;
+        })) return false;
         var age = Math.max(0, Date.now() - data.savedAt);
         if (age > MAX_STALE_MS || data.savedAt - Date.now() > FRESH_MS) return false;
         return true;
@@ -345,7 +358,7 @@ setTimeout(function() {
             response.forEach(function(item) {
                 if (!item || item.base !== 'CNY' || typeof item.quote !== 'string' || !/^[A-Z]{3}$/.test(item.quote)) return;
                 if (item.quote === 'CNY' || !Number.isFinite(item.rate) || item.rate <= 0 || rates[item.quote]) return;
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(item.date)) return;
+                if (!validRateDate(item.date)) return;
                 if (!date || item.date > date) date = item.date;
                 rates[item.quote] = item.rate;
                 rateDates[item.quote] = item.date;
