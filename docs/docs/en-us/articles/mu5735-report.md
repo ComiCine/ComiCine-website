@@ -37,12 +37,6 @@ Cruise at 29,103 ft → the FDR fields `Eng1 Cutoff SW` and `Eng2 Cutoff SW` cha
 5. **All four CVR channels were rated Excellent** (about 120 min on each of the three audio panels and about 180 min on CAM). The NTSB received the recorder and downloaded it, then returned all audio to the CAAC. The FOIA response letter (`NTSB_response_to_FOIA_request_on_China_Eastern_Airlines_Flight_MU5735_alternative_version.pdf`, p. 3) says the Safety Board does not possess CVR data responsive to that request; the recorder report also states that the NTSB retained photographs, scans, and microscopic images. **This release contains no audio or transcript.**
 6. **As of the April 2026 release, no final report had been made public.** Volume 8 emails show that the NTSB was still asking for a report schedule on 2024-03-21. The substantive CAAC reply is redacted under (b)(5); the visible portion thanks Silva and offers a video meeting, so the release does not establish whether the schedule question was answered. The letter states that “a final report has yet to be issued.” The CAAC’s 2024-03-20 second-anniversary statement said that “no faults or abnormalities were found in the aircraft systems, airframe structure, engines, etc. before takeoff,” but gave neither a cause determination nor a report schedule.
 
-::: warning Evidence boundary
-
-The materials do not establish who or what produced the recorded parameter changes, why they occurred, or whether they were intentional. The NTSB report states that “the fuel switches on both engines moved from the run position to the cutoff position.” The raw FDR fields are `Eng1 Cutoff SW` and `Eng2 Cutoff SW`; the NTSB validated-parameter list names them `Left Engine Cutoff Switch` and `Right Engine Cutoff Switch`. The FDR cannot distinguish intentional action from incapacitation, a struggle, or a common-mode mechanical/electrical fault. The CVR audio was returned to the CAAC. The CAAC is the authority responsible for determining the cause.
-
-:::
-
 ---
 
 ## 1. Timeline (absolute times with ranges)
