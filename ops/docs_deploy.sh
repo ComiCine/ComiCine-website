@@ -632,7 +632,9 @@ check_direct_404() {
         body_ok=0
         if printf '%s\n' "$headers" | grep -Eiq '^refresh:'; then refresh_present=1; fi
         if printf '%s\n' "$headers" | grep -Eiq '^location:'; then location_present=1; fi
-        if [[ "$expected_type" == text/html* ]] && grep -Fqi '<title>404</title>' "$body_file"; then body_ok=1; fi
+        if [[ "$expected_type" == text/html* ]] \
+            && grep -Fqi '<title>404</title>' "$body_file" \
+            && grep -Eqi '<meta name="generator" content="VitePress v' "$body_file"; then body_ok=1; fi
         if [[ "$expected_type" == text/plain* ]] && grep -Fxqi 'Not Found' "$body_file"; then body_ok=1; fi
         if [ "$code" = 404 ] && [[ "$content_type" == "$expected_type"* ]] \
             && [ "$refresh_present" = 0 ] && [ "$location_present" = 0 ] \
