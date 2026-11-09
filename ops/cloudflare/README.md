@@ -288,10 +288,11 @@ live under each language's `private/articles/` directory and rewrite to
 `/assets/private_articles_mu5735_*`. Protect these pages and assets with the shared application on
 production and preview hosts; private pages are marked `noindex, nofollow` and excluded from
 navigation and the sitemap. The AMC 10 and UK majors sources remain private under
-`private/articles/` with the same protection. Former public MU5735 URLs and figure assets return direct HTTP 404 responses from
-`comicine-docs-legacy-404` before Pages static caching; it serves the existing custom VitePress 404
-inline, with no redirect or Access challenge.
-Former public AMC 10 and UK majors article routes also return direct HTTP 404. The
+`private/articles/` with the same protection. Former public article URLs return HTTP 404 from
+`comicine-docs-legacy-404` before Pages static caching. Browser HTML requests use the standard
+Refresh shell to `https://comicine.com/404`, without a 3xx or `Location` header. Figure assets keep
+their native 404 response without a refresh shell or Access challenge. The
+former public AMC 10 and UK majors article routes follow the same HTML 404 behavior. The
 deploy script removes former edge redirects and retired Worker routes after publishing the current
 Pages build; Pages middleware handles the resulting HTML 404s. Leave unassigned `/articles/*` paths
 available for future public articles, and keep `/private/*` outside those routes so the production

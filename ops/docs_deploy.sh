@@ -616,7 +616,7 @@ check_custom_404() {
 }
 
 check_direct_404() {
-    local path="$1" expected_type="$2" i result metadata code content_type headers refresh_present location_present body_ok body_file
+    local path="$1" expected_type="$2" i result metadata code content_type headers refresh_ok refresh_present location_present body_ok body_file
     body_file="$(mktemp "${TMPDIR:-/tmp}/comicine-legacy-404.XXXXXX")" || {
         echo "FATAL: could not create a temporary file for the legacy 404 check" >&2
         exit 1
@@ -627,6 +627,7 @@ check_direct_404() {
         headers="${result%$'\n'*}"
         code="${metadata%%$'\t'*}"
         content_type="${metadata#*$'\t'}"
+        refresh_ok=0
         refresh_present=0
         location_present=0
         body_ok=0
@@ -634,22 +635,28 @@ check_direct_404() {
         if printf '%s\n' "$headers" | grep -Eiq '^location:'; then location_present=1; fi
         if [[ "$expected_type" == text/html* ]] \
             && grep -Fqi '<title>404</title>' "$body_file" \
-            && grep -Eqi '<meta name="generator" content="VitePress v' "$body_file"; then body_ok=1; fi
-        if [[ "$expected_type" == text/plain* ]] && grep -Fxqi 'Not Found' "$body_file"; then body_ok=1; fi
+            && grep -Fqi 'http-equiv="refresh"' "$body_file" \
+            && grep -Fqi 'https://comicine.com/404' "$body_file"; then body_ok=1; fi
+        if [[ "$expected_type" == text/html* ]] \
+            && printf '%s\n' "$headers" | grep -Eiq '^refresh:[[:space:]]*0;[[:space:]]*url=https://comicine\.com/404'; then refresh_ok=1; fi
+        if [[ "$expected_type" == text/plain* ]] && grep -Fxqi 'Not Found' "$body_file"; then
+            body_ok=1
+            if [ "$refresh_present" = 0 ]; then refresh_ok=1; fi
+        fi
         if [ "$code" = 404 ] && [[ "$content_type" == "$expected_type"* ]] \
-            && [ "$refresh_present" = 0 ] && [ "$location_present" = 0 ] \
+            && [ "$refresh_ok" = 1 ] && [ "$location_present" = 0 ] \
             && [ "$body_ok" = 1 ]; then break; fi
         if [ "$i" -lt 6 ]; then sleep 10; fi
     done
     if [ "$code" != 404 ] || [[ "$content_type" != "$expected_type"* ]] \
-        || [ "$refresh_present" != 0 ] || [ "$location_present" != 0 ] \
+        || [ "$refresh_ok" != 1 ] || [ "$location_present" != 0 ] \
         || [ "$body_ok" != 1 ]; then
         rm -f -- "$body_file"
-        echo "FATAL: https://${DOCS_HOST}${path} did not return a direct HTTP 404 (status ${code}, content type ${content_type:--})" >&2
+        echo "FATAL: https://${DOCS_HOST}${path} did not return the expected direct HTTP 404 response (status ${code}, content type ${content_type:--})" >&2
         exit 1
     fi
     rm -f -- "$body_file"
-    echo "[docs] ${path} = direct 404 with no redirect OK"
+    echo "[docs] ${path} = direct HTTP 404 response OK"
 }
 
 check_access_challenge() {
