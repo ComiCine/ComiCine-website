@@ -6,7 +6,6 @@
   "zh-cn/LICENSE.md": "LICENSE/zh-cn.md",
   "zh-cn/private/articles/uk-undergraduate-majors.md": "private/articles/uk-undergraduate-majors/zh-cn.md",
   "zh-cn/private/articles/amc-10-formula-guide.md": "private/articles/amc-10-formula-guide/zh-cn.md",
-  "zh-cn/articles/mu5735-report.md": "articles/mu5735-report/zh-cn.md",
   "en-us/video-platform.md": "video-platform/en-us.md",
   "en-us/security/policy.md": "security/policy/en-us.md",
   "en-us/security/acknowledgments.md": "security/acknowledgments/en-us.md",
@@ -14,7 +13,6 @@
   "en-us/LICENSE.md": "LICENSE/en-us.md",
   "en-us/private/articles/uk-undergraduate-majors.md": "private/articles/uk-undergraduate-majors/en-us.md",
   "en-us/private/articles/amc-10-formula-guide.md": "private/articles/amc-10-formula-guide/en-us.md",
-  "en-us/articles/mu5735-report.md": "articles/mu5735-report/en-us.md",
   "ja-jp/video-platform.md": "video-platform/ja-jp.md",
   "ja-jp/security/policy.md": "security/policy/ja-jp.md",
   "ja-jp/security/acknowledgments.md": "security/acknowledgments/ja-jp.md",
@@ -22,7 +20,6 @@
   "ja-jp/LICENSE.md": "LICENSE/ja-jp.md",
   "ja-jp/private/articles/uk-undergraduate-majors.md": "private/articles/uk-undergraduate-majors/ja-jp.md",
   "ja-jp/private/articles/amc-10-formula-guide.md": "private/articles/amc-10-formula-guide/ja-jp.md",
-  "ja-jp/articles/mu5735-report.md": "articles/mu5735-report/ja-jp.md",
   "ko-kr/video-platform.md": "video-platform/ko-kr.md",
   "ko-kr/security/policy.md": "security/policy/ko-kr.md",
   "ko-kr/security/acknowledgments.md": "security/acknowledgments/ko-kr.md",
@@ -30,5 +27,8 @@
   "ko-kr/LICENSE.md": "LICENSE/ko-kr.md",
   "ko-kr/private/articles/uk-undergraduate-majors.md": "private/articles/uk-undergraduate-majors/ko-kr.md",
   "ko-kr/private/articles/amc-10-formula-guide.md": "private/articles/amc-10-formula-guide/ko-kr.md",
-  "ko-kr/articles/mu5735-report.md": "articles/mu5735-report/ko-kr.md"
+  "zh-cn/private/articles/mu5735-report.md": "private/articles/mu5735-report/zh-cn.md",
+  "en-us/private/articles/mu5735-report.md": "private/articles/mu5735-report/en-us.md",
+  "ja-jp/private/articles/mu5735-report.md": "private/articles/mu5735-report/ja-jp.md",
+  "ko-kr/private/articles/mu5735-report.md": "private/articles/mu5735-report/ko-kr.md"
 }
