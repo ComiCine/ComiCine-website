@@ -467,6 +467,7 @@ async function saveAccount() {
     const notes = document.getElementById('field-notes').value.trim();
     if (!password) { toast(t('toast_enter_pw')); return; }
     const btn = document.getElementById('modal-save-btn');
+    if (btn.disabled) return;
     btn.disabled = true;
     try {
         if (editingId) {
