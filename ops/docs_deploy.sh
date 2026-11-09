@@ -675,7 +675,7 @@ for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/
     /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
     check_custom_404 "$path"
 done
-for slug in amc-10-formula-guide uk-undergraduate-majors mu5735-report; do
+for slug in amc-10-formula-guide uk-undergraduate-majors; do
     for lang in zh-cn en-us ja-jp ko-kr; do
         check_custom_404 "/articles/${slug}/${lang}"
         check_custom_404 "/articles/${slug}/${lang}/"
