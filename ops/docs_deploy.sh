@@ -523,8 +523,11 @@ required_route_patterns = {
     "docs.comicine.com/assets/articles_mu5735_*",
 }
 
-def call(method, url):
+def call(method, url, body=None):
     config = f'header = "Authorization: Bearer {token}"\nurl = "{url}"\nrequest = "{method}"\n'
+    if body is not None:
+        config += 'header = "Content-Type: application/json"\n'
+        config += f"data = {json.dumps(json.dumps(body, separators=(',', ':')))}\n"
     response = subprocess.run(
         ["curl", "--http1.1", "-sS", "--config", "-"],
         input=config,
@@ -557,6 +560,29 @@ missing_routes = sorted(required_route_patterns - active_routes)
 if missing_routes:
     raise SystemExit("FATAL: the docs direct-404 Worker is missing routes: " + ", ".join(missing_routes))
 print("[docs] direct-404 Worker routes verified")
+
+legacy_paths = set()
+for slug in ("amc-10-formula-guide", "uk-undergraduate-majors", "mu5735-report"):
+    base = f"/articles/{slug}"
+    legacy_paths.update((base, base + "/"))
+    for language in ("zh-cn", "en-us", "ja-jp", "ko-kr"):
+        localized = f"{base}/{language}"
+        legacy_paths.update((localized, localized + "/"))
+legacy_paths.update(
+    (
+        "/assets/articles_mu5735_fig01_timeline.png",
+        "/assets/articles_mu5735_fig02_last60s.png",
+        "/assets/articles_mu5735_fig03_radar.png",
+        "/assets/articles_mu5735_fig04_two_flights.png",
+        "/assets/articles_mu5735_fig06_acars_trend.png",
+        "/assets/articles_mu5735_fig08_investigation_timeline.png",
+    )
+)
+legacy_urls = [f"https://docs.comicine.com{path}" for path in sorted(legacy_paths)]
+purge_url = f"{base_url}/zones/{zone['id']}/purge_cache"
+for offset in range(0, len(legacy_urls), 20):
+    call("POST", purge_url, {"files": legacy_urls[offset:offset + 20]})
+print("[docs] purged cached legacy article and figure responses")
 PY
 
 # Stage 8: smoke checks.
