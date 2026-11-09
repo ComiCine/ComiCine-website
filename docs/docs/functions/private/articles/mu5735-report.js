@@ -5,8 +5,8 @@
  * See ADDITIONAL_TERMS.txt.
  */
 
-import { redirectLocalizedEntry } from "../_lib/security-language.js";
+import { redirectLocalizedEntry } from "../../_lib/security-language.js";
 
 export function onRequest({ request }) {
-  return redirectLocalizedEntry(request, "/articles/mu5735-report");
+  return redirectLocalizedEntry(request, "/private/articles/mu5735-report");
 }

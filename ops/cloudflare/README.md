@@ -282,18 +282,18 @@ contract support before connecting it to the broker.
 The docs Pages project uses those destinations on the shared application; docs requests do not
 use the host-only identity handoff. `ops/docs_deploy.sh` verifies the shared policy, protects the
 private article bundles before publishing, adds the docs destinations, and removes redundant
-docs-specific applications after migration. The MU5735 report is public: its four language sources
-live under each language's `articles/` directory, rewrite to `/articles/mu5735-report/<lang>`, and
-are included in the sitemap. Its figures use `/assets/articles_mu5735_*` and remain public. The AMC
-10 and UK majors sources remain private under `private/articles/` and rewrite to
-`/private/articles/<slug>/<lang>`; protect those pages and their generated
-`/assets/private_articles_*` bundles with the shared application, and keep them out of navigation
-and the sitemap with `noindex, nofollow`. Former public `/articles/<slug>/<lang>` paths return
-HTTP 404 only for those two private slugs and navigate the browser to `https://comicine.com/404`.
-The deploy script removes former edge redirects and retired Worker routes after publishing the
-current Pages build; Pages middleware handles the resulting HTML 404s. Keep
-`/articles/mu5735-report/*` public, leave unassigned `/articles/*` paths available for future public
-articles, and keep `/private/*` outside those routes so the production Access application protects it.
+docs-specific applications after migration. The MU5735 report is private: its four language sources
+live under each language's `private/articles/` directory and rewrite to
+`/private/articles/mu5735-report/<lang>`. Its figures use
+`/assets/private_articles_mu5735_*`. Protect these pages and assets with the shared application on
+production and preview hosts; private pages are marked `noindex, nofollow` and excluded from
+navigation and the sitemap. The AMC 10 and UK majors sources remain private under
+`private/articles/` with the same protection. Former public `/articles/<slug>/<lang>` routes return
+HTTP 404 for all three private slugs and navigate the browser to `https://comicine.com/404`. The
+deploy script removes former edge redirects and retired Worker routes after publishing the current
+Pages build; Pages middleware handles the resulting HTML 404s. Leave unassigned `/articles/*` paths
+available for future public articles, and keep `/private/*` outside those routes so the production
+Access application protects it.
 User-facing HTML 404s across docs Pages, the main Pages subdomains, the status Worker, and the image
 Worker keep HTTP 404 and send the browser to `https://comicine.com/404` with a Refresh navigation,
 not a 3xx response. The main site's `/404` remains the canonical localized page. API and asset 404s

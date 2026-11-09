@@ -14,7 +14,7 @@ import {
   redirectLocalizedEntry,
 } from "../../functions/_lib/security-language.js";
 import { onRequest as amc10Entry } from "../../functions/private/articles/amc-10-formula-guide.js";
-import { onRequest as mu5735Entry } from "../../functions/articles/mu5735-report.js";
+import { onRequest as mu5735Entry } from "../../functions/private/articles/mu5735-report.js";
 import { onRequest as ukMajorsEntry } from "../../functions/private/articles/uk-undergraduate-majors.js";
 
 function request(headers: Record<string, string> = {}, country?: string): Request {
@@ -108,17 +108,17 @@ describe("private article entry routes", () => {
   }
 });
 
-describe("public article entry routes", () => {
-  it("resolves /articles/mu5735-report with the shared language preference", () => {
+describe("private article entry routes", () => {
+  it("resolves /private/articles/mu5735-report with the shared language preference", () => {
     const response = mu5735Entry({
-      request: new Request("https://docs.comicine.com/articles/mu5735-report", {
+      request: new Request("https://docs.comicine.com/private/articles/mu5735-report", {
         headers: { Cookie: "user_lang_preference=ja-jp" },
       }),
     });
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(
-      "https://docs.comicine.com/articles/mu5735-report/ja-jp",
+      "https://docs.comicine.com/private/articles/mu5735-report/ja-jp",
     );
   });
 });

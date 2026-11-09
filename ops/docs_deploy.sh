@@ -662,8 +662,8 @@ check_language_redirect /security/policy /security/policy/en-us
 check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
-check_language_redirect /articles/mu5735-report /articles/mu5735-report/en-us
-check_language_redirect /articles/mu5735-report /articles/mu5735-report/ja-jp "user_lang_preference=ja-jp" "en-US"
+check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/en-us
+check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/ja-jp "user_lang_preference=ja-jp" "en-US"
 
 check_custom_404 /
 check_custom_404 /__codex_missing_page__
@@ -671,7 +671,7 @@ for path in /docs-home /docs-home/ /docs-home/zh-cn /docs-home/en-us /docs-home/
     /zh-cn /en-us /ja-jp /ko-kr /zh-cn/ /en-us/ /ja-jp/ /ko-kr/; do
     check_custom_404 "$path"
 done
-for slug in amc-10-formula-guide uk-undergraduate-majors; do
+for slug in amc-10-formula-guide uk-undergraduate-majors mu5735-report; do
     for lang in zh-cn en-us ja-jp ko-kr; do
         check_custom_404 "/articles/${slug}/${lang}"
         check_custom_404 "/articles/${slug}/${lang}/"
@@ -687,9 +687,11 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     check_code "$path" 200
 done
 for lang in zh-cn en-us ja-jp ko-kr; do
-    check_code "/articles/mu5735-report/${lang}" 200
+    check_custom_404 "/articles/mu5735-report/${lang}"
+    check_custom_404 "/articles/mu5735-report/${lang}/"
+    check_access_challenge "/private/articles/mu5735-report/${lang}"
 done
-for slug in amc-10-formula-guide uk-undergraduate-majors; do
+for slug in amc-10-formula-guide uk-undergraduate-majors mu5735-report; do
     for lang in zh-cn en-us ja-jp ko-kr; do
         check_access_challenge "/private/articles/${slug}/${lang}"
     done
@@ -706,12 +708,12 @@ if [ -z "$private_asset_path" ]; then
 fi
 check_access_challenge "/assets/${private_asset_path##*/}"
 for asset in \
-    /assets/articles_mu5735_fig01_timeline.png \
-    /assets/articles_mu5735_fig02_last60s.png \
-    /assets/articles_mu5735_fig03_radar.png \
-    /assets/articles_mu5735_fig04_two_flights.png \
-    /assets/articles_mu5735_fig06_acars_trend.png \
-    /assets/articles_mu5735_fig08_investigation_timeline.png; do
-    check_code "$asset" 200
+    /assets/private_articles_mu5735_fig01_timeline.png \
+    /assets/private_articles_mu5735_fig02_last60s.png \
+    /assets/private_articles_mu5735_fig03_radar.png \
+    /assets/private_articles_mu5735_fig04_two_flights.png \
+    /assets/private_articles_mu5735_fig06_acars_trend.png \
+    /assets/private_articles_mu5735_fig08_investigation_timeline.png; do
+    check_access_challenge "$asset"
 done
 echo "[docs] done."
