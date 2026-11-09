@@ -662,8 +662,7 @@ check_language_redirect /security/policy /security/policy/en-us
 check_language_redirect /security/acknowledgments /security/acknowledgments/en-us
 check_language_redirect /security/policy /security/policy/ja-jp "user_lang_preference=ja-jp" "en-US"
 check_language_redirect /security/acknowledgments /security/acknowledgments/ko-kr "user_lang_preference=ko-kr" "en-US"
-check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/en-us
-check_language_redirect /private/articles/mu5735-report /private/articles/mu5735-report/ja-jp "user_lang_preference=ja-jp" "en-US"
+check_access_challenge /private/articles/mu5735-report
 
 check_custom_404 /
 check_custom_404 /__codex_missing_page__
@@ -686,6 +685,7 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
     check_code "$path" 200
 done
+check_custom_404 /articles/mu5735-report
 for lang in zh-cn en-us ja-jp ko-kr; do
     check_custom_404 "/articles/mu5735-report/${lang}"
     check_custom_404 "/articles/mu5735-report/${lang}/"
