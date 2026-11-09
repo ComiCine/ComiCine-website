@@ -316,7 +316,12 @@ docs_private_asset_routes = {
     "comicine-docs.pages.dev/assets/private_articles_*",
     "*.comicine-docs.pages.dev/assets/private_articles_*",
 }
-docs_access_routes = docs_private_routes | docs_private_asset_routes
+docs_legacy_mu5735_routes = {
+    "docs.comicine.com/articles/mu5735-report",
+    "docs.comicine.com/articles/mu5735-report/*",
+    "docs.comicine.com/assets/articles_mu5735_*",
+}
+docs_access_routes = docs_private_routes | docs_private_asset_routes | docs_legacy_mu5735_routes
 legacy_docs_app_names = {
     "ComiCine Docs Archived and Preview Paths",
     "ComiCine Docs Private",
@@ -685,10 +690,10 @@ for path in /video-platform/zh-cn /video-platform/en-us /video-platform/ja-jp /v
     /security/acknowledgments/ja-jp /security/acknowledgments/ko-kr; do
     check_code "$path" 200
 done
-check_custom_404 /articles/mu5735-report
+check_access_challenge /articles/mu5735-report
 for lang in zh-cn en-us ja-jp ko-kr; do
-    check_custom_404 "/articles/mu5735-report/${lang}"
-    check_custom_404 "/articles/mu5735-report/${lang}/"
+    check_access_challenge "/articles/mu5735-report/${lang}"
+    check_access_challenge "/articles/mu5735-report/${lang}/"
     check_access_challenge "/private/articles/mu5735-report/${lang}"
 done
 for slug in amc-10-formula-guide uk-undergraduate-majors mu5735-report; do
@@ -708,6 +713,12 @@ if [ -z "$private_asset_path" ]; then
 fi
 check_access_challenge "/assets/${private_asset_path##*/}"
 for asset in \
+    /assets/articles_mu5735_fig01_timeline.png \
+    /assets/articles_mu5735_fig02_last60s.png \
+    /assets/articles_mu5735_fig03_radar.png \
+    /assets/articles_mu5735_fig04_two_flights.png \
+    /assets/articles_mu5735_fig06_acars_trend.png \
+    /assets/articles_mu5735_fig08_investigation_timeline.png \
     /assets/private_articles_mu5735_fig01_timeline.png \
     /assets/private_articles_mu5735_fig02_last60s.png \
     /assets/private_articles_mu5735_fig03_radar.png \
