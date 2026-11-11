@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ComiCine - Flask Web Application
+# ComiCine site project
 #
 # Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -21,7 +21,7 @@
 # Does not commit or push: that is ops/deploy.sh's job.
 #
 # This repo lives in an iCloud-synced area, where in-repo node_modules / .venv-build are
-# unusable; use the wrangler and venv under /tmp instead (see tasks/18-resume.md).
+# unusable; use the wrangler and venv under /tmp instead.
 
 set -euo pipefail
 

@@ -47,7 +47,7 @@ See ADDITIONAL_TERMS.txt.
 | 静的アセット／原本バックアップ | Pages アセットサーバー + プライベート R2 バケット `comicine-originals` | Cloudflare |
 | デプロイ | `ops/deploy.sh`（git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`） | ローカル |
 
-これらのレイヤーがどのようにつながるか — リクエストパイプライン、identity ハンドオフ、ドキュメントサイトのビルド、独立した Workers、生成される成果物 — は、[ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/ARCHITECTURE.md) で説明しています。
+これらのレイヤーがどのようにつながるか — リクエストパイプライン、identity ハンドオフ、ドキュメントサイトのビルド、独立した Workers、生成される成果物 — は、[ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/project/ARCHITECTURE.md) で説明しています。
 
 ## プロジェクト構成
 
@@ -62,25 +62,32 @@ See ADDITIONAL_TERMS.txt.
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
+├── project/                                         # repository-level engineering documentation
+│   ├── ARCHITECTURE.md                               # request flow, identity, Workers and build artifacts (English)
+│   └── dev.vars.example                              # tracked local Pages variable template
+├── legal/                                            # licensing and third-party notices grouped by language
+│   ├── en-us/
+│   │   ├── COPYRIGHT.md
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── zh-cn/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── ja-jp/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   └── ko-kr/
+│       ├── ADDITIONAL_TERMS.txt
+│       ├── COPYRIGHT.md
+│       ├── LICENSE.txt
+│       └── THIRD_PARTY_NOTICES.md
 ├── README.md                                         # this file
-├── ARCHITECTURE.md                                   # request flow, identity, Workers and build artifacts (English)
 ├── SECURITY.md                                       # threat model, trust tiers and key handling (English)
 ├── LICENSE.txt                                        # GNU AGPL v3 公式英文本文
 ├── ADDITIONAL_TERMS.txt                               # Section 7 の追加条項（英語）
-├── ADDITIONAL_TERMS_zh_CN.txt                         # 簡体字中国語訳
-├── ADDITIONAL_TERMS_ja_JP.txt                         # 日本語訳
-├── ADDITIONAL_TERMS_ko_KR.txt                         # 韓国語訳
-├── COPYRIGHT.md                                      # 著作権およびライセンス（英語）
-├── COPYRIGHT_zh_CN.md                                # 簡体字中国語訳
-├── COPYRIGHT_ja_JP.md                                # 日本語訳
-├── COPYRIGHT_ko_KR.md                                # 韓国語訳
-├── THIRD_PARTY_NOTICES.md                            # 第三者表示（英語）
-├── THIRD_PARTY_NOTICES_zh_CN.md                      # 簡体字中国語訳
-├── THIRD_PARTY_NOTICES_ja_JP.md                      # 日本語訳
-├── THIRD_PARTY_NOTICES_ko_KR.md                      # 韓国語訳
-├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
-├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
-├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
 ├── package-lock.json                                 # locked Node dependency tree (npm ci)
@@ -311,7 +318,7 @@ VitePress ルートが、`services/` には services.comicine.com の価格表 C
 `.vitepress/rewrites.json` が各 `<lang>/<page>.md` ソースをサフィックス付きルートにマッピングし、
 `.vitepress/config.mts` が `additionalConfig` を通じて各言語ディレクトリに固有の `lang` / `themeConfig` を与えます。
 ページを追加するには、4 つの言語ディレクトリすべてに作成し、rewrites のエントリを 4 つ追加し、
-サフィックスなしパス用に `functions/<page>.js` エントリと `_routes.json` の include を追加します。
+言語なしの入口が必要な場合は `functions/<page>.js` を追加します。`public/_routes.json` にそのパスが含まれ、除外されていないことを確認します。
 markdown ファイルに HTML が出力されない、言語ディレクトリの外にある、または翻訳が欠けている場合、
 `ops/docs_check_output.py` がビルドを失敗させます。
 
@@ -414,7 +421,7 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 | `SESSION_HMAC_KEY` | Pages のセッション cookie 署名鍵（`GATE_HMAC_KEY` とは別） |
 | `APPLE_ACCOUNT_ENCRYPTION_KEY` | Fernet 鍵（`secrets/apple_account_encryption.key` から） |
 
-ローカル開発：`.dev.vars.example` を `.dev.vars` にコピーして実際の値を記入します（git 管理外）。`ops/sync-worker` 用の `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` は `wrangler secret put` で設定します。
+ローカル開発：`project/dev.vars.example` を `.dev.vars` にコピーし、各プレースホルダーをローカル値に置き換えます（`.dev.vars` は git 管理外です）。`ops/sync-worker` 用の `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` は `wrangler secret put` で設定します。
 
 ### ゲートの挙動
 
@@ -588,7 +595,7 @@ docs.comicine.com に公開されることはありません。
 2. **D1**：新しい `comicine` データベース（APAC）はプロビジョニング済みで、稼働中の運用テーブルが取り込まれています。Pages の本番・プレビューのバインディング設定はこのデータベースを参照し、独立 Worker のバインディングも今回のリリースに含まれます。最終インポートでは Apple Account のレコードを変更せずに保持し、古い訪問者ハッシュと詳細テレメトリーは取り込んでいません。`blocked_ips` がブロックの権威であり続け、ソフト削除された行は監査用に残ります
 3. **シークレット**は **Pages → Settings → Environment variables → Encrypt** にあります：9 つのランタイムシークレットには Turnstile の 2 つ、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN`、`ACCESS_IDENTITY_AUD` が含まれます。廃止された `ACCESS_ADMIN_AUDS` と `ACCESS_VIEWER_AUDS` は、ランタイムコードが読み取らないためコピーしていません。引退した AppleID と Authentik のシークレットは設定されていません
 4. **Access**：`ComiCine` が `identity.comicine.com/login` を保護し、`visitor.comicine.com` と `account.comicine.com` は共有 identity ハンドオフと自ホスト専用の Pages セッションを使用します。廃止された `identity.limooo.cn/login` の宛先は、アプリケーションの AUD とポリシーを維持したまま 2026-10-29 に削除しました。`admin.limooo.cn` 用の未使用の `ComiCine-Admin` アプリも削除済みで、このホスト名には DNS レコードも Pages カスタムドメインもありません。セルフホストの IdP や独自のログインフォームはありません
-5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。アカウントのサブドメインは `comicine.workers.dev` になりました。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker のカスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの確認後に旧名前空間を削除しました。`comicine-sink` データベースはインポート済みで、`comicine_sink` データセットが設定され、Sink Worker もデプロイ済みです。有効なショートリンクは Location ヘッダー付きの 302 を返しました
+5. **Worker** は独立して稼働します：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark`、`comicine-sink`。アカウントのサブドメインは `comicine.workers.dev` になりました。`status.comicine.com`、`image.comicine.com`、`sink.comicine.com` は Worker のカスタムドメインです。Status Worker は `comicine-status_ComiCineProbeStateV2` を使用し、新しいバインディングの確認後に旧名前空間を削除しました。`comicine-sink` データベースはインポート済みで、`comicine_sink` データセットが設定され、Sink Worker v0.3.1 が稼働中です。有効なショートリンクは Location ヘッダー付きの 302 を返しました
 6. **Cloudflare のルール**：有効な WAF ルールと Cache Rules はありません。稼働中の IP List は `comicine_blocklist` です。`.com` ゾーンの動的リダイレクトフェーズは空で、旧 `.cn` ゾーンは GET/HEAD を 301、他のメソッドを 308 で対応する `.com` URL に転送し、パスとクエリを保持します。その後、`comicine.com/feishu/<path>` と `/lark/<path>` は Pages 経由で 302 を返し、`https://comicine.feishu.cn/<path>` に転送してパスとクエリを保持します
 7. **スモークチェック**：`https://comicine.com/_health` → 200、`https://comicine.com/?challenge=1` → 403、`https://docs.comicine.com/` → 404、`https://status.comicine.com/` → 200
 
@@ -598,8 +605,8 @@ Cloudflare アカウントの表示名は、設定済みの API トークンに 
 
 ## ライセンス
 
-ComiCine が所有し、ComiCine がライセンスするオリジナルのソフトウェア資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 のライセンス本文は [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ja_JP.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ko_KR.txt)があります。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)があります。これらの追加条項は、本作品を GNU AGPL v3 に基づいて利用する場合に適用され、後続のライセンスバージョンでの適用はそのバージョンの条件によります。追加条項の英語版が正式であり、翻訳は参考のために提供されています。
+ComiCine が所有し、ComiCine がライセンスするオリジナルのソフトウェア資料は、GNU Affero General Public License 第 3 版またはそれ以降のバージョン（AGPL-3.0-or-later）に基づいて提供されます。GNU AGPL v3 のライセンス本文は [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/LICENSE.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/LICENSE.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/LICENSE.txt)があります。GNU AGPL v3 第 7 条に基づく追加条項は [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt) にあり、参考訳として[簡体字中国語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/ADDITIONAL_TERMS.txt)、[日本語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/ADDITIONAL_TERMS.txt)、[韓国語](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/ADDITIONAL_TERMS.txt)があります。これらの追加条項は、本作品を GNU AGPL v3 に基づいて利用する場合に適用され、後続のライセンスバージョンでの適用はそのバージョンの条件によります。追加条項の英語版が正式であり、翻訳は参考のために提供されています。
 
-ComiCine は、本プロジェクトの開発ブランドおよび公開上の表示です。著作権は、実際の権利者に帰属します。適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。著作権の範囲については [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) を、特定された第三者素材とプラットフォーム標章については [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) を参照してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
+ComiCine は、本プロジェクトの開発ブランドおよび公開上の表示です。著作権は、実際の権利者に帰属します。適用される作者表示および著作権表示（合理的な出典表示を含む）を保持してください。著作権の範囲については [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/COPYRIGHT.md) を、特定された第三者素材とプラットフォーム標章については [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/THIRD_PARTY_NOTICES.md) を参照してください。適用される AGPL バージョンの条件に従う限り、商用利用が認められます。
 
 追加の許諾または商標許可に関するお問い合わせ：[contact@comicine.com](mailto:contact@comicine.com)。適用される GNU AGPL バージョンに従う商用利用に追加の許諾申請は必要ありません。

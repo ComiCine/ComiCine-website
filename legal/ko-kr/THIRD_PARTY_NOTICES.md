@@ -6,19 +6,19 @@
 
 ### Delius Swash Caps
 
-Delius Swash Caps는 Natalia Raices가 디자인했습니다. 글꼴 소프트웨어의 저작권은 Natalia Raices(2010, 2011)와 Igino Marini(2011)에 있으며 SIL Open Font License 버전 1.1(OFL-1.1)에 따라 배포됩니다. 업스트림 소스는 [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps)이고, 라이선스 전문은 [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt)에 포함되어 있습니다.
+Delius Swash Caps는 Natalia Raices가 디자인했습니다. 글꼴 소프트웨어의 저작권은 Natalia Raices(2010, 2011)와 Igino Marini(2011)에 있으며 SIL Open Font License 버전 1.1(OFL-1.1)에 따라 배포됩니다. 업스트림 소스는 [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps)이고, 라이선스 전문은 [src/static/fonts/delius-swash-caps/OFL.txt](../../src/static/fonts/delius-swash-caps/OFL.txt)에 포함되어 있습니다.
 
 프로젝트는 src/static/fonts/delius-swash-caps/에 자체 호스팅 WOFF2 서브셋을 포함하며, 웹사이트 워드마크와 Copyright 기호·연도 뒤의 정확한 브랜드명 ComiCine에 사용합니다. 상태 Worker는 같은 서브셋을 ops/status-worker/src/brand-font.ts에 포함합니다. 재배포할 때 저작권 및 라이선스 고지를 보존하고, 글꼴 소프트웨어 자체를 단독 판매하지 말며 “Delia”, “Delia Unicase”, “Delius”, “Delius Unicase” 예약 글꼴 이름을 포함한 OFL-1.1 조건을 따라야 합니다.
 
 ### Inter
 
-Inter의 저작권 표시는 The Inter Project Authors(2016)이며 OFL-1.1에 따라 배포됩니다. 업스트림 프로젝트는 [rsms/inter](https://github.com/rsms/inter)이고, 자체 호스팅 웹 글꼴 서브셋은 @fontsource-variable/inter 5.3.0에서 가져왔습니다. 라이선스 전문은 [src/static/fonts/inter/LICENSE.txt](src/static/fonts/inter/LICENSE.txt)에 포함되어 있습니다.
+Inter의 저작권 표시는 The Inter Project Authors(2016)이며 OFL-1.1에 따라 배포됩니다. 업스트림 프로젝트는 [rsms/inter](https://github.com/rsms/inter)이고, 자체 호스팅 웹 글꼴 서브셋은 @fontsource-variable/inter 5.3.0에서 가져왔습니다. 라이선스 전문은 [src/static/fonts/inter/LICENSE.txt](../../src/static/fonts/inter/LICENSE.txt)에 포함되어 있습니다.
 
 Inter 서브셋은 src/static/fonts/inter/ 및 docs/docs/public/fonts/에 있습니다. 업스트림 프로젝트는 “Inter”를 예약 글꼴 이름으로 지정합니다. 재배포하거나 수정할 때 포함된 OFL 전문과 업스트림의 예약 이름 조건을 따라야 합니다.
 
 ### Maple Mono NF CN
 
-Maple Mono NF CN의 저작권 표시는 The Maple Mono Project Authors(2022)이며 OFL-1.1에 따라 배포됩니다. 업스트림 프로젝트는 [subframe7536/maple-font](https://github.com/subframe7536/maple-font)이고 라이선스 전문은 [ops/fonts/OFL.txt](ops/fonts/OFL.txt)에 포함되어 있습니다.
+Maple Mono NF CN의 저작권 표시는 The Maple Mono Project Authors(2022)이며 OFL-1.1에 따라 배포됩니다. 업스트림 프로젝트는 [subframe7536/maple-font](https://github.com/subframe7536/maple-font)이고 라이선스 전문은 [ops/fonts/OFL.txt](../../ops/fonts/OFL.txt)에 포함되어 있습니다.
 
 저장소에는 게이트 화면용으로 Maple Mono NF CN Regular에 한국어 글리프 2개를 추가하는 파생 글꼴 빌드 스크립트가 있습니다. 원본 글꼴과 생성된 글꼴 바이너리는 Git 저장소 외부에 보관되며, 생성된 웹 글꼴은 fonts.comicine.com에서 제공합니다. 파생 글꼴에도 고지, 재배포 및 예약 글꼴 이름 조건을 포함한 OFL-1.1이 적용됩니다.
 

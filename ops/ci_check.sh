@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ComiCine - Flask Web Application
+# ComiCine site project
 #
 # Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later

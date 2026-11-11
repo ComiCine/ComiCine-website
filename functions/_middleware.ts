@@ -105,7 +105,7 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   const { hostname, pathname } = url;
   const forceChallenge = url.searchParams.get("challenge") === "1";
 
-// Operations health endpoint: no visitor tracking or human-verification gate; Uptime Kuma calls it with a probe UA.
+// Operations health endpoint: no visitor tracking or human-verification gate; the status Worker probes it.
   if (pathname === "/_health") {
     return new Response("ok\n", {
       status: 200,

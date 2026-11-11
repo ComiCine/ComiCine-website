@@ -338,7 +338,7 @@ export async function sync(
       {
         name: LIST_NAME,
         kind: "ip",
-        description: "auto-blocked networks from nginx logs",
+        description: "auto-blocked IP networks synced from the D1 blocklist",
       },
       deadline,
     );

@@ -5,7 +5,7 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Canonical IP/CIDR normalization implementation for the former VPS side.
+"""Canonical IP/CIDR normalization for Python operational tools.
 
 The Pages Functions counterpart is ``functions/_lib/cidr.ts``; function names and
 semantics are kept consistent between the two implementations. All CIDRs written

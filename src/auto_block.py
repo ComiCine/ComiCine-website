@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# ComiCine - Flask Web Application
+# ComiCine site project
 #
 # Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -255,7 +255,7 @@ def sync_cloudflare() -> int:
 
         if lst is None:
             resp = _call(token, "POST", f"{API}/accounts/{account_id}/rules/lists",
-                         {"name": LIST_NAME, "kind": "ip", "description": "auto-blocked networks from nginx logs"})
+                         {"name": LIST_NAME, "kind": "ip", "description": "auto-blocked IP networks synced from the D1 blocklist"})
             lst = resp["result"]
             _add_items(token, account_id, lst["id"], entries)
             print(f"[cf] created list {LIST_NAME} with {len(entries)} items", flush=True)

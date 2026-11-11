@@ -67,7 +67,7 @@ import { DEFAULT_LANG, alertDetail, isLang, msgCode, pickLang, type Lang } from 
 export interface Env {
   DB: D1Database;
   PROBE_STATE: DurableObjectNamespace;
-  /** Shared secret for the operational write endpoints (/run and /alert-test); both return 401 when it is not configured. */
+  /** Shared secret for operational write endpoints (/run, /alert-test, and /daily-checks); they return 401 when it is not configured. */
   STATUS_TOKEN?: string;
   EMAIL?: { send: (msg: unknown) => Promise<unknown> };
   /** Preferred alert channel: HTTP webhook (Feishu custom bot format by default). */

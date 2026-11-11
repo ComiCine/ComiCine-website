@@ -45,7 +45,7 @@ A fully serverless personal website and admin system.
 ## Features
 
 - Public pages, the gate, and the visitor panel run on Cloudflare.
-- Architecture notes live in [ARCHITECTURE.md](ARCHITECTURE.md).
+- Architecture notes live in [project/ARCHITECTURE.md](project/ARCHITECTURE.md).
 - Trusted sources live under [docs lists](docs/lists/).
 
 ```bash
@@ -74,7 +74,7 @@ TRANSLATED_HEADINGS = (
 def localize_links(body: str) -> str:
     """Rewrite the root README's relative repository links into the docs-site protocol."""
     return (
-        body.replace("](ARCHITECTURE.md)", f"]({REPOSITORY}/blob/main/ARCHITECTURE.md)")
+        body.replace("](project/ARCHITECTURE.md)", f"]({REPOSITORY}/blob/main/project/ARCHITECTURE.md)")
         .replace("](LICENSE.txt)", f"]({REPOSITORY}/blob/main/LICENSE.txt)")
         .replace("](docs/lists/)", f"]({REPOSITORY}/tree/main/docs/lists/)")
     )

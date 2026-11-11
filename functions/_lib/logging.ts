@@ -9,8 +9,7 @@
 
 /** Shared structured event logging for Pages Functions.
  *
- * Emit one complete JSON object per event, using the same fields as Flask's
- * log_event in src/app.py, and try to write it to D1 events for row-level
+ * Emit one complete JSON object per event and try to write it to D1 events for row-level
  * queries and health-check aggregation. Logging failures do not affect requests.
  */
 

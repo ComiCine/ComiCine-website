@@ -21,9 +21,9 @@ This is the **exact scope** of the two checkboxes in the *Fengxing Mizong* (《�
 - If we want to add a platform later, we will tell you first and publish only after you agree.
 :::
 
-**Version: v2026.10.03**　When you sign, the version in force on the day you sign is the one that applies. Every change to this page is kept in the project [repository](https://github.com/ComiCine/ComiCine-website) commit history, so older versions can always be looked up.
+**Version: v2026.11.12**　When you sign, the version in force on the day you sign is the one that applies. Every change to this page is kept in the project [repository](https://github.com/ComiCine/ComiCine-website) commit history, so older versions can always be looked up.
 
-> Checked: mainland platforms on 2026-09-27, overseas platforms on 2026-10-03. Entities and policy URLs change; always confirm
+> Checked: mainland platforms on 2026-09-27; overseas platforms on 2026-10-03, with Google, TikTok and X official pages rechecked on 2026-11-12. Entities and policy URLs change; always confirm
 > against the official page before relying on an entry. This page is an index only and is not legal advice.
 
 ## Platforms in mainland China
@@ -80,11 +80,11 @@ This is the **exact scope** of the two checkboxes in the *Fengxing Mizong* (《�
 | YouTube | Google LLC | 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA | [Google Privacy Policy](https://policies.google.com/privacy) | [Google Teen Privacy Guide](https://www.google.com/policies/privacy/teens/) |
 | TikTok | TikTok Pte. Ltd. (or its affiliates, depending on your region) | 1 Raffles Quay, #26-10 South Tower, Singapore 048583 | [TikTok Privacy Policy](https://www.tiktok.com/legal/page/row/privacy-policy/en) | See the children and minors section of the privacy policy |
 | Instagram | Meta Platforms, Inc. | 1 Meta Way, Menlo Park, CA 94025, USA | [Instagram Privacy Policy](https://privacycenter.instagram.com/policy) | See the teens section of the privacy policy |
-| X | X Corp. | 865 FM 1209, Building 2, Bastrop, TX 78602, USA | [X Privacy Policy](https://x.com/en/privacy) | See the minors section of the privacy policy |
+| X | X Corp. | 800 W Cesar Chavez St., Austin, TX 78701, USA | [X Privacy Policy](https://x.com/en/privacy) | See the minors section of the privacy policy |
 
 </div>
 
-<!-- TODO(verify): TikTok and X block automated fetching. Please check the TikTok address, each overseas platform's contact channel and the minors' provisions in a browser before signing. -->
+<!-- TODO(verify): Meta/Instagram's official policy page was rate-limited during the 2026-11-12 review. Confirm the current regional entity, privacy contact channel, and teen provisions before signing. -->
 
 ### What is sent to overseas platforms
 
@@ -122,7 +122,7 @@ Under China's Personal Information Protection Law, before personal information i
 ### X
 
 - Recipient: **X Corp.** (for users in the EU, EFTA states and the UK the contracting entity is X Internet Unlimited Company, One Cumberland Place, Fenian Street, Dublin 2, D02 AX07, Ireland).
-- Address: 865 FM 1209, Building 2, Bastrop, TX 78602, USA.
+- Address: 800 W Cesar Chavez St., Austin, TX 78701, USA.
 - Contact and exercising rights: see the contact and rights sections of the [X Privacy Policy](https://x.com/en/privacy).
 - Privacy policy: [X Privacy Policy](https://x.com/en/privacy)
 

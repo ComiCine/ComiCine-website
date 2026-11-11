@@ -21,9 +21,9 @@ See ADDITIONAL_TERMS.txt.
 - 以后想新增平台，我们会另行告诉你，取得你同意后才会发布。
 :::
 
-**版本：v2026.10.03**　签署确认书时，请以你签署当天的版本为准。本页每一次修改都留存在项目[仓库](https://github.com/ComiCine/ComiCine-website)的提交历史里，随时可以翻看旧版本。
+**版本：v2026.11.12**　签署确认书时，请以你签署当天的版本为准。本页每一次修改都留存在项目[仓库](https://github.com/ComiCine/ComiCine-website)的提交历史里，随时可以翻看旧版本。
 
-> 核对日期：境内平台 2026-09-27，境外平台 2026-10-03。平台主体与政策链接会变更，引用前请以官方页面为准；
+> 核对日期：境内平台 2026-09-27；境外平台 2026-10-03，其中 Google、TikTok 和 X 的官方页面于 2026-11-12 复核。平台主体与政策链接会变更，引用前请以官方页面为准；
 > 本页只做索引，不构成法律意见。
 
 ## 中国大陆境内平台
@@ -80,11 +80,11 @@ See ADDITIONAL_TERMS.txt.
 | YouTube | Google LLC | 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA | [《Google 隐私政策》](https://policies.google.com/privacy) | [Google 青少年隐私指南](https://www.google.com/policies/privacy/teens/) |
 | TikTok | TikTok Pte. Ltd.（或其关联公司，视你所在地区而定） | 1 Raffles Quay, #26-10 South Tower, Singapore 048583 | [TikTok Privacy Policy](https://www.tiktok.com/legal/page/row/privacy-policy/en) | 见隐私政策中关于儿童和未成年人的部分 |
 | Instagram | Meta Platforms, Inc. | 1 Meta Way, Menlo Park, CA 94025, USA | [Instagram 隐私政策](https://privacycenter.instagram.com/policy) | 见隐私政策中关于青少年的部分 |
-| X | X Corp. | 865 FM 1209, Building 2, Bastrop, TX 78602, USA | [X Privacy Policy](https://x.com/en/privacy) | 见隐私政策中关于未成年人的部分 |
+| X | X Corp. | 800 W Cesar Chavez St., Austin, TX 78701, USA | [X Privacy Policy](https://x.com/en/privacy) | 见隐私政策中关于未成年人的部分 |
 
 </div>
 
-<!-- TODO(verify): TikTok / X 官网对自动抓取限制，TikTok 地址、各境外平台的联系入口与未成年人条款，签署前请在浏览器里人工核对一遍。 -->
+<!-- TODO(verify): 2026-11-12 复核时，Meta/Instagram 官方隐私页面受到限流。签署前请确认当前适用的地区运营主体、隐私联系入口与未成年人条款。 -->
 
 ### 发给境外平台的是什么
 
@@ -122,7 +122,7 @@ See ADDITIONAL_TERMS.txt.
 ### X
 
 - 接收方：**X Corp.**（面向欧盟、欧洲自由贸易联盟和英国用户的合同主体是 X Internet Unlimited Company，One Cumberland Place, Fenian Street, Dublin 2, D02 AX07, Ireland）。
-- 所在地：865 FM 1209, Building 2, Bastrop, TX 78602, USA。
+- 所在地：800 W Cesar Chavez St., Austin, TX 78701, USA。
 - 联系方式与行使权利：见 [X 隐私政策](https://x.com/en/privacy)中的联系方式与权利说明部分。
 - 隐私政策：[X Privacy Policy](https://x.com/en/privacy)
 

@@ -238,7 +238,7 @@ def main() -> int:
     validate_locale_completeness()
     # The redirect shell is prerendered, so its copy has no runtime table to prove it; validate it here.
     validate_redirect_copy()
-    # Use the minimal read-only Flask renderer without importing the business app or initializing databases or secrets.
+    # Use the minimal read-only Flask renderer without initializing databases or secrets.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from render_app import RENDER_APP as appmod
 

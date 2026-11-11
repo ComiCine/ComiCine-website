@@ -34,7 +34,7 @@ node_modules
 # Local Wrangler runtime cache
 .wrangler/
 
-# Large dependency backups left by npm recovery; excluded by this rule (see docs/22 W8-2)
+# Large dependency backups left by npm recovery.
 node_modules.recovery-*
 
 # Local Pages build environment (generated, not tracked; includes iCloud conflict copies such as ".venv-build 2")

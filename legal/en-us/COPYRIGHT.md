@@ -2,7 +2,7 @@
 Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Section 7 additional terms may apply where authorized by the relevant rights holder and the applicable license.
-See ADDITIONAL_TERMS.txt.
+See ../../ADDITIONAL_TERMS.txt.
 -->
 
 # Copyright and Licensing
@@ -23,13 +23,13 @@ Third-party contributors retain any copyright they hold in their contributions, 
 
 ## Licensing
 
-Original software materials that ComiCine owns and is entitled to license are made available under the GNU Affero General Public License Version 3 or any later version (AGPL-3.0-or-later). See [`LICENSE.txt`](LICENSE.txt) for the GNU AGPL Version 3 license text. The license text is not modified by this notice.
+Original software materials that ComiCine owns and is entitled to license are made available under the GNU Affero General Public License Version 3 or any later version (AGPL-3.0-or-later). See [`LICENSE.txt`](../../LICENSE.txt) for the GNU AGPL Version 3 license text. The license text is not modified by this notice.
 
 Subject to the GNU AGPL Version 3 terms, the license permits use, modification, and redistribution, including commercial use. Recipients must comply with its applicable conditions, preserve applicable copyright and license notices, and mark modified versions as required by that version. The GNU AGPL Version 3 network-source offer requirement applies when and as specified by that license. Nothing in this notice replaces or expands the license terms.
 
 ## Additional Terms
 
-See [`ADDITIONAL_TERMS.txt`](ADDITIONAL_TERMS.txt). For original materials to which ComiCine is entitled to apply them, additional terms may be provided under Section 7 of the GNU AGPL Version 3. They address reasonable preservation of author attribution and source identification, marking modified versions, use of author names in publicity, reservation of trademark and brand rights, warranty disclaimers and liability limits, and allocation of certain contractual liabilities.
+See [`ADDITIONAL_TERMS.txt`](../../ADDITIONAL_TERMS.txt). For original materials to which ComiCine is entitled to apply them, additional terms may be provided under Section 7 of the GNU AGPL Version 3. They address reasonable preservation of author attribution and source identification, marking modified versions, use of author names in publicity, reservation of trademark and brand rights, warranty disclaimers and liability limits, and allocation of certain contractual liabilities.
 
 These additional terms do not prohibit commercial use permitted by the GNU AGPL Version 3. They apply only when authorized by the relevant rights holder and only within the scope permitted by Section 7 of GNU AGPL Version 3. They do not automatically apply to every later AGPL version; their scope depends on the applicable license and valid authorization. This notice creates no additional license restriction.
 

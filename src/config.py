@@ -7,8 +7,8 @@
 
 """Project-wide configuration and shared utilities.
 
-Centralize paths, languages, domains, database connections, and other constants shared
-by the Flask backend and Pages build scripts. The Pages-side counterpart is
+Centralize paths, languages, domains, database connections, and other constants used
+by Python build tooling. The Pages-side counterpart is
 ``functions/_lib/config.ts``.
 """
 

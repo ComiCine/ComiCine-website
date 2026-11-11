@@ -23,7 +23,7 @@ are **not** written here; they come from the sources listed below.
 | Worker: blocklist sync | `comicine-blocklist-sync` | `ops/sync-worker/wrangler.toml` | Daily 03:30, D1 active rows -> Cloudflare IP List; run history + `GET /?health=1` (see "Blocklist chain") |
 | Worker: image watermark | `comicine-image-watermark` | `ops/image-watermark/wrangler.toml` | `image.comicine.com/*` normalising proxy, `/portfolio/*` always returns the watermark (A2) |
 | Worker: D1 archive | `comicine-d1-archive` | `ops/d1-archive/wrangler.toml` | Daily 00:00: archive of the previous UTC day into `comicine-analytics/` **plus** the configuration/schema snapshot into `backup/`; run history + `GET /?health=1` (see "Worker run history" and "Disaster-recovery snapshot") |
-| Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; target D1 is `comicine-sink`, target analytics dataset is `comicine_sink`; imported and deployed, retaining the existing KV namespace; short-link smoke check pending |
+| Worker: Sink link shortener | `comicine-sink` | `ComiCine/Sink` repository | `sink.comicine.com`; Sink v0.3.1 deployed, retaining the existing KV namespace; an active short link returned HTTP 302 with a Location header; target D1 is `comicine-sink`, target analytics dataset is `comicine_sink` |
 | Workers account subdomain | `comicine.workers.dev` | Cloudflare Workers account settings | Replaced the former account subdomain; custom domains stayed attached, and the Sink Worker keeps its workers.dev route disabled |
 | R2 private bucket (originals) | `comicine-originals` | `ops/upload_originals.sh` | After A2 the portfolio originals live only locally + in this private bucket, never in Pages |
 | R2 bucket (fonts) | `comicine-fonts` | `ops/fonts/README.md` | Public font objects copied and verified; `fonts.comicine.com` serves the new bucket |
@@ -157,7 +157,7 @@ Configured in the Pages project under `Environment variables -> Encrypt (Secret)
 - `APPLE_ACCOUNT_ENCRYPTION_KEY`, `VISITOR_IP_KEY`
 - `OBSERVABILITY_HMAC_KEY`
 
-Local development copies `.dev.vars.example`; production values are read from the
+Local development copies `project/dev.vars.example`; production values are read from the
 local `secrets/webauthn.env` and the Pages project secrets (never committed, never
 echoed). There is no server-side credential source any more.
 
@@ -175,7 +175,7 @@ new current key, and issuance never uses the previous key.
   a value shorter than 32 characters or containing whitespace means the fallback you think you have
   does not exist. The current key's requirements are unchanged.
 - Logs carry field names only; never print or copy key values into the repository.
-- `GATE_HMAC_KEY_PREVIOUS` is deliberately absent from `.dev.vars.example`.
+- `GATE_HMAC_KEY_PREVIOUS` is deliberately absent from `project/dev.vars.example`.
 
 Pages Secrets are write-only after upload, so keep the old value in the git-ignored
 `secrets/webauthn.env` (or a temporary file outside the repository) before changing anything.
@@ -317,7 +317,7 @@ Banning is carried by three layers, all driven by the same D1 table:
 | --- | --- | --- |
 | Authority | D1 `blocked_ips` | The only authoritative record; `active = 1` means banned, `active = 0` is a soft-delete tombstone |
 | Edge | Cloudflare IP List `comicine_blocklist` | Written by `ops/sync-worker` (cron `30 3 * * *`); no live WAF rule currently references it, so D1-backed Worker checks remain the active block path |
-| Worker | `functions/_lib/gate.ts` | `BLOCKED_LIST_SQL` also filters `WHERE active = 1`, so both layers agree; returns 403 |
+| Worker | `functions/_lib/gate/index.ts` | `BLOCKED_LIST_SQL` also filters `WHERE active = 1`, so both layers agree; returns 403 |
 
 `docs/lists/blocklist.txt` is a snapshot for auditing only. The WAF custom-firewall phase is
 currently **empty** (see the table above), so the IP List is the only edge-level

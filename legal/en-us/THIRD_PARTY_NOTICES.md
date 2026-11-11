@@ -6,19 +6,19 @@ This notice identifies third-party fonts and software dependencies used or distr
 
 ### Delius Swash Caps
 
-Delius Swash Caps was designed by Natalia Raices. The font software is copyright 2010 and 2011 Natalia Raices and 2011 Igino Marini, and is distributed under the SIL Open Font License, Version 1.1 (OFL-1.1). The upstream source is [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps); the license text is included at [src/static/fonts/delius-swash-caps/OFL.txt](src/static/fonts/delius-swash-caps/OFL.txt).
+Delius Swash Caps was designed by Natalia Raices. The font software is copyright 2010 and 2011 Natalia Raices and 2011 Igino Marini, and is distributed under the SIL Open Font License, Version 1.1 (OFL-1.1). The upstream source is [google/fonts](https://github.com/google/fonts/tree/main/ofl/deliusswashcaps); the license text is included at [src/static/fonts/delius-swash-caps/OFL.txt](../../src/static/fonts/delius-swash-caps/OFL.txt).
 
 The project includes a self-hosted WOFF2 subset under src/static/fonts/delius-swash-caps/ for the exact ComiCine brand word in website wordmarks and after the copyright symbol and year. The status Worker embeds the subset in ops/status-worker/src/brand-font.ts. Keep the copyright and license notices with redistributed copies, do not sell the font software by itself, and follow OFL-1.1, including the reserved font names “Delia,” “Delia Unicase,” “Delius,” and “Delius Unicase.”
 
 ### Inter
 
-Inter is by The Inter Project Authors, copyright 2016, and is distributed under OFL-1.1. The upstream project is [rsms/inter](https://github.com/rsms/inter); the self-hosted web-font subsets were sourced from @fontsource-variable/inter 5.3.0. The license text is included at [src/static/fonts/inter/LICENSE.txt](src/static/fonts/inter/LICENSE.txt).
+Inter is by The Inter Project Authors, copyright 2016, and is distributed under OFL-1.1. The upstream project is [rsms/inter](https://github.com/rsms/inter); the self-hosted web-font subsets were sourced from @fontsource-variable/inter 5.3.0. The license text is included at [src/static/fonts/inter/LICENSE.txt](../../src/static/fonts/inter/LICENSE.txt).
 
 Inter subsets are present under src/static/fonts/inter/ and docs/docs/public/fonts/. The upstream project identifies “Inter” as a Reserved Font Name. Redistribution or modification must follow the included OFL text and the upstream reserved-name conditions.
 
 ### Maple Mono NF CN
 
-Maple Mono NF CN is by The Maple Mono Project Authors, copyright 2022, and is distributed under OFL-1.1. The upstream project is [subframe7536/maple-font](https://github.com/subframe7536/maple-font); the license text is included at [ops/fonts/OFL.txt](ops/fonts/OFL.txt).
+Maple Mono NF CN is by The Maple Mono Project Authors, copyright 2022, and is distributed under OFL-1.1. The upstream project is [subframe7536/maple-font](https://github.com/subframe7536/maple-font); the license text is included at [ops/fonts/OFL.txt](../../ops/fonts/OFL.txt).
 
 The repository contains a build script for a gate-specific derivative that adds two Korean glyphs to Maple Mono NF CN Regular. The source font and generated font binaries are kept outside this Git repository; the generated web font is served from fonts.comicine.com. The derivative remains subject to OFL-1.1, including its notice, redistribution, and reserved-name terms.
 

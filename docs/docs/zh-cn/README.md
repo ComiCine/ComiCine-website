@@ -47,7 +47,7 @@ See ADDITIONAL_TERMS.txt.
 | 静态资源 / 原图备份 | Pages 资源服务器 + 私有 R2 桶 `comicine-originals` | Cloudflare |
 | 部署 | `ops/deploy.sh`（git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`） | 本地 |
 
-这些层如何连接 —— 请求流水线、身份交接、文档站构建、独立 Worker 以及生成的产物 —— 在 [ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/ARCHITECTURE.md) 中有详细说明。
+这些层如何连接 —— 请求流水线、身份交接、文档站构建、独立 Worker 以及生成的产物 —— 在 [ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/project/ARCHITECTURE.md) 中有详细说明。
 
 ## 项目结构
 
@@ -62,25 +62,32 @@ See ADDITIONAL_TERMS.txt.
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
+├── project/                                         # repository-level engineering documentation
+│   ├── ARCHITECTURE.md                               # request flow, identity, Workers and build artifacts (English)
+│   └── dev.vars.example                              # tracked local Pages variable template
+├── legal/                                            # licensing and third-party notices grouped by language
+│   ├── en-us/
+│   │   ├── COPYRIGHT.md
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── zh-cn/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── ja-jp/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   └── ko-kr/
+│       ├── ADDITIONAL_TERMS.txt
+│       ├── COPYRIGHT.md
+│       ├── LICENSE.txt
+│       └── THIRD_PARTY_NOTICES.md
 ├── README.md                                         # this file
-├── ARCHITECTURE.md                                   # 请求流程、身份、Worker 与构建产物（英文）
 ├── SECURITY.md                                       # 威胁模型、信任层级与密钥处理（英文）
 ├── LICENSE.txt                                        # GNU AGPL v3 官方英文正文
 ├── ADDITIONAL_TERMS.txt                               # Section 7 附加条款（英文）
-├── ADDITIONAL_TERMS_zh_CN.txt                         # Section 7 附加条款（简体中文）
-├── ADDITIONAL_TERMS_ja_JP.txt                         # 日语译本
-├── ADDITIONAL_TERMS_ko_KR.txt                         # 韩语译本
-├── COPYRIGHT.md                                      # 版权与许可说明（英文）
-├── COPYRIGHT_zh_CN.md                                # 简体中文译本
-├── COPYRIGHT_ja_JP.md                                # 日语译本
-├── COPYRIGHT_ko_KR.md                                # 韩语译本
-├── THIRD_PARTY_NOTICES.md                            # 第三方声明（英文）
-├── THIRD_PARTY_NOTICES_zh_CN.md                      # 简体中文译本
-├── THIRD_PARTY_NOTICES_ja_JP.md                      # 日语译本
-├── THIRD_PARTY_NOTICES_ko_KR.md                      # 韩语译本
-├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
-├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
-├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
 ├── package-lock.json                                 # locked Node dependency tree (npm ci)
@@ -307,8 +314,8 @@ Pages Function 按主站顺序解析（语言 cookie、`Accept-Language`、Cloud
 
 `.vitepress/rewrites.json` 把每个 `<lang>/<page>.md` 源文件映射到带后缀的路由，
 `.vitepress/config.mts` 通过 `additionalConfig` 为每个语言目录设置各自的 `lang` / `themeConfig`。
-新增页面时，需要在四个语言目录中各建一份，加四条 rewrites 条目，并为无后缀路径添加
-`functions/<page>.js` 入口及对应的 `_routes.json` include。若任何 markdown 文件没有产出 HTML、
+新增页面时，需要在四个语言目录中各建一份，加四条 rewrites 条目，并为语言无关入口添加
+`functions/<page>.js`。确认 `public/_routes.json` 已包含该路径且未将其排除。若任何 markdown 文件没有产出 HTML、
 不在语言目录中，或缺少某种语言的译本，`ops/docs_check_output.py` 都会让构建失败。
 
 该站点使用来自 fork `ComiCine/vitepress` 的 VitePress 构建：
@@ -435,7 +442,7 @@ Spider 8 平板、预览构建以及 AKAI/Funai 电视浏览器都仍然留在�
 | `SESSION_HMAC_KEY` | Pages 会话 cookie 签名密钥（与 `GATE_HMAC_KEY` 分开） |
 | `APPLE_ACCOUNT_ENCRYPTION_KEY` | Fernet 密钥（来自 `secrets/apple_account_encryption.key`） |
 
-本地开发：把 `.dev.vars.example` 复制为 `.dev.vars` 并填入真实值（已被 git 忽略）。通过 `wrangler secret put` 为 `ops/sync-worker` 配置 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`。
+本地开发：把 `project/dev.vars.example` 复制为 `.dev.vars`，并用本地值替换每个占位符（`.dev.vars` 已被 git 忽略）。通过 `wrangler secret put` 为 `ops/sync-worker` 配置 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`。
 
 ### 门禁行为
 
@@ -582,7 +589,7 @@ Spider 8 平板、预览构建以及 AKAI/Funai 电视浏览器都仍然留在�
 2. **D1**：新的 `comicine` 数据库（APAC）已创建并载入在用的运维表。Pages 生产与预览的绑定配置现已指向它；独立 Worker 的绑定随本次发布一并切换。最终导入保留 Apple Account 记录原值，并省略旧访客哈希与详细遥测。`blocked_ips` 仍是封禁权威，软删除的行保留用于审计
 3. **Secret** 位于 **Pages → Settings → Environment variables → Encrypt**：九个运行时 secret 包括 Turnstile 的两个密钥、`GATE_HMAC_KEY`、`SESSION_HMAC_KEY`、`OBSERVABILITY_HMAC_KEY`、`VISITOR_IP_KEY`、`APPLE_ACCOUNT_ENCRYPTION_KEY`、`ACCESS_TEAM_DOMAIN` 与 `ACCESS_IDENTITY_AUD`。已废弃的 `ACCESS_ADMIN_AUDS` 与 `ACCESS_VIEWER_AUDS` 没有被复制，因为运行时代码不读取它们；已退役的 AppleID 与 Authentik secret 也未配置
 4. **Access**：`ComiCine` 保护 `identity.comicine.com/login`；`visitor.comicine.com` 与 `account.comicine.com` 使用共享身份交接和各自的主机专用 Pages 会话。已废弃的 `identity.limooo.cn/login` 目标已于 2026-10-29 移除，同时保留应用 AUD 与策略。未使用的 `ComiCine-Admin` 应用（`admin.limooo.cn`）也已移除；该主机名没有 DNS 记录或 Pages 自定义域名。不存在自托管 IdP 或自定义登录表单
-5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 Worker 使用 `comicine-status_ComiCineProbeStateV2`；确认新绑定可用后，已删除旧命名空间。`comicine-sink` 数据库已导入，`comicine_sink` dataset 已配置，Sink Worker 已部署；一条有效短链返回了带 Location 的 302
+5. **Worker** 独立运行：`comicine-status`、`comicine-blocklist-sync`、`comicine-d1-archive`、`comicine-image-watermark` 与 `comicine-sink`；Workers 账号子域为 `comicine.workers.dev`。`status.comicine.com`、`image.comicine.com` 与 `sink.comicine.com` 是 Worker 自定义域名。状态 Worker 使用 `comicine-status_ComiCineProbeStateV2`；确认新绑定可用后，已删除旧命名空间。`comicine-sink` 数据库已导入，`comicine_sink` dataset 已配置，Sink Worker v0.3.1 已部署；一条有效短链返回了带 Location 的 302
 6. **Cloudflare 规则**：当前没有启用的 WAF 或 Cache Rules；线上 IP List 为 `comicine_blocklist`。`.com` 区域的动态重定向阶段为空；旧 `.cn` 区域将请求以 GET/HEAD 301、其他方法 308 跳到对应 `.com` URL，并保留路径和查询参数。随后 `comicine.com/feishu/<path>` 与 `/lark/<path>` 由 Pages 返回 302，转到 `https://comicine.feishu.cn/<path>` 并保留路径和查询参数。
 7. **冒烟检查**：`https://comicine.com/_health` → 200，`https://comicine.com/?challenge=1` → 403，`https://docs.comicine.com/` → 404，`https://status.comicine.com/` → 200
 
@@ -592,8 +599,8 @@ Cloudflare 账号显示名尚未更新，因为已配置的 API token 缺少 `Ac
 
 ## 许可证
 
-ComiCine 拥有并有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL v3 许可证正文见 [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt)，并附[简体中文](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt)、[日语](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ja_JP.txt)与[韩语](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ko_KR.txt)参考译本。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt)，并附[简体中文](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt)、[日语](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt)与[韩语](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt)参考译本。该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。英文版附加条款为权威文本；译本仅供参考。
+ComiCine 拥有并有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL v3 许可证正文见 [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt)，并附[简体中文](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/LICENSE.txt)、[日语](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/LICENSE.txt)与[韩语](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/LICENSE.txt)参考译本。GNU AGPL v3 第 7 条附加条款见 [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt)，并附[简体中文](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/ADDITIONAL_TERMS.txt)、[日语](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/ADDITIONAL_TERMS.txt)与[韩语](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/ADDITIONAL_TERMS.txt)参考译本。该等附加条款适用于采用 GNU AGPL v3 的情形，后续版本是否适用取决于相应版本的条款。英文版附加条款为权威文本；译本仅供参考。
 
-ComiCine 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。版权范围见 [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md)，已识别的第三方材料与平台标识见 [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md)。遵守适用 GNU AGPL 版本即可进行商业使用。
+ComiCine 是项目使用的开发品牌及公开署名；版权归属于依法享有相关权利的实际权利人。再分发时必须保留适用的作者署名和版权声明，包括合理的来源声明。版权范围见 [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/COPYRIGHT.md)，已识别的第三方材料与平台标识见 [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/THIRD_PARTY_NOTICES.md)。遵守适用 GNU AGPL 版本即可进行商业使用。
 
 额外授权或商标许可咨询：[contact@comicine.com](mailto:contact@comicine.com)。遵守适用 GNU AGPL 版本的商业使用无需额外申请授权。
