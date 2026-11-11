@@ -47,7 +47,7 @@ A fully serverless personal website and admin system running at [comicine.com](h
 | Static assets / originals backup | Pages asset server + private R2 bucket `comicine-originals` | Cloudflare |
 | Deployment | `ops/deploy.sh` (git + `ops/pages_deploy.sh` + `ops/workers_deploy.sh`) | local |
 
-How those layers connect — the request pipeline, the identity handoff, the docs site build, the standalone Workers and the generated artifacts — is described in [ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/ARCHITECTURE.md).
+How those layers connect — the request pipeline, the identity handoff, the docs site build, the standalone Workers and the generated artifacts — is described in [ARCHITECTURE.md](https://github.com/ComiCine/ComiCine-website/blob/main/project/ARCHITECTURE.md).
 
 ## Project structure
 
@@ -62,25 +62,32 @@ How those layers connect — the request pipeline, the identity handoff, the doc
 │   ├── build.py                                      # Pages static build (python3 src/build.py)
 │   ├── static/                                       # static css/js/fonts + icons/portfolio/QR codes; files/ maps to /public/
 │   └── templates/                                    # Jinja2 page templates
+├── project/                                         # repository-level engineering documentation
+│   ├── ARCHITECTURE.md                               # request flow, identity, Workers and build artifacts (English)
+│   └── dev.vars.example                              # tracked local Pages variable template
+├── legal/                                            # licensing and third-party notices grouped by language
+│   ├── en-us/
+│   │   ├── COPYRIGHT.md
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── zh-cn/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   ├── ja-jp/
+│   │   ├── ADDITIONAL_TERMS.txt
+│   │   ├── COPYRIGHT.md
+│   │   ├── LICENSE.txt
+│   │   └── THIRD_PARTY_NOTICES.md
+│   └── ko-kr/
+│       ├── ADDITIONAL_TERMS.txt
+│       ├── COPYRIGHT.md
+│       ├── LICENSE.txt
+│       └── THIRD_PARTY_NOTICES.md
 ├── README.md                                         # this file
-├── ARCHITECTURE.md                                   # request flow, identity, Workers and build artifacts (English)
 ├── SECURITY.md                                       # threat model, trust tiers and key handling (English)
 ├── LICENSE.txt                                        # Official GNU AGPL v3 text
 ├── ADDITIONAL_TERMS.txt                               # Section 7 additional terms (English)
-├── ADDITIONAL_TERMS_zh_CN.txt                         # Simplified Chinese translation
-├── ADDITIONAL_TERMS_ja_JP.txt                         # Japanese translation
-├── ADDITIONAL_TERMS_ko_KR.txt                         # Korean translation
-├── COPYRIGHT.md                                      # Copyright and licensing information (English)
-├── COPYRIGHT_zh_CN.md                                # Simplified Chinese translation
-├── COPYRIGHT_ja_JP.md                                # Japanese translation
-├── COPYRIGHT_ko_KR.md                                # Korean translation
-├── THIRD_PARTY_NOTICES.md                            # Third-party notices (English)
-├── THIRD_PARTY_NOTICES_zh_CN.md                      # Simplified Chinese translation
-├── THIRD_PARTY_NOTICES_ja_JP.md                      # Japanese translation
-├── THIRD_PARTY_NOTICES_ko_KR.md                      # Korean translation
-├── LICENSE_zh_CN.txt                                  # AGPL-3.0 (Simplified Chinese)
-├── LICENSE_ja_JP.txt                                  # AGPL-3.0 (Japanese)
-├── LICENSE_ko_KR.txt                                  # AGPL-3.0 (Korean)
 ├── config-contract.json                              # single source of domains / languages / cookies / TTLs
 ├── package.json                                      # npm scripts: build / test / typecheck
 ├── package-lock.json                                 # locked Node dependency tree (npm ci)
@@ -313,8 +320,8 @@ also return 404 directly.
 `.vitepress/rewrites.json` maps each `<lang>/<page>.md` source onto its suffixed route, and
 `.vitepress/config.mts` gives each language directory its own `lang` / `themeConfig`
 through `additionalConfig`. To add a page, create it in all four language directories, add
-four rewrites entries, and add a `functions/<page>.js` entry plus its `_routes.json`
-include for the suffix-less path. `ops/docs_check_output.py` fails the build when a
+four rewrites entries, and add a `functions/<page>.js` entry for any language-less route. Confirm
+`public/_routes.json` includes it and does not exclude it. `ops/docs_check_output.py` fails the build when a
 markdown file has no HTML, sits outside a language directory, or lacks a translation.
 
 The site is built with VitePress from the fork `ComiCine/vitepress`: the header
@@ -452,7 +459,7 @@ Configured under **Pages project settings → Environment variables → Encrypt 
 | `SESSION_HMAC_KEY` | Pages session-cookie signing key (separate from `GATE_HMAC_KEY`) |
 | `APPLE_ACCOUNT_ENCRYPTION_KEY` | Fernet key (from `secrets/apple_account_encryption.key`) |
 
-Local development: copy `.dev.vars.example` to `.dev.vars` and fill in real values (git-ignored). Configure `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` for `ops/sync-worker` via `wrangler secret put`.
+Local development: copy `project/dev.vars.example` to `.dev.vars` and replace each placeholder with local values (`.dev.vars` is git-ignored). Configure `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` for `ops/sync-worker` via `wrangler secret put`.
 
 ### Gate behavior
 
@@ -652,7 +659,7 @@ The live deployment and external resource status, re-read any time with
 2. **D1**: the new `comicine` database (APAC) is provisioned and loaded with the in-use operational tables. Pages production and preview binding settings now target it; standalone Worker bindings are included in this release. The final import preserves Apple Account records unchanged and omits old visitor hashes and detailed telemetry. `blocked_ips` remains the blocking authority, and soft-deleted rows remain for audit
 3. **Secrets** live under **Pages → Settings → Environment variables → Encrypt**: the nine runtime secrets include the Turnstile pair, `GATE_HMAC_KEY`, `SESSION_HMAC_KEY`, `OBSERVABILITY_HMAC_KEY`, `VISITOR_IP_KEY`, `APPLE_ACCOUNT_ENCRYPTION_KEY`, `ACCESS_TEAM_DOMAIN` and `ACCESS_IDENTITY_AUD`. The obsolete `ACCESS_ADMIN_AUDS` and `ACCESS_VIEWER_AUDS` variables are not copied because runtime code does not read them; retired AppleID and Authentik secrets are not configured
 4. **Access**: `ComiCine` protects `identity.comicine.com/login`; `visitor.comicine.com` and `account.comicine.com` use the shared identity handoff and their own host-only Pages sessions. The obsolete `identity.limooo.cn/login` destination was removed on 2026-10-29 while preserving the application AUD and policy. The unused `ComiCine-Admin` app for `admin.limooo.cn` was also removed; that hostname has no DNS record or Pages custom domain. There is no self-hosted IdP or custom login form
-5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. The `comicine-sink` database is imported, the `comicine_sink` dataset is configured, and the Sink Worker is deployed; an active short link returned 302 with a Location header
+5. **Workers** run standalone: `comicine-status`, `comicine-blocklist-sync`, `comicine-d1-archive`, `comicine-image-watermark` and `comicine-sink`; their account subdomain is now `comicine.workers.dev`. `status.comicine.com`, `image.comicine.com` and `sink.comicine.com` are Worker custom domains. The status Worker uses `comicine-status_ComiCineProbeStateV2`; its previous namespace was removed after the new binding was confirmed. The `comicine-sink` database is imported, the `comicine_sink` dataset is configured, and Sink Worker v0.3.1 is deployed; an active short link returned 302 with a Location header
 6. **Cloudflare rules**: no WAF or Cache Rules are active; the live IP List is `comicine_blocklist`. The `.com` zone dynamic-redirect phase is empty; the legacy `.cn` zone redirects requests to matching `.com` URLs (GET/HEAD 301; other methods 308), preserving path and query. Then `comicine.com/feishu/<path>` and `/lark/<path>` return 302 through Pages to `https://comicine.feishu.cn/<path>`, preserving path and query.
 7. **Smoke checks**: `https://comicine.com/_health` → 200, `https://comicine.com/?challenge=1` → 403, `https://docs.comicine.com/` → 404, `https://status.comicine.com/` → 200
 
@@ -670,8 +677,8 @@ bypass or weaken verification or add Pages hostnames to the public-host allowlis
 
 ## License
 
-Original software materials owned by ComiCine and licensed by it are available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 license text is in [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_zh_CN.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ja_JP.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE_ko_KR.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_zh_CN.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ja_JP.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS_ko_KR.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later license version depends on that version's terms. The English additional terms are authoritative; translations are provided for reference.
+Original software materials owned by ComiCine and licensed by it are available under the GNU Affero General Public License version 3 or any later version (AGPL-3.0-or-later). The GNU AGPL v3 license text is in [LICENSE.txt](https://github.com/ComiCine/ComiCine-website/blob/main/LICENSE.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/LICENSE.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/LICENSE.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/LICENSE.txt). Additional terms under Section 7 of GNU AGPL v3 are in [ADDITIONAL_TERMS.txt](https://github.com/ComiCine/ComiCine-website/blob/main/ADDITIONAL_TERMS.txt), with reference translations in [Simplified Chinese](https://github.com/ComiCine/ComiCine-website/blob/main/legal/zh-cn/ADDITIONAL_TERMS.txt), [Japanese](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ja-jp/ADDITIONAL_TERMS.txt), and [Korean](https://github.com/ComiCine/ComiCine-website/blob/main/legal/ko-kr/ADDITIONAL_TERMS.txt). Those additional terms apply when the work is used under GNU AGPL v3; their application under a later license version depends on that version's terms. The English additional terms are authoritative; translations are provided for reference.
 
-ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. See [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/COPYRIGHT.md) for copyright scope and [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/THIRD_PARTY_NOTICES.md) for identified third-party materials and platform marks. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
+ComiCine is the project development brand and public attribution; copyright belongs to the actual rights holder. Preserve applicable author attributions and copyright notices, including reasonable source notices. See [COPYRIGHT.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/COPYRIGHT.md) for copyright scope and [THIRD_PARTY_NOTICES.md](https://github.com/ComiCine/ComiCine-website/blob/main/legal/en-us/THIRD_PARTY_NOTICES.md) for identified third-party materials and platform marks. Commercial use is permitted under the applicable AGPL version, subject to its terms and conditions.
 
 For additional authorization or trademark permission inquiries, contact [contact@comicine.com](mailto:contact@comicine.com). No additional authorization is required for commercial use that complies with the applicable GNU AGPL version.

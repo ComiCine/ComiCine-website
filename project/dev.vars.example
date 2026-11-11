@@ -1,0 +1,10 @@
+# Copy this template to .dev.vars and replace every placeholder with local development values.
+TURNSTILE_SITEKEY=replace-with-turnstile-sitekey
+TURNSTILE_SECRET=replace-with-turnstile-secret
+GATE_HMAC_KEY=replace-with-at-least-32-random-characters
+OBSERVABILITY_HMAC_KEY=replace-with-at-least-32-random-characters
+ACCESS_TEAM_DOMAIN=replace-with-cloudflare-access-team-domain
+ACCESS_IDENTITY_AUD=replace-with-cloudflare-access-audience
+SESSION_HMAC_KEY=replace-with-at-least-32-random-characters
+VISITOR_IP_KEY=replace-with-fernet-key
+APPLE_ACCOUNT_ENCRYPTION_KEY=replace-with-fernet-key

@@ -4,7 +4,7 @@
 Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Additional terms under Section 7 apply where legally applicable.
-See ADDITIONAL_TERMS_ko_KR.txt.
+See ../../ADDITIONAL_TERMS.txt.
 -->
 
 # 저작권 및 라이선스
@@ -25,13 +25,13 @@ ComiCine는 이 프로젝트에서 사용하는 개발 브랜드이자 공개 �
 
 ## 라이선스
 
-ComiCine가 저작권을 보유하고 라이선스할 권한이 있는 독창적인 소프트웨어 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL 제3판 전문은 [`LICENSE.txt`](LICENSE.txt)를 참조하세요. 이 안내는 라이선스 전문을 수정하지 않습니다.
+ComiCine가 저작권을 보유하고 라이선스할 권한이 있는 독창적인 소프트웨어 자료는 GNU Affero General Public License 제3판 또는 그 이후 버전(AGPL-3.0-or-later)에 따라 제공됩니다. GNU AGPL 제3판 전문은 [`LICENSE.txt`](../../LICENSE.txt)를 참조하세요. 이 안내는 라이선스 전문을 수정하지 않습니다.
 
 GNU AGPL 제3판의 조건을 준수하는 경우 사용, 수정 및 재배포가 허용되며 상업적 이용도 가능합니다. 수령자는 적용되는 조건을 준수하고 해당 저작권 및 라이선스 고지를 보존하며, 라이선스의 요구에 따라 수정 사실을 표시해야 합니다. GNU AGPL 제3판의 네트워크 서비스 소스 제공 의무는 해당 라이선스가 정한 조건에서 적용됩니다. 이 안내는 라이선스 조건을 대체하거나 확대하지 않습니다.
 
 ## 추가 조항
 
-[`ADDITIONAL_TERMS_ko_KR.txt`](ADDITIONAL_TERMS_ko_KR.txt)를 참조하세요. GNU AGPL 제3판이 적용되고 ComiCine가 라이선스할 권한을 가진 독창적 자료에는 해당 라이선스 제7조에 따른 추가 조항이 적용될 수 있습니다. 이 조항은 합리적인 저자 표시와 출처 표시의 보존, 수정 버전 표시, 홍보에서 저자 이름 사용, 상표 및 브랜드 권리의 유보, 보증 부인과 책임 제한, 특정 계약상 책임의 배분을 다룹니다.
+[`ADDITIONAL_TERMS.txt`](../../ADDITIONAL_TERMS.txt)를 참조하세요. GNU AGPL 제3판이 적용되고 ComiCine가 라이선스할 권한을 가진 독창적 자료에는 해당 라이선스 제7조에 따른 추가 조항이 적용될 수 있습니다. 이 조항은 합리적인 저자 표시와 출처 표시의 보존, 수정 버전 표시, 홍보에서 저자 이름 사용, 상표 및 브랜드 권리의 유보, 보증 부인과 책임 제한, 특정 계약상 책임의 배분을 다룹니다.
 
 이 추가 조항은 적용되는 AGPL 라이선스가 허용하는 상업적 이용을 금지하지 않습니다. GNU AGPL 제3판 제7조에 따른 추가 조항이 모든 향후 AGPL 버전에 자동으로 적용되는 것은 아닙니다. 적용 범위는 해당 라이선스와 유효한 권한 부여에 따라 결정됩니다. 이 안내는 새로운 라이선스 제한을 만들지 않습니다.
 
@@ -39,7 +39,7 @@ GNU AGPL 제3판의 조건을 준수하는 경우 사용, 수정 및 재배포�
 
 제3자 코드, 의존성, 미디어 및 기타 저작물의 저작권은 각 권리자에게 있습니다. 제3자 자료에는 각 자료에 적용되는 라이선스와 고지가 계속 적용됩니다. ComiCine는 자신이 소유하지 않은 제3자 저작권을 주장하지 않습니다. 제3자의 저작권 고지나 라이선스 정보를 삭제하지 마세요.
 
-확인된 제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 상표는 [`THIRD_PARTY_NOTICES_ko_KR.md`](THIRD_PARTY_NOTICES_ko_KR.md)에서 확인할 수 있습니다. 이 목록은 완전한 목록이 아니며 각 구성 요소에 적용되는 라이선스나 고지를 대체하지 않습니다.
+확인된 제3자 글꼴, 종속 항목 및 QR 코드 이미지에 표시된 플랫폼 상표는 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)에서 확인할 수 있습니다. 이 목록은 완전한 목록이 아니며 각 구성 요소에 적용되는 라이선스나 고지를 대체하지 않습니다.
 
 ## 상표 및 브랜딩
 

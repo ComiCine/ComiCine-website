@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ComiCine - Flask Web Application
+# ComiCine site project
 #
 # Copyright (C) 2026-Present ComiCine
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -238,9 +238,11 @@ if [ ! -x "$WRANGLER_BIN" ]; then
 fi
 if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
     CLOUDFLARE_API_TOKEN="$(sed -n 's/^CLOUDFLARE_API_TOKEN=//p' "$SECRETS_FILE" | tail -1)"
-    CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
-    export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 fi
+if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+    CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^CLOUDFLARE_ACCOUNT_ID=//p' "$SECRETS_FILE" | tail -1)"
+fi
+export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 
 # Wrangler adds emoji to its output; remove only emoji and preserve all other output.
 strip_emoji() {

@@ -31,7 +31,7 @@ export interface Env {
   ALLOW_LOCAL_ORIGINS?: string;
 // Encrypt visitor-row IPs with a dedicated Fernet key for visitor_rollups.ip_enc.
   VISITOR_IP_KEY?: string;
-// Encrypt Apple Account passwords with a Fernet key shared with the Flask deployment.
+// Encrypt Apple Account credentials stored in D1 with a dedicated Fernet key.
   APPLE_ACCOUNT_ENCRYPTION_KEY?: string;
 // D1 (phase 3: visitor statistics, blocklist, and Apple Account)
   DB?: D1Database;

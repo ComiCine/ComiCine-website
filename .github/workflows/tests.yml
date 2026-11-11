@@ -22,8 +22,8 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: pip install -r ops/requirements.txt pytest pytest-cov
@@ -43,8 +43,8 @@ jobs:
   typescript:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.23.4"
       - run: npm ci
@@ -63,16 +63,16 @@ jobs:
       # Mirrors ops/docs_deploy.sh (COMICINE_VITEPRESS_REF default: main).
       COMICINE_VITEPRESS_REF: main
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           # Local baseline measured 2026-11-07: pnpm 11.11.0. Pin the major so a new release
           # cannot silently change how the VitePress fork and docs site are installed.
           version: "11"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.23.4"
       # Resolve the fork commit before the cache step so a moved `main` produces a new cache
@@ -87,7 +87,7 @@ jobs:
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: docs-pnpm-${{ runner.os }}-${{ hashFiles('ops/docs_deploy.sh') }}
@@ -95,7 +95,7 @@ jobs:
       # commit; cache the tarball and marker alongside the checkout, otherwise a cache hit still
       # reruns tsdown every time.
       - name: Cache VitePress fork build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /tmp/comicine-vitepress
@@ -119,15 +119,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install build requirements
         run: |
           python -m pip install --disable-pip-version-check -r requirements.lock
           echo "COMICINE_VENV_PYTHON=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.23.4"
       - run: npm ci

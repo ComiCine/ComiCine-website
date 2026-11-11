@@ -29,7 +29,7 @@ lists every path past the gate and what each one is worth.
 
 Only the allowlist and verified-bot rows are identity based or signature based. The User-Agent row is a
 declaration: `sourceTrusted` deliberately excludes it, so a blocked crawler cannot escape `blocked_ips` by
-renaming its agent, and `resolveGateTrust()` in [functions/_lib/gate.ts](functions/_lib/gate.ts) records it in a
+renaming its agent, and `resolveGateTrust()` in [functions/_lib/gate/index.ts](functions/_lib/gate/index.ts) records it in a
 separate `declaredCrawler` field so it can never be confused with `trusted`. `cf_clearance` is never read or
 accepted, and a User-Agent string proves nothing about the client that sends it.
 
@@ -109,7 +109,7 @@ handled the same way by `accessConfigError()`.
 
 ## The __gate cookie
 
-`mintGateCookie()` in [functions/_lib/gate.ts](functions/_lib/gate.ts) writes
+`mintGateCookie()` in [functions/_lib/gate/index.ts](functions/_lib/gate/index.ts) writes
 `__gate=<issued-at>.<expires-at>.<HMAC-SHA256 hex>`, signing both unix timestamps so an old signature cannot be
 replayed with a later expiry. The cookie is `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, scoped to the current
 (or legacy) root domain, and short-lived; the lifetime comes from `gate_ttl_seconds` in the contract. Minting and

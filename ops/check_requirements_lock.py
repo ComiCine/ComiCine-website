@@ -29,9 +29,11 @@ Two modes, because the two questions are different:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -94,11 +96,23 @@ def latest_versions(names: list[str]) -> tuple[dict[str, str], int]:
     out: dict[str, str] = {}
     failures = 0
     for name in names:
-        try:
-            with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=20) as resp:  # noqa: S310
-                out[name] = json.loads(resp.read().decode("utf-8"))["info"]["version"]
-        except (urllib.error.URLError, KeyError, json.JSONDecodeError, TimeoutError):
-            failures += 1
+        url = f"https://pypi.org/pypi/{name}/json"
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(url, timeout=20) as resp:  # noqa: S310
+                    out[name] = json.loads(resp.read().decode("utf-8"))["info"]["version"]
+                break
+            except (
+                urllib.error.URLError,
+                http.client.IncompleteRead,
+                KeyError,
+                json.JSONDecodeError,
+                TimeoutError,
+            ):
+                if attempt == 2:
+                    failures += 1
+                else:
+                    time.sleep(0.5 * (attempt + 1))
     return out, failures
 
 

@@ -5,4 +5,4 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""ComiCine Flask application package for IDE and type-checker module discovery."""
+"""ComiCine build package for IDE and type-checker module discovery."""

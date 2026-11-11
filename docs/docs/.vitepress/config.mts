@@ -16,9 +16,8 @@
  * Language-less content entries are resolved by Pages Functions using the main
  * site's preference order: cookie, Accept-Language, Cloudflare country
  * metadata, then the config-contract fallback (currently en-us). The docs root
- * /, /docs-home/, and the former localized home routes return 404. The MU5735
- * report is public under /articles/; AMC 10 and UK majors remain private under
- * /private/ and are protected by Cloudflare Access.
+ * /, /docs-home/, and the former localized home routes return 404. The MU5735, AMC 10, and UK majors reports are private under /private/ and are
+ * protected by Cloudflare Access; retired public article routes return direct 404s.
  *
  * VitePress locales only support language prefixes, so additionalConfig and
  * rewrites apply each page's lang and themeConfig based on its source directory.

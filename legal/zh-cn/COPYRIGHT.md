@@ -4,7 +4,7 @@
 Copyright (C) 2026-Present ComiCine
 SPDX-License-Identifier: AGPL-3.0-or-later
 Additional terms under Section 7 apply where legally applicable.
-See ADDITIONAL_TERMS_zh_CN.txt.
+See ../../ADDITIONAL_TERMS.txt.
 -->
 
 # 版权与许可
@@ -25,13 +25,13 @@ ComiCine 是本项目使用的开发品牌及公开署名。版权归属于依�
 
 ## 许可
 
-ComiCine 拥有且有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL 第 3 版许可证正文见 [`LICENSE.txt`](LICENSE.txt)。本声明不修改许可证正文。
+ComiCine 拥有且有权授权的原创软件材料依据 GNU Affero 通用公共许可证第 3 版或任何后续版本（AGPL-3.0-or-later）提供。GNU AGPL 第 3 版许可证正文见 [`LICENSE.txt`](../../LICENSE.txt)。本声明不修改许可证正文。
 
 在遵守 GNU AGPL 第 3 版条款的前提下，许可证允许使用、修改和再分发，包括商业使用。接收者必须遵守其适用条件，保留适用的版权及许可证声明，并按许可证要求标明修改。GNU AGPL 第 3 版关于网络服务提供源码的义务，在该许可证规定的条件下适用。本声明不取代或扩展许可证条款。
 
 ## 附加条款
 
-请参阅 [`ADDITIONAL_TERMS_zh_CN.txt`](ADDITIONAL_TERMS_zh_CN.txt)。对于适用 GNU AGPL 第 3 版且 ComiCine 有权授权的原创材料，可能依据该许可证第 7 条制定附加条款。相关条款涉及合理保留作者署名和来源说明、标识修改版本、宣传中使用作者名称、保留商标及品牌权利、免责声明及责任限制，以及特定合同责任的分配。
+请参阅 [`ADDITIONAL_TERMS.txt`](../../ADDITIONAL_TERMS.txt)。对于适用 GNU AGPL 第 3 版且 ComiCine 有权授权的原创材料，可能依据该许可证第 7 条制定附加条款。相关条款涉及合理保留作者署名和来源说明、标识修改版本、宣传中使用作者名称、保留商标及品牌权利、免责声明及责任限制，以及特定合同责任的分配。
 
 这些附加条款不禁止适用 AGPL 许可证所允许的商业使用。为 GNU AGPL 第 3 版制定的第 7 条附加条款不会自动适用于所有后续 AGPL 版本；其适用范围由相应许可证及有效授权决定。本说明不创设额外的许可证限制。
 
@@ -39,7 +39,7 @@ ComiCine 拥有且有权授权的原创软件材料依据 GNU Affero 通用公�
 
 第三方代码、依赖、媒体及其他作品的版权归各自权利人所有。第三方材料继续遵守各自适用的许可证和声明。ComiCine 不主张其不拥有的第三方版权。不得删除第三方版权声明或许可证信息。
 
-关于已确认的第三方字体、依赖及二维码图片中的平台标识，可参阅 [`THIRD_PARTY_NOTICES_zh_CN.md`](THIRD_PARTY_NOTICES_zh_CN.md) 清单。该清单并非穷尽性清单，也不替代各组件适用的许可证或声明。
+关于已确认的第三方字体、依赖及二维码图片中的平台标识，可参阅 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 清单。该清单并非穷尽性清单，也不替代各组件适用的许可证或声明。
 
 ## 商标与品牌
 

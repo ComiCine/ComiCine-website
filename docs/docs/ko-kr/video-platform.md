@@ -21,9 +21,9 @@ See ADDITIONAL_TERMS.txt.
 - 앞으로 플랫폼을 추가하게 되면 먼저 알려 드리고, 동의해 주신 뒤에 게시합니다.
 :::
 
-**버전: v2026.10.03**　서명하실 때는 서명하신 날의 버전이 적용됩니다. 이 페이지의 모든 변경 내역은 프로젝트 [저장소](https://github.com/ComiCine/ComiCine-website)의 커밋 기록에 남아 있어, 이전 버전을 언제든 확인할 수 있습니다.
+**버전: v2026.11.12**　서명하실 때는 서명하신 날의 버전이 적용됩니다. 이 페이지의 모든 변경 내역은 프로젝트 [저장소](https://github.com/ComiCine/ComiCine-website)의 커밋 기록에 남아 있어, 이전 버전을 언제든 확인할 수 있습니다.
 
-> 확인일: 중국 본토 내 플랫폼 2026-09-27, 해외 플랫폼 2026-10-03. 운영 주체와 정책 URL은 변경될 수 있으므로 인용 전 반드시
+> 확인일: 중국 본토 내 플랫폼 2026-09-27, 해외 플랫폼 2026-10-03. Google, TikTok, X 공식 페이지는 2026-11-12에 다시 확인했습니다. 운영 주체와 정책 URL은 변경될 수 있으므로 인용 전 반드시
 > 공식 페이지를 확인하세요. 이 페이지는 색인일 뿐 법률 자문이 아닙니다.
 
 ## 중국 본토 내 플랫폼
@@ -80,11 +80,11 @@ See ADDITIONAL_TERMS.txt.
 | YouTube | Google LLC | 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA | [Google 개인정보 처리방침](https://policies.google.com/privacy) | [Google 청소년 개인정보 보호 가이드](https://www.google.com/policies/privacy/teens/) |
 | TikTok | TikTok Pte. Ltd. (거주 지역에 따라 그 계열사) | 1 Raffles Quay, #26-10 South Tower, Singapore 048583 | [TikTok 개인정보 처리방침](https://www.tiktok.com/legal/page/row/privacy-policy/en) | 개인정보 처리방침의 아동·미성년자 관련 부분 참조 |
 | Instagram | Meta Platforms, Inc. | 1 Meta Way, Menlo Park, CA 94025, USA | [Instagram 개인정보 처리방침](https://privacycenter.instagram.com/policy) | 개인정보 처리방침의 청소년 관련 부분 참조 |
-| X | X Corp. | 865 FM 1209, Building 2, Bastrop, TX 78602, USA | [X 개인정보 처리방침](https://x.com/en/privacy) | 개인정보 처리방침의 미성년자 관련 부분 참조 |
+| X | X Corp. | 800 W Cesar Chavez St., Austin, TX 78701, USA | [X 개인정보 처리방침](https://x.com/en/privacy) | 개인정보 처리방침의 미성년자 관련 부분 참조 |
 
 </div>
 
-<!-- TODO(verify): TikTok 과 X 는 자동 수집이 제한됩니다. TikTok 소재지, 각 해외 플랫폼의 연락 창구, 미성년자 관련 조항은 서명 전에 브라우저에서 직접 확인해 주세요. -->
+<!-- TODO(verify): 2026-11-12 확인 당시 Meta/Instagram 공식 개인정보 페이지가 요청을 제한했습니다. 서명 전에 현재 적용되는 지역 운영 주체, 개인정보 문의 경로, 미성년자 관련 조항을 확인해 주세요. -->
 
 ### 해외 플랫폼에 제공되는 정보
 
@@ -122,7 +122,7 @@ See ADDITIONAL_TERMS.txt.
 ### X
 
 - 수령자: **X Corp.** (EU·EFTA·영국 이용자의 계약 주체는 X Internet Unlimited Company, One Cumberland Place, Fenian Street, Dublin 2, D02 AX07, Ireland).
-- 소재지: 865 FM 1209, Building 2, Bastrop, TX 78602, USA.
+- 소재지: 800 W Cesar Chavez St., Austin, TX 78701, USA.
 - 연락처 및 권리 행사: [X 개인정보 처리방침](https://x.com/en/privacy)의 연락처·권리 관련 항목 참조.
 - 개인정보 처리방침: [X 개인정보 처리방침](https://x.com/en/privacy)
 

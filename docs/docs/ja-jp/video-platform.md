@@ -21,9 +21,9 @@ See ADDITIONAL_TERMS.txt.
 - 今後プラットフォームを追加する場合は、事前にお知らせし、同意をいただいてから公開します。
 :::
 
-**バージョン：v2026.10.03**　署名の際は、署名日時点のバージョンが適用されます。このページの変更履歴はすべてプロジェクトの[リポジトリ](https://github.com/ComiCine/ComiCine-website)のコミット履歴に残っており、過去のバージョンをいつでも確認できます。
+**バージョン：v2026.11.12**　署名の際は、署名日時点のバージョンが適用されます。このページの変更履歴はすべてプロジェクトの[リポジトリ](https://github.com/ComiCine/ComiCine-website)のコミット履歴に残っており、過去のバージョンをいつでも確認できます。
 
-> 確認日：中国本土内は 2026-09-27、海外は 2026-10-03。運営主体やポリシー URL は変更されることがあるため、
+> 確認日：中国本土内は 2026-09-27、海外は 2026-10-03。Google、TikTok、X の公式ページは 2026-11-12 に再確認しました。運営主体やポリシー URL は変更されることがあるため、
 > 引用前に必ず公式ページを確認してください。本ページは索引であり、法的助言ではありません。
 
 ## 中国本土内プラットフォーム
@@ -80,11 +80,11 @@ See ADDITIONAL_TERMS.txt.
 | YouTube | Google LLC | 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA | [Google プライバシーポリシー](https://policies.google.com/privacy) | [Google ティーン向けプライバシーガイド](https://www.google.com/policies/privacy/teens/) |
 | TikTok | TikTok Pte. Ltd.（お住まいの地域によりその関連会社） | 1 Raffles Quay, #26-10 South Tower, Singapore 048583 | [TikTok プライバシーポリシー](https://www.tiktok.com/legal/page/row/privacy-policy/en) | プライバシーポリシーの児童・未成年者に関する部分を参照 |
 | Instagram | Meta Platforms, Inc. | 1 Meta Way, Menlo Park, CA 94025, USA | [Instagram プライバシーポリシー](https://privacycenter.instagram.com/policy) | プライバシーポリシーのティーンに関する部分を参照 |
-| X | X Corp. | 865 FM 1209, Building 2, Bastrop, TX 78602, USA | [X プライバシーポリシー](https://x.com/en/privacy) | プライバシーポリシーの未成年者に関する部分を参照 |
+| X | X Corp. | 800 W Cesar Chavez St., Austin, TX 78701, USA | [X プライバシーポリシー](https://x.com/en/privacy) | プライバシーポリシーの未成年者に関する部分を参照 |
 
 </div>
 
-<!-- TODO(verify): TikTok と X は自動取得が制限されています。TikTok の所在地、各海外プラットフォームの連絡窓口、未成年者に関する条項は、署名前にブラウザで確認してください。 -->
+<!-- TODO(verify): 2026-11-12 の確認時、Meta/Instagram の公式プライバシーページはレート制限されていました。署名前に現在適用される地域の運営主体、プライバシー連絡窓口、未成年者に関する条項を確認してください。 -->
 
 ### 海外プラットフォームに提供する情報
 
@@ -122,7 +122,7 @@ See ADDITIONAL_TERMS.txt.
 ### X
 
 - 受領者：**X Corp.**（EU・EFTA・英国の利用者の契約主体は X Internet Unlimited Company、One Cumberland Place, Fenian Street, Dublin 2, D02 AX07, Ireland）。
-- 所在地：865 FM 1209, Building 2, Bastrop, TX 78602, USA。
+- 所在地：800 W Cesar Chavez St., Austin, TX 78701, USA。
 - 連絡先・権利行使：[X プライバシーポリシー](https://x.com/en/privacy)の連絡先と権利に関する項を参照。
 - プライバシーポリシー：[X プライバシーポリシー](https://x.com/en/privacy)
 
