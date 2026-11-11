@@ -303,26 +303,18 @@ describe("force theme challenge", () => {
     expect(resp.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("renders the gate page in place on the gate host for verified visitors", async () => {
+  it("redirects the gate host root to the forced challenge on the main site", async () => {
     const resp = await handleOnRequest(
       context(
-        new Request("https://auth.comicine.com/", {
+        new Request("https://auth.comicine.com/?return=%2Fservices", {
           headers: { "CF-Connecting-IP": "97.64.18.11" },
         }),
-        {
-          ASSETS: {
-            fetch: async () =>
-              new Response("{{host}} {{next}}", {
-                headers: { "Content-Type": "text/html; charset=utf-8" },
-              }),
-          },
-        },
       ),
     );
 
-    expect(resp.status).toBe(200);
-    expect(resp.headers.get("Location")).toBeNull();
-    await expect(resp.text()).resolves.toContain("auth.comicine.com /");
+    expect(resp.status).toBe(302);
+    expect(resp.headers.get("Location")).toBe("https://comicine.com/?challenge=1");
+    expect(resp.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("serves public pages with edge-cache headers", async () => {
