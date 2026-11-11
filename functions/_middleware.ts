@@ -116,6 +116,16 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
     });
   }
 
+  if (hostname === GATE_HOSTNAME && pathname === "/") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${BASE_URL}/?challenge=1`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
   // The identity host serves only the login flow. Keep the gate endpoints reachable there too:
   // /login renders the gate page for an unverified visitor, and without /gate/config and
   // /gate/verify that page could never initialize Turnstile or complete verification.
