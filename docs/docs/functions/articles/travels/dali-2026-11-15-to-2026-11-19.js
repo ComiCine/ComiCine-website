@@ -5,8 +5,8 @@
  * See ADDITIONAL_TERMS.txt.
  */
 
-import { redirectLocalizedEntry } from "../_lib/security-language.js";
+import { redirectLocalizedEntry } from "../../_lib/security-language.js";
 
 export function onRequest({ request }) {
-  return redirectLocalizedEntry(request, "/articles/dali-2026.11.15-19");
+  return redirectLocalizedEntry(request, "/articles/travels/dali-2026-11-15-to-2026-11-19");
 }
