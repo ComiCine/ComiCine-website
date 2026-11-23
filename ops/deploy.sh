@@ -595,7 +595,7 @@ if [ "$DO_COMMIT" = 1 ]; then
             if [ -n "$COMMIT_MESSAGE" ]; then
                 commit_subject="deploy: $COMMIT_MESSAGE"
             else
-                commit_subject="deploy: auto-commit $(date '+%Y-%m-%d %H:%M')"
+                commit_subject="deploy: auto-commit $(date -u '+%Y-%m-%d %H:%MZ')"
             fi
             show_cmd git commit -m "$commit_subject"
             git commit -m "$commit_subject" >/dev/null
