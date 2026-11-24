@@ -104,7 +104,7 @@ describe("detectLang is contract-driven (no language codes in the source)", () =
 
 describe("gate challenge ASN bypass", () => {
   it("matches only configured numeric ASNs", () => {
-    for (const asn of [4134, 4837, 9808, 4538, 23910]) {
+    for (const asn of [4134, 4809, 4837, 9929, 9808, 24400, 4538, 23910]) {
       expect(isGateChallengeBypassAsn(asn)).toBe(true);
     }
     for (const asn of [undefined, null, "4134", 0, -1, 4_294_967_296, 64500]) {

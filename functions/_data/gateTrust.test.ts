@@ -35,7 +35,13 @@ describe("gateTrust runtime payload", () => {
   it("carries only the challenge-only ASN list", () => {
     expect(GATE_TRUST_CHALLENGE_BYPASS_ASNS).toEqual(new Set(GATE_TRUST.challenge_bypass_asns));
     expect(GATE_TRUST.challenge_bypass_asns).toContain(4134);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(4809);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(4837);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(9929);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(9808);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(24400);
     expect(GATE_TRUST.challenge_bypass_asns).toContain(4538);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(23910);
   });
 
   it("keeps the fully allowed IPs usable", () => {

@@ -1,9 +1,16 @@
 # ASN entries exempt from human verification only.
 # These entries do not bypass blocked_ips, issue a __gate cookie, or alter Cloudflare WAF rules.
-# Main China carrier backbone networks
+# China Telecom (CHINANET and CN2)
 ASN/4134
+# China Telecom Next Generation Carrier Network
+ASN/4809
+# China Unicom (China169 and CUII)
 ASN/4837
+# China Unicom Industrial Internet Backbone
+ASN/9929
+# China Mobile CMNET and Shanghai Mobile
 ASN/9808
+ASN/24400
 # China Education and Research Network and CERNET2
 ASN/4538
 ASN/23910
