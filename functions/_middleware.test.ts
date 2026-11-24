@@ -814,6 +814,44 @@ describe("blocked IP enforcement", () => {
     expect(resp.status).toBe(403);
   });
 
+  it("bypasses the gate for a configured ASN but keeps blocked_ips enforcement", async () => {
+    const env = blockedEnv({
+      ASSETS: {
+        fetch: async (input: RequestInfo | URL) => {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          return new Response(url.includes("index.html") ? "real page" : "gate page", {
+            headers: { "Content-Type": "text/html" },
+          });
+        },
+      },
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => null,
+            all: async () => ({ success: true, results: [] }),
+            run: async () => ({}),
+          }),
+          first: async () => null,
+          all: async () => ({ success: true, results: [] }),
+          run: async () => ({}),
+        }),
+      } as unknown as Env["DB"],
+    });
+    const carrierRequest = Object.assign(
+      new Request("https://comicine.com/", {
+        headers: { "CF-Connecting-IP": "203.0.113.8" },
+      }),
+      { cf: { asn: 4134 } },
+    );
+    const allowed = await handleOnRequest(context(carrierRequest, env));
+    expect(allowed.status, await allowed.clone().text()).toBe(200);
+    await expect(allowed.text()).resolves.toContain("real page");
+
+    const blockedRequestWithAsn = Object.assign(blockedRequest("/services"), { cf: { asn: 4134 } });
+    const blocked = await handleOnRequest(context(blockedRequestWithAsn, blockedEnv()));
+    expect(blocked.status).toBe(403);
+  });
+
   it("still lets a banned IP reach the exempt API escape hatches", async () => {
     // Keep exempt paths reachable so administrators can use login and management APIs from a banned IP;
     // otherwise they must wait for the next Cloudflare IP List sync. Assert that an exempt match skips

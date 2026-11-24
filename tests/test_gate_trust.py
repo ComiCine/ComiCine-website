@@ -73,6 +73,16 @@ def test_rejects_unknown_line(tmp_path: Path):
         check_gate_trust.load_whitelist(path)
 
 
+def test_challenge_bypass_asn_list_contains_only_valid_asns(tmp_path: Path):
+    path = tmp_path / "gate-challenge-asns.txt"
+    path.write_text("ASN/4538\nASN/23910\nASN/4538 # duplicate\n", encoding="utf-8")
+    assert check_gate_trust.load_challenge_bypass_asns(path) == [4538, 23910]
+
+    path.write_text("ASN/0\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="invalid challenge-bypass ASN"):
+        check_gate_trust.load_challenge_bypass_asns(path)
+
+
 def test_sync_source_validation_prevents_overwriting_generated_list(
     tmp_path: Path, monkeypatch, capsys
 ):

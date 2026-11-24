@@ -1,0 +1,9 @@
+# ASN entries exempt from human verification only.
+# These entries do not bypass blocked_ips, issue a __gate cookie, or alter Cloudflare WAF rules.
+# Main China carrier backbone networks
+ASN/4134
+ASN/4837
+ASN/9808
+# China Education and Research Network and CERNET2
+ASN/4538
+ASN/23910

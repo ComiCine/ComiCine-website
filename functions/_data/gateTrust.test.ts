@@ -8,28 +8,34 @@
  */
 
 /**
- * tasks/22 W4-4: `functions/_data/gateTrust.ts` should contain only fields consumed at runtime.
+ * `functions/_data/gateTrust.ts` should contain only fields consumed at runtime.
  *
- * ASN entries are not part of the runtime payload; only `GATE_TRUST.verified_bot`, `GATE_TRUST_IPS`,
- * and `GATE_TRUST_NETWORKS` are read at runtime. ASN data is consumed only by the manually run
- * zone-level Access Rule script. This test locks down the generated contract and fails if ASN data
- * is added back to the isolate.
+ * Full-trust ASN entries remain confined to the manual zone-level Access Rule script. Only the
+ * separate challenge-only ASN list is sent to the isolate.
  */
 
 import { describe, expect, it } from "vitest";
-import { GATE_TRUST, GATE_TRUST_IPS, GATE_TRUST_NETWORKS } from "./gateTrust";
+import {
+  GATE_TRUST,
+  GATE_TRUST_CHALLENGE_BYPASS_ASNS,
+  GATE_TRUST_IPS,
+  GATE_TRUST_NETWORKS,
+} from "./gateTrust";
 
 describe("gateTrust runtime payload", () => {
   it("only carries what the runtime reads", () => {
     expect(Object.keys(GATE_TRUST).sort()).toEqual([
+      "challenge_bypass_asns",
       "ip_cidrs",
       "ua_allowlist_enabled",
       "verified_bot",
     ]);
   });
 
-  it("does not carry ASN entries", () => {
-    expect("asns" in GATE_TRUST).toBe(false);
+  it("carries only the challenge-only ASN list", () => {
+    expect(GATE_TRUST_CHALLENGE_BYPASS_ASNS).toEqual(new Set(GATE_TRUST.challenge_bypass_asns));
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(4134);
+    expect(GATE_TRUST.challenge_bypass_asns).toContain(4538);
   });
 
   it("keeps the fully allowed IPs usable", () => {

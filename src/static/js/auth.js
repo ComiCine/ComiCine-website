@@ -158,11 +158,7 @@ function resetTurnstile() {
 /* Explicit user retry: clear the previous error and solve again if needed. */
 function retryGateVerification() {
   if (gateVerificationInFlight) return;
-  showError('');
-  if (window.turnstile && turnstileWidget) {
-    window.turnstile.reset(turnstileWidget);
-    return;
-  }
+  /* Recreate the widget after a client error; reset() can leave a failed widget blank. */
   resetTurnstile();
 }
 

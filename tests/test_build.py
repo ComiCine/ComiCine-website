@@ -677,7 +677,7 @@ def test_shared_ui_loads_before_the_page_script_it_backs():
     gate = build.render_page(RENDER_APP, "auth.html", "/gate", "en-us")
 
     assert home.index("/static/js/shared-ui.js?v=2") < home.index("/static/js/base.js?v=22")
-    assert gate.index("/static/js/shared-ui.js?v=2") < gate.index("/static/js/auth.js?v=14")
+    assert gate.index("/static/js/shared-ui.js?v=2") < gate.index("/static/js/auth.js?v=15")
 
 
 def test_navigation_menu_aria_contract_is_rendered():

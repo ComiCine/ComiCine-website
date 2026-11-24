@@ -5,13 +5,11 @@
 # Section 7 additional terms apply when the work is used under GNU AGPL v3.
 # See ADDITIONAL_TERMS.txt.
 
-"""Regression tests for tasks/22 W4-4: generated gate-trust data contains only runtime fields.
+"""Regression tests for generated gate-trust data and ASN trust boundaries.
 
-`functions/_data/gateTrust.ts` previously included an ASN list (unused at runtime;
-the actual consumer is the WAF js_challenge rule) and two fully trusted IPs. These
-tests require:
-  - Generated data contains only verified_bot and ip_cidrs.
-  - ASN data from docs/lists/whitelist.txt continues to be parsed and counted for WAF.
+These tests require:
+  - Generated data contains runtime fields, including challenge-only ASNs from their separate list.
+  - Full-trust ASN data from docs/lists/whitelist.txt remains isolated for the manual WAF sync.
   - ops/readme_facts.py reads ASN counts from whitelist.txt.
 """
 
@@ -54,21 +52,25 @@ def fake_repo(tmp_path, monkeypatch):
         "Disallow: /api/\n",
         encoding="utf-8",
     )
+    challenge_asns = tmp_path / "gate-challenge-asns.txt"
+    challenge_asns.write_text("ASN/4538\nASN/23910\n", encoding="utf-8")
     output = tmp_path / "gateTrust.ts"
     monkeypatch.setattr(check_gate_trust, "WHITELIST_PATH", whitelist)
+    monkeypatch.setattr(check_gate_trust, "CHALLENGE_BYPASS_ASNS_PATH", challenge_asns)
     monkeypatch.setattr(check_gate_trust, "ROBOTS_PATH", robots)
     monkeypatch.setattr(check_gate_trust, "OUTPUT_PATH", output)
     return output
 
 
-def test_emit_omits_asn_lists(fake_repo, monkeypatch, capsys):
+def test_emit_includes_only_challenge_bypass_asns(fake_repo, monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["check_gate_trust.py", "--emit"])
 
     assert check_gate_trust.main() == 0
 
     emitted = fake_repo.read_text(encoding="utf-8")
-    assert "asns" not in emitted
-    assert "ASNS" not in emitted
+    assert '"challenge_bypass_asns": [4538, 23910]' in emitted
+    assert "64500" not in emitted
+    assert "64501" not in emitted
     assert '"ip_cidrs": [["97.64.18.11", 32], ["2001:db8::", 64]]' in emitted
     assert 'export const GATE_TRUST_IPS: Set<string> = new Set(["97.64.18.11", "2001:db8::"]);' in emitted
     # Crawler entries sent to the isolate include only explicit User-agent values (excluding `*`), all lowercased.
@@ -77,10 +79,11 @@ def test_emit_omits_asn_lists(fake_repo, monkeypatch, capsys):
         '["gptbot", "claudebot", "screaming frog seo spider"];'
     ) in emitted
     assert '"*"' not in emitted
-    # Keep ASN counts in the stdout summary for auditing, but omit them from the isolate.
+    # Keep full-trust WAF ASN counts and challenge-only ASN counts distinct in the summary.
     summary = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert summary["asns"] == 2
     assert summary["ip_cidrs"] == 2
+    assert summary["challenge_bypass_asns"] == 2
     assert summary["crawler_uas"] == 3
 
 
@@ -93,6 +96,18 @@ def test_whitelist_asns_are_still_parsed_and_validated(fake_repo, tmp_path):
     (tmp_path / "bad.txt").write_text("ASN/not-a-number\n", encoding="utf-8")
     with pytest.raises(RuntimeError):
         check_gate_trust.load_whitelist(tmp_path / "bad.txt")
+
+
+def test_challenge_bypass_asns_are_parsed_and_validated(fake_repo, tmp_path):
+    asns = check_gate_trust.load_challenge_bypass_asns(
+        check_gate_trust.CHALLENGE_BYPASS_ASNS_PATH
+    )
+    assert asns == [4538, 23910]
+
+    bad = tmp_path / "bad-challenge-asns.txt"
+    bad.write_text("IP-CIDR/10.0.0.1/32\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="challenge-bypass ASN"):
+        check_gate_trust.load_challenge_bypass_asns(bad)
 
 
 def test_robots_agents_keep_file_order_and_case(fake_repo):
@@ -172,6 +187,9 @@ def test_repo_whitelist_and_generated_file_agree():
     list and generated output.
     """
     asns, networks = check_gate_trust.load_whitelist(check_gate_trust.WHITELIST_PATH)
+    challenge_asns = check_gate_trust.load_challenge_bypass_asns(
+        check_gate_trust.CHALLENGE_BYPASS_ASNS_PATH
+    )
     agents = check_gate_trust.load_crawler_agents(check_gate_trust.ROBOTS_PATH)
     # The ASN section **may be empty** (ASN allowlisting was disabled by default on 2026-10-11), so do not require entries.
     # Enforce that the loader matches the source list by requiring the counts to be equal.
@@ -179,7 +197,7 @@ def test_repo_whitelist_and_generated_file_agree():
     assert len(agents) > 20, "explicit crawlers from robots.txt must not be removed"
 
     emitted = check_gate_trust.OUTPUT_PATH.read_text(encoding="utf-8")
-    assert "asns" not in emitted
+    assert f'"challenge_bypass_asns": {json.dumps(challenge_asns)}' in emitted
 
     facts = readme_facts.gate_trust_facts()
     assert facts["asns"] == len(asns)

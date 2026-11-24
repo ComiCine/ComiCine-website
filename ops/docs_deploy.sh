@@ -62,6 +62,8 @@ SRC_DIR="$BUILD_DIR/src"
 DIST_DIR="$SRC_DIR/.vitepress/dist"
 TARBALL="$BUILD_DIR/vitepress.tgz"
 SHA_MARKER="$BUILD_DIR/vitepress.sha"
+STAGED_VITEPRESS_SHA="$BUILD_DIR/vitepress-staged.sha"
+VITEPRESS_SHA=""
 
 PNPM_BIN="${PNPM_BIN:-pnpm}"
 # If pnpm detects that node_modules was created by another version or store, it prompts for
@@ -115,7 +117,8 @@ mkdir -p "$BUILD_DIR"
 
 # Stage 1: build the fork, cached by commit.
 ensure_vitepress() {
-    if [ ! -d "$VITEPRESS_DIR/.git" ]; then
+    if [ ! -d "$VITEPRESS_DIR/.git" ] \
+        || ! git -C "$VITEPRESS_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "[docs] cloning VitePress fork: $VITEPRESS_REPO"
         rm -rf "$VITEPRESS_DIR"
         git clone --filter=blob:none --quiet "$VITEPRESS_REPO" "$VITEPRESS_DIR"
@@ -130,6 +133,7 @@ ensure_vitepress() {
     fi
     local sha
     sha="$(git -C "$VITEPRESS_DIR" rev-parse HEAD)"
+    VITEPRESS_SHA="$sha"
     echo "[docs] VitePress fork commit: $sha"
 
     if [ "${COMICINE_SKIP_VITEPRESS_BUILD:-0}" = 1 ] && [ -f "$TARBALL" ]; then
@@ -196,10 +200,17 @@ cat > "$SRC_DIR/package.json" <<JSON
 JSON
 
 echo "[docs] installing docs dependencies (vitepress from the fork tarball)"
+if [ "${COMICINE_VITEPRESS_FETCH:-1}" = 0 ] \
+    || [ "$(cat "$STAGED_VITEPRESS_SHA" 2>/dev/null || true)" != "$VITEPRESS_SHA" ] \
+    || [ ! -f "$SRC_DIR/node_modules/vitepress/dist/node/cli.js" ]; then
+    echo "[docs] refreshing staged dependencies for the current VitePress fork"
+    rm -rf "$SRC_DIR/node_modules" "$SRC_DIR/pnpm-lock.yaml"
+fi
 (
     cd "$SRC_DIR"
     "$PNPM_BIN" install --no-frozen-lockfile --reporter=append-only $PNPM_INSTALL_FLAGS
 )
+printf '%s' "$VITEPRESS_SHA" > "$STAGED_VITEPRESS_SHA"
 
 if [ "$DEV" = 1 ]; then
     echo "[docs] starting dev server"

@@ -986,6 +986,32 @@ describe("resolveGateTrust / handleGateEntry with crawler User-Agents", () => {
     expect(trust.cookieValid).toBe(false);
   });
 
+  it("bypasses only the challenge for a configured network ASN", async () => {
+    const request = Object.assign(
+      new Request("https://comicine.com/", { headers: { "CF-Connecting-IP": "203.0.113.7" } }),
+      { cf: { asn: 4134 } },
+    );
+    const trust = await resolveGateTrust(context(request));
+
+    expect(trust.challengeBypassAsn).toBe(4134);
+    expect(trust.trusted).toBe(false);
+    expect(trust.declaredCrawler).toBe(false);
+    expect(trust.cookieValid).toBe(false);
+
+    const response = await handleGateEntry(
+      context(
+        Object.assign(
+          new Request("https://comicine.com/gate?host=comicine.com&next=%2F", {
+            headers: { "CF-Connecting-IP": "203.0.113.7" },
+          }),
+          { cf: { asn: 4134 } },
+        ),
+      ),
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Set-Cookie") ?? "").not.toContain("__gate=");
+  });
+
   it("rejects a non-POST verify with Allow and no-store", async () => {
     const resp = await handleVerify({
       request: new Request("https://comicine.com/gate/verify"),

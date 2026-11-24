@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import {
   EXEMPT_PATH_PREFIXES,
   detectLang,
+  isGateChallengeBypassAsn,
   isExemptPath,
   langCookieHeader,
   requestUrl,
@@ -97,6 +98,17 @@ describe("detectLang is contract-driven (no language codes in the source)", () =
     for (const lang of SUPPORTED_LANGS) {
       expect(source, `routing.ts must not hardcode ${lang}`).not.toContain(`"${lang}"`);
       expect(source, `routing.ts must not hardcode ${lang}`).not.toContain(`'${lang}'`);
+    }
+  });
+});
+
+describe("gate challenge ASN bypass", () => {
+  it("matches only configured numeric ASNs", () => {
+    for (const asn of [4134, 4837, 9808, 4538, 23910]) {
+      expect(isGateChallengeBypassAsn(asn)).toBe(true);
+    }
+    for (const asn of [undefined, null, "4134", 0, -1, 4_294_967_296, 64500]) {
+      expect(isGateChallengeBypassAsn(asn)).toBe(false);
     }
   });
 });

@@ -372,10 +372,14 @@ export async function handleOnRequest(context: RequestContext): Promise<Response
   }
 
   const trust = await resolveGateTrust(context);
-// Three sources can pass the gate: allowlisted IP or verifiedBot (trusted), a
-// crawler user agent (declaredCrawler; bypasses verification only, see
-// _lib/bots.ts), and a valid __gate cookie.
-  const gated = !(trust.trusted || trust.declaredCrawler || trust.cookieValid);
+// Gate exceptions are full-trust IPs/verified bots, registered challenge-only
+// ASNs, declared crawler user agents, and a valid __gate cookie.
+  const gated = !(
+    trust.trusted ||
+    trust.challengeBypassAsn !== null ||
+    trust.declaredCrawler ||
+    trust.cookieValid
+  );
 
   if (!gated) {
     if (trust.trusted) {

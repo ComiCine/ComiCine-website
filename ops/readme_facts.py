@@ -96,13 +96,11 @@ def retention_facts() -> dict:
 
 
 def gate_trust_facts() -> dict:
-    """Count trusted entries, reading ASNs from the authoritative whitelist and others from generated output.
+    """Count full-trust and challenge-only entries from their authoritative sources.
 
-    ASNs are no longer emitted to functions/_data/gateTrust.ts. Runtime code consumes
-    verified_bot and ip_cidrs; ASNs are only used by the manually run zone-level Access Rule
-    script. Read ASN counts from whitelist.txt, or parsing the generated file would always return
-    zero. Read ip_cidrs and crawler_uas from the generated file so this can detect a list change
-    that was not followed by a build.
+    Full-trust ASNs come from whitelist.txt and are only used by the manual zone-level Access Rule
+    script. Challenge-only ASNs are separate runtime data. Read ip_cidrs and crawler_uas from the
+    generated file so this can detect a list change that was not followed by a build.
     """
     # Moved from data/ to docs/lists/ on 2026-10-11 to sit alongside the blocklist.
     # This generated file is refreshed by ops/sync_whitelist.py during each deploy.
@@ -112,14 +110,15 @@ def gate_trust_facts() -> dict:
         for match in re.finditer(r"^ASN/(\d{1,10})\s*$", whitelist, re.I | re.M)
     }
     text = read(os.path.join(BASE_DIR, "functions", "_data", "gateTrust.ts"))
-    cidrs = re.search(r'"ip_cidrs":\s*\[(.*?)\]\s*\}', text, re.S)
+    gate_trust = re.search(r"export const GATE_TRUST = (\{.*?\}) as const;", text, re.S)
+    gate_payload = json.loads(gate_trust.group(1)) if gate_trust else {}
     # Crawler allowlist (2026-10-12): its source is the explicit User-agent entries in docs/lists/robots.txt.
     # Count the generated entries actually sent to the isolate.
     crawlers = re.search(r"GATE_TRUST_CRAWLER_UAS[^=]*=\s*\[(.*?)\];", text, re.S)
     return {
         "verified_bot": '"verified_bot": true' in text,
         "asns": len(asns),
-        "ip_cidrs": len(re.findall(r"\[", cidrs.group(1))) if cidrs else 0,
+        "ip_cidrs": len(gate_payload.get("ip_cidrs", [])),
         "crawler_uas": len(re.findall(r'"[^"]*"', crawlers.group(1))) if crawlers else 0,
     }
 

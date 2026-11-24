@@ -15,6 +15,7 @@ This directory contains lists used by the access gate and blocking flow. It is n
 | --- | --- | --- |
 | `own-ips.txt` | Manual | Edit fixed IPs, CIDRs, or ASNs that need to be registered manually. |
 | `whitelist.txt` | Generated from `own-ips.txt` by `ops/sync_whitelist.py` | Do not edit it manually. Deployment regenerates it; you can also run the sync script directly. |
+| `gate-challenge-asns.txt` | Manual | Add registered network ASNs that may skip human verification while remaining subject to `blocked_ips`. |
 | `robots.txt` | Manual, standard robots.txt format | Used both for the live `/robots.txt` rules and as the gate's crawler User-Agent list. |
 | `blocklist.txt` | Handwritten section plus a managed section pulled from D1 | Add manual blocks to the handwritten section. D1 `blocked_ips` is the source of truth. |
 
@@ -34,6 +35,7 @@ User-Agent values are self-reported and are not authentication. Register only cr
 | Source | Bypasses human verification | Bypasses D1 blocks | Receives `__gate` cookie | Counted as visitor |
 | --- | --- | --- | --- | --- |
 | `IP-CIDR` (`whitelist.txt`) | Yes | Yes | Yes | Yes |
+| ASN (`gate-challenge-asns.txt`) | Yes | No | No | Yes |
 | Cloudflare verified bot | Yes | Yes | Yes | No |
 | Explicit User-Agent in `robots.txt` | Yes | No | No | No |
 
@@ -47,9 +49,11 @@ IP-CIDR/97.64.18.11/32
 IP-CIDR/203.0.113.0/24
 # IPv4 accepts only /24–/32; IPv6 accepts only /64–/128
 
-# Manual ASN entry (used only by the manual WAF sync script)
+# Full-trust ASN entry (used only by the manual WAF sync script)
 ASN/64500
 ```
+
+`gate-challenge-asns.txt` is separate from `own-ips.txt`: its ASN entries skip only the application human-verification gate. Requests still pass the `blocked_ips` check, receive no `__gate` cookie, and remain eligible for visitor counting. It does not update Cloudflare zone-level WAF rules.
 
 The allowlist sync parses IP addresses and CIDRs and rejects prefixes shorter than IPv4 `/24` or IPv6 `/64`, preventing overly broad ranges from receiving full trust. ASN values must be between `1` and `4294967295`.
 
@@ -65,7 +69,7 @@ The allowlist sync parses IP addresses and CIDRs and rejects prefixes shorter th
 | Goal | Command |
 | --- | --- |
 | Regenerate the allowlist from `own-ips.txt` | `python3 ops/sync_whitelist.py` |
-| Generate the gate edge copy and run build checks | `bash ops/ci_check.sh` |
+| Generate the gate edge copy and run build checks | `python3 ops/check_gate_trust.py --emit` and `bash ops/ci_check.sh` |
 | Update the crawler list | Edit `robots.txt`, then run the normal deployment |
 | Manually sync ASN entries to Cloudflare zone rules | Run `bash ops/waf_whitelist.sh --dry-run`, review the result, then run `bash ops/waf_whitelist.sh --apply` |
 | Reconcile the blocklist with D1 | First run `python3 src/auto_block.py reconcile --dry-run` (or `--dry-run --json` for one machine-readable stdout object); remove `--dry-run` after review |

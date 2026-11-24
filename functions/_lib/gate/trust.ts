@@ -11,7 +11,7 @@
 
 import { GATE_COOKIE } from "../config";
 import { allCookieValues } from "../cookies";
-import { isGateTrustedIp, type RequestContext } from "../routing";
+import { isGateChallengeBypassAsn, isGateTrustedIp, type RequestContext } from "../routing";
 import { isTrustedCrawler } from "../tracking";
 import { declaredCrawlerToken } from "../bots";
 import {
@@ -25,6 +25,8 @@ import {
 export interface GateTrustState {
 /** Allowlisted IPs and Cloudflare-verified bots already bypass verification and need no cookie. */
   trusted: boolean;
+  /** Registered ASNs that skip only human verification; they remain subject to block checks. */
+  challengeBypassAsn: number | null;
   /**
     * A crawler or AI user agent matches an explicit User-agent in
     * docs/lists/robots.txt and **bypasses human verification only**.
@@ -84,10 +86,12 @@ export async function resolveGateTrust(
   const { request, env } = context;
   const ip = request.headers.get("CF-Connecting-IP") ?? "";
   const trusted = isGateTrustedIp(ip) || isTrustedCrawler(request);
-// Trusted sources do not need another user-agent match; this only saves work.
+  const requestAsn = (request as Request & { cf?: { asn?: unknown } }).cf?.asn;
+  const challengeBypassAsn = isGateChallengeBypassAsn(requestAsn) ? requestAsn : null;
+// Trusted sources and challenge-only ASNs do not need another user-agent match.
 // Check other sources against the crawler list. A match bypasses verification,
 // but not blocking, and does not receive a cookie.
-  const crawlerToken = trusted ? "" : declaredCrawlerToken(request);
+  const crawlerToken = trusted || challengeBypassAsn !== null ? "" : declaredCrawlerToken(request);
 
   const values = allCookieValues(GATE_COOKIE, request.headers.get("Cookie"));
 // Compute the rotation keyring once per request. Only validation sees the
@@ -115,6 +119,7 @@ export async function resolveGateTrust(
 
   return {
     trusted,
+    challengeBypassAsn,
     declaredCrawler: crawlerToken !== "",
     crawlerToken,
     cookieValid: best.valid,

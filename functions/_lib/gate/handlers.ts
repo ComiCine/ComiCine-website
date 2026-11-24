@@ -44,7 +44,8 @@ export async function handleGateEntry(context: RequestContext): Promise<Response
   const host = sanitizeHost(url.searchParams.get("host"));
   const next = safeNextPath(url.searchParams.get("next") ?? "/");
   const trust = await resolveGateTrust(context);
-  const passed = trust.trusted || trust.declaredCrawler || trust.cookieValid;
+  const passed =
+    trust.trusted || trust.challengeBypassAsn !== null || trust.declaredCrawler || trust.cookieValid;
 
   if (passed && !forceChallenge) {
     if (shouldLogDiagnostic("gate_entry", clientIpForLogs(request))) {

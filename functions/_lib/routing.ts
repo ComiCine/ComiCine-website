@@ -12,7 +12,11 @@
 import type { Env } from "./env";
 import { contains, normalizeIp } from "./cidr";
 import { getCookie } from "./cookies";
-import { GATE_TRUST_IPS, GATE_TRUST_NETWORKS } from "../_data/gateTrust";
+import {
+  GATE_TRUST_CHALLENGE_BYPASS_ASNS,
+  GATE_TRUST_IPS,
+  GATE_TRUST_NETWORKS,
+} from "../_data/gateTrust";
 import {
   BASE_URL,
   DEFAULT_LANG,
@@ -148,6 +152,17 @@ export function isGateTrustedIp(ip: string): boolean {
   if (GATE_TRUST_IPS.has(normalized)) return true;
   return GATE_TRUST_NETWORKS.some(([network, prefix]) =>
     contains(network, Number(prefix), normalized),
+  );
+}
+
+/** ASN-based gate exception that skips only human verification, never application block checks. */
+export function isGateChallengeBypassAsn(asn: unknown): asn is number {
+  return (
+    typeof asn === "number" &&
+    Number.isInteger(asn) &&
+    asn >= 1 &&
+    asn <= 4_294_967_295 &&
+    GATE_TRUST_CHALLENGE_BYPASS_ASNS.has(asn)
   );
 }
 
