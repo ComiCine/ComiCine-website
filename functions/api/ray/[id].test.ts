@@ -43,7 +43,7 @@ beforeEach(() => {
     sub: "user-1",
     user: { email: "admin@example.com", name: "Admin" },
     role: "admin",
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
   } as never);
   vi.mocked(queryAll).mockResolvedValue([{
     ray: "0123456789abcdef-ABC",
@@ -69,7 +69,7 @@ describe("ray API", () => {
       sub: "user-1",
       user: { email: "viewer@example.com", name: "Viewer" },
       role: "viewer",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     } as never);
     expect((await onRequestGet(context() as never)).status).toBe(403);
   });

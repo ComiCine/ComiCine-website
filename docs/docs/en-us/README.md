@@ -22,8 +22,8 @@ A fully serverless personal website and admin system running at [comicine.com](h
 - **Visitor panel** (`visitor.comicine.com`): Pages Function + D1 analytics; shows a hashed visitor identifier (no raw IP in list APIs), country, ISP/ASN where available, status-code distribution, and is login-protected
 - After the first load, visitor status chips filter locally with no new `/api/visitors` request; the API still accepts `?status=<3-digit>` for deep links.
 - **Apple Account manager** (`account.comicine.com/apple`): Pages Function + D1 CRUD with drag-and-drop ordering; passwords are stored encrypted with Fernet, the list shows only masked passwords, with temporary plaintext reveal
-- **Auth & roles**: one `ComiCine` Access application protects `identity.comicine.com/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its local role. Both current protected hosts require admin sessions.
-- **Shared login navigation**: an unauthenticated browser page request is answered with a 302 straight to `identity.comicine.com/login`, with no intermediate page or script; Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses.
+- **Auth & roles**: one `ComiCine` Access application protects `identity.comicine.com/login`; the identity Pages Function verifies its JWT and returns a short-lived, one-time D1 handoff bound to the registered source host, then that host applies its default role or an exact-email override. `public@comicine.com` can view visitor aggregates only and is denied on the account host.
+- **Shared login navigation**: an unauthenticated browser page request is answered with a 302 straight to `identity.comicine.com/login`, with no intermediate page or script; Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses. Access global, application, and local Pages sessions all cap at 15 minutes. Signing out only at an identity provider leaves existing sessions usable for at most 15 minutes; use the ComiCine Logout button or team-domain Access logout endpoint for immediate local revocation and Access logout.
 - **Monitoring**: the `comicine-status` Worker probes HTTP/D1 targets every minute, re-checks every 10s while a probe is down, and stores results in D1; alerts go out over a webhook (Email binding as fallback)
 - **Status page** (`status.comicine.com`): server-rendered from D1 by the same Worker in 4 languages with an explicit `?lang=` override, a four-language probe error-code table, branded 404/503 failure pages, and per-day uptime taken from the `probe_uptime_daily` rollup
 - **Automatic IP blocking**:
@@ -342,19 +342,17 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 - The session cookie is named `__Host-comicine_session` (contract `session_cookie`), is host-only,
   and sets `Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` with no `Domain`; the `__Host-` prefix
   makes the browser enforce the no-`Domain` + `Secure` + `Path=/` part, so a subdomain cannot
-  overwrite the prefixed cookie. A session presented under the pre-rename name `comicine_session`
-  is accepted only during the transition and only when it was authenticated before
-  2026-11-08T16:00Z, so a freshly minted token cannot be injected with `Domain=.comicine.com`; the
-  legacy read and its clear are removed after 2026-12-07 (one session TTL). `/logout` clears both
-  names. Every session has a random `sid` recorded in D1 `auth_sessions`, and `requireAuth`
-  rejects revoked/expired sessions. Missing runtime HMAC keys or an unavailable
-  `auth_sessions` table fail closed with 503.
+  overwrite the prefixed cookie. The retired `comicine_session` name is never accepted, and `/logout`
+  still clears it. Each local session has a hard 15-minute maximum age from Access authentication
+  and a random `sid` recorded in D1 `auth_sessions`; `requireAuth` rejects expired or revoked
+  sessions. Missing runtime HMAC keys or an unavailable `auth_sessions` table fail closed with 503.
 - The gate fails closed too: with `TURNSTILE_SECRET`, `GATE_HMAC_KEY` or
   `SESSION_HMAC_KEY` empty, the edge answers 503 instead of rendering pages or
   issuing unsigned cookies.
 - The `__gate` cookie is `<issued-at>.<expires-at>.<HMAC-SHA256 hex>` (1h TTL, `HttpOnly`,
   shared across the request's current or legacy root domain), minted and validated entirely at the edge.
-- An unauthenticated browser navigation to a protected page is answered with a 302 straight to `identity.comicine.com/login`, with no intermediate page or script; the source response has already set the short-lived state cookie. Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites`; the handoff contains no role. Both current protected hosts require admin sessions because their APIs require them.
+- An unauthenticated browser navigation to a protected page is answered with a 302 straight to `identity.comicine.com/login`, with no intermediate page or script; the source response has already set the short-lived state cookie. Cloudflare Access then sends the browser through `comicine.cloudflareaccess.com`. API authentication failures remain JSON 401 responses. The identity Pages Function verifies `Cf-Access-Jwt-Assertion` (RS256, JWKS cached 1h) and stores a hashed, single-use D1 handoff bound to the source host and state. The source callback exchanges it server-to-server and applies its role from `identity_sites` or an exact-email entry in `identity_user_site_roles`; the handoff contains no role. `public@comicine.com` receives viewer access on visitor and no account session. Viewer responses omit visitor IP hashes; IP reveal and Ray lookup stay admin-only.
+- Cloudflare Zero Trust global and shared application sessions, plus each local Pages session, are capped at 15 minutes. Signing out only at an identity provider does not revoke tokens or the local D1 session, so access may continue for up to 15 minutes. Use the ComiCine Logout button to revoke the local session and end the shared Access session; Cloudflare rejects issued Access tokens within 20–30 seconds.
 - Keys and ciphertext stored separately, and never committed to the repository
 - Blocking layers: the app-level D1 blocklist answers 403 at the edge, and
   `ops/sync-worker` keeps the Cloudflare IP List `comicine_blocklist` in step with the

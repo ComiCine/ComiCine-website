@@ -291,6 +291,7 @@ def write_config_functions(functions_dir: str) -> None:
         "export const IDENTITY_HOSTNAME = CONTRACT.identity_host;",
         "export const IDENTITY_HOSTS: Set<string> = new Set([IDENTITY_HOSTNAME, ...LEGACY_ROOT_DOMAINS.map((domain) => `identity.${domain}`)]);",
         "export const IDENTITY_SITE_ROLES: Record<string, \"admin\" | \"viewer\"> = CONTRACT.identity_sites;",
+        "export const IDENTITY_USER_SITE_ROLES: Record<string, Record<string, \"admin\" | \"viewer\">> = CONTRACT.identity_user_site_roles;",
         "export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;",
         "export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;",
         "export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;",

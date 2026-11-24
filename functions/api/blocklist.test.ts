@@ -51,7 +51,7 @@ function adminSession() {
     sub: "sub-1",
     user: { email: "admin@example.com", name: "Admin" },
     role: "admin" as const,
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
     exp: 9999999999,
   };
 }

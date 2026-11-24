@@ -69,7 +69,7 @@ describe("logout next validation", () => {
       sub: "admin",
       user: { email: "admin@example.com", name: "Admin" },
       role: "admin",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     });
     vi.mocked(revokeAuthSession).mockResolvedValue(true);
 
@@ -133,7 +133,7 @@ describe("logout next validation", () => {
     });
     expect(resp.status).toBe(302);
     expect(resp.headers.get("Location")).toBe(
-      "https://comicine.cloudflareaccess.com/cdn-cgi/access/logout?redirect_url=" +
+      "https://comicine.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=" +
         encodeURIComponent("https://comicine.com/"),
     );
   });

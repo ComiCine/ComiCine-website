@@ -62,7 +62,7 @@ async function signedCookie(role: "admin" | "viewer"): Promise<Request> {
     sub: "user-1",
     user: { email: `${role}@example.com`, name: role },
     role,
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
   });
   return requestWith(header.split(";")[0]);
 }

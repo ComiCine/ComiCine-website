@@ -13,11 +13,14 @@ import { execute, queryAll } from "./d1";
 import { gatePreviousKeyConfigError } from "./env";
 import type { Env } from "./env";
 import {
+  IDENTITY_SITE_ROLES,
+  IDENTITY_USER_SITE_ROLES,
   PENDING_COOKIE,
   REVEAL_MAX_AUTH_AGE_SECONDS,
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
 } from "./config";
+import { identityRoleForHost } from "./identity";
 import { fromB64Url, hmacSha256Hex, timingSafeEqual, toB64Url } from "./crypto";
 
 const textEncoder = new TextEncoder();
@@ -26,27 +29,9 @@ const MAX_SIGNED_TOKEN_LENGTH = 8192;
 const MAX_SESSION_FIELD_LENGTH = 512;
 
 /**
- * Pre-`__Host-` cookie name, kept for a read-only transition after the 2026-11-07 rename.
- *
- * `__Host-` is enforced by the browser (no `Domain`, `Secure`, `Path=/`), so sessions created
- * under the old name must keep working until they expire. Reads fall back to this name only when
- * the prefixed cookie is absent; nothing renews or writes it. Remove this read and
- * `clearLegacySessionCookie` after 2026-12-07 (one `SESSION_TTL_SECONDS` after the rename).
+ * Retired cookie name, still cleared on logout so old browsers do not keep sending it.
  */
 const LEGACY_SESSION_COOKIE = "comicine_session";
-
-/**
- * Only sessions authenticated before this instant may arrive under the legacy name.
- *
- * Accepting every validly signed legacy token would reopen the subdomain-write hole the `__Host-`
- * prefix closes: a sibling host can still set `Domain=.comicine.com; comicine_session=<token>` and
- * have it read whenever the visitor has no prefixed cookie. A token minted after the rename always
- * carries a post-cutoff `authAt` (Access authentication immediately precedes session creation), so
- * the cutoff rejects those freshly minted tokens while real pre-rename sessions keep working. The
- * value is 2026-11-09T00:00:00+08:00 (2026-11-08T16:00:00Z), leaving the deploy a buffer past the
- * rename day.
- */
-const LEGACY_SESSION_AUTH_CUTOFF_SECONDS = Date.UTC(2026, 10, 8, 16, 0, 0) / 1000;
 
 export interface SessionUser {
   email: string;
@@ -140,16 +125,30 @@ export function randomToken(bytes = 32): string {
 }
 
 export async function createSessionCookie(env: Env, data: SessionData): Promise<string> {
-  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const now = Math.floor(Date.now() / 1000);
+  const exp = sessionExpiry(data.authAt, now);
   const payload: SignedSession = { ...data, exp };
-  return cookieHeader(SESSION_COOKIE, await signPayload(env.SESSION_HMAC_KEY ?? "", JSON.stringify(payload)), SESSION_TTL_SECONDS);
+  return cookieHeader(
+    SESSION_COOKIE,
+    await signPayload(env.SESSION_HMAC_KEY ?? "", JSON.stringify(payload)),
+    exp - now,
+  );
+}
+
+function sessionExpiry(authAt: number, now: number): number {
+  if (!Number.isSafeInteger(authAt) || authAt < 0 || authAt > now) {
+    throw new Error("invalid_session_auth_time");
+  }
+  const exp = Math.min(now + SESSION_TTL_SECONDS, authAt + SESSION_TTL_SECONDS);
+  if (exp <= now) throw new Error("session_auth_expired");
+  return exp;
 }
 
 export function clearSessionCookie(): string {
   return clearCookieHeader(SESSION_COOKIE);
 }
 
-/** Clear the pre-`__Host-` cookie name during the transition; removal is paired with the legacy read. */
+/** Clear the retired pre-`__Host-` cookie name. */
 export function clearLegacySessionCookie(): string {
   return clearCookieHeader(LEGACY_SESSION_COOKIE);
 }
@@ -158,20 +157,15 @@ export async function readSession(
   env: Env,
   cookieHeaderValue: string | null,
 ): Promise<SessionData | null> {
-  // Read-only fallback: the prefixed cookie wins when both exist, and the legacy token is never
-  // rewritten or extended, so the old name disappears as its thirty-day sessions expire.
-  const currentToken = getCookie(SESSION_COOKIE, cookieHeaderValue);
-  const legacyToken = currentToken === undefined
-    ? getCookie(LEGACY_SESSION_COOKIE, cookieHeaderValue)
-    : undefined;
   const data = await verifyPayload<SignedSession>(
     env.SESSION_HMAC_KEY ?? "",
-    currentToken ?? legacyToken,
+    getCookie(SESSION_COOKIE, cookieHeaderValue),
   );
   if (!data) return null;
+  const now = Math.floor(Date.now() / 1000);
   if (
     typeof data.exp !== "number" ||
-    data.exp <= Math.floor(Date.now() / 1000) ||
+    data.exp <= now ||
     !Number.isSafeInteger(data.exp) ||
     typeof data.sid !== "string" ||
     data.sid.length === 0 || data.sid.length > MAX_SESSION_FIELD_LENGTH ||
@@ -183,13 +177,11 @@ export async function readSession(
     typeof data.user.name !== "string" ||
     data.user.name.length > MAX_SESSION_FIELD_LENGTH ||
     !["admin", "viewer"].includes(data.role) ||
-    !Number.isSafeInteger(data.authAt) || data.authAt < 0
+    !Number.isSafeInteger(data.authAt) || data.authAt < 0 || data.authAt > now ||
+    data.exp > data.authAt + SESSION_TTL_SECONDS
   ) {
     return null;
   }
-  // A signed legacy token is not enough by itself: only pre-rename authentications are accepted
-  // under the old name (see the cutoff comment above).
-  if (legacyToken !== undefined && data.authAt >= LEGACY_SESSION_AUTH_CUTOFF_SECONDS) return null;
   return {
     sid: data.sid,
     sub: data.sub,
@@ -223,6 +215,15 @@ export async function requireAuth(env: Env, request: Request): Promise<SessionDa
     if (row.revoked_at != null) return null;
     if (Number(row.exp) <= Math.floor(Date.now() / 1000)) return null;
     if (row.sub !== session.sub || row.role !== session.role) return null;
+    const hostname = new URL(request.url).hostname.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(IDENTITY_SITE_ROLES, hostname)) {
+      const email = session.user.email.trim().toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(IDENTITY_USER_SITE_ROLES, email)) {
+        const currentRole = identityRoleForHost(hostname, email);
+        if (!currentRole) return null;
+        return { ...session, role: currentRole };
+      }
+    }
     return session;
   } catch (error) {
     if (error instanceof AuthSessionUnavailableError) throw error;
@@ -234,7 +235,13 @@ export async function requireAuth(env: Env, request: Request): Promise<SessionDa
 
 export async function createAuthSession(env: Env, session: SessionData): Promise<boolean> {
   if (!env.DB || !session.sid || !session.sub) return false;
-  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const now = Math.floor(Date.now() / 1000);
+  let exp: number;
+  try {
+    exp = sessionExpiry(session.authAt, now);
+  } catch {
+    return false;
+  }
   try {
     return await execute(
       env.DB,
@@ -356,7 +363,7 @@ export const REAUTH_REQUIRED_MESSAGE = "Re-authentication required";
  * Step-up authorization: require **recent authentication** in addition to `requireAdminSession`.
  *
  * Only Cloudflare Access can issue `authAt` (`functions/login.ts`), while the
- * session cookie lasts 30 days. Revealing a plaintext password is highly
+ * local session has a fixed 15-minute maximum age. Revealing a plaintext password is highly
  * sensitive; a login from 30 days ago is not enough. Require
  * `now - session.authAt <= maxAgeSeconds` (600 seconds by default; see
  * `reveal_max_auth_age_seconds`). On expiry, return 401 with

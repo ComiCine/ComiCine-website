@@ -63,7 +63,7 @@ beforeEach(() => {
     sub: "user-1",
     user: { email: "admin@example.com", name: "Admin" },
     role: "admin",
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
   } as never);
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(fernetEncrypt).mockResolvedValue("encrypted");
@@ -78,7 +78,7 @@ describe("apple account accounts API", () => {
       sub: "user-1",
       user: { email: "viewer@example.com", name: "Viewer" },
       role: "viewer",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     } as never);
     vi.mocked(queryAll).mockResolvedValueOnce([
       { id: 1, email: "a@apple.account.comicine.com", password: "cipher", notes: "", sort_order: 0 },
@@ -103,7 +103,7 @@ describe("apple account accounts API", () => {
       sub: "user-1",
       user: { email: "viewer@example.com", name: "Viewer" },
       role: "viewer",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     } as never);
     const viewer = await onRequestPost(
       context(appleAccountRequest("POST", { email: "a", password: "p", notes: "" })) as never,

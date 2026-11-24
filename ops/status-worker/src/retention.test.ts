@@ -93,7 +93,7 @@ describe("retention buckets", () => {
   it("prunes auth_sessions only well after the session TTL", async () => {
     // Each login adds one auth_sessions row, which would grow without bound without pruning (tasks/22 W9-18).
     // The retention window must be **longer than** the session TTL to avoid deleting active sessions.
-    const sessionTtlSeconds = 2_592_000; // config-contract.json: session_ttl_seconds
+    const sessionTtlSeconds = 900; // config-contract.json: session_ttl_seconds
     expect(BUCKETS.auth_sessions).toBeGreaterThan(sessionTtlSeconds);
     expect(TIMESTAMP_COLUMNS.auth_sessions).toBe("exp");
 

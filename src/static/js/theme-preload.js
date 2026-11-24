@@ -8,6 +8,13 @@
 /* Run this theme setup before the body renders to avoid a white flash in light mode.
    This external file replaces the inline template script, so CSP does not need unsafe-inline. */
 (function () {
+  var currentUrl = new URL(window.location.href);
+  var query = currentUrl.search.slice(1).replace(/^&+|&+$/g, "");
+  var cleanPath = currentUrl.pathname + (query ? "?" + query : "") + currentUrl.hash;
+  if (currentUrl.href !== currentUrl.origin + cleanPath) {
+    window.history.replaceState(window.history.state, "", cleanPath);
+  }
+
   var script = document.currentScript;
   var cookieName = script && script.getAttribute("data-theme-cookie") || "comicine_theme";
   var cookieNames = [cookieName];

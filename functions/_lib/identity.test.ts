@@ -21,6 +21,7 @@ import {
   consumeIdentityHandoff,
   createIdentityHandoff,
   IdentityStoreUnavailable,
+  identityRoleForHost,
   type IdentityCallback,
 } from "./identity";
 import { createHandoffDb, type FakeHandoffDb } from "../../tests/helpers/identity-handoff-db";
@@ -37,6 +38,20 @@ const IDENTITY = {
   email: "admin@example.com",
   expiresAt: NOW + 600,
 };
+
+describe("identity site roles", () => {
+  it("limits public@ to read-only visitor access", () => {
+    expect(identityRoleForHost("visitor.comicine.com", "public@comicine.com")).toBe("viewer");
+    expect(identityRoleForHost("account.comicine.com", "public@comicine.com")).toBeNull();
+    expect(identityRoleForHost("account.comicine.com", "PUBLIC@COMICINE.COM")).toBeNull();
+  });
+
+  it("keeps configured host roles for other identities", () => {
+    expect(identityRoleForHost("visitor.comicine.com", "admin@example.com")).toBe("admin");
+    expect(identityRoleForHost("account.comicine.com", "admin@example.com")).toBe("admin");
+    expect(identityRoleForHost("unknown.comicine.com", "admin@example.com")).toBeNull();
+  });
+});
 
 function callback(overrides: Partial<IdentityCallback> = {}): IdentityCallback {
   return { sourceHost: HOST, targetPath: "/apple", state: STATE, ...overrides };

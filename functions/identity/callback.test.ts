@@ -63,7 +63,7 @@ describe("GET /identity/callback", () => {
       targetPath: "/apple",
       sub: "access:user-1",
       email: "admin@example.com",
-      authAt: 1_800_000_000,
+      authAt: Math.floor(Date.now() / 1000),
       role: "viewer",
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
   });
@@ -79,6 +79,39 @@ describe("GET /identity/callback", () => {
       role: "admin",
     }));
     expect(response.headers.get("Set-Cookie")).toContain(`${STATE_COOKIE_PREFIX}${STATE}=`);
+  });
+
+  it("creates a read-only visitor session for public@comicine.com", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      sourceHost: "visitor.comicine.com",
+      targetPath: "/apple",
+      sub: "access:public-user",
+      email: "public@comicine.com",
+      authAt: Math.floor(Date.now() / 1000),
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const response = await onRequestGet(context(
+      callbackRequest("visitor.comicine.com"),
+      { SESSION_HMAC_KEY: "session-key" } as Env,
+    ) as never);
+
+    expect(response.status).toBe(302);
+    expect(sessionMocks.createAuthSession).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ role: "viewer", user: { email: "public@comicine.com", name: "public@comicine.com" } }),
+    );
+  });
+
+  it("denies public@comicine.com on the account host", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      sourceHost: "account.comicine.com",
+      targetPath: "/apple",
+      sub: "access:public-user",
+      email: "public@comicine.com",
+      authAt: Math.floor(Date.now() / 1000),
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const response = await onRequestGet(context(callbackRequest(), { SESSION_HMAC_KEY: "session-key" } as Env) as never);
+
+    expect(response.status).toBe(403);
+    expect(sessionMocks.createAuthSession).not.toHaveBeenCalled();
   });
 
   it("clears only the matching state cookie when multiple login flows are open", async () => {
@@ -206,7 +239,7 @@ describe("GET /identity/callback", () => {
       targetPath: "/apple",
       sub: "",
       email: "admin@example.com",
-      authAt: 1_800_000_000,
+      authAt: Math.floor(Date.now() / 1000),
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     const response = await onRequestGet(
@@ -230,7 +263,7 @@ describe("GET /identity/callback", () => {
       targetPath: "/apple",
       sub: "access:user-1",
       email: "admin@example.com",
-      authAt: 1_800_000_000,
+      authAt: Math.floor(Date.now() / 1000),
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     const response = await onRequestGet(

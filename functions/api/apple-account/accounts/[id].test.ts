@@ -49,7 +49,7 @@ beforeEach(() => {
     sub: "user-1",
     user: { email: "admin@example.com", name: "Admin" },
     role: "admin",
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
   } as never);
   vi.mocked(verifyCsrf).mockResolvedValue(true);
   vi.mocked(fernetEncrypt).mockResolvedValue("encrypted");

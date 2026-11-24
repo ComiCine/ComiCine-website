@@ -52,6 +52,7 @@ PYTHON_FIELD_MAP = {
     "identity_host": "IDENTITY_HOST",
     "apple_account_email_domain": "APPLE_ACCOUNT_EMAIL_DOMAIN",
     "identity_sites": "IDENTITY_SITE_ROLES",
+    "identity_user_site_roles": "IDENTITY_USER_SITE_ROLES",
     "image_asset_host": "IMAGE_ASSET_HOST",
     "image_watermark_host": "IMAGE_WATERMARK_HOST",
     "gate_trust": "GATE_TRUST",
@@ -196,6 +197,31 @@ def check_managed_hosts(contract: dict) -> None:
     ]
     if invalid_sites:
         fail(f"identity_sites contains invalid hosts or roles: {', '.join(map(str, invalid_sites))}")
+        raise SystemExit(1)
+    user_roles = contract.get("identity_user_site_roles", {})
+    if not isinstance(user_roles, dict):
+        fail("identity_user_site_roles must map exact email addresses to identity host roles")
+        raise SystemExit(1)
+    email_pattern = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    invalid_user_roles = [
+        email for email, site_roles in user_roles.items()
+        if (
+            not isinstance(email, str)
+            or email != email.strip().lower()
+            or not email_pattern.fullmatch(email)
+            or not isinstance(site_roles, dict)
+            or not site_roles
+            or any(
+                not isinstance(host, str)
+                or host not in identity_sites
+                or not isinstance(role, str)
+                or role not in ("admin", "viewer")
+                for host, role in site_roles.items()
+            )
+        )
+    ]
+    if invalid_user_roles:
+        fail(f"identity_user_site_roles contains invalid emails, hosts, or roles: {', '.join(map(str, invalid_user_roles))}")
         raise SystemExit(1)
 
 

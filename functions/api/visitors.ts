@@ -10,8 +10,8 @@
 /**
  * GET /api/visitors
  *
- * Requires an admin session and reads aggregate data from D1. To protect privacy, this endpoint
- * returns only ip_hash, not full IP addresses. Use the single-record endpoint
+ * Requires an authenticated session and reads aggregate data from D1. Read-only sessions receive
+ * aggregate markers without ip_hash; admin sessions may use the single-record endpoint
  * `GET /api/visitors/<ip_hash>/ip` to view a visitor's real IP; it decrypts only after the row is clicked.
  * The frontend filters statuses locally, so the main frontend calls this endpoint without a status parameter.
  * `?status=<3-digit number>` remains available for deep links and external callers.
@@ -30,7 +30,7 @@
 
 import { CONTRACT } from "../_lib/config";
 import { queryAll } from "../_lib/d1";
-import { requireAdminSession } from "../_lib/session";
+import { authUnavailableResponse, requireAuth } from "../_lib/session";
 import type { Env } from "../_lib/env";
 
 const DAY_SECONDS = 24 * 60 * 60;
@@ -382,9 +382,9 @@ async function partTag(value: unknown): Promise<string> {
  * cannot reuse a tag whose body used the old value. An identical tag means an identical body: the
  * payload key order is fixed below.
  */
-async function composeETag(statsTag: string, markersTag: string): Promise<string> {
+async function composeETag(statsTag: string, markersTag: string, canRevealIp: boolean): Promise<string> {
   const digest = await sha256Hex(
-    `${VISITOR_WINDOW_DAYS}|${MAX_VISITOR_MARKERS}|${statsTag}|${markersTag}`,
+    `${VISITOR_WINDOW_DAYS}|${MAX_VISITOR_MARKERS}|${canRevealIp ? "admin" : "viewer"}|${statsTag}|${markersTag}`,
   );
   return `W/"${digest.slice(0, VISITOR_ETAG_HEX_LENGTH)}"`;
 }
@@ -447,8 +447,19 @@ async function putPart<T>(
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const auth = await requireAdminSession(context.env, context.request, "Forbidden");
-  if (auth instanceof Response) return auth;
+  let session: Awaited<ReturnType<typeof requireAuth>>;
+  try {
+    session = await requireAuth(context.env, context.request);
+  } catch {
+    return authUnavailableResponse();
+  }
+  if (!session) {
+    return Response.json(
+      { error: "Not authenticated" },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const canRevealIp = session.role === "admin";
 
   const url = new URL(context.request.url);
   const statusParam = url.searchParams.get("status");
@@ -535,7 +546,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
   }
 
-  const etag = await composeETag(statsTag, markersTag);
+  const etag = await composeETag(statsTag, markersTag, canRevealIp);
 
   // Schedule cache writes before any early return so the parts just read from D1 are stored even when
   // the response itself is a 304. The 304 response is never put into the cache, only the parts are.
@@ -558,13 +569,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
+  const responseMarkers = canRevealIp
+    ? markers.markers
+    : markers.markers.map((marker) => ({ ...marker, ip_hash: undefined }));
+
   return Response.json(
     {
       stats: stats.stats,
       status_counts: stats.status_counts,
       range_days: VISITOR_WINDOW_DAYS,
       max_markers: MAX_VISITOR_MARKERS,
-      markers: markers.markers,
+      can_reveal_ip: canRevealIp,
+      markers: responseMarkers,
     },
     {
       headers: {

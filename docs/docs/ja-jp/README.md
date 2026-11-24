@@ -22,8 +22,8 @@ See ADDITIONAL_TERMS.txt.
 - **ビジターパネル（visitor panel）**（`visitor.comicine.com`）：Pages Function + D1 によるアクセス解析。ハッシュ化された訪問者識別子（一覧系 API は生の IP を返しません）、国、取得できる場合は ISP/ASN、ステータスコードの分布を表示し、ログインで保護されています
 - 初回読み込み後は、訪問者ステータスのチップが新たな `/api/visitors` リクエストなしにローカルで絞り込まれます。API はディープリンク用に `?status=<3-digit>` も引き続き受け付けます。
 - **Apple Account マネージャー**（`account.comicine.com/apple`）：Pages Function + D1 による CRUD で、ドラッグ＆ドロップによる並べ替えに対応。パスワードは Fernet で暗号化して保存し、一覧にはマスクされたパスワードのみを表示、一時的な平文表示も可能
-- **認証とロール**：単一の `ComiCine` Access アプリが `identity.comicine.com/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトの callback がローカル設定のロールを適用します。現在の両サイトは admin セッションを必要とします。
-- **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと、中間ページや外部スクリプトを挟まず 302 で `identity.comicine.com/login` へ遷移します。その後 Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。
+- **認証とロール**：単一の `ComiCine` Access アプリが `identity.comicine.com/login` を保護します。identity ホストの Pages Function は JWT を検証し、登録済み送信元ホストに結び付いた短時間・1 回限りの D1 ハンドオフで本人情報を返します。送信元サイトが既定ロールまたはメール完全一致の上書きを適用します。`public@comicine.com` は visitor の集計だけを閲覧でき、account では拒否されます。
+- **共有ログイン遷移**：未認証のブラウザーが保護ページを開くと、中間ページや外部スクリプトを挟まず 302 で `identity.comicine.com/login` へ遷移します。その後 Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。Access の全体・アプリセッションと Pages のローカルセッションは、いずれも最長 15 分です。IdP だけでログアウトした場合、発行済みセッションは最長 15 分利用できます。即時にローカルセッションを失効させて Access からログアウトするには、ComiCine のログアウトボタンを使ってください。
 - **監視（monitoring）**：`comicine-status` Worker が HTTP/D1 のターゲットを毎分プローブ（probe）し、プローブがダウンしている間は 10 秒ごとに再確認して、結果を D1 に保存します。アラートは webhook（フォールバックとして Email binding）で送信されます
 - **ステータスページ**（`status.comicine.com`）：同じ Worker が D1 からサーバーサイドレンダリングし、4 言語と明示的な `?lang=` 上書きに対応、プローブのエラーコードは 4 言語の対応表を持ち、ブランド化された 404/503 の故障ページも表示します。日ごとの稼働率は `probe_uptime_daily` ロールアップから取得します
 - **自動 IP ブロック**：
@@ -337,16 +337,20 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 ## セキュリティ設計
 
-- セッション cookie の名前は `__Host-comicine_session`（契約上の `session_cookie`）で、ホスト限定（host-only）であり、`Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` を設定し、`Domain` はありません。`__Host-` プレフィックスにより、ブラウザーは `Domain` なし + `Secure` + `Path=/` の部分を強制するため、サブドメインがプレフィックス付きの cookie を上書きすることはできません。改名以前の名前 `comicine_session` で提示されたセッションは、移行期間中に限り、かつ 2026-11-08T16:00Z より前に認証された場合にのみ受理されるため、新しく発行されたトークンを `Domain=.comicine.com` で注入することはできません。旧 cookie の読み取りとそのクリアは、2026-12-07（セッション TTL 1 回分）以降に削除されます。`/logout` は両方の名前を削除します。
-  すべてのセッションは D1 `auth_sessions` に記録されたランダムな `sid` を持ち、`requireAuth` は
-  失効・期限切れのセッションを拒否します。実行時に HMAC 鍵がない場合や `auth_sessions` テーブルが利用できない場合は、
-  503 でフェイルクローズ（fail closed）します。
+- セッション cookie は `__Host-comicine_session`（契約上の `session_cookie`）で、ホスト限定です。
+  `Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/` を設定し、`Domain` は付けません。`__Host-`
+  プレフィックスによりサブドメインは cookie を上書きできません。旧名 `comicine_session` は認証に
+  使用せず、`/logout` では引き続き削除します。ローカルセッションは Access 認証から最長 15 分で、
+  ランダムな `sid` を D1 `auth_sessions` に記録します。`requireAuth` は期限切れ・失効済みの
+  セッションを拒否します。実行時に HMAC 鍵がない場合やテーブルが利用できない場合は 503 で
+  フェイルクローズします。
 - ゲートも同様にフェイルクローズします。`TURNSTILE_SECRET`、`GATE_HMAC_KEY`、
   `SESSION_HMAC_KEY` のいずれかが空の場合、エッジはページをレンダリングしたり署名のない
    cookie を発行したりせず、503 を返します。
 - `__gate` cookie は `<issued-at>.<expires-at>.<HMAC-SHA256 hex>` です（TTL 1 時間、`HttpOnly`、
   そのリクエストの現在または旧ルートドメインで共有）。発行と検証はすべてエッジで行います。
-- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定しつつ 302 で `identity.comicine.com/login` へ遷移します（中間ページや外部スクリプトはありません）。Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの 1 回限りの D1 ハンドオフを保存します。送信元サイトの callback がそれをサーバー間で交換し、`identity_sites` からローカル設定のロールを適用します。handoff にロールは含まれません。現在の visitor と account の両サイトでは API が admin セッションを要求します。
+- 未認証で保護ページを開くと、送信元サイトは短時間有効な state cookie を設定しつつ 302 で `identity.comicine.com/login` へ遷移します（中間ページや外部スクリプトはありません）。Cloudflare Access が `comicine.cloudflareaccess.com` 経由でログインさせます。API の認証失敗は JSON 401 のままです。identity ホストの Pages Function は `Cf-Access-Jwt-Assertion`（RS256、JWKS は 1 時間キャッシュ）を検証し、送信元ホストと state に結び付いたハッシュ化済みの 1 回限りの D1 ハンドオフを保存します。送信元サイトの callback がそれをサーバー間で交換し、`identity_sites` の既定ロールまたは `identity_user_site_roles` のメール完全一致ルールを適用します。handoff にロールは含まれません。`public@comicine.com` は visitor の集計表示だけを利用でき、account では拒否されます。viewer の応答には IP ハッシュがなく、IP の復号と Ray の照会は admin に限定されます。
+- Cloudflare Zero Trust の全体・共有アプリセッションと Pages のローカルセッションは、いずれも最長 15 分です。IdP だけでログアウトしても、発行済みトークンや D1 のローカルセッションは失効せず、最長 15 分アクセスが続く場合があります。ComiCine のログアウトボタンを使うとローカルセッションを失効させ、共有 Access セッションも終了できます。Cloudflare は発行済み Access トークンを 20〜30 秒以内に拒否します。
 - 鍵と暗号文は別々に保管し、リポジトリには決してコミットしません
 - ブロックの層：アプリ層の D1 ブロックリストがエッジで 403 を返し、`ops/sync-worker` が
   有効な行を Cloudflare IP List `comicine_blocklist` に追随させます（WAF ルールが使う想定ですが、

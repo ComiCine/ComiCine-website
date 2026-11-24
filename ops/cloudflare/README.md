@@ -261,15 +261,28 @@ internal services. Add service routes as destinations on it; never create a sepa
 application for an internal service. It protects `identity.comicine.com/login`,
 `docs.comicine.com/private/*`, `comicine-docs.pages.dev/private/*`, and
 `*.comicine-docs.pages.dev/private/*`, plus generated article bundles under
-`/assets/private_articles_*` on those production and preview hosts, with one shared policy.
+`/assets/private_articles_*` on those production and preview hosts. The application runs
+`ComiCine-Block-Cloudflare-OTP` before `ComiCine-Admins`: the block policy denies Cloudflare
+One-time PIN login for `contact@`, `services@`, `security@`, `business@`, `bd@`, and `public@`
+at `comicine.com`. The existing allow policy remains unchanged, so Entra ID stays available
+where that policy permits the address. `contact@` and `services@` remain excluded from all
+Access login methods by the existing allow policy. `ops/docs_deploy.sh` reconciles both policies
+and verifies their precedence. The Zero Trust global session and this application's session are
+15 minutes, the shortest supported global session: signing out at an IdP does not revoke an
+already-issued Access token, so provider-only sign-out can leave access active until that token
+expires. Use the ComiCine Logout button or the team-domain Access logout endpoint to end the shared
+Access session immediately; Cloudflare rejects issued tokens within 20–30 seconds.
 Cloudflare Access sends
 the browser through the `comicine.cloudflareaccess.com` team domain and back to the
 requested route with its signed JWT. The Pages Function verifies the single application AUD
 and returns a short-lived, one-use code containing the verified user identity and
 registered source host. The source host consumes that code server-to-server, applies
-its local role from `identity_sites`, and sets its own host-only session cookie. Both
-current protected hosts use the admin role because their APIs require administrator
-sessions. This registration path supports `.comicine.com` subdomains in the main Pages
+its local role from `identity_sites` or an exact-email override in
+`identity_user_site_roles`, and sets its own host-only session cookie. `public@comicine.com`
+has viewer access to the visitor dashboard only and is denied a session on the account host.
+Viewer responses omit visitor hashes and cannot reveal IP addresses or look up Ray IDs; these
+operations remain admin-only. Other users keep each host's configured default role. This
+registration path supports `.comicine.com` subdomains in the main Pages
 project: add the host to `managed_hosts`, `page_routes`, and `identity_sites` in
 `config-contract.json`, make its pages and APIs enforce the local role, and add its DNS
 and Pages custom domain. The host must use the shared Pages Functions bundle, D1
@@ -799,7 +812,7 @@ reads the same windows from that file (it fails loudly if the two ever disagree)
 | `visitors_v2` | 30 days | `ts` | Visitor detail |
 | `visitor_rollups` | 30 days | `last_ts` | Hourly rollups (HMAC `ip_hash` + Fernet `ip_enc`) |
 | `heartbeats` | 30 days | `ts` | Probe heartbeats, 3 rows per minute |
-| `auth_sessions` | 60 days | `exp` | Must stay **longer** than `session_ttl_seconds` (30 days), otherwise live sessions are deleted |
+| `auth_sessions` | 60 days | `exp` | Must stay **longer** than `session_ttl_seconds` (15 minutes), otherwise live sessions are deleted |
 | `identity_handoffs` | 1 day | `expires_at` | Single-use login codes expire after two minutes; unused records are pruned |
 | `events` | 90 days | `ts` | Audit and operational events |
 | `probe_uptime_daily` | 90 days | `day` | Daily uptime rollups (the status page reads at most 7 days) |

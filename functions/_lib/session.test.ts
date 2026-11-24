@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env";
 import { execute, queryAll } from "./d1";
+import { hmacSha256Hex, toB64Url } from "./crypto";
 import {
   ADMIN_REQUIRED_MESSAGE,
   AuthSessionUnavailableError,
@@ -45,7 +46,7 @@ function sessionData(prefix = ""): any {
     sub: "user-1",
     user: { email: "a@example.com", name: "A" },
     role: "admin",
-    authAt: 1,
+    authAt: Math.floor(Date.now() / 1000),
   };
 }
 
@@ -78,13 +79,11 @@ describe("session cookie", () => {
     expect(session?.role).toBe("admin");
   });
 
-  it("reads the pre-__Host- cookie name during the transition", async () => {
+  it("rejects the retired cookie name", async () => {
     const header = await createSessionCookie(env, sessionData());
     const legacy = header.replace(/^__Host-comicine_session=/, "comicine_session=");
     expect(legacy.startsWith("comicine_session=")).toBe(true);
-    // readSession only returns data, so a legacy cookie is never renewed under the old name and the
-    // next login writes the prefixed name.
-    expect((await readSession(env, legacy.split(";")[0]))?.sid).toBe("sid-1");
+    expect(await readSession(env, legacy.split(";")[0])).toBeNull();
   });
 
   it("prefers the __Host- cookie when both names are present", async () => {
@@ -97,14 +96,26 @@ describe("session cookie", () => {
   });
 
   it("rejects a legacy token authenticated after the rename cutoff", async () => {
-    // 1_800_000_000 is 2027-01-15, past the transition cutoff. The same signed token stays valid
-    // under the prefixed name, so the restriction applies only to the legacy path and a sibling
-    // host cannot inject a freshly minted session with Domain=.comicine.com during the transition.
-    const header = await createSessionCookie(env, { ...sessionData(), authAt: 1_800_000_000 });
+    const header = await createSessionCookie(env, {
+      ...sessionData(),
+      authAt: Math.floor(Date.now() / 1000),
+    });
     const prefixed = header.split(";")[0];
     const legacy = prefixed.replace(/^__Host-comicine_session=/, "comicine_session=");
     expect((await readSession(env, prefixed))?.sid).toBe("sid-1");
     expect(await readSession(env, legacy)).toBeNull();
+  });
+
+  it("rejects a previously issued 30-day token after the 15-minute auth limit", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      ...sessionData(),
+      authAt: now - 901,
+      exp: now + 2_592_000,
+    };
+    const encoded = toB64Url(new TextEncoder().encode(JSON.stringify(payload)));
+    const token = `${encoded}.${await hmacSha256Hex(env.SESSION_HMAC_KEY!, JSON.stringify(payload))}`;
+    expect(await readSession(env, `__Host-comicine_session=${token}`)).toBeNull();
   });
 
   it("clears both session cookie names without Domain", () => {
@@ -161,6 +172,47 @@ describe("auth_sessions revoke table", () => {
     expect(vi.mocked(queryAll).mock.calls[0][1]).toContain("FROM auth_sessions");
   });
 
+  it("downgrades an existing public@ visitor session to viewer", async () => {
+    const header = await createSessionCookie(env, {
+      ...sessionData(),
+      user: { email: "public@comicine.com", name: "Public" },
+    });
+    vi.mocked(queryAll).mockResolvedValue([{
+      sid: "sid-1",
+      sub: "user-1",
+      role: "admin",
+      auth_at: 1,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      revoked_at: null,
+    }]);
+
+    const session = await requireAuth(env, requestWith(header));
+
+    expect(session?.role).toBe("viewer");
+  });
+
+  it("invalidates an existing public@ account session", async () => {
+    const header = await createSessionCookie(env, {
+      ...sessionData(),
+      user: { email: "public@comicine.com", name: "Public" },
+    });
+    vi.mocked(queryAll).mockResolvedValue([{
+      sid: "sid-1",
+      sub: "user-1",
+      role: "admin",
+      auth_at: 1,
+      exp: Math.floor(Date.now() / 1000) + 300,
+      revoked_at: null,
+    }]);
+
+    const session = await requireAuth(
+      env,
+      new Request("https://account.comicine.com/api", { headers: { Cookie: header } }),
+    );
+
+    expect(session).toBeNull();
+  });
+
   it("does not allow a revoked session", async () => {
     const header = await createSessionCookie(env, sessionData());
     vi.mocked(queryAll).mockResolvedValue([{
@@ -175,7 +227,7 @@ describe("auth_sessions revoke table", () => {
     expect(session).toBeNull();
   });
 
-  it("authorizes a pre-rename legacy cookie through the revocation table", async () => {
+  it("does not authorize a retired cookie through the revocation table", async () => {
     const header = await createSessionCookie(env, sessionData());
     const legacy = header
       .replace(/^__Host-comicine_session=/, "comicine_session=")
@@ -188,8 +240,7 @@ describe("auth_sessions revoke table", () => {
       exp: Math.floor(Date.now() / 1000) + 300,
       revoked_at: null,
     }]);
-    // /logout revokes whatever readSession returns, so the legacy name must still reach D1.
-    expect((await requireAuth(env, requestWith(legacy)))?.sid).toBe("sid-1");
+    expect(await requireAuth(env, requestWith(legacy))).toBeNull();
   });
 
   it("throws AuthSessionUnavailableError when D1 is unavailable", async () => {
@@ -389,15 +440,9 @@ describe("requireRecentAdminSession", () => {
     expect(resp.status).toBe(503);
   });
 
-  it("rejects a future authAt instead of letting a negative age pass", async () => {
-// Checking only the upper bound on `age = now - authAt` would let negative
-// ages pass. The signed authAt cannot currently be exploited, but this is the
-// only gate protecting plaintext password access, so reject future values too.
-    grantRow("admin");
+  it("rejects a future authAt before signing a session cookie", async () => {
     for (const age of [-1, -3600]) {
-      const resp = (await requireRecentAdminSession(env, await cookieWithAge(age))) as Response;
-      expect(resp.status, `authAt ${-age}s in the future`).toBe(401);
-      expect(await resp.json()).toEqual({ error: REAUTH_REQUIRED_MESSAGE, reauth: true });
+      await expect(cookieWithAge(age)).rejects.toThrow("invalid_session_auth_time");
     }
   });
 

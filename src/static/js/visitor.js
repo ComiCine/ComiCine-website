@@ -24,6 +24,7 @@ import { classifyFailure, REQUEST_TIMEOUT_MS } from './visitor-request.js';
 
 // Data and request state.
 let allMarkers = [];
+let canRevealIp = false;
 let statusCounts = {};
 let currentStatus = 'all';
 let inFlight = false;
@@ -145,6 +146,7 @@ async function refresh() {
 
     const data = await resp.json();
     allMarkers = Array.isArray(data.markers) ? data.markers : [];
+    canRevealIp = data.can_reveal_ip === true;
     statusCounts = data.status_counts || {};
     dataLoaded = true;
     lastLoadedAt = Date.now();
@@ -258,8 +260,10 @@ function renderList(markers) {
         Number(m.statuses[c]) + '</span>')
       .join('');
 
-    return '<div class="visitor-row" role="button" tabindex="0" data-hash="' + esc(markerId) + '" title="' +
-      esc(t('ip_view_hint')) + '">' +
+    const rowAttributes = canRevealIp
+      ? ' role="button" tabindex="0" data-hash="' + esc(markerId) + '" title="' + esc(t('ip_view_hint')) + '"'
+      : ' aria-readonly="true"';
+    return '<div class="visitor-row' + (canRevealIp ? '' : ' read-only') + '"' + rowAttributes + '>' +
       '<div class="dot ' + (hasGeo ? 'geo' : 'nogeo') + '"></div>' +
       '<div class="info">' + locHtml +
       '<div class="detail">' + lines.join(' · ') + '</div>' +
@@ -395,12 +399,14 @@ async function openIpInfo(hash, row) {
 }
 
 document.getElementById('visitor-list').addEventListener('click', (event) => {
+  if (!canRevealIp) return;
   const row = event.target.closest('.visitor-row');
   if (!row) return;
   openIpInfo(row.dataset.hash, row);
 });
 
 document.getElementById('visitor-list').addEventListener('keydown', (event) => {
+  if (!canRevealIp) return;
   if (event.key !== 'Enter' && event.key !== ' ') return;
   const row = event.target.closest('.visitor-row');
   if (!row) return;

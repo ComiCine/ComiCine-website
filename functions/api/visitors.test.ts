@@ -207,6 +207,7 @@ describe("visitors API", () => {
     expect(data.status_counts["200"]).toBe(3);
     expect(data.status_counts["404"]).toBe(1);
     expect(data.markers[0].ip_hash).toBe("abc123");
+    expect(data.can_reveal_ip).toBe(true);
     expect(data.markers[0].ip).toBeNull();
     expect(data.markers[0].count).toBe(4);
     expect(data.markers[0].last_time).toBe("2026-01-02T00:00:00.000Z");
@@ -580,13 +581,45 @@ describe("visitors API", () => {
     expect(resp.status).toBe(401);
   });
 
-  it("returns 403 for non-admin sessions", async () => {
+  it("returns the visitor dashboard to viewers without exposing IP hashes", async () => {
     vi.mocked(requireAuth).mockResolvedValue({ role: "viewer" } as never);
+    vi.mocked(queryAll)
+      .mockResolvedValueOnce([
+        { ips: 1, requests: 2, countries: 1, status_series: "200:2" },
+      ])
+      .mockResolvedValueOnce([
+        { ip_hash: "private-hash", country: "US", status: 200, n: 2, last_ts: 1767225600 },
+      ]);
     const resp = await onRequestGet(
       context(new Request("https://visitor.comicine.com/api/visitors")) as never,
     );
-    expect(resp.status).toBe(403);
-    expect(vi.mocked(queryAll)).not.toHaveBeenCalled();
+    const data = await resp.json();
+
+    expect(resp.status).toBe(200);
+    expect(data.can_reveal_ip).toBe(false);
+    expect(data.markers[0]).not.toHaveProperty("ip_hash");
+    expect(data.markers[0].ip).toBeNull();
+    expect(data.stats.total_requests).toBe(2);
+  });
+
+  it("uses a different ETag for the read-only visitor response", async () => {
+    const window = visitorWindow(Date.now());
+    vi.mocked(queryAll)
+      .mockResolvedValueOnce([{ ips: 1, requests: 1, countries: 1, status_series: "200:1" }])
+      .mockResolvedValueOnce([{ ip_hash: "private-hash", country: "US", status: 200, n: 1, last_ts: window.cutoff }]);
+    const admin = await onRequestGet(
+      context(new Request("https://visitor.comicine.com/api/visitors?etag=role")) as never,
+    );
+
+    vi.mocked(requireAuth).mockResolvedValue({ role: "viewer" } as never);
+    vi.mocked(queryAll)
+      .mockResolvedValueOnce([{ ips: 1, requests: 1, countries: 1, status_series: "200:1" }])
+      .mockResolvedValueOnce([{ ip_hash: "private-hash", country: "US", status: 200, n: 1, last_ts: window.cutoff }]);
+    const viewer = await onRequestGet(
+      context(new Request("https://visitor.comicine.com/api/visitors?etag=role")) as never,
+    );
+
+    expect(admin.headers.get("ETag")).not.toBe(viewer.headers.get("ETag"));
   });
 
   // W5-15: fail closed when the revocation table is unavailable; a cookie alone must not grant access.

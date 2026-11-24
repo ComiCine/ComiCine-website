@@ -65,7 +65,7 @@ describe("auth status", () => {
       sub: "user-1",
       user: { email: "admin@example.com", name: "Admin" },
       role: "admin",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     } as never);
     const resp = await onRequestGet(context() as never);
     const data = await resp.json();
@@ -84,7 +84,7 @@ describe("auth status", () => {
       sub: "user-1",
       user: { email: "admin@example.com", name: "Admin" },
       role: "admin",
-      authAt: 1,
+      authAt: Math.floor(Date.now() / 1000),
     } as never);
     const first = await onRequestGet(context() as never);
     const token = (await first.json()).csrf_token as string;

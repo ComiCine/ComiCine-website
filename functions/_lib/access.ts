@@ -109,7 +109,7 @@ export function accessJwksUrl(env: Env): string {
 export function accessLogoutUrl(env: Env, redirectUrl: string): string {
   const base = accessTeamDomain(env);
   if (!base) return redirectUrl;
-  return `${base}/cdn-cgi/access/logout?redirect_url=${encodeURIComponent(redirectUrl)}`;
+  return `${base}/cdn-cgi/access/logout?returnTo=${encodeURIComponent(redirectUrl)}`;
 }
 
 /** Report only the field name for configuration errors; never expose secret values. */

@@ -396,6 +396,8 @@ describe("assets", () => {
     expect(STATUS_JS).toContain("domain=.'+ROOT");
     expect(STATUS_JS).toContain("refresh-count");
     expect(STATUS_JS).toContain("location.reload()");
+    expect(STATUS_JS).toContain("initialUrl.search.slice(1).replace(/^&+|&+$/g,'')");
+    expect(STATUS_JS).toContain("history.replaceState(history.state,'',cleanPath)");
     // The language menu writes the shared cookie and reloads with ?lang=.
     expect(STATUS_JS).toContain("save(LANG_COOKIE,c)");
     expect(STATUS_JS).toContain("searchParams.set('lang'");

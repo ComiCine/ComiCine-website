@@ -90,6 +90,8 @@
             border-bottom: 1px solid var(--row-border-ghost); border-radius: var(--radius-md);
             transition: background 0.15s var(--ease-out); cursor: pointer;
         }
+        .visitor-row.read-only { cursor: default; }
+        .visitor-row.read-only:hover { background: transparent; }
         .visitor-row:hover { background: var(--hover-highlight-soft); }
         .visitor-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
         .visitor-row .dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }

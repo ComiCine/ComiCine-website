@@ -128,7 +128,7 @@ describe("access helpers", () => {
   it("jwks / logout endpoints are built from the team domain", () => {
     expect(accessJwksUrl(baseEnv)).toBe(`${TEAM}/cdn-cgi/access/certs`);
     expect(accessLogoutUrl(baseEnv, "https://comicine.com/")).toBe(
-      `${TEAM}/cdn-cgi/access/logout?redirect_url=${encodeURIComponent("https://comicine.com/")}`,
+      `${TEAM}/cdn-cgi/access/logout?returnTo=${encodeURIComponent("https://comicine.com/")}`,
     );
   });
 

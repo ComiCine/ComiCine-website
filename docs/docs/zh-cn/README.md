@@ -22,8 +22,8 @@ See ADDITIONAL_TERMS.txt.
 - **访客面板**（`visitor.comicine.com`）：Pages Function + D1 分析；显示经过哈希处理的访客标识（列表接口不返回原始 IP）、国家/地区、可获取时的 ISP/ASN、状态码分布，并受登录保护
 - 首次加载之后，访客状态筛选标签在本地过滤，不再发起新的 `/api/visitors` 请求；API 仍然接受 `?status=<3-digit>` 以支持深链接
 - **Apple Account 管理器**（`account.comicine.com/apple`）：Pages Function + D1 增删改查，支持拖拽排序；密码使用 Fernet 加密存储，列表中只显示掩码后的密码，并支持临时明文查看
-- **认证与角色**：单一 `ComiCine` Access 应用保护 `identity.comicine.com/login`；identity 主机上的 Pages Function 验证 JWT 后，签发一个短期有效、一次性的 D1 交接码并绑定到已注册的来源主机，随后由该来源主机应用本地角色。目前两个受保护主机都需要 admin 会话。
-- **共享登录跳转**：未登录浏览器打开受保护页面时，站点直接返回 302 跳转到 `identity.comicine.com/login`，没有中间页和外置脚本；Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。
+- **认证与角色**：单一 `ComiCine` Access 应用保护 `identity.comicine.com/login`；identity 主机上的 Pages Function 验证 JWT 后，签发一个短期有效、一次性的 D1 交接码并绑定到已注册的来源主机，随后由该来源主机应用默认角色或精确邮箱覆盖规则。`public@comicine.com` 只能查看 visitor 汇总数据，不能在 account 主机建立会话。
+- **共享登录跳转**：未登录浏览器打开受保护页面时，站点直接返回 302 跳转到 `identity.comicine.com/login`，没有中间页和外置脚本；Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。Access 全局、应用和 Pages 本地会话最长均为 15 分钟。仅在身份提供商注销后，已签发会话最多还能使用 15 分钟；使用 ComiCine 的“退出”按钮可立即撤销本地会话并退出 Access。
 - **监控**：`comicine-status` Worker 每分钟探测（probe）HTTP/D1 目标，探针处于故障状态时每 10 秒重新检查一次，并把结果存入 D1；告警通过 webhook 发出（Email binding 作为后备）
 - **状态页**（`status.comicine.com`）：由同一个 Worker 从 D1 服务端渲染，支持 4 种语言与显式 `?lang=` 覆盖，探针错误码有四种语言的对照表，并自带品牌化的 404/503 故障页，每日在线率取自 `probe_uptime_daily` 汇总表
 - **自动 IP 封禁**：
@@ -335,19 +335,17 @@ bash ops/docs_deploy.sh --dev          # local VitePress dev server
 
 - 会话 cookie 名为 `__Host-comicine_session`（契约中的 `session_cookie`），仅限当前主机使用，
   并设置 `Secure` + `HttpOnly` + `SameSite=Lax` + `Path=/`，不带 `Domain`；`__Host-` 前缀
-  会让浏览器强制要求「无 `Domain` + `Secure` + `Path=/`」这几项，因此子域无法覆盖这个带前缀
-  的 cookie。以改名前的 `comicine_session` 名称提交的会话只在过渡期内、且只在其认证时间早于
-  2026-11-08T16:00Z 时才被接受，这样新签发的 token 就无法通过 `Domain=.comicine.com` 注入；
-  这项旧名读取及其清除逻辑会在 2026-12-07 之后移除（一个会话 TTL）。`/logout` 会同时清除
-  这两个名称。每个会话都有一个随机 `sid` 记录在 D1 `auth_sessions` 中，`requireAuth`
-  会拒绝已撤销/已过期的会话。运行时 HMAC 密钥缺失或 `auth_sessions` 表
-  不可用时，以 503 快速失败。
+  会让浏览器强制要求这些属性，因此子域无法覆盖该 cookie。旧名 `comicine_session` 不再用于认证，
+  但 `/logout` 仍会清除它。每个本地会话从 Cloudflare Access 认证起最长有效 15 分钟，并以随机
+  `sid` 记录在 D1 `auth_sessions` 中；`requireAuth` 会拒绝过期或已撤销的会话。运行时 HMAC 密钥
+  缺失或 `auth_sessions` 表不可用时，以 503 快速失败。
 - 门禁同样快速失败：当 `TURNSTILE_SECRET`、`GATE_HMAC_KEY` 或
   `SESSION_HMAC_KEY` 为空时，边缘返回 503，
   而不是渲染页面或签发未签名的 cookie。
 - `__gate` cookie 的形式是 `<issued-at>.<expires-at>.<HMAC-SHA256 hex>`（1 小时 TTL，
   `HttpOnly`，在请求所属的当前或旧版根域间共享），完全在边缘签发与校验。
-- 未登录浏览器访问受保护页面时，来源站点直接返回 302 跳转到 `identity.comicine.com/login`（不再有中间页和外置脚本），并在响应中设置短时 state cookie；Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 中的本地配置授予角色。交接内容不包含角色；当前 visitor 与 account 两个站点的 API 都要求 admin 会话。
+- 未登录浏览器访问受保护页面时，来源站点直接返回 302 跳转到 `identity.comicine.com/login`（不再有中间页和外置脚本），并在响应中设置短时 state cookie；Cloudflare Access 随后引导浏览器经 `comicine.cloudflareaccess.com` 登录。API 认证失败仍返回 JSON 401。identity 主机上的 Pages Function 自行验证 `Cf-Access-Jwt-Assertion`（RS256，JWKS 缓存 1 小时），将来源主机和 state 绑定到哈希存储、单次使用的 D1 交接码；来源站点回调再通过服务端请求消费代码，并按 `identity_sites` 默认角色或 `identity_user_site_roles` 精确邮箱覆盖规则授予角色。交接内容不包含角色。`public@comicine.com` 在 visitor 上只能读取汇总数据，响应不含 IP 哈希；account 主机会拒绝该邮箱。IP 解密和 Ray 查询仍仅限 admin。
+- Cloudflare Zero Trust 全局会话、共享应用会话和 Pages 本地会话最长均为 15 分钟。仅在身份提供商注销不会撤销已有令牌或 D1 本地会话，因此访问最多可能继续 15 分钟。使用 ComiCine 的“退出”按钮可撤销本地会话并结束共享 Access 会话；Cloudflare 会在 20–30 秒内拒绝已签发的 Access 令牌。
 - 密钥与密文分开存储，且从不提交到仓库
 - 封禁层级：应用层的 D1 黑名单在边缘直接 403，`ops/sync-worker` 把生效行同步到
   Cloudflare IP List `comicine_blocklist` 供 WAF 规则使用（该自定义规则目前未部署）

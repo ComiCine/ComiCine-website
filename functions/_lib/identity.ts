@@ -9,7 +9,7 @@
 
 /** Short-lived, one-time handoffs from the shared Access identity app to ComiCine sites. */
 
-import { IDENTITY_SITE_ROLES } from "./config";
+import { IDENTITY_SITE_ROLES, IDENTITY_USER_SITE_ROLES } from "./config";
 import { safeNextPath } from "./routing";
 import type { AccessIdentity } from "./access";
 import type { Env } from "./env";
@@ -58,8 +58,17 @@ interface IdentityHandoffRow {
   auth_at: number;
 }
 
-export function identityRoleForHost(host: string): "admin" | "viewer" | null {
+export function identityRoleForHost(host: string, email?: string): "admin" | "viewer" | null {
   if (!Object.prototype.hasOwnProperty.call(IDENTITY_SITE_ROLES, host)) return null;
+  if (email !== undefined) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(IDENTITY_USER_SITE_ROLES, normalizedEmail)) {
+      const userRoles = IDENTITY_USER_SITE_ROLES[normalizedEmail];
+      if (!Object.prototype.hasOwnProperty.call(userRoles, host)) return null;
+      const userRole = userRoles[host];
+      return userRole === "admin" || userRole === "viewer" ? userRole : null;
+    }
+  }
   const role = IDENTITY_SITE_ROLES[host];
   return role === "admin" || role === "viewer" ? role : null;
 }

@@ -136,6 +136,39 @@ def _contract_identity_site_roles() -> dict[str, str]:
     return roles
 
 
+def _contract_identity_user_site_roles() -> dict[str, dict[str, str]]:
+    """Read exact-email role overrides limited to registered identity hosts."""
+    value = CONTRACT.get("identity_user_site_roles", {})
+    if not isinstance(value, dict):
+        raise RuntimeError("config contract identity_user_site_roles must be an email-to-site object")
+    identity_sites = _contract_identity_site_roles()
+    email_pattern = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    overrides: dict[str, dict[str, str]] = {}
+    for email, site_roles in value.items():
+        if (
+            not isinstance(email, str)
+            or email != email.strip().lower()
+            or not email_pattern.fullmatch(email)
+            or not isinstance(site_roles, dict)
+            or not site_roles
+        ):
+            raise RuntimeError(f"invalid config contract identity_user_site_roles entry: {email!r}")
+        normalized: dict[str, str] = {}
+        for host, role in site_roles.items():
+            if (
+                not isinstance(host, str)
+                or host not in identity_sites
+                or not isinstance(role, str)
+                or role not in {"admin", "viewer"}
+            ):
+                raise RuntimeError(
+                    f"invalid config contract identity_user_site_roles host or role: {email!r} {host!r}"
+                )
+            normalized[host] = role
+        overrides[email] = normalized
+    return overrides
+
+
 # On a fresh deployment, data/ may not exist yet; importing this module ensures
 # the directory is ready. Build mode (COMICINE_BUILD=1) only renders output and
 # does not create the runtime database directory. The Python service creates it
@@ -192,6 +225,7 @@ MANAGED_HOSTS = tuple(_contract_str_list("managed_hosts"))
 SHARED_LANG_HOSTS = tuple(_contract_str_list("shared_lang_hosts"))
 PAGE_ROUTES = _contract_page_routes()
 IDENTITY_SITE_ROLES = _contract_identity_site_roles()
+IDENTITY_USER_SITE_ROLES = _contract_identity_user_site_roles()
 IMAGE_ASSET_HOSTNAME = IMAGE_ASSET_HOST
 IMAGE_WATERMARK_HOSTNAME = IMAGE_WATERMARK_HOST
 GATE_TRUST = CONTRACT.get("gate_trust", {})

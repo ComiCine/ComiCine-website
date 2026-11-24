@@ -236,7 +236,7 @@ describe("shared diagnostic sampling across request paths", () => {
       sub: "user-sub",
       user: { email: "admin@example.com", name: "Admin" },
       role: "viewer",
-      authAt: 1_700_000_000,
+      authAt: Math.floor(Date.now() / 1000),
     });
     const request = () =>
       new Request("https://comicine.com/logout", {

@@ -36,7 +36,7 @@ export const CONTRACT = {
   "pending_cookie": "comicine_pending",
   "csrf_cookie": "comicine_csrf",
   "gate_ttl_seconds": 3600,
-  "session_ttl_seconds": 2592000,
+  "session_ttl_seconds": 900,
   "pending_ttl_seconds": 600,
   "reveal_max_auth_age_seconds": 600,
   "public_hosts": [
@@ -118,6 +118,11 @@ export const CONTRACT = {
     "visitor.comicine.com": "admin",
     "account.comicine.com": "admin"
   },
+  "identity_user_site_roles": {
+    "public@comicine.com": {
+      "visitor.comicine.com": "viewer"
+    }
+  },
   "image_asset_host": "images.comicine.com",
   "image_watermark_host": "image.comicine.com",
   "gate_trust": {
@@ -144,6 +149,7 @@ export const APPLE_ACCOUNT_HOSTNAME = `account.${ROOT_DOMAIN}`;
 export const IDENTITY_HOSTNAME = CONTRACT.identity_host;
 export const IDENTITY_HOSTS: Set<string> = new Set([IDENTITY_HOSTNAME, ...LEGACY_ROOT_DOMAINS.map((domain) => `identity.${domain}`)]);
 export const IDENTITY_SITE_ROLES: Record<string, "admin" | "viewer"> = CONTRACT.identity_sites;
+export const IDENTITY_USER_SITE_ROLES: Record<string, Record<string, "admin" | "viewer">> = CONTRACT.identity_user_site_roles;
 export const REDIRECT_HOSTNAME = `redirect.${ROOT_DOMAIN}`;
 export const GATE_HOSTNAME = `auth.${ROOT_DOMAIN}`;
 export const IMAGES_HOSTNAME = `images.${ROOT_DOMAIN}`;

@@ -367,20 +367,70 @@ shared_policies = shared_app.get("policies") or []
 if not shared_policies:
     raise SystemExit("FATAL: the shared ComiCine Access application has no policies to preserve")
 
+admin_policy_name = "ComiCine-Admins"
+otp_policy_name = "ComiCine-Block-Cloudflare-OTP"
+access_session_duration = "15m"
+otp_blocked_emails = {
+    "contact@comicine.com",
+    "services@comicine.com",
+    "security@comicine.com",
+    "business@comicine.com",
+    "bd@comicine.com",
+    "public@comicine.com",
+}
+
 def policy_signature(policies):
-    readonly = {"id", "uid", "account_id", "created_at", "updated_at", "app_count"}
+    readonly = {"id", "uid", "account_id", "created_at", "updated_at", "app_count", "precedence"}
     values = [
         {key: value for key, value in policy.items() if key not in readonly}
         for policy in policies
     ]
     return sorted(values, key=lambda item: (item.get("precedence", 0), item.get("decision", "")))
 
+def policy_rules_signature(policy):
+    rules = {key: policy.get(key) for key in ("name", "decision", "include", "exclude", "require")}
+    rules["include"] = sorted(
+        rules.get("include") or [],
+        key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+    )
+    rules["exclude"] = sorted(
+        rules.get("exclude") or [],
+        key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+    )
+    rules["require"] = sorted(
+        rules.get("require") or [],
+        key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+    )
+    return json.dumps(rules, sort_keys=True, separators=(",", ":"))
+
+def access_policies(app):
+    policies = app.get("policies") or []
+    admin_policies = [policy for policy in policies if policy.get("name") == admin_policy_name]
+    otp_policies = [policy for policy in policies if policy.get("name") == otp_policy_name]
+    unexpected = [
+        policy.get("name", "") for policy in policies
+        if policy.get("name") not in {admin_policy_name, otp_policy_name}
+    ]
+    if len(admin_policies) != 1 or len(otp_policies) != 1 or unexpected:
+        raise SystemExit("FATAL: the shared Access application has unexpected or duplicate policies")
+    return admin_policies[0], otp_policies[0]
+
+initial_admin_policies = [policy for policy in shared_policies if policy.get("name") == admin_policy_name]
+if len(initial_admin_policies) != 1:
+    raise SystemExit("FATAL: the shared Access application is missing its ComiCine-Admins policy")
+initial_admin_policy_signature = policy_signature(initial_admin_policies)
+
 def policy_links(policies):
     links = []
+    priorities = {otp_policy_name: 1, admin_policy_name: 2}
     for policy in policies:
         if not policy.get("id"):
             raise SystemExit("FATAL: a shared Access policy is missing its ID")
-        links.append({key: policy[key] for key in ("id", "account_id", "precedence") if key in policy})
+        link = {key: policy[key] for key in ("id", "account_id", "precedence") if key in policy}
+        if policy.get("name") in priorities:
+            link["precedence"] = priorities[policy["name"]]
+        links.append(link)
+    links.sort(key=lambda item: item.get("precedence", 9999))
     return links
 
 def update_app_destinations(app, required_routes, name=None, remove_routes=None):
@@ -403,6 +453,7 @@ def update_app_destinations(app, required_routes, name=None, remove_routes=None)
             "domain": app.get("domain") or identity_uri,
             "destinations": destinations,
             "policies": policy_links(policies),
+            "session_duration": access_session_duration,
         }
     )
     if name:
@@ -410,6 +461,44 @@ def update_app_destinations(app, required_routes, name=None, remove_routes=None)
     body.pop("self_hosted_domains", None)
     call("PUT", f"{apps_url}/{app['id']}", body)
     return call("GET", f"{apps_url}/{app['id']}")
+
+identity_providers = call("GET", f"{base_url}/accounts/{account_id}/access/identity_providers") or []
+otp_providers = [provider for provider in identity_providers if provider.get("type") == "onetimepin"]
+if len(otp_providers) != 1 or not otp_providers[0].get("id"):
+    raise SystemExit("FATAL: expected exactly one Cloudflare One-time PIN identity provider")
+otp_provider_id = otp_providers[0]["id"]
+otp_policy_body = {
+    "name": otp_policy_name,
+    "decision": "deny",
+    "include": [{"email": {"email": email}} for email in sorted(otp_blocked_emails)],
+    "exclude": [],
+    "require": [{"login_method": {"id": otp_provider_id}}],
+    "precedence": 2,
+}
+
+otp_policies = [policy for policy in (shared_app.get("policies") or []) if policy.get("name") == otp_policy_name]
+if len(otp_policies) > 1:
+    raise SystemExit("FATAL: the shared Access application has duplicate Cloudflare OTP policies")
+if not otp_policies:
+    call("POST", f"{apps_url}/{shared_app['id']}/policies", otp_policy_body)
+else:
+    current = otp_policies[0]
+    if policy_rules_signature(current) != policy_rules_signature(otp_policy_body):
+        call(
+            "PUT",
+            f"{apps_url}/{shared_app['id']}/policies/{current['id']}",
+            {key: value for key, value in otp_policy_body.items() if key != "precedence"},
+        )
+shared_app = call("GET", f"{apps_url}/{shared_app['id']}")
+admin_policy, otp_policy = access_policies(shared_app)
+if policy_signature([admin_policy]) != initial_admin_policy_signature:
+    raise SystemExit("FATAL: the shared ComiCine-Admins policy changed unexpectedly")
+if policy_rules_signature(otp_policy) != policy_rules_signature(otp_policy_body):
+    raise SystemExit("FATAL: the shared Cloudflare OTP policy does not match the required mailbox block")
+shared_app = update_app_destinations(shared_app, set())
+admin_policy, otp_policy = access_policies(shared_app)
+if admin_policy.get("precedence") != 2 or otp_policy.get("precedence") != 1:
+    raise SystemExit("FATAL: Cloudflare OTP blocking policy must run before the shared allow policy")
 
 def asset_routes_for(private_routes):
     return {
@@ -422,7 +511,11 @@ for legacy_app in legacy_apps:
     routes = destination_uris(legacy_app)
     if not routes or not routes.issubset(docs_private_routes):
         raise SystemExit("FATAL: a docs Access application contains destinations outside the private docs routes")
-    if policy_signature(legacy_app.get("policies") or []) != policy_signature(shared_policies):
+    legacy_admin_policies = [
+        policy for policy in (legacy_app.get("policies") or [])
+        if policy.get("name") == admin_policy_name
+    ]
+    if policy_signature(legacy_admin_policies) != initial_admin_policy_signature:
         raise SystemExit("FATAL: a docs Access application has a different policy; refusing to merge it")
 for legacy_app in legacy_apps:
     routes = destination_uris(legacy_app)
@@ -436,8 +529,11 @@ for legacy_app in legacy_apps:
     updated_uris = destination_uris(shared_app)
     if not (routes | asset_routes | {identity_uri}).issubset(updated_uris):
         raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
-    if policy_signature(shared_app.get("policies") or []) != policy_signature(shared_policies):
-        raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
+    admin_policy, otp_policy = access_policies(shared_app)
+    if policy_signature([admin_policy]) != initial_admin_policy_signature:
+        raise SystemExit("FATAL: the shared ComiCine-Admins policy changed unexpectedly")
+    if policy_rules_signature(otp_policy) != policy_rules_signature(otp_policy_body):
+        raise SystemExit("FATAL: the shared Cloudflare OTP policy does not match the required mailbox block")
     if shared_app.get("name") != "ComiCine":
         raise SystemExit("FATAL: the shared Access application name did not update")
 
@@ -453,15 +549,45 @@ if not docs_access_routes.issubset(updated_uris) or identity_uri not in updated_
     raise SystemExit("FATAL: the shared Access application is missing an internal service destination")
 if legacy_mu5735_routes.intersection(updated_uris):
     raise SystemExit("FATAL: the old MU5735 URLs still have Cloudflare Access destinations")
-if policy_signature(shared_app.get("policies") or []) != policy_signature(shared_policies):
-    raise SystemExit("FATAL: the shared Access application policy changed unexpectedly")
+admin_policy, otp_policy = access_policies(shared_app)
+if policy_signature([admin_policy]) != initial_admin_policy_signature:
+    raise SystemExit("FATAL: the shared ComiCine-Admins policy changed unexpectedly")
+if policy_rules_signature(otp_policy) != policy_rules_signature(otp_policy_body):
+    raise SystemExit("FATAL: the shared Cloudflare OTP policy does not match the required mailbox block")
+if admin_policy.get("precedence") != 2 or otp_policy.get("precedence") != 1:
+    raise SystemExit("FATAL: Cloudflare OTP blocking policy must run before the shared allow policy")
 if shared_app.get("name") != "ComiCine":
     raise SystemExit("FATAL: the shared Access application name did not update")
 
 remaining_apps = call("GET", apps_url) or []
 if any(item.get("name") in legacy_docs_app_names for item in remaining_apps):
     raise SystemExit("FATAL: a redundant docs Access application remains")
+unexpected_apps = [item.get("name", "") for item in remaining_apps if item.get("name") != "ComiCine"]
+if unexpected_apps:
+    raise SystemExit(
+        "FATAL: cannot lower the account-wide Access session while other applications exist: "
+        + ", ".join(unexpected_apps)
+    )
+if shared_app.get("session_duration") != access_session_duration:
+    raise SystemExit("FATAL: the shared Access application session must be 15 minutes")
+if admin_policy.get("session_duration") not in (None, access_session_duration):
+    raise SystemExit("FATAL: the shared admin policy overrides the 15-minute application session")
+organization_url = f"{base_url}/accounts/{account_id}/access/organizations"
+organization = call("GET", organization_url)
+if not isinstance(organization, dict) or not organization.get("name") or not organization.get("auth_domain"):
+    raise SystemExit("FATAL: the Cloudflare Access organization configuration is unavailable")
+if organization.get("session_duration") != access_session_duration:
+    call("PUT", organization_url, {
+        "name": organization["name"],
+        "auth_domain": organization["auth_domain"],
+        "session_duration": access_session_duration,
+    })
+organization = call("GET", organization_url)
+if organization.get("session_duration") != access_session_duration:
+    raise SystemExit("FATAL: the Cloudflare Access global session must be 15 minutes")
 print("[docs] private docs and identity share the existing ComiCine Access application")
+print("[docs] Cloudflare email OTP is blocked for the six configured ComiCine mailboxes")
+print("[docs] ComiCine Access sessions expire after 15 minutes")
 print("[docs] legacy MU5735 URLs return direct 404s without redirects")
 if legacy_apps:
     print(f"[docs] removed {len(legacy_apps)} redundant docs Access application(s)")

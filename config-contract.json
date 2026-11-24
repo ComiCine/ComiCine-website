@@ -26,7 +26,7 @@
   "pending_cookie": "comicine_pending",
   "csrf_cookie": "comicine_csrf",
   "gate_ttl_seconds": 3600,
-  "session_ttl_seconds": 2592000,
+  "session_ttl_seconds": 900,
   "pending_ttl_seconds": 600,
   "reveal_max_auth_age_seconds": 600,
   "public_hosts": [
@@ -107,6 +107,11 @@
   "identity_sites": {
     "visitor.comicine.com": "admin",
     "account.comicine.com": "admin"
+  },
+  "identity_user_site_roles": {
+    "public@comicine.com": {
+      "visitor.comicine.com": "viewer"
+    }
   },
   "image_asset_host": "images.comicine.com",
   "image_watermark_host": "image.comicine.com",

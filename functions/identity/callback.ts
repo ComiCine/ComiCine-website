@@ -59,8 +59,8 @@ function response(status: number, body: string, clearCookieName?: string): Respo
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const sourceHost = url.hostname.toLowerCase();
-  const expectedRole = identityRoleForHost(sourceHost);
-  if (!expectedRole || IDENTITY_HOSTS.has(sourceHost)) return response(404, "Not Found");
+  const defaultRole = identityRoleForHost(sourceHost);
+  if (!defaultRole || IDENTITY_HOSTS.has(sourceHost)) return response(404, "Not Found");
 
   const codes = url.searchParams.getAll("code");
   const states = url.searchParams.getAll("state");
@@ -159,11 +159,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return callbackResponse(401, "Invalid identity response");
   }
 
+  const role = identityRoleForHost(sourceHost, handoff.email);
+  if (!role) return callbackResponse(403, "This account cannot access this site");
+
   const session = {
     sid: randomToken(24),
     sub: handoff.sub,
     user: { email: handoff.email, name: handoff.email },
-    role: expectedRole,
+    role,
     authAt: handoff.authAt,
   } as const;
   if (!(await createAuthSession(env, session))) {

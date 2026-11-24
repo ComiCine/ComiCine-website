@@ -18,10 +18,21 @@ import type { Theme } from 'vitepress'
 import './styles.css'
 import { installCookieBridge } from './comicine'
 
+function normalizeEmptyUrlDelimiters(): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  const query = url.search.slice(1).replace(/^&+|&+$/g, '')
+  const cleanPath = url.pathname + (query ? `?${query}` : '') + url.hash
+  if (url.href !== url.origin + cleanPath) {
+    window.history.replaceState(window.history.state, '', cleanPath)
+  }
+}
+
 const theme = {
   extends: DefaultTheme,
   enhanceApp(ctx: Parameters<NonNullable<Theme['enhanceApp']>>[0]) {
     DefaultTheme.enhanceApp?.(ctx)
+    normalizeEmptyUrlDelimiters()
     installCookieBridge(ctx.router)
   }
 } satisfies Theme

@@ -336,6 +336,8 @@ export const STATUS_JS =
   REFRESH_SECONDS +
   ",ROOT='comicine.com',LANG_COOKIE='user_lang_preference',THEME_COOKIE='" + THEME_COOKIE + "',MAX_AGE=31536000," +
   "LANGS=['zh-cn','en-us','ja-jp','ko-kr'],doc=document,html=doc.documentElement;" +
+  "var initialUrl=new URL(location.href),initialQuery=initialUrl.search.slice(1).replace(/^&+|&+$/g,''),cleanPath=initialUrl.pathname+(initialQuery?'?'+initialQuery:'')+initialUrl.hash;" +
+  "if(initialUrl.href!==initialUrl.origin+cleanPath)history.replaceState(history.state,'',cleanPath);" +
   "var copyrightYears=doc.querySelectorAll('[data-copyright-years]'),now=new Date(),copyrightYear=now.getUTCFullYear();" +
   "try{var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;if(tz){var y=Number(new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric'}).format(now));if(Number.isInteger(y))copyrightYear=y}}catch(e){}" +
   "copyrightYears.forEach(function(el){var start=Number(el.getAttribute('data-copyright-start-year'));if(Number.isInteger(start))el.textContent=start===copyrightYear?String(start):String(start)+'-'+copyrightYear});" +
